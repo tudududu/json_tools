@@ -91,31 +91,51 @@ def safe_int(val: Any, default: int = 0) -> int:
         return default
 
 
-def detect_columns(headers: List[str]) -> Tuple[str, str, str]:
+def _normalize_header_map(headers: List[str]) -> Dict[str, str]:
+    return {re.sub(r"[^a-z]", "", h.lower()): h for h in headers}
+
+
+def _resolve_column(
+    headers: List[str],
+    override: Optional[str],
+    candidates: Tuple[str, ...],
+) -> Optional[str]:
+    # If user provided override
+    if override:
+        # If numeric, treat as 1-based index
+        if override.isdigit():
+            idx = int(override) - 1
+            if 0 <= idx < len(headers):
+                return headers[idx]
+            else:
+                raise IndexError(f"Column index {override} out of range 1..{len(headers)}")
+        # Else, match by case-insensitive exact header
+        for h in headers:
+            if h.lower().strip() == override.lower().strip():
+                return h
+        # Or by normalized form
+        norm = _normalize_header_map(headers)
+        key = re.sub(r"[^a-z]", "", override.lower())
+        if key in norm:
+            return norm[key]
+        raise KeyError(f"Override column '{override}' not found in headers {headers}")
+
+    # Auto-detect by candidates
+    norm = _normalize_header_map(headers)
+    for key in candidates:
+        if key in norm:
+            return norm[key]
+    return None
+
+
+def detect_columns(headers: List[str], start_override: Optional[str] = None, end_override: Optional[str] = None, text_override: Optional[str] = None) -> Tuple[str, str, str]:
     """Map CSV headers to canonical names (start, end, text).
 
     We match case-insensitively and ignore non-alphanumerics.
     """
-    norm = {re.sub(r"[^a-z]", "", h.lower()): h for h in headers}
-
-    # Common possibilities
-    start_key = None
-    for key in ("starttime", "start", "in", "inpoint"):
-        if key in norm:
-            start_key = norm[key]
-            break
-
-    end_key = None
-    for key in ("endtime", "end", "out", "outpoint"):
-        if key in norm:
-            end_key = norm[key]
-            break
-
-    text_key = None
-    for key in ("text", "subtitle", "caption", "line"):
-        if key in norm:
-            text_key = norm[key]
-            break
+    start_key = _resolve_column(headers, start_override, ("starttime", "start", "in", "inpoint"))
+    end_key = _resolve_column(headers, end_override, ("endtime", "end", "out", "outpoint"))
+    text_key = _resolve_column(headers, text_override, ("text", "subtitle", "caption", "line"))
 
     if not (start_key and end_key and text_key):
         missing = [k for k, v in {"start": start_key, "end": end_key, "text": text_key}.items() if not v]
@@ -124,16 +144,66 @@ def detect_columns(headers: List[str]) -> Tuple[str, str, str]:
     return start_key, end_key, text_key
 
 
+def _sniff_delimiter(sample: str, preferred: Optional[str] = None) -> str:
+    """Detect a delimiter using csv.Sniffer with sensible fallbacks."""
+    # If user provided explicit single-character delimiter, honor it
+    if preferred and len(preferred) == 1:
+        return preferred
+
+    sniff_candidates = [",", ";", "\t", "|"]
+    # User provided a named delimiter like 'comma', 'semicolon', 'tab', 'pipe'
+    if preferred and len(preferred) > 1:
+        name = preferred.lower()
+        mapping = {
+            "comma": ",",
+            ",": ",",
+            "semicolon": ";",
+            ";": ";",
+            "tab": "\t",
+            "\t": "\t",
+            "pipe": "|",
+            "|": "|",
+            "auto": None,
+        }
+        mapped = mapping.get(name)
+        if mapped:
+            if mapped is None:
+                # continue to sniff
+                pass
+            else:
+                return mapped
+
+    try:
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(sample, delimiters="".join(sniff_candidates))
+        return dialect.delimiter
+    except Exception:
+        # Heuristic fallback: pick the most frequent of candidates
+        counts = {d: sample.count(d) for d in sniff_candidates}
+        best = max(counts, key=lambda k: counts[k])
+        if counts[best] == 0:
+            return ","  # default
+        return best
+
+
 def read_rows(
     path: str,
     encoding: str = "utf-8-sig",
-) -> Iterable[Dict[str, str]]:
+    delimiter: Optional[str] = None,
+) -> Tuple[List[Dict[str, str]], str, List[str]]:
     with open(path, "r", encoding=encoding, newline="") as f:
-        reader = csv.DictReader(f)
+        # Read a small sample for sniffing
+        head = f.read(8192)
+        f.seek(0)
+
+        delim = _sniff_delimiter(head, preferred=delimiter)
+        reader = csv.DictReader(f, delimiter=delim)
         if reader.fieldnames is None:
             raise ValueError("CSV appears to have no header row.")
-        for row in reader:
-            yield row
+        # Capture headers for reporting
+        headers = list(reader.fieldnames)
+        rows = list(reader)
+        return rows, delim, headers
 
 
 def convert_csv_to_json(
@@ -145,16 +215,23 @@ def convert_csv_to_json(
     strip_text: bool = True,
     skip_empty_text: bool = True,
     encoding: str = "utf-8-sig",
+    delimiter: Optional[str] = None,
+    start_col: Optional[str] = None,
+    end_col: Optional[str] = None,
+    text_col: Optional[str] = None,
+    verbose: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to the target JSON structure.
 
     Returns the JSON-serializable dict.
     """
-    rows = list(read_rows(input_csv, encoding=encoding))
+    rows, delim, headers = read_rows(input_csv, encoding=encoding, delimiter=delimiter)
+    if verbose:
+        print(f"Detected delimiter: {repr(delim)} | Headers: {headers}")
     if not rows:
         return {"subtitles": []}
 
-    start_col, end_col, text_col = detect_columns(list(rows[0].keys()))
+    start_col_res, end_col_res, text_col_res = detect_columns(headers, start_override=start_col, end_override=end_col, text_override=text_col)
 
     def fmt_time(val: float) -> Any:
         if round_ndigits is not None:
@@ -169,15 +246,15 @@ def convert_csv_to_json(
     out_items: List[Dict[str, Any]] = []
     line_no = start_line_index
     for r in rows:
-        text_raw = r.get(text_col, "")
+        text_raw = r.get(text_col_res, "")
         text = text_raw.strip() if strip_text and isinstance(text_raw, str) else text_raw
 
         if skip_empty_text and (text is None or str(text).strip() == ""):
             continue
 
         try:
-            tin = parse_timecode(str(r.get(start_col, "")).strip(), fps)
-            tout = parse_timecode(str(r.get(end_col, "")).strip(), fps)
+            tin = parse_timecode(str(r.get(start_col_res, "")).strip(), fps)
+            tout = parse_timecode(str(r.get(end_col_res, "")).strip(), fps)
         except Exception as e:
             raise ValueError(f"Failed to parse timecodes for row {r}: {e}")
 
@@ -204,6 +281,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-strip-text", action="store_true", help="Do not strip whitespace from text cells")
     p.add_argument("--keep-empty-text", action="store_true", help="Keep rows where text is empty/whitespace")
     p.add_argument("--encoding", default="utf-8-sig", help="CSV file encoding (default: utf-8-sig)")
+    p.add_argument(
+        "--delimiter",
+        default="auto",
+        help=(
+            "CSV delimiter. One of: auto (default), comma, semicolon, tab, pipe, or a single character. "
+            "If auto, the script will sniff among , ; TAB |"
+        ),
+    )
+    p.add_argument("--start-col", help="Override Start column by name or 1-based index", default=None)
+    p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
+    p.add_argument("--text-col", help="Override Text column by name or 1-based index", default=None)
+    p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
 
     args = p.parse_args(argv)
 
@@ -222,6 +311,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         strip_text=not args.no_strip_text,
         skip_empty_text=not args.keep_empty_text,
         encoding=args.encoding,
+        delimiter=args.delimiter,
+        start_col=args.start_col,
+        end_col=args.end_col,
+        text_col=args.text_col,
+        verbose=args.verbose,
     )
 
     # Ensure destination folder exists

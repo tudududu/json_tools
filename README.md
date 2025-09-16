@@ -37,6 +37,10 @@ python3 csv_to_subtitles_json.py \
 
 # Produce times as strings with trailing zeros and 2 decimals
 python3 csv_to_subtitles_json.py input.csv output.json --fps 25 --times-as-string --round 2
+
+# Semicolon-delimited CSV (autodetects, or force delimiter):
+python3 csv_to_subtitles_json.py samples/WTA_30s_v03_semicolon.csv json_test_conv/WTA_30s_v03_from_semicolon.json --fps 25
+python3 csv_to_subtitles_json.py samples/WTA_30s_v03_semicolon.csv json_test_conv/WTA_30s_v03_from_semicolon.json --fps 25 --delimiter semicolon
 ```
 
 Flags:
@@ -47,6 +51,7 @@ Flags:
 - `--no-strip-text`: Do not trim subtitle text
 - `--keep-empty-text`: Keep rows with empty text
 - `--encoding <name>`: CSV encoding (default utf-8-sig; handles BOM)
+ - `--delimiter <auto|comma|semicolon|tab|pipe|char>`: CSV delimiter (default auto; sniff among , ; TAB |)
 
 Notes:
 - Header names are matched case-insensitively. It looks for Start Time, End Time, Text (or common variants like Start/End/In/Out/Caption).
