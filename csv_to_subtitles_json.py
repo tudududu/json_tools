@@ -186,24 +186,23 @@ def _sniff_delimiter(sample: str, preferred: Optional[str] = None) -> str:
         return best
 
 
-def read_rows(
+def _read_table(
     path: str,
     encoding: str = "utf-8-sig",
     delimiter: Optional[str] = None,
-) -> Tuple[List[Dict[str, str]], str, List[str]]:
+) -> Tuple[List[str], List[List[str]], str]:
+    """Read CSV preserving duplicate column names. Returns (headers, rows, delimiter)."""
     with open(path, "r", encoding=encoding, newline="") as f:
-        # Read a small sample for sniffing
-        head = f.read(8192)
+        sample = f.read(8192)
         f.seek(0)
-
-        delim = _sniff_delimiter(head, preferred=delimiter)
-        reader = csv.DictReader(f, delimiter=delim)
-        if reader.fieldnames is None:
-            raise ValueError("CSV appears to have no header row.")
-        # Capture headers for reporting
-        headers = list(reader.fieldnames)
-        rows = list(reader)
-        return rows, delim, headers
+        delim = _sniff_delimiter(sample, preferred=delimiter)
+        reader = csv.reader(f, delimiter=delim)
+        try:
+            headers = next(reader)
+        except StopIteration:
+            raise ValueError("CSV appears to be empty.")
+        rows = [list(r) for r in reader]
+        return headers, rows, delim
 
 
 def convert_csv_to_json(
@@ -221,53 +220,207 @@ def convert_csv_to_json(
     text_col: Optional[str] = None,
     verbose: bool = False,
 ) -> Dict[str, Any]:
-    """Convert CSV to the target JSON structure.
+    """Convert CSV to JSON. Supports two modes:
 
-    Returns the JSON-serializable dict.
+    1) Simple mode (original): columns Start Time, End Time, Text (optional line) → {"subtitles": [...]}.
+    2) Sectioned mode (Excel export): first column marks section (subtitles/claim/disclaimer/metadata),
+       columns include line, Start Time, End Time, and one or more Text columns (per-country). Metadata rows
+       provide key/value pairs; a row with key 'country' defines per-country codes.
     """
-    rows, delim, headers = read_rows(input_csv, encoding=encoding, delimiter=delimiter)
+    headers, rows, delim = _read_table(input_csv, encoding=encoding, delimiter=delimiter)
     if verbose:
         print(f"Detected delimiter: {repr(delim)} | Headers: {headers}")
     if not rows:
         return {"subtitles": []}
 
-    start_col_res, end_col_res, text_col_res = detect_columns(headers, start_override=start_col, end_override=end_col, text_override=text_col)
+    # Normalize headers for index lookup, preserving duplicates
+    norm_headers = [re.sub(r"[^a-z]", "", (h or "").lower()) for h in headers]
+
+    # Try to locate columns
+    def find_col(names: Tuple[str, ...]) -> Optional[int]:
+        for i, nh in enumerate(norm_headers):
+            if nh in names:
+                return i
+        return None
+
+    idx_line = find_col(("line",))
+    idx_start = find_col(("starttime", "start", "in", "inpoint"))
+    idx_end = find_col(("endtime", "end", "out", "outpoint"))
+
+    # Text columns: may be multiple duplicates named 'text'
+    text_cols = [i for i, nh in enumerate(norm_headers) if nh == "text"]
+
+    # If we failed to find essentials, fall back to old DictReader logic for simple CSVs
+    simple_mode = (find_col(("starttime", "start", "in", "inpoint")) is not None) and (len(text_cols) <= 1) and (headers[0].strip().lower() not in ("subtitles", "claim", "disclaimer", "metadata"))
+    if simple_mode:
+        # Reuse old path via DictReader for compatibility
+        # Build fieldnames → use first row as headers directly
+        # Create dict rows
+        dict_rows = []
+        for r in rows:
+            d = {headers[i]: (r[i] if i < len(r) else "") for i in range(len(headers))}
+            dict_rows.append(d)
+        start_name, end_name, text_name = detect_columns(headers, start_override=start_col, end_override=end_col, text_override=text_col)
+
+        def fmt_time(val: float) -> Any:
+            if round_ndigits is not None:
+                val = round(val, round_ndigits)
+            if times_as_string:
+                if round_ndigits is None:
+                    return f"{val:.2f}"
+                return f"{val:.{round_ndigits}f}"
+            return float(val)
+
+        out_items: List[Dict[str, Any]] = []
+        line_no = start_line_index
+        for d in dict_rows:
+            text_val = d.get(text_name, "")
+            text = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
+            if skip_empty_text and (text is None or str(text).strip() == ""):
+                continue
+            try:
+                tin = parse_timecode(str(d.get(start_name, "")).strip(), fps)
+                tout = parse_timecode(str(d.get(end_name, "")).strip(), fps)
+            except Exception as e:
+                raise ValueError(f"Failed to parse timecodes for row {d}: {e}")
+            item = {"line": line_no, "in": fmt_time(tin), "out": fmt_time(tout), "text": text}
+            out_items.append(item)
+            line_no += 1
+        return {"subtitles": out_items}
+
+    # Sectioned mode
+    # Identify section marker column: assume first column if its header looks like a known section or any non-core column
+    idx_section = 0 if headers and headers[0] else 0
+
+    # Determine which columns are text columns; if none, but we have a 'text_col' override, try to resolve by index
+    if not text_cols:
+        if text_col and text_col.isdigit():
+            text_cols = [int(text_col) - 1]
+        else:
+            # Default to last column
+            text_cols = [len(headers) - 1]
+
+    # Per-country containers
+    country_codes: List[str] = []
+    per_country: Dict[str, Dict[str, Any]] = {}
+
+    def ensure_country(idx: int, code: Optional[str] = None) -> str:
+        nonlocal country_codes
+        if idx >= len(country_codes):
+            # Extend with placeholders
+            for k in range(len(country_codes), idx + 1):
+                country_codes.append(code or f"col{k - (len(text_cols) - len(country_codes)) + 1}")
+        c = country_codes[idx]
+        if c not in per_country:
+            per_country[c] = {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
+        return c
 
     def fmt_time(val: float) -> Any:
         if round_ndigits is not None:
             val = round(val, round_ndigits)
         if times_as_string:
             if round_ndigits is None:
-                # Default to 2 places when stringifying without round
                 return f"{val:.2f}"
             return f"{val:.{round_ndigits}f}"
         return float(val)
 
-    out_items: List[Dict[str, Any]] = []
-    line_no = start_line_index
+    current_section = (headers[0] or "subtitles").strip().lower()
+    auto_line = start_line_index
     for r in rows:
-        text_raw = r.get(text_col_res, "")
-        text = text_raw.strip() if strip_text and isinstance(text_raw, str) else text_raw
+        # Pad row
+        if len(r) < len(headers):
+            r = r + [""] * (len(headers) - len(r))
 
-        if skip_empty_text and (text is None or str(text).strip() == ""):
+        # Section switch if column 0 has a value
+        if r[idx_section].strip():
+            current_section = r[idx_section].strip().lower()
+
+        if current_section == "metadata":
+            # Key is placed in the column just before first text column in examples (e.g., column 4 when text starts at 5)
+            key_col = min(text_cols) - 1 if min(text_cols) > 0 else 0
+            key_raw = r[key_col].strip() if key_col < len(r) else ""
+            if not key_raw:
+                continue
+            key_norm = key_raw.strip()
+            # Values per country align with text columns
+            for ti, tcol in enumerate(text_cols):
+                val = r[tcol].strip() if tcol < len(r) else ""
+                code = None
+                if key_norm.lower() == "country":
+                    code = val or None
+                ccode = ensure_country(ti, code)
+                # If this row defines country codes, update them
+                if key_norm.lower() == "country" and val:
+                    country_codes[ti] = val
+                    # Ensure bucket name matches code
+                    if ccode != val:
+                        # Move bucket if previously created with placeholder
+                        per_country[val] = per_country.pop(ccode, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                    ccode = val
+                if key_norm.lower() != "country":
+                    per_country[ccode]["metadata"][key_norm] = val
             continue
 
-        try:
-            tin = parse_timecode(str(r.get(start_col_res, "")).strip(), fps)
-            tout = parse_timecode(str(r.get(end_col_res, "")).strip(), fps)
-        except Exception as e:
-            raise ValueError(f"Failed to parse timecodes for row {r}: {e}")
+        # Subtitle-like sections
+        if current_section in ("subtitles", "claim", "disclaimer"):
+            # Line index
+            if idx_line is not None and idx_line < len(r) and str(r[idx_line]).strip():
+                try:
+                    line_no_val = int(str(r[idx_line]).strip())
+                except Exception:
+                    line_no_val = auto_line
+            else:
+                line_no_val = auto_line
 
-        item = {
-            "line": line_no,
-            "in": fmt_time(tin),
-            "out": fmt_time(tout),
-            "text": text,
+            # Timecodes
+            try:
+                tin = parse_timecode(str(r[idx_start]).strip() if idx_start is not None else "", fps)
+                tout = parse_timecode(str(r[idx_end]).strip() if idx_end is not None else "", fps)
+            except Exception:
+                # If times are missing in a non-data marker row (e.g., metadata), skip
+                continue
+
+            # Per-country texts
+            for ti, tcol in enumerate(text_cols):
+                text_val = r[tcol] if tcol < len(r) else ""
+                text_val = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
+                if skip_empty_text and (text_val is None or str(text_val).strip() == ""):
+                    continue
+                ccode = ensure_country(ti)
+                item = {"line": line_no_val, "in": fmt_time(tin), "out": fmt_time(tout), "text": text_val}
+                per_country[ccode][current_section].append(item)
+
+            auto_line += 1
+            continue
+
+        # Unknown section → ignore
+        continue
+
+    # If no country codes were provided, ensure at least one default
+    if not country_codes:
+        country_codes = ["default"]
+        if "default" not in per_country:
+            per_country["default"] = {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
+
+    # If only one country requested, and matches original return shape
+    if len(country_codes) == 1:
+        c = country_codes[0]
+        # Optionally set metadata.country if present
+        if per_country[c]["metadata"].get("country") is None:
+            per_country[c]["metadata"]["country"] = c
+        return {
+            "subtitles": per_country[c]["subtitles"],
+            "claim": per_country[c]["claim"],
+            "disclaimer": per_country[c]["disclaimer"],
+            "metadata": per_country[c]["metadata"],
         }
-        out_items.append(item)
-        line_no += 1
 
-    return {"subtitles": out_items}
+    # Multiple countries → return combined structure containing per-country data (for CLI split to handle)
+    return {
+        "_multi": True,
+        "countries": country_codes,
+        "byCountry": per_country,
+    }
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -293,6 +446,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
     p.add_argument("--text-col", help="Override Text column by name or 1-based index", default=None)
     p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
+    p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
+    p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
+    p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
 
     args = p.parse_args(argv)
 
@@ -318,10 +474,44 @@ def main(argv: Optional[List[str]] = None) -> int:
         verbose=args.verbose,
     )
 
-    # Ensure destination folder exists
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    # Handle multi-country outputs
+    def write_json(path: str, payload: Dict[str, Any]):
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    if isinstance(data, dict) and data.get("_multi"):
+        countries: List[str] = data.get("countries", [])
+        by_country: Dict[str, Any] = data.get("byCountry", {})
+        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern:
+            pattern = args.output_pattern or args.output
+            # If pattern lacks {country}, inject before extension
+            if "{country}" not in pattern:
+                root, ext = os.path.splitext(pattern)
+                pattern = f"{root}_{{country}}{ext}"
+            for c in countries:
+                payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                if payload.get("metadata", {}).get("country") is None:
+                    payload.setdefault("metadata", {})["country"] = c
+                out_path = pattern.replace("{country}", c)
+                if args.verbose:
+                    print(f"Writing {out_path}")
+                write_json(out_path, payload)
+        else:
+            # Single output selection: choose requested column or the last
+            csel = None
+            if args.country_column and 1 <= args.country_column <= len(countries):
+                csel = countries[args.country_column - 1]
+            else:
+                csel = countries[-1]
+            payload = by_country.get(csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+            if payload.get("metadata", {}).get("country") is None:
+                payload.setdefault("metadata", {})["country"] = csel
+            if args.verbose:
+                print(f"Writing {args.output} (selected country: {csel})")
+            write_json(args.output, payload)
+    else:
+        write_json(args.output, data)
 
     return 0
 

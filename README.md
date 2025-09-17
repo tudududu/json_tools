@@ -39,8 +39,9 @@ python3 csv_to_subtitles_json.py \
 python3 csv_to_subtitles_json.py input.csv output.json --fps 25 --times-as-string --round 2
 
 # Semicolon-delimited CSV (autodetects, or force delimiter):
-python3 csv_to_subtitles_json.py samples/WTA_30s_v03_semicolon.csv json_test_conv/WTA_30s_v03_from_semicolon.json --fps 25
-python3 csv_to_subtitles_json.py samples/WTA_30s_v03_semicolon.csv json_test_conv/WTA_30s_v03_from_semicolon.json --fps 25 --delimiter semicolon
+python3 csv_to_subtitles_json.py "in/WTA_30s_v03_ara.csv" "out/WTA_30s_v03_from_csv.json" --fps 25
+python3 csv_to_subtitles_json.py "in/WTA_30s_v03_ara.csv" "out/WTA_30s_v03_from_csv.json" --fps 25 --delimiter semicolon
+python3 csv_to_subtitles_json.py "in/WTA_30s_v03_ara.csv" "out/WTA_30s_v03_from_csv.json" --fps 25 --start-col "Start Time" --end-col "End Time" --text-col "Text" --verbose
 ```
 
 Flags:
