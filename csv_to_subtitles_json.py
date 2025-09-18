@@ -825,6 +825,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
+    p.add_argument(
+        "--required-global-keys",
+        default="version,fps",
+        help="Comma-separated list of required keys that must appear in metadataGlobal (default: version,fps). Empty string to disable.",
+    )
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
@@ -861,6 +866,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> List[str]:
         errs: List[str] = []
+        # Determine required global keys from CLI
+        raw_keys = args.required_global_keys.strip()
+        if raw_keys in ("", '""', "none", "off", "disable", "disabled"):
+            required_global_keys = []
+        else:
+            # Split, strip surrounding quotes, drop empties
+            parts = []
+            for segment in raw_keys.split(","):
+                seg = segment.strip().strip('"').strip("'")
+                if seg:
+                    parts.append(seg)
+            required_global_keys = parts
         # Legacy/simple structure
         if any(k in obj for k in ("subtitles", "claim", "disclaimer")) and "videos" not in obj:
             for arr_name in ("subtitles", "claim", "disclaimer"):
@@ -891,10 +908,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             return errs
 
         # Unified per-country per-video shape
-        # Required global metadata keys if any metadata present
-        required_global_keys = ["version", "fps", "duration"]
+        # Required global metadata keys if any metadata present (configurable)
         gm = obj.get("metadataGlobal", {})
-        if gm and isinstance(gm, dict):
+        if gm and isinstance(gm, dict) and required_global_keys:
             for k in required_global_keys:
                 if k not in gm:
                     errs.append(f"metadataGlobal missing required key '{k}'")
@@ -951,9 +967,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"Discovered countries ({len(countries)}): {countries}")
             for c in countries:
                 payload = by_country.get(c, {})
-                vids = [v.get("videoId") for v in payload.get("videos", []) if isinstance(v, dict)]
+                vids_objs = [v for v in payload.get("videos", []) if isinstance(v, dict)]
+                vids = [v.get("videoId") for v in vids_objs]
+                subtitle_count = sum(len(v.get("subtitles", [])) for v in vids_objs)
                 print(
-                    f"  {c}: videos={len(vids)} subtitleLines={len(payload.get('subtitles', []))} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))}"
+                    f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))}"
                 )
             if errors_total:
                 print("Validation errors:")
