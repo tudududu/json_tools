@@ -861,24 +861,79 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> List[str]:
         errs: List[str] = []
-        for arr_name in ("subtitles", "claim", "disclaimer"):
-            arr = obj.get(arr_name)
-            if arr is None:
-                continue
-            if not isinstance(arr, list):
-                errs.append(f"{arr_name} is not a list")
-                continue
-            for i, item in enumerate(arr):
-                if not isinstance(item, dict):
-                    errs.append(f"{arr_name}[{i}] not an object")
+        # Legacy/simple structure
+        if any(k in obj for k in ("subtitles", "claim", "disclaimer")) and "videos" not in obj:
+            for arr_name in ("subtitles", "claim", "disclaimer"):
+                arr = obj.get(arr_name)
+                if arr is None:
                     continue
-                tin = item.get("in")
-                tout = item.get("out")
-                try:
-                    if tin is not None and tout is not None and float(tin) > float(tout):
-                        errs.append(f"{arr_name}[{i}] in > out ({tin} > {tout})")
-                except Exception:
-                    pass
+                if not isinstance(arr, list):
+                    errs.append(f"{arr_name} is not a list")
+                    continue
+                prev_out: Optional[float] = None
+                for i, item in enumerate(arr):
+                    if not isinstance(item, dict):
+                        errs.append(f"{arr_name}[{i}] not an object")
+                        continue
+                    tin = item.get("in")
+                    tout = item.get("out")
+                    try:
+                        if tin is not None and tout is not None:
+                            ftin = float(tin)
+                            ftout = float(tout)
+                            if ftin > ftout:
+                                errs.append(f"{arr_name}[{i}] in > out ({tin} > {tout})")
+                            if prev_out is not None and ftin < prev_out:
+                                errs.append(f"{arr_name}[{i}] overlaps previous (start {ftin} < prev end {prev_out})")
+                            prev_out = ftout
+                    except Exception:
+                        pass
+            return errs
+
+        # Unified per-country per-video shape
+        # Required global metadata keys if any metadata present
+        required_global_keys = ["version", "fps", "duration"]
+        gm = obj.get("metadataGlobal", {})
+        if gm and isinstance(gm, dict):
+            for k in required_global_keys:
+                if k not in gm:
+                    errs.append(f"metadataGlobal missing required key '{k}'")
+
+        videos = obj.get("videos")
+        if videos is not None:
+            if not isinstance(videos, list):
+                errs.append("videos is not a list")
+            else:
+                for v_index, v in enumerate(videos):
+                    if not isinstance(v, dict):
+                        errs.append(f"videos[{v_index}] not an object")
+                        continue
+                    subs = v.get("subtitles")
+                    if subs is None:
+                        continue
+                    if not isinstance(subs, list):
+                        errs.append(f"videos[{v_index}].subtitles not a list")
+                        continue
+                    prev_out: Optional[float] = None
+                    for si, s in enumerate(subs):
+                        if not isinstance(s, dict):
+                            errs.append(f"videos[{v_index}].subtitles[{si}] not an object")
+                            continue
+                        tin = s.get("in")
+                        tout = s.get("out")
+                        try:
+                            if tin is not None and tout is not None:
+                                ftin = float(tin)
+                                ftout = float(tout)
+                                if ftin > ftout:
+                                    errs.append(f"videos[{v_index}].subtitles[{si}] in > out ({tin} > {tout})")
+                                if prev_out is not None and ftin < prev_out:
+                                    errs.append(
+                                        f"videos[{v_index}].subtitles[{si}] overlaps previous (start {ftin} < prev end {prev_out})"
+                                    )
+                                prev_out = ftout
+                        except Exception:
+                            pass
         return errs
     def write_json(path: str, payload: Dict[str, Any]):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
