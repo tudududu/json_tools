@@ -224,6 +224,7 @@ def convert_csv_to_json(
     merge_disclaimer: bool = True,
     cast_metadata: bool = False,
     join_claim: bool = False,
+    prefer_local_claim_disclaimer: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -298,12 +299,16 @@ def convert_csv_to_json(
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
         # Intermediate containers before splitting per country
-        claims_rows: List[Dict[str, Any]] = []  # each: {line,start,end,texts:{code:text}}
-        disc_rows_raw: List[Dict[str, Any]] = []  # raw disclaimer rows
-        subs_rows: Dict[str, List[Dict[str, Any]]] = {}  # video_id -> list of rows {line,start,end,texts}
+        claims_rows: List[Dict[str, Any]] = []  # global claim rows
+        per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
+        disc_rows_raw: List[Dict[str, Any]] = []  # global disclaimer rows
+        per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        # subs_rows reserved for future use (not needed currently)
 
         auto_claim_line = 1
         auto_disc_line = 1
+        auto_claim_line_per_video: Dict[str, int] = {}
+        auto_disc_line_per_video: Dict[str, int] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
 
         for r in rows:
@@ -365,32 +370,65 @@ def convert_csv_to_json(
 
             # Claim rows (each row independent)
             if rt == "claim":
-                if line_num is None:
-                    line_num = auto_claim_line
-                    auto_claim_line += 1
-                claims_rows.append({
-                    "line": line_num,
-                    "start": start_tc,
-                    "end": end_tc,
-                    "texts": texts,
-                })
+                if video_id:
+                    if video_id not in per_video_claim_rows:
+                        per_video_claim_rows[video_id] = []
+                    if video_id not in auto_claim_line_per_video:
+                        auto_claim_line_per_video[video_id] = 1
+                    if line_num is None:
+                        line_num = auto_claim_line_per_video[video_id]
+                        auto_claim_line_per_video[video_id] += 1
+                    per_video_claim_rows[video_id].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
+                else:
+                    if line_num is None:
+                        line_num = auto_claim_line
+                        auto_claim_line += 1
+                    claims_rows.append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
                 continue
 
             # Disclaimer rows (will merge later)
             if rt == "disclaimer":
-                if line_num is None and (start_tc is not None or end_tc is not None):
-                    line_num = auto_disc_line
-                if line_num is None:
-                    # Continuation lines inherit previous line
-                    line_num = auto_disc_line
+                if video_id:
+                    if video_id not in per_video_disc_rows_raw:
+                        per_video_disc_rows_raw[video_id] = []
+                    if video_id not in auto_disc_line_per_video:
+                        auto_disc_line_per_video[video_id] = 1
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_disc_line_per_video[video_id]
+                    if line_num is None:
+                        line_num = auto_disc_line_per_video[video_id]
+                    else:
+                        auto_disc_line_per_video[video_id] = line_num
+                    per_video_disc_rows_raw[video_id].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
                 else:
-                    auto_disc_line = line_num
-                disc_rows_raw.append({
-                    "line": line_num,
-                    "start": start_tc,
-                    "end": end_tc,
-                    "texts": texts,
-                })
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_disc_line
+                    if line_num is None:
+                        # Continuation lines inherit previous line
+                        line_num = auto_disc_line
+                    else:
+                        auto_disc_line = line_num
+                    disc_rows_raw.append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
                 continue
 
             # Subtitle rows
@@ -417,7 +455,7 @@ def convert_csv_to_json(
             # Unknown record type ignored
             continue
 
-    # Merge disclaimer rows into blocks
+        # Merge disclaimer rows into blocks
         disclaimers_rows_merged: List[Dict[str, Any]] = []
         if merge_disclaimer:
             current_block: Optional[Dict[str, Any]] = None
@@ -483,7 +521,7 @@ def convert_csv_to_json(
                 merged.append(prev)
             vdata["sub_rows"] = merged
 
-        # Optional join of claim rows by identical timing
+        # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
             grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
             for row in claims_rows:
@@ -515,32 +553,57 @@ def convert_csv_to_json(
                 ln += 1
             claims_rows = new_claims
 
+        # Optional join for per-video claim rows
+        if join_claim and per_video_claim_rows:
+            for vid, rows_list in list(per_video_claim_rows.items()):
+                grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
+                for row in rows_list:
+                    key = (row["start"], row["end"]) if (row["start"] is not None and row["end"] is not None) else (None, None)
+                    if key not in grouped:
+                        grouped[key] = {
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"].get(c, "") for c in countries},
+                        }
+                    else:
+                        for c in countries:
+                            t = row["texts"].get(c, "")
+                            if t:
+                                if grouped[key]["texts"][c]:
+                                    grouped[key]["texts"][c] += "\n" + t
+                                else:
+                                    grouped[key]["texts"][c] = t
+                new_rows: List[Dict[str, Any]] = []
+                ln = 1
+                for key, data in grouped.items():
+                    new_rows.append({
+                        "line": ln,
+                        "start": data["start"],
+                        "end": data["end"],
+                        "texts": data["texts"],
+                    })
+                    ln += 1
+                per_video_claim_rows[vid] = new_rows
+
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
         for c in countries:
-            # Claims
-            claim_list = []
+            # Claims (TOP-LEVEL: text only; per-video: timings)
+            # Prepare top-level claim texts (global only)
+            claim_texts_global: List[str] = []
             for row in claims_rows:
-                txt = row["texts"].get(c, "").strip()
+                txt = (row["texts"].get(c, "") or "").strip()
                 if skip_empty_text and not txt:
                     continue
-                entry = {"line": row["line"], "text": txt}
-                if row["start"] is not None and row["end"] is not None:
-                    entry["in"] = fmt_time(row["start"])
-                    entry["out"] = fmt_time(row["end"])
-                claim_list.append(entry)
+                claim_texts_global.append(txt)
 
-            # Disclaimers
-            disc_list = []
+            # Disclaimers (TOP-LEVEL: text only; per-video: timings)
+            disc_texts_global: List[str] = []
             for row in disclaimers_rows_merged:
-                txt = row["texts"].get(c, "").strip()
+                txt = (row["texts"].get(c, "") or "").strip()
                 if skip_empty_text and not txt:
                     continue
-                entry = {"line": row["line"], "text": txt}
-                if row["start"] is not None and row["end"] is not None:
-                    entry["in"] = fmt_time(row["start"])
-                    entry["out"] = fmt_time(row["end"])
-                disc_list.append(entry)
+                disc_texts_global.append(txt)
 
             # Videos
             videos_list = []
@@ -565,6 +628,113 @@ def convert_csv_to_json(
                     "metadata": vdata.get("metadata", {}).copy(),
                     "subtitles": subs,
                 })
+
+            # Attach per-video claim/disclaimer with timings and choose text (prefer local if requested)
+            # Build quick maps for global texts by timing key
+            def timing_key(r: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+                return (r.get("start"), r.get("end"))
+
+            global_claim_map = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
+            # For disclaimers, order matters but often it's one block; use index-based fallback too
+            global_disc_texts = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+
+            # Prepare per-video merged disclaimers
+            per_video_disc_merged: Dict[str, List[Dict[str, Any]]] = {}
+            for vid, rows_raw in per_video_disc_rows_raw.items():
+                merged: List[Dict[str, Any]] = []
+                if merge_disclaimer:
+                    current_block: Optional[Dict[str, Any]] = None
+                    for row in rows_raw:
+                        if row["start"] is not None and row["end"] is not None:
+                            if current_block:
+                                merged.append(current_block)
+                            current_block = {
+                                "line": row["line"],
+                                "start": row["start"],
+                                "end": row["end"],
+                                "texts": {cc: row["texts"][cc] for cc in countries},
+                            }
+                        else:
+                            if not current_block:
+                                current_block = {
+                                    "line": row["line"],
+                                    "start": row["start"],
+                                    "end": row["end"],
+                                    "texts": {cc: row["texts"][cc] for cc in countries},
+                                }
+                            else:
+                                for cc in countries:
+                                    extra = row["texts"][cc]
+                                    if extra:
+                                        if current_block["texts"][cc]:
+                                            current_block["texts"][cc] += "\n" + extra
+                                        else:
+                                            current_block["texts"][cc] = extra
+                    if current_block:
+                        merged.append(current_block)
+                else:
+                    merged = rows_raw
+                per_video_disc_merged[vid] = merged
+
+            # Now fill claim/disclaimer in each video object
+            for vobj in videos_list:
+                vid = vobj["videoId"]
+                # Claims source rows
+                src_claims = per_video_claim_rows.get(vid) or claims_rows
+                claim_items = []
+                for idx, row in enumerate(src_claims):
+                    txt_local = (row["texts"].get(c, "") or "").strip()
+                    # Try timing-based global lookup first
+                    txt_global_timing = global_claim_map.get(timing_key(row), "")
+                    # Fallback: index-based lookup from top-level global claim texts
+                    txt_global_index = (
+                        claim_texts_global[idx]
+                        if idx < len(claim_texts_global)
+                        else (claim_texts_global[0] if claim_texts_global else "")
+                    )
+                    if prefer_local_claim_disclaimer and txt_local:
+                        text_value = txt_local
+                    else:
+                        # Use timing-based match, otherwise index-based global, finally local if present
+                        text_value = txt_global_timing or txt_global_index or txt_local
+                    entry = {"line": row.get("line", idx + 1), "text": text_value}
+                    if row.get("start") is not None and row.get("end") is not None:
+                        entry["in"] = fmt_time(row["start"]) 
+                        entry["out"] = fmt_time(row["end"]) 
+                    claim_items.append(entry)
+                # Ensure claim has line 2 as well: if only one item, duplicate timing and fill text from global line 2
+                if len(claim_items) == 1:
+                    base = claim_items[0]
+                    # Prefer global second claim text if available, else fallback to first, else empty
+                    text2 = (
+                        claim_texts_global[1]
+                        if len(claim_texts_global) >= 2
+                        else (claim_texts_global[0] if claim_texts_global else base.get("text", ""))
+                    )
+                    second = {"line": 2, "text": text2}
+                    if "in" in base:
+                        second["in"] = base["in"]
+                    if "out" in base:
+                        second["out"] = base["out"]
+                    claim_items.append(second)
+                vobj["claim"] = claim_items
+
+                # Disclaimers source rows
+                src_discs = per_video_disc_merged.get(vid) or disclaimers_rows_merged
+                disc_items = []
+                for i, row in enumerate(src_discs):
+                    txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
+                    text_value = (txt_local if prefer_local_claim_disclaimer and txt_local else txt_global)
+                    entry = {"line": row.get("line", i + 1), "text": text_value}
+                    if row.get("start") is not None and row.get("end") is not None:
+                        entry["in"] = fmt_time(row["start"]) 
+                        entry["out"] = fmt_time(row["end"]) 
+                    else:
+                        entry["in"] = None
+                        entry["out"] = None
+                    disc_items.append(entry)
+                vobj["disclaimer"] = disc_items
 
             # Cast metadata values if requested
             def maybe_cast(value: Any) -> Any:
@@ -593,14 +763,16 @@ def convert_csv_to_json(
                     "videoId": vobj["videoId"],
                     "metadata": meta_cast,
                     "subtitles": vobj["subtitles"],
+                    "claim": vobj.get("claim", []),
+                    "disclaimer": vobj.get("disclaimer", []),
                 })
 
             payload = {
                 "schemaVersion": schema_version,
                 "country": c,
                 "metadataGlobal": gm_cast,
-                "claim": claim_list,
-                "disclaimer": disc_list,
+                "claim": claim_texts_global,
+                "disclaimer": disc_texts_global,
                 "videos": vlist_cast,
             }
             by_country[c] = payload
@@ -823,6 +995,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
+    p.add_argument("--prefer-local-claim-disclaimer", action="store_true", help="Prefer per-video claim/disclaimer text when present; fallback to global text by timing/index")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
     p.add_argument(
@@ -873,6 +1046,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         merge_disclaimer=not args.no_merge_disclaimer,
         cast_metadata=args.cast_metadata,
         join_claim=args.join_claim,
+        prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
     )
 
     # Basic validation helper

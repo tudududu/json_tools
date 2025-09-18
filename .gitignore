@@ -1,5 +1,45 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+env/
+
+# macOS junk
+.DS_Store
+.AppleDouble
+.Spotlight-V100
+
+# Editor
+.vscode/
+.idea/
+
+# Python packaging / build
+build/
+dist/
+*.egg-info/
+
+# Logs / temp
+*.log
+
+# Dropbox temp
+*.dropbox.attr
+.icon?
+
+# Generated output (adjust as needed)
 bak/
 doku/
 samples/
 in/
 out/
+log/
+temp/
+
+# Jupyter
+.ipynb_checkpoints/
+EOF
