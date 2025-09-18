@@ -219,6 +219,9 @@ def convert_csv_to_json(
     end_col: Optional[str] = None,
     text_col: Optional[str] = None,
     verbose: bool = False,
+    schema_version: str = "v1",
+    merge_subtitles: bool = True,
+    merge_disclaimer: bool = True,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -232,6 +235,315 @@ def convert_csv_to_json(
         print(f"Detected delimiter: {repr(delim)} | Headers: {headers}")
     if not rows:
         return {"subtitles": []}
+
+    lower_headers = [h.strip().lower() for h in headers]
+
+    # --------------------------------------------------
+    # Unified schema path (record_type present)
+    # --------------------------------------------------
+    if "record_type" in lower_headers:
+        # Column indices
+        idx_record_type = lower_headers.index("record_type")
+        idx_video_id = lower_headers.index("video_id") if "video_id" in lower_headers else None
+        idx_line = lower_headers.index("line") if "line" in lower_headers else None
+        idx_start = lower_headers.index("start") if "start" in lower_headers else None
+        idx_end = lower_headers.index("end") if "end" in lower_headers else None
+        idx_key = lower_headers.index("key") if "key" in lower_headers else None
+        idx_is_global = lower_headers.index("is_global") if "is_global" in lower_headers else None
+        idx_country_scope = lower_headers.index("country_scope") if "country_scope" in lower_headers else None
+        idx_metadata_val = lower_headers.index("metadata") if "metadata" in lower_headers else None
+
+        # Country columns: all columns after metadata value column (if present) else after country_scope
+        country_start_idx = None
+        if idx_metadata_val is not None:
+            country_start_idx = idx_metadata_val + 1
+        elif idx_country_scope is not None:
+            country_start_idx = idx_country_scope + 1
+        else:
+            country_start_idx = max([c for c in [idx_end, idx_key] if c is not None] or [0]) + 1
+
+        country_cols = []
+        for i in range(country_start_idx, len(headers)):
+            code = headers[i].strip()
+            if not code:
+                continue
+            country_cols.append((i, code))
+        countries = [c for _, c in country_cols]
+        if verbose:
+            print(f"Unified schema detected. Countries: {countries}")
+
+        def parse_time_optional(val: str) -> Optional[float]:
+            v = (val or "").strip()
+            if not v:
+                return None
+            try:
+                return parse_timecode(v, fps)
+            except Exception:
+                return None
+
+        def fmt_time(val: Optional[float]) -> Any:
+            if val is None:
+                return None
+            if round_ndigits is not None:
+                val = round(val, round_ndigits)
+            if times_as_string:
+                if round_ndigits is None:
+                    return f"{val:.2f}"
+                return f"{val:.{round_ndigits}f}"
+            return float(val)
+
+        global_meta: Dict[str, Any] = {}
+        videos: Dict[str, Dict[str, Any]] = {}
+        video_order: List[str] = []
+        # Intermediate containers before splitting per country
+        claims_rows: List[Dict[str, Any]] = []  # each: {line,start,end,texts:{code:text}}
+        disc_rows_raw: List[Dict[str, Any]] = []  # raw disclaimer rows
+        subs_rows: Dict[str, List[Dict[str, Any]]] = {}  # video_id -> list of rows {line,start,end,texts}
+
+        auto_claim_line = 1
+        auto_disc_line = 1
+        auto_sub_line_per_video: Dict[str, int] = {}
+
+        for r in rows:
+            if len(r) < len(headers):
+                r = r + [""] * (len(headers) - len(r))
+            rt = r[idx_record_type].strip().lower() if r[idx_record_type] else ""
+            if not rt:
+                continue
+
+            video_id = r[idx_video_id].strip() if (idx_video_id is not None and r[idx_video_id]) else ""
+            line_raw = r[idx_line].strip() if (idx_line is not None and r[idx_line]) else ""
+            try:
+                line_num = int(line_raw) if line_raw else None
+            except Exception:
+                line_num = None
+            start_tc = parse_time_optional(r[idx_start]) if idx_start is not None else None
+            end_tc = parse_time_optional(r[idx_end]) if idx_end is not None else None
+
+            key_name = r[idx_key].strip() if (idx_key is not None and r[idx_key]) else ""
+            country_scope_val = r[idx_country_scope].strip().upper() if (idx_country_scope is not None and r[idx_country_scope]) else ""
+            metadata_cell_val = r[idx_metadata_val].strip() if (idx_metadata_val is not None and r[idx_metadata_val]) else ""
+
+            # Gather per-country texts
+            texts: Dict[str, str] = {}
+            for ci, code in country_cols:
+                val = r[ci].replace("\r", "").strip()
+                texts[code] = val
+
+            # Propagation for ALL scope on textual rows (claim/disclaimer/sub)
+            if country_scope_val == "ALL":
+                # Determine base text (first non-empty)
+                base_text = next((texts[c] for c in countries if texts[c]), "")
+                if base_text:
+                    for c in countries:
+                        if not texts[c]:
+                            texts[c] = base_text
+
+            # Metadata rows
+            if rt in ("meta_global", "meta-global"):
+                if not key_name:
+                    continue
+                # If any country-specific value exists use first; otherwise metadata column
+                country_val = next((texts[c] for c in countries if texts[c]), "")
+                value = country_val or metadata_cell_val
+                if value != "":
+                    global_meta[key_name] = value
+                continue
+            if rt in ("meta_local", "meta-local"):
+                if not key_name or not video_id:
+                    continue
+                if video_id not in videos:
+                    videos[video_id] = {"metadata": {}, "sub_rows": []}
+                    video_order.append(video_id)
+                country_val = next((texts[c] for c in countries if texts[c]), "")
+                value = country_val or metadata_cell_val
+                if value != "":
+                    videos[video_id]["metadata"][key_name] = value
+                continue
+
+            # Claim rows (each row independent)
+            if rt == "claim":
+                if line_num is None:
+                    line_num = auto_claim_line
+                    auto_claim_line += 1
+                claims_rows.append({
+                    "line": line_num,
+                    "start": start_tc,
+                    "end": end_tc,
+                    "texts": texts,
+                })
+                continue
+
+            # Disclaimer rows (will merge later)
+            if rt == "disclaimer":
+                if line_num is None and (start_tc is not None or end_tc is not None):
+                    line_num = auto_disc_line
+                if line_num is None:
+                    # Continuation lines inherit previous line
+                    line_num = auto_disc_line
+                else:
+                    auto_disc_line = line_num
+                disc_rows_raw.append({
+                    "line": line_num,
+                    "start": start_tc,
+                    "end": end_tc,
+                    "texts": texts,
+                })
+                continue
+
+            # Subtitle rows
+            if rt == "sub":
+                if not video_id:
+                    # Skip if no video id
+                    continue
+                if video_id not in videos:
+                    videos[video_id] = {"metadata": {}, "sub_rows": []}
+                    video_order.append(video_id)
+                if video_id not in auto_sub_line_per_video:
+                    auto_sub_line_per_video[video_id] = start_line_index
+                if line_num is None:
+                    line_num = auto_sub_line_per_video[video_id]
+                    auto_sub_line_per_video[video_id] += 1
+                videos[video_id]["sub_rows"].append({
+                    "line": line_num,
+                    "start": start_tc,
+                    "end": end_tc,
+                    "texts": texts,
+                })
+                continue
+
+            # Unknown record type ignored
+            continue
+
+        # Merge disclaimer rows into blocks
+        disclaimers_rows_merged: List[Dict[str, Any]] = []
+        if merge_disclaimer:
+            current_block: Optional[Dict[str, Any]] = None
+            for row in disc_rows_raw:
+                if row["start"] is not None and row["end"] is not None:
+                    # Start a new block
+                    if current_block:
+                        disclaimers_rows_merged.append(current_block)
+                    current_block = {
+                        "line": row["line"],
+                        "start": row["start"],
+                        "end": row["end"],
+                        "texts": {c: row["texts"][c] for c in countries},
+                    }
+                else:
+                    # Continuation lines
+                    if not current_block:
+                        # No base block; skip or create untimed block
+                        current_block = {
+                            "line": row["line"],
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"][c] for c in countries},
+                        }
+                    else:
+                        for c in countries:
+                            extra = row["texts"][c]
+                            if extra:
+                                if current_block["texts"][c]:
+                                    current_block["texts"][c] += "\n" + extra
+                                else:
+                                    current_block["texts"][c] = extra
+            if current_block:
+                disclaimers_rows_merged.append(current_block)
+        else:
+            disclaimers_rows_merged = disc_rows_raw
+
+        # Merge subtitle rows with same line (per video) if enabled
+        for vid, vdata in videos.items():
+            if not merge_subtitles:
+                continue
+            merged: List[Dict[str, Any]] = []
+            prev: Optional[Dict[str, Any]] = None
+            for row in vdata.get("sub_rows", []):
+                if prev and row["line"] == prev["line"] and (
+                    (row["start"] is None and row["end"] is None) or (
+                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                    )
+                ):
+                    # Continuation
+                    for c in countries:
+                        t = row["texts"][c]
+                        if t:
+                            if prev["texts"][c]:
+                                prev["texts"][c] += "\n" + t
+                            else:
+                                prev["texts"][c] = t
+                else:
+                    if prev:
+                        merged.append(prev)
+                    prev = row
+            if prev:
+                merged.append(prev)
+            vdata["sub_rows"] = merged
+
+        # Build multi structure similar to earlier _multi output
+        by_country: Dict[str, Any] = {}
+        for c in countries:
+            # Claims
+            claim_list = []
+            for row in claims_rows:
+                txt = row["texts"].get(c, "").strip()
+                if skip_empty_text and not txt:
+                    continue
+                entry = {"line": row["line"], "text": txt}
+                if row["start"] is not None and row["end"] is not None:
+                    entry["in"] = fmt_time(row["start"])
+                    entry["out"] = fmt_time(row["end"])
+                claim_list.append(entry)
+
+            # Disclaimers
+            disc_list = []
+            for row in disclaimers_rows_merged:
+                txt = row["texts"].get(c, "").strip()
+                if skip_empty_text and not txt:
+                    continue
+                entry = {"line": row["line"], "text": txt}
+                if row["start"] is not None and row["end"] is not None:
+                    entry["in"] = fmt_time(row["start"])
+                    entry["out"] = fmt_time(row["end"])
+                disc_list.append(entry)
+
+            # Videos
+            videos_list = []
+            for vid in video_order:
+                vdata = videos[vid]
+                subs = []
+                for srow in vdata.get("sub_rows", []):
+                    txt = srow["texts"].get(c, "").strip()
+                    if skip_empty_text and not txt:
+                        continue
+                    if srow["start"] is None or srow["end"] is None:
+                        # Skip invalid timing rows for subtitles
+                        continue
+                    subs.append({
+                        "line": srow["line"],
+                        "in": fmt_time(srow["start"]),
+                        "out": fmt_time(srow["end"]),
+                        "text": txt,
+                    })
+                videos_list.append({
+                    "videoId": vid,
+                    "metadata": vdata.get("metadata", {}).copy(),
+                    "subtitles": subs,
+                })
+
+            payload = {
+                "schemaVersion": schema_version,
+                "country": c,
+                "metadataGlobal": global_meta.copy(),
+                "claim": claim_list,
+                "disclaimer": disc_list,
+                "videos": videos_list,
+            }
+            by_country[c] = payload
+
+        # Multi output
+        return {"_multi": True, "countries": countries, "byCountry": by_country}
 
     # Normalize headers for index lookup, preserving duplicates
     norm_headers = [re.sub(r"[^a-z]", "", (h or "").lower()) for h in headers]
@@ -446,6 +758,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
     p.add_argument("--text-col", help="Override Text column by name or 1-based index", default=None)
     p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
+    p.add_argument("--schema-version", default="v2", help="Schema version tag to embed in unified output (default v2)")
+    p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
+    p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
@@ -472,6 +787,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         end_col=args.end_col,
         text_col=args.text_col,
         verbose=args.verbose,
+        schema_version=args.schema_version,
+        merge_subtitles=not args.no_merge_subtitles,
+        merge_disclaimer=not args.no_merge_disclaimer,
     )
 
     # Handle multi-country outputs
