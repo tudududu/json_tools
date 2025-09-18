@@ -830,11 +830,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="version,fps",
         help="Comma-separated list of required keys that must appear in metadataGlobal (default: version,fps). Empty string to disable.",
     )
+    p.add_argument("--missing-keys-warn", action="store_true", help="Treat missing required global metadata keys as warnings (do not fail validation)")
+    p.add_argument("--validation-report", default=None, help="Write a JSON validation report to this path during --validate-only or --dry-run")
+    p.add_argument("--auto-output", action="store_true", help="Derive output name from input base (adds _{country} when splitting)")
+    p.add_argument("--output-dir", default=None, help="Directory for auto-derived outputs (default: input file directory)")
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
 
     args = p.parse_args(argv)
+
+    if args.auto_output:
+        in_base = os.path.splitext(os.path.basename(args.input))[0]
+        out_dir = args.output_dir or os.path.dirname(os.path.abspath(args.input)) or os.getcwd()
+        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern:
+            args.output = os.path.join(out_dir, f"{in_base}_{{country}}.json")
+        else:
+            args.output = os.path.join(out_dir, f"{in_base}.json")
 
     round_ndigits: Optional[int]
     if args.round_digits is not None and args.round_digits >= 0:
@@ -864,8 +876,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     # Basic validation helper
-    def _validate_structure(obj: Dict[str, Any]) -> List[str]:
+    def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:
         errs: List[str] = []
+        warnings: List[str] = []
         # Determine required global keys from CLI
         raw_keys = args.required_global_keys.strip()
         if raw_keys in ("", '""', "none", "off", "disable", "disabled"):
@@ -905,7 +918,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             prev_out = ftout
                     except Exception:
                         pass
-            return errs
+            return {"errors": errs, "warnings": warnings}
 
         # Unified per-country per-video shape
         # Required global metadata keys if any metadata present (configurable)
@@ -913,7 +926,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         if gm and isinstance(gm, dict) and required_global_keys:
             for k in required_global_keys:
                 if k not in gm:
-                    errs.append(f"metadataGlobal missing required key '{k}'")
+                    if args.missing_keys_warn:
+                        warnings.append(f"metadataGlobal missing required key '{k}'")
+                    else:
+                        errs.append(f"metadataGlobal missing required key '{k}'")
 
         videos = obj.get("videos")
         if videos is not None:
@@ -950,7 +966,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 prev_out = ftout
                         except Exception:
                             pass
-        return errs
+        return {"errors": errs, "warnings": warnings}
     def write_json(path: str, payload: Dict[str, Any]):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -960,26 +976,66 @@ def main(argv: Optional[List[str]] = None) -> int:
         countries: List[str] = data.get("countries", [])
         by_country: Dict[str, Any] = data.get("byCountry", {})
         if args.validate_only or args.dry_run:
-            errors_total: List[str] = []
-            for c in countries:
-                payload = by_country.get(c, {})
-                errors_total.extend([f"{c}: {e}" for e in _validate_structure(payload)])
+            all_errors: List[str] = []
+            all_warnings: List[str] = []
+            reports: List[Dict[str, Any]] = []
             print(f"Discovered countries ({len(countries)}): {countries}")
             for c in countries:
                 payload = by_country.get(c, {})
+                res = _validate_structure(payload)
                 vids_objs = [v for v in payload.get("videos", []) if isinstance(v, dict)]
                 vids = [v.get("videoId") for v in vids_objs]
                 subtitle_count = sum(len(v.get("subtitles", [])) for v in vids_objs)
                 print(
                     f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))}"
                 )
-            if errors_total:
+                all_errors.extend([f"{c}: {e}" for e in res["errors"]])
+                all_warnings.extend([f"{c}: {w}" for w in res["warnings"]])
+                reports.append({
+                    "country": c,
+                    "errors": res["errors"],
+                    "warnings": res["warnings"],
+                    "videos": [
+                        {"videoId": v.get("videoId"), "subtitleCount": len(v.get("subtitles", []))} for v in vids_objs
+                    ],
+                    "claimLines": len(payload.get("claim", [])),
+                    "disclaimerLines": len(payload.get("disclaimer", [])),
+                })
+            if all_warnings:
+                print("Validation warnings:")
+                for w in all_warnings:
+                    print(f"  - {w}")
+            if all_errors:
                 print("Validation errors:")
-                for e in errors_total:
+                for e in all_errors:
                     print(f"  - {e}")
+            # optional report
+            if args.validation_report:
+                report_obj = {
+                    "input": os.path.abspath(args.input),
+                    "mode": "validate-only" if args.validate_only else "dry-run",
+                    "countries": reports,
+                    "summary": {
+                        "errors": len(all_errors),
+                        "warnings": len(all_warnings),
+                    },
+                }
+                try:
+                    os.makedirs(os.path.dirname(os.path.abspath(args.validation_report)), exist_ok=True)
+                    with open(args.validation_report, "w", encoding="utf-8") as rf:
+                        json.dump(report_obj, rf, ensure_ascii=False, indent=2)
+                except Exception as ex:
+                    print(f"Failed to write validation report: {ex}")
             if args.validate_only:
-                print("Validation complete (no files written)." + (" Errors found." if errors_total else " OK."))
-                return 1 if errors_total else 0
+                exit_code = 0
+                if all_errors and not args.missing_keys_warn:
+                    exit_code = 1
+                print(
+                    "Validation complete (no files written)." + (
+                        " Errors found." if exit_code == 1 else " OK (warnings only)." if all_warnings else " OK."
+                    )
+                )
+                return exit_code
             if args.dry_run:
                 print("Dry run complete (no files written).")
                 return 0
@@ -1008,15 +1064,40 @@ def main(argv: Optional[List[str]] = None) -> int:
             write_json(args.output, payload)
     else:
         if args.validate_only or args.dry_run:
-            errors = _validate_structure(data)
+            res = _validate_structure(data)
+            errors = res["errors"]
+            warnings = res["warnings"]
             print("Parsed single-structure JSON (legacy/simple mode).")
+            if warnings:
+                print("Validation warnings:")
+                for w in warnings:
+                    print(f"  - {w}")
             if errors:
                 print("Validation errors:")
                 for e in errors:
                     print(f"  - {e}")
+            if args.validation_report:
+                report_obj = {
+                    "input": os.path.abspath(args.input),
+                    "legacy": True,
+                    "mode": "validate-only" if args.validate_only else "dry-run",
+                    "errors": errors,
+                    "warnings": warnings,
+                }
+                try:
+                    os.makedirs(os.path.dirname(os.path.abspath(args.validation_report)), exist_ok=True)
+                    with open(args.validation_report, "w", encoding="utf-8") as rf:
+                        json.dump(report_obj, rf, ensure_ascii=False, indent=2)
+                except Exception as ex:
+                    print(f"Failed to write validation report: {ex}")
             if args.validate_only:
-                print("Validation complete (no file written)." + (" Errors found." if errors else " OK."))
-                return 1 if errors else 0
+                exit_code = 0 if (not errors or args.missing_keys_warn) else 1
+                print(
+                    "Validation complete (no file written)." + (
+                        " Errors found." if exit_code == 1 else " OK (warnings only)." if warnings else " OK."
+                    )
+                )
+                return exit_code
             if args.dry_run:
                 print("Dry run complete (no file written).")
                 return 0

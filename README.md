@@ -126,6 +126,13 @@ Multi-country output control:
 Validation / inspection:
 * `--validate-only` Parse & validate only (exit code 0 on success, 1 on validation errors)
 * `--dry-run` Summarize countries, videos, line counts; no files written (always exit 0)
+* `--required-global-keys <k1,k2>` Comma list of required keys in `metadataGlobal` (default `version,fps`; empty string disables)
+* `--missing-keys-warn` Downgrade missing required keys to warnings (still reported but do not fail)
+* `--validation-report <path>` Emit a JSON validation report (usable with `--validate-only` or `--dry-run`)
+
+Automatic output naming:
+* `--auto-output` Derive output file name(s) from input base name (adds `_{country}` when splitting)
+* `--output-dir <dir>` Directory for auto-output (default: directory of input CSV)
 
 Schema tagging:
 * `--schema-version <tag>` Embed schema version string (default `v2`)
@@ -136,7 +143,8 @@ The validator performs lightweight structural checks:
 * For timed entries: `in <= out`
 * Monotonic non-overlapping subtitle timing per video (start must be >= previous end)
 * Disclaimer / claim timing ordering (if present) receives the same basic in/out sanity check
-* Global metadata (`metadataGlobal`) – if present – is checked for keys: `version`, `fps`, `duration` (warn/error if missing)
+* Global metadata (`metadataGlobal`) – optional enforcement of keys via `--required-global-keys` (default: `version,fps`)
+* Missing keys become warnings instead of errors when `--missing-keys-warn` is set
 * Basic shape checks for per‑video objects
 
 Future enhancements could add: duplicate line detection, empty video detection, strict metadata typing.
@@ -144,8 +152,8 @@ Future enhancements could add: duplicate line detection, empty video detection, 
 ## Exit Codes
 | Code | Meaning |
 |------|---------|
-| 0 | Success (conversion OR validation/dry-run OK) |
-| 1 | Validation errors encountered (`--validate-only`) |
+| 0 | Success (conversion OR validation/dry-run OK; may include warnings) |
+| 1 | Validation errors encountered (`--validate-only`) and not only warnings |
 | >1 | Unexpected runtime exception (traceback printed) |
 
 ## Notes
@@ -183,6 +191,8 @@ Output:
 * Timecode parse error: confirm format and `--fps` for frame-based codes.
 * Missing global metadata key? Add a `meta_global` row or provide placeholder value.
 * Overlap validation complaints: ensure subtitle rows are time sorted and non-overlapping per video.
+* Want a machine-readable report? Add `--validation-report report.json`.
+* Need only warnings for missing keys? Add `--missing-keys-warn` (optionally adjust keys list).
 
 ---
 If additional schema evolutions are needed, open an issue or extend the script where noted.
