@@ -222,6 +222,8 @@ def convert_csv_to_json(
     schema_version: str = "v1",
     merge_subtitles: bool = True,
     merge_disclaimer: bool = True,
+    cast_metadata: bool = False,
+    join_claim: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -415,7 +417,7 @@ def convert_csv_to_json(
             # Unknown record type ignored
             continue
 
-        # Merge disclaimer rows into blocks
+    # Merge disclaimer rows into blocks
         disclaimers_rows_merged: List[Dict[str, Any]] = []
         if merge_disclaimer:
             current_block: Optional[Dict[str, Any]] = None
@@ -481,6 +483,38 @@ def convert_csv_to_json(
                 merged.append(prev)
             vdata["sub_rows"] = merged
 
+        # Optional join of claim rows by identical timing
+        if join_claim and claims_rows:
+            grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
+            for row in claims_rows:
+                key = (row["start"], row["end"]) if (row["start"] is not None and row["end"] is not None) else (None, None)
+                if key not in grouped:
+                    grouped[key] = {
+                        "start": row["start"],
+                        "end": row["end"],
+                        "texts": {c: row["texts"].get(c, "") for c in countries},
+                    }
+                else:
+                    for c in countries:
+                        t = row["texts"].get(c, "")
+                        if t:
+                            if grouped[key]["texts"][c]:
+                                grouped[key]["texts"][c] += "\n" + t
+                            else:
+                                grouped[key]["texts"][c] = t
+            # Convert back to claims_rows-like list with synthetic line numbers
+            new_claims: List[Dict[str, Any]] = []
+            ln = 1
+            for key, data in grouped.items():
+                new_claims.append({
+                    "line": ln,
+                    "start": data["start"],
+                    "end": data["end"],
+                    "texts": data["texts"],
+                })
+                ln += 1
+            claims_rows = new_claims
+
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
         for c in countries:
@@ -532,13 +566,42 @@ def convert_csv_to_json(
                     "subtitles": subs,
                 })
 
+            # Cast metadata values if requested
+            def maybe_cast(value: Any) -> Any:
+                if not cast_metadata:
+                    return value
+                if isinstance(value, str):
+                    v = value.strip()
+                    if re.fullmatch(r"[-+]?[0-9]+", v):
+                        try:
+                            return int(v)
+                        except Exception:
+                            return value
+                    if re.fullmatch(r"[-+]?[0-9]*\.[0-9]+", v):
+                        try:
+                            return float(v)
+                        except Exception:
+                            return value
+                return value
+
+            gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
+
+            vlist_cast = []
+            for vobj in videos_list:
+                meta_cast = {k: maybe_cast(v) for k, v in vobj["metadata"].items()}
+                vlist_cast.append({
+                    "videoId": vobj["videoId"],
+                    "metadata": meta_cast,
+                    "subtitles": vobj["subtitles"],
+                })
+
             payload = {
                 "schemaVersion": schema_version,
                 "country": c,
-                "metadataGlobal": global_meta.copy(),
+                "metadataGlobal": gm_cast,
                 "claim": claim_list,
                 "disclaimer": disc_list,
-                "videos": videos_list,
+                "videos": vlist_cast,
             }
             by_country[c] = payload
 
@@ -761,6 +824,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--schema-version", default="v2", help="Schema version tag to embed in unified output (default v2)")
     p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
+    p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
+    p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
@@ -790,6 +855,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         schema_version=args.schema_version,
         merge_subtitles=not args.no_merge_subtitles,
         merge_disclaimer=not args.no_merge_disclaimer,
+        cast_metadata=args.cast_metadata,
+        join_claim=args.join_claim,
     )
 
     # Handle multi-country outputs
