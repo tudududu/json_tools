@@ -780,9 +780,6 @@ def convert_csv_to_json(
     # If only one country requested, and matches original return shape
     if len(country_codes) == 1:
         c = country_codes[0]
-        # Optionally set metadata.country if present
-        if per_country[c]["metadata"].get("country") is None:
-            per_country[c]["metadata"]["country"] = c
         return {
             "subtitles": per_country[c]["subtitles"],
             "claim": per_country[c]["claim"],
@@ -826,6 +823,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
+    p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
+    p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
@@ -859,7 +858,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         join_claim=args.join_claim,
     )
 
-    # Handle multi-country outputs
+    # Basic validation helper
+    def _validate_structure(obj: Dict[str, Any]) -> List[str]:
+        errs: List[str] = []
+        for arr_name in ("subtitles", "claim", "disclaimer"):
+            arr = obj.get(arr_name)
+            if arr is None:
+                continue
+            if not isinstance(arr, list):
+                errs.append(f"{arr_name} is not a list")
+                continue
+            for i, item in enumerate(arr):
+                if not isinstance(item, dict):
+                    errs.append(f"{arr_name}[{i}] not an object")
+                    continue
+                tin = item.get("in")
+                tout = item.get("out")
+                try:
+                    if tin is not None and tout is not None and float(tin) > float(tout):
+                        errs.append(f"{arr_name}[{i}] in > out ({tin} > {tout})")
+                except Exception:
+                    pass
+        return errs
     def write_json(path: str, payload: Dict[str, Any]):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -868,6 +888,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     if isinstance(data, dict) and data.get("_multi"):
         countries: List[str] = data.get("countries", [])
         by_country: Dict[str, Any] = data.get("byCountry", {})
+        if args.validate_only or args.dry_run:
+            errors_total: List[str] = []
+            for c in countries:
+                payload = by_country.get(c, {})
+                errors_total.extend([f"{c}: {e}" for e in _validate_structure(payload)])
+            print(f"Discovered countries ({len(countries)}): {countries}")
+            for c in countries:
+                payload = by_country.get(c, {})
+                vids = [v.get("videoId") for v in payload.get("videos", []) if isinstance(v, dict)]
+                print(
+                    f"  {c}: videos={len(vids)} subtitleLines={len(payload.get('subtitles', []))} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))}"
+                )
+            if errors_total:
+                print("Validation errors:")
+                for e in errors_total:
+                    print(f"  - {e}")
+            if args.validate_only:
+                print("Validation complete (no files written)." + (" Errors found." if errors_total else " OK."))
+                return 1 if errors_total else 0
+            if args.dry_run:
+                print("Dry run complete (no files written).")
+                return 0
         if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern:
             pattern = args.output_pattern or args.output
             # If pattern lacks {country}, inject before extension
@@ -876,8 +918,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 pattern = f"{root}_{{country}}{ext}"
             for c in countries:
                 payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
-                if payload.get("metadata", {}).get("country") is None:
-                    payload.setdefault("metadata", {})["country"] = c
                 out_path = pattern.replace("{country}", c)
                 if args.verbose:
                     print(f"Writing {out_path}")
@@ -890,12 +930,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 csel = countries[-1]
             payload = by_country.get(csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
-            if payload.get("metadata", {}).get("country") is None:
-                payload.setdefault("metadata", {})["country"] = csel
             if args.verbose:
                 print(f"Writing {args.output} (selected country: {csel})")
             write_json(args.output, payload)
     else:
+        if args.validate_only or args.dry_run:
+            errors = _validate_structure(data)
+            print("Parsed single-structure JSON (legacy/simple mode).")
+            if errors:
+                print("Validation errors:")
+                for e in errors:
+                    print(f"  - {e}")
+            if args.validate_only:
+                print("Validation complete (no file written)." + (" Errors found." if errors else " OK."))
+                return 1 if errors else 0
+            if args.dry_run:
+                print("Dry run complete (no file written).")
+                return 0
         write_json(args.output, data)
 
     return 0
