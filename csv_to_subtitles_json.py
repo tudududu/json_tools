@@ -225,6 +225,7 @@ def convert_csv_to_json(
     cast_metadata: bool = False,
     join_claim: bool = False,
     prefer_local_claim_disclaimer: bool = False,
+    test_mode: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -697,6 +698,9 @@ def convert_csv_to_json(
                     else:
                         # Use timing-based match, otherwise index-based global, finally local if present
                         text_value = txt_global_timing or txt_global_index or txt_local
+                    # Optional test prefix
+                    if test_mode and text_value:
+                        text_value = f"{vid}_{text_value}"
                     entry = {"line": row.get("line", idx + 1), "text": text_value}
                     if row.get("start") is not None and row.get("end") is not None:
                         entry["in"] = fmt_time(row["start"]) 
@@ -711,6 +715,8 @@ def convert_csv_to_json(
                         if len(claim_texts_global) >= 2
                         else (claim_texts_global[0] if claim_texts_global else base.get("text", ""))
                     )
+                    if test_mode and text2 and not str(text2).startswith(f"{vid}_"):
+                        text2 = f"{vid}_{text2}"
                     second = {"line": 2, "text": text2}
                     if "in" in base:
                         second["in"] = base["in"]
@@ -726,6 +732,8 @@ def convert_csv_to_json(
                     txt_local = (row.get("texts", {}).get(c, "") or "").strip()
                     txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
                     text_value = (txt_local if prefer_local_claim_disclaimer and txt_local else txt_global)
+                    if test_mode and text_value:
+                        text_value = f"{vid}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
                     if row.get("start") is not None and row.get("end") is not None:
                         entry["in"] = fmt_time(row["start"]) 
@@ -996,6 +1004,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--prefer-local-claim-disclaimer", action="store_true", help="Prefer per-video claim/disclaimer text when present; fallback to global text by timing/index")
+    p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer text with '<videoId>_' for testing")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
     p.add_argument(
@@ -1047,6 +1056,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         cast_metadata=args.cast_metadata,
         join_claim=args.join_claim,
         prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
+        test_mode=args.test_mode,
     )
 
     # Basic validation helper

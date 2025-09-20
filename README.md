@@ -129,6 +129,7 @@ Validation / inspection:
 * `--required-global-keys <k1,k2>` Comma list of required keys in `metadataGlobal` (default `version,fps`; empty string disables)
 * `--missing-keys-warn` Downgrade missing required keys to warnings (still reported but do not fail)
 * `--validation-report <path>` Emit a JSON validation report (usable with `--validate-only` or `--dry-run`)
+* `--test-mode` Prefix per-video claim/disclaimer text with '<videoId>_' for testing
 
 Automatic output naming:
 * `--auto-output` Derive output file name(s) from input base name (adds `_{country}` when splitting)
