@@ -226,6 +226,7 @@ def convert_csv_to_json(
     join_claim: bool = False,
     prefer_local_claim_disclaimer: bool = False,
     test_mode: bool = False,
+    claims_as_objects: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -725,6 +726,14 @@ def convert_csv_to_json(
                     claim_items.append(second)
                 vobj["claim"] = claim_items
 
+                # Optional: split per-video claims into separate objects claim_01, claim_02, ...
+                if claims_as_objects:
+                    for i, item in enumerate(claim_items, start=1):
+                        key = f"claim_{i:02d}"
+                        vobj[key] = item
+                    # Remove the aggregated array if we're emitting individual objects
+                    del vobj["claim"]
+
                 # Disclaimers source rows
                 src_discs = per_video_disc_merged.get(vid) or disclaimers_rows_merged
                 disc_items = []
@@ -767,13 +776,20 @@ def convert_csv_to_json(
             vlist_cast = []
             for vobj in videos_list:
                 meta_cast = {k: maybe_cast(v) for k, v in vobj["metadata"].items()}
-                vlist_cast.append({
+                base = {
                     "videoId": vobj["videoId"],
                     "metadata": meta_cast,
                     "subtitles": vobj["subtitles"],
-                    "claim": vobj.get("claim", []),
                     "disclaimer": vobj.get("disclaimer", []),
-                })
+                }
+                if claims_as_objects:
+                    # Copy any claim_XX fields from vobj into the output
+                    for k, val in vobj.items():
+                        if isinstance(k, str) and k.startswith("claim_"):
+                            base[k] = val
+                else:
+                    base["claim"] = vobj.get("claim", [])
+                vlist_cast.append(base)
 
             payload = {
                 "schemaVersion": schema_version,
@@ -1005,6 +1021,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--prefer-local-claim-disclaimer", action="store_true", help="Prefer per-video claim/disclaimer text when present; fallback to global text by timing/index")
     p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer text with '<videoId>_' for testing")
+    p.add_argument("--claims-as-objects", action="store_true", help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
     p.add_argument(
@@ -1057,6 +1074,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         join_claim=args.join_claim,
         prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
         test_mode=args.test_mode,
+        claims_as_objects=args.claims_as_objects,
     )
 
     # Basic validation helper

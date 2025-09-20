@@ -116,6 +116,7 @@ Merging / content behavior:
 * `--no-merge-subtitles` Disable multi-line subtitle merging
 * `--no-merge-disclaimer` Disable disclaimer merging
 * `--join-claim` Merge claim rows sharing identical timing into one block
+* `--claims-as-objects` In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array
 * `--cast-metadata` Attempt numeric casting of metadata values (ints / floats)
 
 Multi-country output control:
