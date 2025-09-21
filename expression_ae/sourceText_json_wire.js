@@ -1,6 +1,6 @@
 // sourceText_json_wire
-// v08
-// Updated Source Text expression (exclusive out)
+// v09 (ticket 13)
+// Style-preserving
 // -----------------------
 
 // JSON → text; match video by comp name and gate by time (exclusive out)
@@ -67,6 +67,30 @@ function joinTexts(items) {
   return out;
 }
 
+// Style-preserving return: keep font/size/spacing from current layer
+function styledText(txt) {
+  try {
+    var base = value; // TextDocument from this Source Text
+    var t = new TextDocument(txt + "");
+    // copy essential style properties
+    t.font           = base.font;
+    t.fontSize       = base.fontSize;
+    t.justification  = base.justification;
+    t.tracking       = base.tracking;
+    t.leading        = base.leading;
+    t.baselineShift  = base.baselineShift;
+    t.applyFill      = base.applyFill;
+    t.fillColor      = base.fillColor;
+    t.applyStroke    = base.applyStroke;
+    t.strokeColor    = base.strokeColor;
+    t.strokeOverFill = base.strokeOverFill;
+    return t;
+  } catch (e) {
+    // Older AE or non-TextDocument value → return plain string
+    return txt + "";
+  }
+}
+
 try {
   var data = footage(FOOTAGE_NAME).sourceData;
   var vid = getVideo(data, compVideoId());
@@ -82,7 +106,7 @@ try {
       // subtitles → always time-driven; claim/disclaimer → support fixed line or time
       if (DATA_KEY === "subtitles" || desiredLine === 0) {
         var items = activeByTime(arr, t);
-        joinTexts(items);
+        styledText(joinTexts(items));
       } else {
         // Fixed line (claim/disclaimer), gated by [in, out)
         var item = pickLine(arr, desiredLine);
@@ -91,7 +115,7 @@ try {
         } else {
           var s = Number(item["in"]);
           var e = Number(item["out"]);
-          (isNaN(s) || isNaN(e) || (t < s || t >= e)) ? "" : getText(item);
+          (isNaN(s) || isNaN(e) || (t < s || t >= e)) ? "" : styledText(getText(item));
         }
       }
     }
