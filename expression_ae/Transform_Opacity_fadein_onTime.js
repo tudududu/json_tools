@@ -1,9 +1,10 @@
 // Opacity = fade-in for video-level claim line N using JSON timings
 // - Starts at claim.in, lasts FADE_IN seconds (linear), stays 100 until out, then 0
 // - Out is exclusive: visible for t ∈ [in, out)
-var FOOTAGE_NAME = "data_in_SAU.json"; // must match JSON item name in Project panel
-var desiredLine = 1;                   // claim line number
-var FADE_IN = 1.0;                     // seconds (default 1s)
+var FOOTAGE_NAME = "data_in_SAU.json";  // must match JSON item name in Project panel
+var desiredLine = 1;                    // claim line number
+var FADE_IN = 0.5;                      // seconds (default 1s)
+var OPAC_IN = 0;                        // starting opacity (default 0)  // 0..100
 
 // Build videoId from comp name: "Title_15s_*" → "Title_15s"
 function compVideoId() {
@@ -47,9 +48,9 @@ if (!item) {
     var t = time;
     var fin = Math.max(0.001, FADE_IN); // guard
     if (t < s) {
-      0
+      OPAC_IN;
     } else if (t < s + fin) {
-      linear(t, s, s + fin, 0, 100)
+      linear(t, s, s + fin, OPAC_IN, 100)
     } else if (t < e) {
       100
     } else {
