@@ -32,14 +32,27 @@ holderW = Math.max(1, holderW - 2*pad);
 holderH = Math.max(1, holderH - 2*pad);
 
 // Intrinsic content size (text/shapes via SRAT; fallback to layer dims)
-function contentSize(li){
+function contentSizeAt(li, t){
   try {
-    var rr = li.sourceRectAtTime(time, false);
+    var rr = li.sourceRectAtTime(t, false);
     if (rr.width > 0 && rr.height > 0) return [rr.width, rr.height];
   } catch (e) {}
   return [li.width, li.height];
 }
-var s = contentSize(thisLayer);
+
+// Ensure dependency on Source Text so SRAT updates with data-driven text
+// and detect if there is visible text at this time
+function currentTextString(){
+  try {
+    var v = thisLayer.text.sourceText.value;
+    return (v && v.text !== undefined) ? (v.text + "") : (v + "");
+  } catch (e) { return ""; }
+}
+var hasTextNow = currentTextString().length > 0;
+
+// Measure size only when text is present; otherwise skip containment (keep baseline)
+var sampleTime = time;
+var s = hasTextNow ? contentSizeAt(thisLayer, sampleTime) : [1, 1];
 s = [Math.max(1, s[0]), Math.max(1, s[1])];
 
 // Percentage needed to fully contain
@@ -52,4 +65,9 @@ var base = value[0]; // <- typical: keep your keyframed scale unless it needs cl
 
 var k = Math.min(base, fit); // only shrink, never upscale
 
-thisLayer.threeDLayer ? [k, k, value[2]] : [k, k];
+// If no text is visible right now, keep baseline (avoid premature shrinking)
+if (!hasTextNow) {
+  thisLayer.threeDLayer ? [base, base, value[2]] : [base, base];
+} else {
+  thisLayer.threeDLayer ? [k, k, value[2]] : [k, k];
+}

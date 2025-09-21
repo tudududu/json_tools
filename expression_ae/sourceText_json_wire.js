@@ -1,3 +1,7 @@
+// sourceText_json_wire
+// v02
+// -----------------------
+
 // Read "wta" → claim line 1 from data_in_SAU.json
 var videoId = "wta";
 var desiredLine = 1; // claim line number
@@ -34,5 +38,5 @@ try {
 
 // Preserve text style
 var td = value;
-td.text = txt;
+td = txt;
 td;
