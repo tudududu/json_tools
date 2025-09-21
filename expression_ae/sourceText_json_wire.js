@@ -1,14 +1,14 @@
 // sourceText_json_wire
-// v07
-// Source Text expression (supports subtitles + multiple active lines)
+// v08
+// Updated Source Text expression (exclusive out)
 // -----------------------
 
-// JSON → text; match video by comp name and gate by time
+// JSON → text; match video by comp name and gate by time (exclusive out)
 // Supports keys: "subtitles", "claim", "disclaimer"
-// - For "subtitles": shows ALL items whose [in,out] contains time (stacked)
-// - For "claim"/"disclaimer":
-//     desiredLine > 0 → show only that line, gated by its [in,out]
-//     desiredLine = 0 → show ALL items whose [in,out] contains time (stacked)
+// - "subtitles": shows ALL items whose [in, out) contains time (stacked)
+// - "claim"/"disclaimer":
+//     desiredLine > 0 → show only that line, gated by [in, out)
+//     desiredLine = 0 → show ALL items whose [in, out) contains time (stacked)
 
 var FOOTAGE_NAME = "data_in_SAU.json"; // must equal the JSON item name in Project panel
 var DATA_KEY = "subtitles";            // "subtitles" | "claim" | "disclaimer"
@@ -43,6 +43,7 @@ function pickLine(arr, lineNum) {
   return null;
 }
 
+// Exclusive-out check: visible when t ∈ [in, out)
 function activeByTime(arr, t) {
   var res = [];
   if (!arr) return res;
@@ -51,7 +52,7 @@ function activeByTime(arr, t) {
     if (!it) continue;
     var s = Number(it["in"]);
     var e = Number(it["out"]);
-    if (!isNaN(s) && !isNaN(e) && t >= s && t <= e) res.push(it);
+    if (!isNaN(s) && !isNaN(e) && t >= s && t < e) res.push(it);
   }
   return res;
 }
@@ -83,14 +84,14 @@ try {
         var items = activeByTime(arr, t);
         joinTexts(items);
       } else {
-        // Fixed line (claim/disclaimer)
+        // Fixed line (claim/disclaimer), gated by [in, out)
         var item = pickLine(arr, desiredLine);
         if (!item) {
           "";
         } else {
           var s = Number(item["in"]);
           var e = Number(item["out"]);
-          (isNaN(s) || isNaN(e) || (t < s || t > e)) ? "" : getText(item);
+          (isNaN(s) || isNaN(e) || (t < s || t >= e)) ? "" : getText(item);
         }
       }
     }
