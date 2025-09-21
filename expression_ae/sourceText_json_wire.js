@@ -1,5 +1,5 @@
 // sourceText_json_wire
-// v02
+// v02 claim
 // -----------------------
 
 // Read "wta" → claim line 1 from data_in_SAU.json
