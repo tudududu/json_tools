@@ -1,61 +1,77 @@
 // sourceText_json_wire
-// v05
-// Reusable Source Text expression (switch key via DATA_KEY)
+// v06
+// Source Text expression (time-gated claim/disclaimer)
 // -----------------------
 
-// Reusable JSON → text expression by key ("claim" | "disclaimer")
-// - video is matched by comp name "Title_15s_*" → videoId "Title_15s"
-// - switch DATA_KEY to reuse for different fields
-var FOOTAGE_NAME = "data_in_SAU.json"; // must match item name in Project panel
-var DATA_KEY = "claim";                // <-- set to "disclaimer" to reuse
-var desiredLine = 1;                   // 1-based line selector
+// JSON → text, time-gated by the item's in/out range
+// Match the video by comp name "Title_15s_*" → videoId "Title_15s"
+var FOOTAGE_NAME = "data_in_SAU.json"; // must match the JSON item name in Project panel
+var DATA_KEY = "claim";                // "claim" or "disclaimer"
+var desiredLine = 1;                   // Set >0 to pick a specific line and gate by its in/out
+                                       // Set to 0 to auto-pick the item whose time range contains 'time'
 
-// Build videoId from comp name: "Alula_15s_v06_250910" → "Alula_15s"
+// Derive videoId from comp name
 var parts = thisComp.name.split("_");
 var videoId = (parts.length >= 2) ? (parts[0] + "_" + parts[1]) : "";
 
 // Helpers
-function pickFromArray(arr, lineNum) {
-  if (!arr || arr.length === 0) return "";
-  var first = arr[0];
-  // Two shapes:
-  // 1) array of strings (global claim/disclaimer)
-  // 2) array of objects with { line, text, ... } (video-level claim/disclaimer)
-  if (typeof first === "string") {
-    var idx = Math.max(0, Math.min(arr.length - 1, lineNum - 1));
-    return (arr[idx] || "") + "";
-  } else {
-    for (var i = 0; i < arr.length; i++) {
-      var it = arr[i];
-      if (it && it.line == lineNum) return (it.text || "") + "";
+function getArrayForVideo(data, videoId, key) {
+  if (!data || !data.videos) return null;
+  var idLower = (videoId + "").toLowerCase();
+  for (var i = 0; i < data.videos.length; i++) {
+    var v = data.videos[i];
+    if ((v.videoId + "").toLowerCase() == idLower) {
+      return v[key] || null; // e.g. v.claim or v.disclaimer
     }
-    return "";
   }
+  return null;
 }
 
-function getText(data, videoId, key, lineNum) {
-  if (!data) return "";
-  var vids = data.videos || [];
-
-  // 1) Try video-level match by videoId (case-insensitive)
-  var idLower = (videoId + "").toLowerCase();
-  for (var i = 0; i < vids.length; i++) {
-    var v = vids[i];
-    if ((v.videoId + "").toLowerCase() == idLower) {
-      var arr = v[key]; // e.g., v.claim or v.disclaimer
-      var txt = pickFromArray(arr, lineNum);
-      if (txt) return txt;
-      break; // matched video but no line; fall through to global
-    }
+function pickByLine(arr, lineNum) {
+  if (!arr) return null;
+  for (var i = 0; i < arr.length; i++) {
+    var it = arr[i];
+    if (it && it.line == lineNum) return it;
   }
+  return null;
+}
 
-  // 2) Global fallback (top-level claim/disclaimer arrays of strings)
-  return pickFromArray(data[key], lineNum);
+function pickByTime(arr, t) {
+  if (!arr) return null;
+  // Linear scan is fine (arrays are small); use ["in"]/["out"] to avoid reserved word issues
+  for (var i = 0; i < arr.length; i++) {
+    var it = arr[i];
+    if (!it) continue;
+    var s = Number(it["in"]);
+    var e = Number(it["out"]);
+    if (isNaN(s) || isNaN(e)) continue;
+    if (t >= s && t <= e) return it;
+  }
+  return null;
 }
 
 try {
   var data = footage(FOOTAGE_NAME).sourceData;
-  getText(data, videoId, DATA_KEY, desiredLine);
+  var arr = getArrayForVideo(data, videoId, DATA_KEY);
+  if (!arr) { 
+    ""; // no video/key match
+  } else {
+    var t = time;
+    var item = (desiredLine > 0) ? pickByLine(arr, desiredLine) : pickByTime(arr, t);
+    if (!item) {
+      ""; // nothing active
+    } else {
+      if (desiredLine > 0) {
+        // Gate by this line's in/out
+        var s = Number(item["in"]);
+        var e = Number(item["out"]);
+        (t >= s && t <= e) ? (item.text || "") : "";
+      } else {
+        // Already picked by time
+        item.text || "";
+      }
+    }
+  }
 } catch (e) {
   ""
 }
