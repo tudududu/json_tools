@@ -1,33 +1,40 @@
 // sourceText_json_wire
-// v06
-// Source Text expression (time-gated claim/disclaimer)
+// v07
+// Source Text expression (supports subtitles + multiple active lines)
 // -----------------------
 
-// JSON → text, time-gated by the item's in/out range
-// Match the video by comp name "Title_15s_*" → videoId "Title_15s"
-var FOOTAGE_NAME = "data_in_SAU.json"; // must match the JSON item name in Project panel
-var DATA_KEY = "claim";                // "claim" or "disclaimer"
-var desiredLine = 1;                   // Set >0 to pick a specific line and gate by its in/out
-                                       // Set to 0 to auto-pick the item whose time range contains 'time'
+// JSON → text; match video by comp name and gate by time
+// Supports keys: "subtitles", "claim", "disclaimer"
+// - For "subtitles": shows ALL items whose [in,out] contains time (stacked)
+// - For "claim"/"disclaimer":
+//     desiredLine > 0 → show only that line, gated by its [in,out]
+//     desiredLine = 0 → show ALL items whose [in,out] contains time (stacked)
 
-// Derive videoId from comp name
-var parts = thisComp.name.split("_");
-var videoId = (parts.length >= 2) ? (parts[0] + "_" + parts[1]) : "";
+var FOOTAGE_NAME = "data_in_SAU.json"; // must equal the JSON item name in Project panel
+var DATA_KEY = "subtitles";            // "subtitles" | "claim" | "disclaimer"
+var desiredLine = 0;                   // 0 = auto by time (all active); >0 = fixed line number
 
-// Helpers
-function getArrayForVideo(data, videoId, key) {
+// Build videoId from comp name "Title_15s_*" → "Title_15s"
+function compVideoId() {
+  var parts = thisComp.name.split("_");
+  return (parts.length >= 2) ? (parts[0] + "_" + parts[1]) : "";
+}
+
+function getVideo(data, videoId) {
   if (!data || !data.videos) return null;
   var idLower = (videoId + "").toLowerCase();
   for (var i = 0; i < data.videos.length; i++) {
     var v = data.videos[i];
-    if ((v.videoId + "").toLowerCase() == idLower) {
-      return v[key] || null; // e.g. v.claim or v.disclaimer
-    }
+    if ((v.videoId + "").toLowerCase() === idLower) return v;
   }
   return null;
 }
 
-function pickByLine(arr, lineNum) {
+function getText(it) {
+  return (it && it.text != null) ? (it.text + "") : "";
+}
+
+function pickLine(arr, lineNum) {
   if (!arr) return null;
   for (var i = 0; i < arr.length; i++) {
     var it = arr[i];
@@ -36,39 +43,55 @@ function pickByLine(arr, lineNum) {
   return null;
 }
 
-function pickByTime(arr, t) {
-  if (!arr) return null;
-  // Linear scan is fine (arrays are small); use ["in"]/["out"] to avoid reserved word issues
+function activeByTime(arr, t) {
+  var res = [];
+  if (!arr) return res;
   for (var i = 0; i < arr.length; i++) {
     var it = arr[i];
     if (!it) continue;
     var s = Number(it["in"]);
     var e = Number(it["out"]);
-    if (isNaN(s) || isNaN(e)) continue;
-    if (t >= s && t <= e) return it;
+    if (!isNaN(s) && !isNaN(e) && t >= s && t <= e) res.push(it);
   }
-  return null;
+  return res;
+}
+
+function joinTexts(items) {
+  var out = "";
+  for (var i = 0; i < items.length; i++) {
+    if (!items[i]) continue;
+    if (out.length > 0) out += "\r"; // stack on new lines
+    out += getText(items[i]);
+  }
+  return out;
 }
 
 try {
   var data = footage(FOOTAGE_NAME).sourceData;
-  var arr = getArrayForVideo(data, videoId, DATA_KEY);
-  if (!arr) { 
-    ""; // no video/key match
+  var vid = getVideo(data, compVideoId());
+  if (!vid) { 
+    "";
   } else {
-    var t = time;
-    var item = (desiredLine > 0) ? pickByLine(arr, desiredLine) : pickByTime(arr, t);
-    if (!item) {
-      ""; // nothing active
+    var arr = vid[DATA_KEY];
+    if (!arr) { 
+      "";
     } else {
-      if (desiredLine > 0) {
-        // Gate by this line's in/out
-        var s = Number(item["in"]);
-        var e = Number(item["out"]);
-        (t >= s && t <= e) ? (item.text || "") : "";
+      var t = time;
+
+      // subtitles → always time-driven; claim/disclaimer → support fixed line or time
+      if (DATA_KEY === "subtitles" || desiredLine === 0) {
+        var items = activeByTime(arr, t);
+        joinTexts(items);
       } else {
-        // Already picked by time
-        item.text || "";
+        // Fixed line (claim/disclaimer)
+        var item = pickLine(arr, desiredLine);
+        if (!item) {
+          "";
+        } else {
+          var s = Number(item["in"]);
+          var e = Number(item["out"]);
+          (isNaN(s) || isNaN(e) || (t < s || t > e)) ? "" : getText(item);
+        }
       }
     }
   }
