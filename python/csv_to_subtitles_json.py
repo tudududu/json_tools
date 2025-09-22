@@ -305,12 +305,17 @@ def convert_csv_to_json(
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
         disc_rows_raw: List[Dict[str, Any]] = []  # global disclaimer rows
         per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        # Logo rows (global text + per-video timings)
+        logo_rows_raw: List[Dict[str, Any]] = []
+        per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
         # subs_rows reserved for future use (not needed currently)
 
         auto_claim_line = 1
         auto_disc_line = 1
+        auto_logo_line = 1
         auto_claim_line_per_video: Dict[str, int] = {}
         auto_disc_line_per_video: Dict[str, int] = {}
+        auto_logo_line_per_video: Dict[str, int] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
 
         for r in rows:
@@ -426,6 +431,40 @@ def convert_csv_to_json(
                     else:
                         auto_disc_line = line_num
                     disc_rows_raw.append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
+                continue
+
+            # Logo rows (timed per-video, text defined globally)
+            if rt == "logo":
+                if video_id:
+                    if video_id not in per_video_logo_rows_raw:
+                        per_video_logo_rows_raw[video_id] = []
+                    if video_id not in auto_logo_line_per_video:
+                        auto_logo_line_per_video[video_id] = 1
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_logo_line_per_video[video_id]
+                    if line_num is None:
+                        line_num = auto_logo_line_per_video[video_id]
+                    else:
+                        auto_logo_line_per_video[video_id] = line_num
+                    per_video_logo_rows_raw[video_id].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                    })
+                else:
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_logo_line
+                    if line_num is None:
+                        line_num = auto_logo_line
+                    else:
+                        auto_logo_line = line_num
+                    logo_rows_raw.append({
                         "line": line_num,
                         "start": start_tc,
                         "end": end_tc,
@@ -607,6 +646,14 @@ def convert_csv_to_json(
                     continue
                 disc_texts_global.append(txt)
 
+            # Logo texts (TOP-LEVEL: text only; per-video timings come from per-video rows)
+            logo_texts_global: List[str] = []
+            for row in logo_rows_raw:
+                txt = (row["texts"].get(c, "") or "").strip()
+                if skip_empty_text and not txt:
+                    continue
+                logo_texts_global.append(txt)
+
             # Videos
             videos_list = []
             for vid in video_order:
@@ -639,6 +686,8 @@ def convert_csv_to_json(
             global_claim_map = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
             # For disclaimers, order matters but often it's one block; use index-based fallback too
             global_disc_texts = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+            # For logos, typically one line; use index-based fallback as well
+            global_logo_texts = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
 
             # Prepare per-video merged disclaimers
             per_video_disc_merged: Dict[str, List[Dict[str, Any]]] = {}
@@ -754,6 +803,25 @@ def convert_csv_to_json(
                     disc_items.append(entry)
                 vobj["disclaimer"] = disc_items
 
+                # Logo source rows: use per-video rows when present, otherwise fallback to globals (likely no timing)
+                src_logos = per_video_logo_rows_raw.get(vid) or logo_rows_raw
+                logo_items: List[Dict[str, Any]] = []
+                for i, row in enumerate(src_logos):
+                    txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
+                    text_value = (txt_local if prefer_local_claim_disclaimer and txt_local else txt_global)
+                    if test_mode and text_value:
+                        text_value = f"{vid}_{text_value}"
+                    entry = {"line": row.get("line", i + 1), "text": text_value}
+                    if row.get("start") is not None and row.get("end") is not None:
+                        entry["in"] = fmt_time(row["start"]) 
+                        entry["out"] = fmt_time(row["end"]) 
+                    else:
+                        entry["in"] = None
+                        entry["out"] = None
+                    logo_items.append(entry)
+                vobj["logo"] = logo_items
+
             # Cast metadata values if requested
             def maybe_cast(value: Any) -> Any:
                 if not cast_metadata:
@@ -782,6 +850,7 @@ def convert_csv_to_json(
                     "metadata": meta_cast,
                     "subtitles": vobj["subtitles"],
                     "disclaimer": vobj.get("disclaimer", []),
+                    "logo": vobj.get("logo", []),
                 }
                 if claims_as_objects:
                     # Copy any claim_XX fields from vobj into the output
@@ -798,6 +867,7 @@ def convert_csv_to_json(
                 "metadataGlobal": gm_cast,
                 "claim": claim_texts_global,
                 "disclaimer": disc_texts_global,
+                "logo": logo_texts_global,
                 "videos": vlist_cast,
             }
             by_country[c] = payload
@@ -1190,7 +1260,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 vids = [v.get("videoId") for v in vids_objs]
                 subtitle_count = sum(len(v.get("subtitles", [])) for v in vids_objs)
                 print(
-                    f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))}"
+                    f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))} logoLines={len(payload.get('logo', []))}"
                 )
                 all_errors.extend([f"{c}: {e}" for e in res["errors"]])
                 all_warnings.extend([f"{c}: {w}" for w in res["warnings"]])
@@ -1203,6 +1273,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     ],
                     "claimLines": len(payload.get("claim", [])),
                     "disclaimerLines": len(payload.get("disclaimer", [])),
+                    "logoLines": len(payload.get("logo", [])),
                 })
             if all_warnings:
                 print("Validation warnings:")
