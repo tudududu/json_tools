@@ -145,6 +145,26 @@
 		return tail;
 	}
 
+	function subpathFromProjectPanelAfterFootage(footageItem) {
+		// Fallback: derive segments from Project panel folder hierarchy after a folder named 'footage'
+		if (!footageItem || !(footageItem instanceof FootageItem)) return [];
+		var segs = [];
+		var f = footageItem.parentFolder;
+		var foundFootage = false;
+		while (f && f.parentFolder) { // stop at root
+			var fname = String(f.name || "");
+			if (String(fname).toLowerCase() === "footage") { foundFootage = true; break; }
+			segs.push(fname);
+			f = f.parentFolder;
+		}
+		if (!foundFootage) return [];
+		// 'segs' are from closest parent up to just below 'footage'; reverse to top-down order
+		segs.reverse();
+		// sanitize each segment
+		for (var i = 0; i < segs.length; i++) segs[i] = sanitizeName(segs[i]);
+		return segs;
+	}
+
 	function sanitizeName(name) {
 		// AE is fairly permissive, but avoid trailing spaces and slashes
 		var n = String(name || "");
@@ -246,11 +266,16 @@
 			}
 		} catch (e) {}
 
+		if (!segs || segs.length === 0) {
+			// Fallback to Project panel hierarchy
+			segs = subpathFromProjectPanelAfterFootage(item);
+		}
+
 		var targetFolder = segs.length ? findOrCreatePath(compsRoot, segs) : compsRoot;
 		comp.parentFolder = targetFolder;
 
 		createdCount++;
-		log("Created comp '" + compName + "' -> " + targetFolder.name);
+		log("Created comp '" + compName + "' -> " + targetFolder.name + (segs.length ? (" (" + segs.join("/") + ")") : ""));
 	}
 
 	var msg = "Created " + createdCount + " comp(s).";
