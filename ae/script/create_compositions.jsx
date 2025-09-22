@@ -258,6 +258,51 @@
 			try { layer.startTime = 0; } catch (e) {}
 		}
 
+		// Marker-based trim: if layer has markers indicating in/out or numeric duration, crop and trim comp
+		try {
+			var markerProp = layer.property("Marker");
+			if (markerProp && markerProp.numKeys > 0) {
+				var inTime = null, outTime = null, durSec = null;
+				if (markerProp.numKeys >= 2) {
+					// Use first and last markers as in/out
+					inTime = markerProp.keyTime(1);
+					outTime = markerProp.keyTime(markerProp.numKeys);
+					if (outTime < inTime) { var tmp = inTime; inTime = outTime; outTime = tmp; }
+				} else if (markerProp.numKeys === 1) {
+					var t = markerProp.keyTime(1);
+					var mv = markerProp.keyValue(1);
+					var comment = (mv && mv.comment) ? String(mv.comment) : "";
+					// Extract first number (integer or float) from comment
+					var m = comment.match(/[-+]?[0-9]*\.?[0-9]+/);
+					if (m) {
+						durSec = parseFloat(m[0]);
+					}
+					if (!durSec && mv && mv.duration && mv.duration > 0) {
+						durSec = mv.duration;
+					}
+					if (durSec && durSec > 0) {
+						inTime = t;
+						outTime = t + durSec;
+					}
+				}
+
+				if (inTime !== null && outTime !== null && outTime > inTime) {
+					durSec = outTime - inTime;
+					// Trim comp to duration and align content to start at 0
+					comp.displayStartTime = 0;
+					comp.duration = durSec;
+					// Shift layer so the selected segment starts at 0
+					try { layer.startTime = -inTime; } catch (e) {}
+					// Set layer in/out to 0..durSec in comp space
+					try { layer.inPoint = 0; } catch (e) {}
+					try { layer.outPoint = durSec; } catch (e) {}
+					log("Trimmed by marker: in=" + inTime.toFixed(3) + ", out=" + outTime.toFixed(3) + ", dur=" + durSec.toFixed(3));
+				}
+			}
+		} catch (eMarker) {
+			log("Marker trim skipped (" + eMarker + ")");
+		}
+
 		// Determine destination folder path under project/work/comps
 		var segs = [];
 		try {
