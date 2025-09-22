@@ -108,7 +108,9 @@
         }
         importedFolderItem = proj.importFile(io);
     } catch (e) {
-        alertOnce("Import failed: " + e);
+        var emsg = "Import failed: " + ((e && e.message) ? e.message : (e && e.toString ? e.toString() : ("" + e)));
+        alertOnce(emsg);
+        log(emsg);
         app.endUndoGroup();
         return;
     }
