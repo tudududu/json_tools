@@ -58,6 +58,33 @@
         return cur;
     }
 
+    function createChildFolder(parent, name) {
+        var f = proj.items.addFolder(name);
+        f.parentFolder = parent;
+        return f;
+    }
+
+    function importFolderRecursive(fsFolder, aeParentFolder) {
+        // Recursively import files and subfolders under fsFolder into AE under aeParentFolder
+        if (!fsFolder || !fsFolder.exists) return;
+        var entries = fsFolder.getFiles();
+        for (var i = 0; i < entries.length; i++) {
+            var entry = entries[i];
+            if (entry instanceof Folder) {
+                var childAEFolder = createChildFolder(aeParentFolder, entry.name);
+                importFolderRecursive(entry, childAEFolder);
+            } else if (entry instanceof File) {
+                try {
+                    var ioFile = new ImportOptions(entry);
+                    var imported = proj.importFile(ioFile);
+                    if (imported) imported.parentFolder = aeParentFolder;
+                } catch (eFile) {
+                    log("Skip file '" + entry.fsName + "' (" + (eFile && eFile.message ? eFile.message : eFile) + ")");
+                }
+            }
+        }
+    }
+
     function newestYYMMDDSubfolder(soundFolder) {
         if (!soundFolder || !soundFolder.exists) return null;
         var subs = soundFolder.getFiles(function(f) { return f instanceof Folder; });
@@ -99,20 +126,37 @@
 
     log("Importing SOUND folder: " + dateFolder.fsName);
 
-    // Import the folder (as a folder)
+    // Import the folder (as a folder). If direct import fails, do a recursive manual import fallback.
     var importedFolderItem = null;
+    var importError = null;
     try {
-        var io = new ImportOptions(dateFolder);
-        if (io.canImportAs && (typeof ImportAsType !== "undefined") && io.canImportAs(ImportAsType.FOLDER)) {
+        var io = new ImportOptions();
+        io.file = new Folder(dateFolder.fsName);
+        if (typeof ImportAsType !== "undefined") {
             io.importAs = ImportAsType.FOLDER;
         }
         importedFolderItem = proj.importFile(io);
     } catch (e) {
-        var emsg = "Import failed: " + ((e && e.message) ? e.message : (e && e.toString ? e.toString() : ("" + e)));
-        alertOnce(emsg);
-        log(emsg);
-        app.endUndoGroup();
-        return;
+        importError = e;
+    }
+
+    // If direct import failed, perform recursive fallback by creating AE folder and importing contents
+    if (!importedFolderItem) {
+        var destForFallback = ensureProjectPath(["project", "in", "sound"]);
+        var container = createChildFolder(destForFallback, dateFolder.name);
+        importFolderRecursive(dateFolder, container);
+        // If at least one item was imported under container, treat it as success
+        if (container && container.numItems > 0) {
+            importedFolderItem = container;
+            log("Imported via fallback into project/in/sound/" + container.name);
+        } else {
+            var emsg = "Import failed" + (importError ? (": " + (importError.message || importError)) : ".") +
+                       " Path: " + dateFolder.fsName;
+            alertOnce(emsg);
+            log(emsg);
+            app.endUndoGroup();
+            return;
+        }
     }
 
     if (!importedFolderItem || !(importedFolderItem instanceof FolderItem)) {
@@ -131,10 +175,12 @@
         return;
     }
 
-    // Move to project/in/sound
+    // Move to project/in/sound (if not already placed there by fallback)
     var dest = ensureProjectPath(["project", "in", "sound"]);
-    importedFolderItem.parentFolder = dest;
-    log("Moved imported folder '" + importedFolderItem.name + "' to project/in/sound");
+    if (importedFolderItem.parentFolder !== dest) {
+        importedFolderItem.parentFolder = dest;
+        log("Moved imported folder '" + importedFolderItem.name + "' to project/in/sound");
+    }
 
     alertOnce("Imported SOUND folder '" + importedFolderItem.name + "' into project/in/sound.");
     app.endUndoGroup();
