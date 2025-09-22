@@ -12,7 +12,7 @@
 // Usage:
 // - Save your project to POST/WORK first, then run this script.
 
-(function importNewestSoundFolder() {
+(function importNewestSoundFolderAndInsert() {
     app.beginUndoGroup("Import Newest SOUND Folder");
 
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
@@ -38,6 +38,9 @@
         var sep = (/\\$/.test(a) || /\/$/.test(a)) ? "" : "/";
         return a + sep + b;
     }
+
+    // Settings
+    var ENABLE_ALIGN_AUDIO_TO_MARKERS = false; // Set true to align audio start to first comp marker; false = place at 0s
 
     function ensureProjectPath(segments) {
         var cur = proj.rootFolder; // Root
@@ -99,6 +102,87 @@
             }
         }
         return best;
+    }
+
+    function collectFootageItemsRecursiveFolderItem(folderItem, outArr) {
+        for (var i = 1; i <= folderItem.numItems; i++) {
+            var it = folderItem.items[i];
+            if (it instanceof FolderItem) {
+                collectFootageItemsRecursiveFolderItem(it, outArr);
+            } else if (it instanceof FootageItem) {
+                outArr.push(it);
+            }
+        }
+    }
+
+    function toLower(s) { return String(s || "").toLowerCase(); }
+
+    function getTokenPairFromCompName(name) {
+        // Extract title (first token) and a duration token like '15s' from comp name
+        var base = String(name || "");
+        var parts = base.split(/[_\s]+/);
+        if (!parts.length) return null;
+        var title = parts[0];
+        var duration = null;
+        for (var i = 1; i < parts.length; i++) {
+            if (/^\d{1,4}s$/i.test(parts[i])) { duration = parts[i]; break; }
+        }
+        if (!title || !duration) return null;
+        return title + "_" + duration;
+    }
+
+    function pickBestAudioMatch(items, tokenPairLC) {
+        // Filter items whose names contain tokenPair (case-insensitive) and that have audio
+        var matches = [];
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var nameLC = toLower(it.name);
+            if (nameLC.indexOf(tokenPairLC) !== -1) {
+                // Prefer actual audio: hasAudio true OR extension in known audio list
+                var ext = nameLC.replace(/^.*\./, "");
+                var isAudio = false;
+                try { if (it.hasAudio) isAudio = true; } catch (e) {}
+                if (!isAudio) {
+                    if (/(wav|aif|aiff|mp3|m4a|aac|ogg)$/i.test(ext)) isAudio = true;
+                }
+                if (isAudio) matches.push(it);
+            }
+        }
+        if (!matches.length) return null;
+        // Sort by extension preference
+        function scoreExt(n) {
+            var ext = n.replace(/^.*\./, "").toLowerCase();
+            if (ext === "wav") return 0;
+            if (ext === "aif" || ext === "aiff") return 1;
+            if (ext === "m4a" || ext === "aac") return 2;
+            if (ext === "mp3") return 3;
+            return 10;
+        }
+        matches.sort(function(a, b) { return scoreExt(a.name) - scoreExt(b.name); });
+        return matches[0];
+    }
+
+    function firstCompMarkerTime(comp) {
+        try {
+            if (comp && comp.markerProperty && comp.markerProperty.numKeys > 0) {
+                return comp.markerProperty.keyTime(1);
+            }
+        } catch (e) {}
+        return 0;
+    }
+
+    function getSelectedComps() {
+        var out = [];
+        var sel = proj.selection;
+        if (sel && sel.length) {
+            for (var i = 0; i < sel.length; i++) {
+                if (sel[i] instanceof CompItem) out.push(sel[i]);
+            }
+        }
+        if (!out.length && proj.activeItem && proj.activeItem instanceof CompItem) {
+            out.push(proj.activeItem);
+        }
+        return out;
     }
 
     // Derive POST/IN/SOUND from project path
@@ -183,6 +267,51 @@
     }
 
     alertOnce("Imported SOUND folder '" + importedFolderItem.name + "' into project/in/sound.");
+
+    // Step 2: Insert audio into selected comps
+    var comps = getSelectedComps();
+    if (!comps.length) {
+        log("No selected comps. Skipping audio insertion.");
+        app.endUndoGroup();
+        return;
+    }
+
+    // Collect all footage items under the imported folder (recursively)
+    var allFootage = [];
+    if (importedFolderItem instanceof FolderItem) {
+        collectFootageItemsRecursiveFolderItem(importedFolderItem, allFootage);
+    }
+    var inserted = 0, missed = [];
+    for (var ci = 0; ci < comps.length; ci++) {
+        var comp = comps[ci];
+        var tokenPair = getTokenPairFromCompName(comp.name);
+        if (!tokenPair) {
+            missed.push(comp.name + " (no tokens)");
+            continue;
+        }
+        var match = pickBestAudioMatch(allFootage, toLower(tokenPair));
+        if (!match) {
+            missed.push(comp.name + " (no audio for '" + tokenPair + "')");
+            continue;
+        }
+        // Insert audio
+        try {
+            var layer = comp.layers.add(match);
+            layer.audioEnabled = true;
+            var t0 = ENABLE_ALIGN_AUDIO_TO_MARKERS ? firstCompMarkerTime(comp) : 0;
+            try { layer.startTime = t0; } catch (eST) {}
+            try { layer.inPoint = t0; } catch (eIP) {}
+            inserted++;
+            log("Inserted audio '" + match.name + "' into comp '" + comp.name + "' at " + t0.toFixed(3) + "s");
+        } catch (eIns) {
+            missed.push(comp.name + " (insert failed: " + (eIns && eIns.message ? eIns.message : eIns) + ")");
+        }
+    }
+
+    var summary = "Audio insert: " + inserted + " added" + (missed.length ? ", missed: " + missed.length : "");
+    log(summary + (missed.length ? "\n- " + missed.join("\n- ") : ""));
+    alertOnce(summary);
+
     app.endUndoGroup();
 })();
 // Script_ae: Import and insert sound. (01)
