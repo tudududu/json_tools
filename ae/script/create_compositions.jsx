@@ -94,22 +94,45 @@
 		return null;
 	}
 
+	function normalizePathString(p) {
+		// Normalize to forward-slash separators, handling Windows, POSIX, and Mac HFS colon paths
+		if (!p) return "";
+		var s = String(p);
+		// Prefer fsName on AE which is platform specific; convert to a neutral form
+		s = s.replace(/\\\\/g, "/"); // backslashes -> '/'
+		// Detect Mac HFS colon paths (multiple ':' and no '/') and convert ':' to '/'
+		var looksLikeMacHFS = (s.indexOf("/") === -1) && (s.indexOf(":") !== -1) && !/^[A-Za-z]:/.test(s);
+		if (looksLikeMacHFS) {
+			// Replace colons with slashes
+			s = s.replace(/:+/g, "/");
+		}
+		// Collapse duplicate slashes
+		s = s.replace(/\/+/g, "/");
+		return s;
+	}
+
 	function splitPathSegments(file) {
 		// Returns array of path segments for a File or File path string
 		var fullPath = (file && file.fsName) ? file.fsName : String(file || "");
 		if (!fullPath) return [];
-		// Normalize separators for both Win/Mac
-		var norm = fullPath.replace(/\\/g, "/");
+		var norm = normalizePathString(fullPath);
 		var parts = norm.split("/");
-		return parts;
+		// Filter empties and current-dir tokens
+		var out = [];
+		for (var i = 0; i < parts.length; i++) {
+			var seg = parts[i];
+			if (!seg || seg === ".") continue;
+			out.push(seg);
+		}
+		return out;
 	}
 
 	function subpathAfterFootage(file) {
-		// From a source file, return path segments that come after the 'footage' folder
+		// From a source file, return path segments that come after the LAST 'footage' folder
 		var segs = splitPathSegments(file);
 		if (!segs.length) return [];
 		var idx = -1;
-		for (var i = 0; i < segs.length; i++) {
+		for (var i = segs.length - 1; i >= 0; i--) {
 			if (String(segs[i]).toLowerCase() === "footage") { idx = i; break; }
 		}
 		if (idx < 0) return [];
