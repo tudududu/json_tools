@@ -730,7 +730,8 @@ def convert_csv_to_json(
                 if claims_as_objects:
                     for i, item in enumerate(claim_items, start=1):
                         key = f"claim_{i:02d}"
-                        vobj[key] = item
+                        # Emit as single-item array: key: [ { line, text, in, out } ]
+                        vobj[key] = [item]
                     # Remove the aggregated array if we're emitting individual objects
                     del vobj["claim"]
 

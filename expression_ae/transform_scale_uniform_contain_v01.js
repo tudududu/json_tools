@@ -1,6 +1,7 @@
 // transform_scale_uniform_contain_v01
 
 // Uniform contain, only shrink (never upscale)
+// Update your transform_scale_uniform_contain.js expression so it reacts correctly to time‑driven Source Text
 // Shrinks on the time driven visibility, but incorrectly.
 
 //     Keeps aspect ratio.
