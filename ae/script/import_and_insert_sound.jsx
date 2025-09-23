@@ -117,6 +117,27 @@
 
     function toLower(s) { return String(s || "").toLowerCase(); }
 
+    function normalizeForMatch(s) {
+        // Lowercase and remove common diacritics for accent-insensitive matching
+        var x = toLower(s);
+        // Slovak/Czech and general Latin diacritics
+        x = x.replace(/[àáâãäåāăą]/g, 'a');
+        x = x.replace(/[çćč]/g, 'c');
+        x = x.replace(/[ďđ]/g, 'd');
+        x = x.replace(/[èéêëēĕėęě]/g, 'e');
+        x = x.replace(/[ìíîïīĭįı]/g, 'i');
+        x = x.replace(/[ñň]/g, 'n');
+        x = x.replace(/[òóôõöøōŏő]/g, 'o');
+        x = x.replace(/[ŕř]/g, 'r');
+        x = x.replace(/[śšş]/g, 's');
+        x = x.replace(/[ťțţ]/g, 't');
+        x = x.replace(/[ùúûüūŭůű]/g, 'u');
+        x = x.replace(/[ýÿ]/g, 'y');
+        x = x.replace(/[žźż]/g, 'z');
+        x = x.replace(/[ľĺł]/g, 'l');
+        return x;
+    }
+
     function getTokenPairFromCompName(name) {
         // Extract title (first token) and a duration token like '15s' from comp name
         var base = String(name || "");
@@ -131,15 +152,35 @@
         return title + "_" + duration;
     }
 
-    function pickBestAudioMatch(items, tokenPairLC) {
+    function pickBestAudioMatch(items, tokenPair) {
         // Filter items whose names contain tokenPair (case-insensitive) and that have audio
         var matches = [];
+        var normPair = normalizeForMatch(tokenPair);
+        var t1 = null, t2 = null;
+        var usIdx = tokenPair.indexOf('_');
+        if (usIdx > 0) {
+            t1 = tokenPair.substring(0, usIdx);
+            t2 = tokenPair.substring(usIdx + 1);
+        }
+        var normT1 = t1 ? normalizeForMatch(t1) : null;
+        var normT2 = t2 ? normalizeForMatch(t2) : null;
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
-            var nameLC = toLower(it.name);
-            if (nameLC.indexOf(tokenPairLC) !== -1) {
+            var nameNorm = normalizeForMatch(it.name);
+            // Primary: direct tokenPair match (accent/case-insensitive)
+            var primaryHit = (nameNorm.indexOf(normPair) !== -1);
+            // Secondary: mixed token scenario token1 ... token2 in order
+            var secondaryHit = false;
+            if (!primaryHit && normT1 && normT2) {
+                var p1 = nameNorm.indexOf(normT1);
+                if (p1 !== -1) {
+                    var p2 = nameNorm.indexOf(normT2, p1 + normT1.length);
+                    if (p2 !== -1) secondaryHit = true;
+                }
+            }
+            if (primaryHit || secondaryHit) {
                 // Prefer actual audio: hasAudio true OR extension in known audio list
-                var ext = nameLC.replace(/^.*\./, "");
+                var ext = nameNorm.replace(/^.*\./, "");
                 var isAudio = false;
                 try { if (it.hasAudio) isAudio = true; } catch (e) {}
                 if (!isAudio) {
@@ -289,7 +330,7 @@
             missed.push(comp.name + " (no tokens)");
             continue;
         }
-        var match = pickBestAudioMatch(allFootage, toLower(tokenPair));
+    var match = pickBestAudioMatch(allFootage, tokenPair);
         if (!match) {
             missed.push(comp.name + " (no audio for '" + tokenPair + "')");
             continue;
