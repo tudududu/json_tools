@@ -152,6 +152,13 @@
         return title + "_" + duration;
     }
 
+    function parseDurationToken(tok) {
+        if (!tok) return null;
+        var m = String(tok).match(/^(\d{1,4})s$/i);
+        if (!m) return null;
+        return parseInt(m[1], 10);
+    }
+
     function pickBestAudioMatch(items, tokenPair) {
         // Filter items whose names contain tokenPair (case-insensitive) and that have audio
         var matches = [];
@@ -164,6 +171,7 @@
         }
         var normT1 = t1 ? normalizeForMatch(t1) : null;
         var normT2 = t2 ? normalizeForMatch(t2) : null;
+        var t2Num = parseDurationToken(t2);
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var nameNorm = normalizeForMatch(it.name);
@@ -171,11 +179,23 @@
             var primaryHit = (nameNorm.indexOf(normPair) !== -1);
             // Secondary: mixed token scenario token1 ... token2 in order
             var secondaryHit = false;
-            if (!primaryHit && normT1 && normT2) {
+            if (!primaryHit && normT1) {
                 var p1 = nameNorm.indexOf(normT1);
                 if (p1 !== -1) {
-                    var p2 = nameNorm.indexOf(normT2, p1 + normT1.length);
-                    if (p2 !== -1) secondaryHit = true;
+                    var tail = nameNorm.substring(p1 + normT1.length);
+                    if (normT2) {
+                        // Exact t2 token order check
+                        if (tail.indexOf(normT2) !== -1) secondaryHit = true;
+                    }
+                    if (!secondaryHit && t2Num !== null) {
+                        // Accept any duration token NN..Ns after t1 with same numeric value (ignores leading zeros)
+                        var re = /(\d{1,4})s/g;
+                        var m;
+                        while ((m = re.exec(tail)) !== null) {
+                            var nn = parseInt(m[1], 10);
+                            if (nn === t2Num) { secondaryHit = true; break; }
+                        }
+                    }
                 }
             }
             if (primaryHit || secondaryHit) {
