@@ -41,6 +41,7 @@
 
     // Settings
     var ENABLE_ALIGN_AUDIO_TO_MARKERS = false; // Set true to align audio start to first comp marker; false = place at 0s
+    var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // Step 4: when true, remove all pre-existing audio layers in comp after inserting the new one
 
     function ensureProjectPath(segments) {
         var cur = proj.rootFolder; // Root
@@ -364,6 +365,36 @@
             try { layer.inPoint = t0; } catch (eIP) {}
             inserted++;
             log("Inserted audio '" + match.name + "' into comp '" + comp.name + "' at " + t0.toFixed(3) + "s");
+
+            // Step 3: Mute all existing audio layers except the newly inserted one
+            if (!ENABLE_REMOVE_EXISTING_AUDIO_LAYERS) {
+                for (var li = 1; li <= comp.numLayers; li++) {
+                    var ly = comp.layer(li);
+                    if (ly === layer) continue;
+                    try {
+                        var hasAud = false;
+                        try { hasAud = !!ly.hasAudio; } catch (eHA) { hasAud = (ly.audioEnabled !== undefined); }
+                        if (hasAud && ly.audioEnabled !== undefined) {
+                            ly.audioEnabled = false;
+                        }
+                    } catch (eMute) {}
+                }
+            }
+
+            // Step 4: Optionally remove all existing audio layers except the newly inserted one
+            if (ENABLE_REMOVE_EXISTING_AUDIO_LAYERS) {
+                for (var r = comp.numLayers; r >= 1; r--) {
+                    var rl = comp.layer(r);
+                    if (rl === layer) continue;
+                    try {
+                        var rHasAud = false;
+                        try { rHasAud = !!rl.hasAudio; } catch (eRH) { rHasAud = (rl.audioEnabled !== undefined); }
+                        if (rHasAud) {
+                            rl.remove();
+                        }
+                    } catch (eRem) {}
+                }
+            }
         } catch (eIns) {
             missed.push(comp.name + " (insert failed: " + (eIns && eIns.message ? eIns.message : eIns) + ")");
         }
