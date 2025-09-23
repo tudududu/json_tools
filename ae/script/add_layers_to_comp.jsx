@@ -1,7 +1,7 @@
 // Script for Adobe After Effects — Add layers to composition from a template comp
 // ——————————————————————————————————————————————————————————————
 // What it does
-// 1) Finds the template composition under Project panel path: ./work/template/
+// 1) Finds the template composition under Project panel path: ./project/work/template/
 //    Expected template name pattern: title_duration_template_YYMMDD_vNN
 //    Example: WTA_30s_template_250923_v01
 // 2) Copies ALL layers from the template EXCEPT the underlying video footage layer
@@ -96,9 +96,9 @@
     }
 
     // Locate template folder and comp ——————————————————————————
-    var templateFolder = findFolderPath(proj.rootFolder, ["work", "template"]);
+    var templateFolder = findFolderPath(proj.rootFolder, ["project", "work", "template"]);
     if (!templateFolder) {
-        alertOnce("Template folder not found at ./work/template/");
+        alertOnce("Template folder not found at ./project/work/template/");
         app.endUndoGroup();
         return;
     }
@@ -106,7 +106,7 @@
     var templateComps = [];
     collectCompsRecursive(templateFolder, templateComps);
     if (!templateComps.length) {
-        alertOnce("No template composition found in ./work/template/");
+        alertOnce("No template composition found in ./project/work/template/");
         app.endUndoGroup();
         return;
     }
