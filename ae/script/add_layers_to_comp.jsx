@@ -1,7 +1,7 @@
 // Script for Adobe After Effects — Add layers to composition from a template comp
 // ——————————————————————————————————————————————————————————————
 // What it does
-// 1) Finds the template composition under Project panel path: ./project/work/template/
+// 1) Finds the template composition under a configurable Project panel path (default: ./project/work/template/)
 //    Expected template name pattern: title_duration_template_YYMMDD_vNN
 //    Example: WTA_30s_template_250923_v01
 // 2) Copies ALL layers from the template EXCEPT the underlying video footage layer
@@ -22,6 +22,9 @@
     if (!proj) { alertOnce("No project open."); app.endUndoGroup(); return; }
 
     // Helpers ————————————————————————————————————————————————
+    // Config: set the template folder path here (segments under Project panel Root)
+    var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
+
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
             var it = parent.items[i];
@@ -38,6 +41,15 @@
             cur = f;
         }
         return cur;
+    }
+
+    function pathToString(segments) {
+        var s = "./";
+        for (var i = 0; i < segments.length; i++) {
+            s += segments[i];
+            if (i < segments.length - 1) s += "/";
+        }
+        return s + "/";
     }
 
     function collectCompsRecursive(folder, outArr) {
@@ -96,9 +108,9 @@
     }
 
     // Locate template folder and comp ——————————————————————————
-    var templateFolder = findFolderPath(proj.rootFolder, ["project", "work", "template"]);
+    var templateFolder = findFolderPath(proj.rootFolder, TEMPLATE_FOLDER_PATH);
     if (!templateFolder) {
-        alertOnce("Template folder not found at ./project/work/template/");
+        alertOnce("Template folder not found at " + pathToString(TEMPLATE_FOLDER_PATH));
         app.endUndoGroup();
         return;
     }
@@ -106,7 +118,7 @@
     var templateComps = [];
     collectCompsRecursive(templateFolder, templateComps);
     if (!templateComps.length) {
-        alertOnce("No template composition found in ./project/work/template/");
+        alertOnce("No template composition found in " + pathToString(TEMPLATE_FOLDER_PATH));
         app.endUndoGroup();
         return;
     }
