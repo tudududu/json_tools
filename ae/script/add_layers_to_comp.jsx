@@ -107,6 +107,123 @@
         return out;
     }
 
+    // JSON wiring helpers ——————————————————————————————————————
+    function findProjectItemByName(name) {
+        for (var i = 1; i <= proj.numItems; i++) {
+            var it = proj.items[i];
+            if (it && it.name === name) return it;
+        }
+        return null;
+    }
+
+    function readTextFile(file) {
+        if (!file || !file.exists) return null;
+        var txt = null;
+        try {
+            file.encoding = "UTF-8";
+            if (file.open("r")) {
+                txt = file.read();
+                file.close();
+            }
+        } catch (e) { try { file.close(); } catch (e2) {} }
+        return txt;
+    }
+
+    function parseJSONSafe(text) {
+        if (!text) return null;
+        try {
+            if (typeof JSON !== "undefined" && JSON.parse) return JSON.parse(text);
+        } catch (e) {}
+        // Fallback (last resort): naive eval in sandboxed parentheses
+        try { return eval('(' + text + ')'); } catch (e2) { return null; }
+    }
+
+    function loadProjectJSONByName(name) {
+        var it = findProjectItemByName(name);
+        if (!it || !(it instanceof FootageItem) || !it.mainSource) return null;
+        var f = null;
+        try { f = it.mainSource.file; } catch (e) {}
+        if (!f) return null;
+        var txt = readTextFile(f);
+        if (!txt) return null;
+        return parseJSONSafe(txt);
+    }
+
+    function buildVideoIdFromCompName(name) {
+        var base = String(name || "");
+        var parts = base.split(/[_\s]+/);
+        if (!parts.length) return null;
+        var title = parts[0];
+        var duration = null;
+        for (var i = 1; i < parts.length; i++) {
+            if (/^\d{1,4}s$/i.test(parts[i])) { duration = parts[i]; break; }
+        }
+        if (!title || !duration) return null;
+        return title + "_" + duration;
+    }
+
+    function findVideoById(data, videoId) {
+        try {
+            var arr = data && data.videos ? data.videos : null;
+            if (!arr) return null;
+            for (var i = 0; i < arr.length; i++) {
+                if (arr[i] && String(arr[i].videoId) === String(videoId)) return arr[i];
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function minMaxInOut(list) {
+        if (!list || !list.length) return null;
+        var minIn = null, maxOut = null;
+        for (var i = 0; i < list.length; i++) {
+            var o = list[i];
+            if (!o) continue;
+            var tin = (o["in"] !== undefined) ? parseFloat(o["in"]) : null;
+            var tout = (o["out"] !== undefined) ? parseFloat(o["out"]) : null;
+            if (tin === null || isNaN(tin) || tout === null || isNaN(tout)) continue;
+            if (minIn === null || tin < minIn) minIn = tin;
+            if (maxOut === null || tout > maxOut) maxOut = tout;
+        }
+        if (minIn === null || maxOut === null || maxOut <= minIn) return null;
+        return { tin: minIn, tout: maxOut };
+    }
+
+    function setLayerInOut(layer, tin, tout, compDuration) {
+        if (!layer) return;
+        var start = (tin < 0) ? 0 : tin;
+        var end = tout;
+        if (compDuration && end > compDuration) end = compDuration;
+        try { layer.startTime = 0; } catch (e) {}
+        try { layer.inPoint = start; } catch (e1) {}
+        try { layer.outPoint = end; } catch (e2) {}
+    }
+
+    function applyJSONTimingToComp(comp, data) {
+        if (!data) return;
+        var videoId = buildVideoIdFromCompName(comp.name);
+        if (!videoId) { log("No videoId derivable from comp: " + comp.name); return; }
+        var v = findVideoById(data, videoId);
+        if (!v) { log("VideoId not found in JSON: " + videoId); return; }
+        var logoMM = minMaxInOut(v.logo);
+        var claimMM = minMaxInOut(v.claim);
+        if (!logoMM && !claimMM) { log("No logo/claim timing for " + videoId); return; }
+        // Find layers by exact names
+        var namesLogo = { "logo": true, "Size_Holder_Logo": true };
+        var namesClaim = { "claim": true, "Size_Holder_Claim": true };
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var ly = comp.layer(i);
+            var nm = String(ly.name || "");
+            if (logoMM && namesLogo[nm]) {
+                setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
+                log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
+            } else if (claimMM && namesClaim[nm]) {
+                setLayerInOut(ly, claimMM.tin, claimMM.tout, comp.duration);
+                log("Set claim layer '" + nm + "' to [" + claimMM.tin + ", " + claimMM.tout + ")");
+            }
+        }
+    }
+
     // Locate template folder and comp ——————————————————————————
     var templateFolder = findFolderPath(proj.rootFolder, TEMPLATE_FOLDER_PATH);
     if (!templateFolder) {
@@ -141,6 +258,10 @@
 
     log("Using template: " + templateComp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
 
+    // Load JSON once
+    var jsonData = loadProjectJSONByName("data.json");
+    if (!jsonData) { log("JSON 'data.json' not found or failed to parse. Timing wiring will be skipped."); }
+
     // Copy layers from template to each target, preserving order (copy bottom->top)
     var addedTotal = 0;
     for (var t = 0; t < targets.length; t++) {
@@ -158,6 +279,10 @@
         }
         addedTotal += added;
         log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
+        // Apply JSON timings (logo/claim) to corresponding layers
+        if (jsonData) {
+            applyJSONTimingToComp(comp, jsonData);
+        }
     }
 
     alertOnce("Added layers from template '" + templateComp.name + "' to " + targets.length + " comp(s). Total layers added: " + addedTotal + ".");
