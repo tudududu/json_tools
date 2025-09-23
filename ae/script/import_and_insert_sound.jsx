@@ -116,6 +116,30 @@
         }
     }
 
+    function isAudioFootageLayer(ly) {
+        // True only for layers whose source is an audio-only FootageItem (unlinked included)
+        try {
+            if (!ly || !ly.source) return false;
+            var src = ly.source;
+            if (!(src instanceof FootageItem)) return false;
+            // Prefer property check: audio-only means hasAudio true and hasVideo false
+            try {
+                if (src.hasAudio === true && src.hasVideo === false) return true;
+            } catch (e1) {}
+            // Fallback: check name/extension (handles missing footage)
+            var nm = String((src.name || ly.name || "")).toLowerCase();
+            if (/\.(wav|aif|aiff|mp3|m4a|aac|ogg)$/.test(nm)) return true;
+            try {
+                var f = (src.mainSource && src.mainSource.file) ? src.mainSource.file : null;
+                if (f) {
+                    var fn = String((f.name || f.fsName || "")).toLowerCase();
+                    if (/\.(wav|aif|aiff|mp3|m4a|aac|ogg)$/.test(fn)) return true;
+                }
+            } catch (e2) {}
+        } catch (e) {}
+        return false;
+    }
+
     function toLower(s) { return String(s || "").toLowerCase(); }
 
     function normalizeForMatch(s) {
@@ -381,15 +405,13 @@
                 }
             }
 
-            // Step 4: Optionally remove all existing audio layers except the newly inserted one
+            // Step 4: Optionally remove all existing audio-only footage layers except the newly inserted one
             if (ENABLE_REMOVE_EXISTING_AUDIO_LAYERS) {
                 for (var r = comp.numLayers; r >= 1; r--) {
                     var rl = comp.layer(r);
                     if (rl === layer) continue;
                     try {
-                        var rHasAud = false;
-                        try { rHasAud = !!rl.hasAudio; } catch (eRH) { rHasAud = (rl.audioEnabled !== undefined); }
-                        if (rHasAud) {
+                        if (isAudioFootageLayer(rl)) {
                             rl.remove();
                         }
                     } catch (eRem) {}
