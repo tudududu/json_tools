@@ -139,6 +139,61 @@
         return candidates[0];
     }
 
+    // New: pick best template per target using AR and resolution (Solution B)
+    function pickBestTemplateCompForTarget(candidates, targetComp) {
+        if (!candidates || !candidates.length) return null;
+        if (!targetComp) return pickBestTemplateComp(candidates);
+        var tAR = ar(targetComp.width, targetComp.height);
+        var tol = 0.001; // AR tolerance
+        // Helper to parse date/version for tie-breaks
+        function parseDateVer(name) {
+            var pat = /^(.+?)_(\d{1,4}s)_template_(\d{6})_v(\d{1,3})$/i;
+            var m = String(name || "").match(pat);
+            if (m) return { dateNum: parseInt(m[3],10), verNum: parseInt(m[4],10) };
+            return { dateNum: -1, verNum: -1 };
+        }
+        var best = null;
+        var bestScore = null; // lower is better; structure: { arDiff, resDiff, dateNum, verNum }
+        for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var cAR = ar(c.width, c.height);
+            var arDiff = Math.abs(cAR - tAR);
+            // resDiff: within AR match, prefer closest resolution; otherwise still compute to break ties
+            var resDiff = Math.abs(c.width - targetComp.width) + Math.abs(c.height - targetComp.height);
+            var dv = parseDateVer(c.name);
+            var score = {
+                arDiff: arDiff,
+                resDiff: resDiff,
+                dateNum: dv.dateNum,
+                verNum: dv.verNum
+            };
+            if (!best) { best = c; bestScore = score; continue; }
+            var s = bestScore;
+            // Primary: AR closeness (prefer within tolerance first)
+            var bothWithinTol = (score.arDiff <= tol) && (s.arDiff <= tol);
+            if (bothWithinTol) {
+                // If both match AR, prefer closest resolution
+                if (score.resDiff < s.resDiff) { best = c; bestScore = score; continue; }
+                if (score.resDiff > s.resDiff) { continue; }
+                // Tie: prefer newer date/version
+                if (score.dateNum > s.dateNum || (score.dateNum === s.dateNum && score.verNum > s.verNum)) { best = c; bestScore = score; }
+                continue;
+            }
+            // If only one is within tolerance, prefer that one
+            if (score.arDiff <= tol && s.arDiff > tol) { best = c; bestScore = score; continue; }
+            if (s.arDiff <= tol && score.arDiff > tol) { continue; }
+            // Otherwise, both outside tol: pick smaller AR diff
+            if (score.arDiff < s.arDiff) { best = c; bestScore = score; continue; }
+            if (score.arDiff > s.arDiff) { continue; }
+            // Tie: prefer closer resolution
+            if (score.resDiff < s.resDiff) { best = c; bestScore = score; continue; }
+            if (score.resDiff > s.resDiff) { continue; }
+            // Tie: prefer newer date/version
+            if (score.dateNum > s.dateNum || (score.dateNum === s.dateNum && score.verNum > s.verNum)) { best = c; bestScore = score; }
+        }
+        return best || candidates[0];
+    }
+
     function findBottomVideoFootageLayerIndex(comp) {
         // Return highest layer index whose source is FootageItem with video
         for (var i = comp.numLayers; i >= 1; i--) {
@@ -583,15 +638,6 @@
         return;
     }
 
-    var templateComp = pickBestTemplateComp(templateComps);
-    if (!templateComp) {
-        alertOnce("Unable to resolve template composition.");
-        app.endUndoGroup();
-        return;
-    }
-
-    var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
-
     var targets = getSelectedComps();
     if (!targets.length) {
         alertOnce("Select one or more target compositions.");
@@ -599,7 +645,8 @@
         return;
     }
 
-    log("Using template: " + templateComp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
+    // Per-target template selection (Solution B)
+    // We'll log chosen template per target below.
 
     // Load JSON once
     var jsonData = loadProjectJSONByName("data.json");
@@ -612,6 +659,10 @@
     var addedTotal = 0;
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
+        var templateComp = pickBestTemplateCompForTarget(templateComps, comp) || pickBestTemplateComp(templateComps);
+        if (!templateComp) { log("No suitable template for '" + comp.name + "'. Skipping."); continue; }
+        var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
+        log("Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
         var added = 0;
         var lastInserted = null; // track stacking chain for moveAfter
         // Track mapping from template layer index -> { newLayer, parentIdx }
