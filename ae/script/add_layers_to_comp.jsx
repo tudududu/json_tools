@@ -24,6 +24,8 @@
     // Helpers ————————————————————————————————————————————————
     // Config: set the template folder path here (segments under Project panel Root)
     var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
+    // Gate for applying JSON disclaimer in/out; when false, disclaimer spans full comp
+    var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -207,20 +209,86 @@
         if (!v) { log("VideoId not found in JSON: " + videoId); return; }
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
-        if (!logoMM && !claimMM) { log("No logo/claim timing for " + videoId); return; }
-        // Find layers by exact names
-        var namesLogo = { "logo": true, "Size_Holder_Logo": true };
+        var disclaimerMM = minMaxInOut(v.disclaimer);
+        // Find layers — logo by name contains 'logo' and is bitmap footage; claim/disclaimer by known names
         var namesClaim = { "claim": true, "Size_Holder_Claim": true };
+        var namesDisclaimer = { "disclaimer": true, "Size_Holder_Disclaimer": true };
+        // Helper to test if layer is an image/bitmap footage
+        function isImageFootageLayer(ly) {
+            try {
+                if (!ly || !ly.source) return false;
+                var src = ly.source;
+                if (!(src instanceof FootageItem)) return false;
+                var hasVid = false, hasAud = false;
+                try { hasVid = (src.hasVideo === true); } catch (e1) {}
+                try { hasAud = (src.hasAudio === true); } catch (e2) {}
+                // Images: video stream present in AE but no audio; often isStill=true
+                var isStill = false;
+                try { if (src.mainSource && src.mainSource.isStill === true) isStill = true; } catch (e3) {}
+                var byExt = false;
+                try {
+                    var nm = String((src.name || "")).toLowerCase();
+                    if (/\.(psd|psb|png|jpg|jpeg|tif|tiff|bmp|gif|ai)$/i.test(nm)) byExt = true;
+                    var f = (src.mainSource && src.mainSource.file) ? src.mainSource.file : null;
+                    if (!byExt && f) {
+                        var fn = String((f.name || f.fsName || "")).toLowerCase();
+                        if (/\.(psd|psb|png|jpg|jpeg|tif|tiff|bmp|gif|ai)$/i.test(fn)) byExt = true;
+                    }
+                } catch (e4) {}
+                // Treat as image if isStill or byExt true and no audio
+                return (isStill || byExt) && !hasAud;
+            } catch (e) { return false; }
+        }
+
+        function nameHasLogo(nm) {
+            var s = String(nm || "").toLowerCase();
+            return s.indexOf("logo") !== -1;
+        }
+
+        // Always set full comp duration for subtitles and (by default) disclaimer
+        for (var si = 1; si <= comp.numLayers; si++) {
+            var sLay = comp.layer(si);
+            var sName = String(sLay.name || "").toLowerCase();
+            if (sName.indexOf("subtitles") !== -1) {
+                setLayerInOut(sLay, 0, comp.duration, comp.duration);
+            }
+            if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER && (sName === "disclaimer" || sName === "size_holder_disclaimer")) {
+                setLayerInOut(sLay, 0, comp.duration, comp.duration);
+            }
+        }
+
+        // Apply JSON timings
+        var appliedAny = false;
         for (var i = 1; i <= comp.numLayers; i++) {
             var ly = comp.layer(i);
             var nm = String(ly.name || "");
-            if (logoMM && namesLogo[nm]) {
+            var nmLC = nm.toLowerCase();
+            // Logo timing
+            if (logoMM && nameHasLogo(nm) && isImageFootageLayer(ly)) {
                 setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                 log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
-            } else if (claimMM && namesClaim[nm]) {
+                appliedAny = true;
+                continue;
+            }
+            // Claim timing
+            if (claimMM && namesClaim[nm]) {
                 setLayerInOut(ly, claimMM.tin, claimMM.tout, comp.duration);
                 log("Set claim layer '" + nm + "' to [" + claimMM.tin + ", " + claimMM.tout + ")");
+                appliedAny = true;
+                continue;
             }
+            // Disclaimer timing (gated)
+            if (namesDisclaimer[nm]) {
+                if (ENABLE_JSON_TIMING_FOR_DISCLAIMER && disclaimerMM) {
+                    setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
+                    log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
+                } else {
+                    // already set to full duration above when gating is off
+                }
+            }
+        }
+        if (!appliedAny) {
+            log("No logo/claim timing applied for " + videoId + ".");
         }
     }
 
