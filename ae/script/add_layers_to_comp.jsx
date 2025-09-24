@@ -415,16 +415,28 @@
     var jsonData = loadProjectJSONByName("data.json");
     if (!jsonData) { log("JSON 'data.json' not found or failed to parse. Timing wiring will be skipped."); }
 
-    // Copy layers from template to each target, preserving order (copy bottom->top)
+    // Copy layers from template to each target, preserving exact order
+    // Strategy: iterate template layers top->bottom (excluding the underlying video),
+    // copy each to target (paste inserts at top), then move the newly pasted layer
+    // after the previously inserted one. This yields the same stacking as the template.
     var addedTotal = 0;
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
         var added = 0;
-        for (var li = templateComp.numLayers; li >= 1; li--) {
+        var lastInserted = null; // track stacking chain for moveAfter
+        // Iterate top -> bottom to mirror order precisely
+        for (var li = 1; li <= templateComp.numLayers; li++) {
             if (li === excludeIdx) continue; // skip underlying video footage layer
             var srcLayer = templateComp.layer(li);
             try {
-                srcLayer.copyToComp(comp);
+                var newLayer = srcLayer.copyToComp(comp);
+                // Fallback if API returns undefined: assume the newest is at top
+                if (!newLayer) { try { newLayer = comp.layer(1); } catch (eNL) {} }
+                // Reposition to preserve order: place after previously inserted
+                if (newLayer && lastInserted && newLayer !== lastInserted) {
+                    try { newLayer.moveAfter(lastInserted); } catch (eMove) {}
+                }
+                if (newLayer) lastInserted = newLayer;
                 added++;
             } catch (eCopy) {
                 log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
