@@ -50,7 +50,7 @@
     // Template picking config (Solution B)
     var TEMPLATE_MATCH_CONFIG = {
         arTolerance: 0.001,
-        requireAspectRatioMatch: false
+        requireAspectRatioMatch: true
     };
 
     // Config: Layer name configuration (case-insensitive)
@@ -681,6 +681,7 @@
     // copy each to target (paste inserts at top), then move the newly pasted layer
     // after the previously inserted one. This yields the same stacking as the template.
     var addedTotal = 0;
+    var skippedARCount = 0;
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
         var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
@@ -693,6 +694,7 @@
                     try { alert("Some selected comps were skipped because no template matched their aspect ratio within tolerance (±" + tolMsg + "). You can adjust TEMPLATE_MATCH_CONFIG.arTolerance or disable TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch."); } catch (eA) {}
                     __AR_SKIP_ALERT_SHOWN = true;
                 }
+                skippedARCount++;
                 continue;
             }
             templateComp = pickBestTemplateComp(templateComps);
@@ -777,7 +779,8 @@
         }
     }
 
-    alertOnce("Added layers to " + targets.length + " comp(s). Total layers added: " + addedTotal + ".");
+    var processedCount = targets.length - skippedARCount;
+    alertOnce("Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch. Total layers added: " + addedTotal + ".");
     app.endUndoGroup();
 })();
 // Script_ae: Add layers to composition. 01
