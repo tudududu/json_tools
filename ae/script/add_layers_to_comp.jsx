@@ -34,6 +34,8 @@
 
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
     function alertOnce(msg) { try { alert(msg); } catch (e) {} }
+    // One-time alert guard for AR-skip warning
+    var __AR_SKIP_ALERT_SHOWN = false;
 
     var proj = app.project;
     if (!proj) { alertOnce("No project open."); app.endUndoGroup(); return; }
@@ -684,7 +686,15 @@
         var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
         if (!templateComp) {
             var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
-            if (requireAR) { log("No template matches AR within tolerance for '" + comp.name + "'. Skipping."); continue; }
+            if (requireAR) {
+                var tolMsg = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.arTolerance === 'number') ? TEMPLATE_MATCH_CONFIG.arTolerance : 0.001;
+                log("No template matches AR within tolerance (±" + tolMsg + ") for '" + comp.name + "'. Skipping.");
+                if (!__AR_SKIP_ALERT_SHOWN) {
+                    try { alert("Some selected comps were skipped because no template matched their aspect ratio within tolerance (±" + tolMsg + "). You can adjust TEMPLATE_MATCH_CONFIG.arTolerance or disable TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch."); } catch (eA) {}
+                    __AR_SKIP_ALERT_SHOWN = true;
+                }
+                continue;
+            }
             templateComp = pickBestTemplateComp(templateComps);
         }
         var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
@@ -767,7 +777,7 @@
         }
     }
 
-    alertOnce("Added layers from template '" + templateComp.name + "' to " + targets.length + " comp(s). Total layers added: " + addedTotal + ".");
+    alertOnce("Added layers to " + targets.length + " comp(s). Total layers added: " + addedTotal + ".");
     app.endUndoGroup();
 })();
 // Script_ae: Add layers to composition. 01
