@@ -8,6 +8,13 @@
 //    defined as: the highest layer index whose source is a FootageItem with video
 // 3) Pastes/copies those layers into the selected compositions, preserving order and timing
 //
+// Configuration notes
+// - TEMPLATE_FOLDER_PATH: where the template comp lives in the Project panel tree
+// - ENABLE_JSON_TIMING_FOR_DISCLAIMER: when false, disclaimer spans full comp; when true, JSON timings are applied
+// - LAYER_NAME_CONFIG: lists of names or substrings to identify logo/claim/disclaimer/subtitles layers.
+//   Matching is case-insensitive. For 'logo', contains-matches can be limited to image/bitmap layers.
+//   Edit these arrays to match your template naming conventions.
+//
 // Usage
 // - Select one or more target comps (or make one active) and run this script.
 // - Ensure a template comp exists under ./work/template/ as described above.
@@ -26,6 +33,31 @@
     var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
     // Gate for applying JSON disclaimer in/out; when false, disclaimer spans full comp
     var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
+
+    // Config: Layer name configuration (case-insensitive)
+    // - exact: list of layer names to match exactly
+    // - contains: list of substrings; if present in layer name, it's a match
+    // - imageOnlyForContains (logo only): when true, a 'contains' match is valid only for image/bitmap footage layers
+    // Adjust these lists to match your template naming conventions.
+    var LAYER_NAME_CONFIG = {
+        logo: {
+            exact: ["Size_Holder_Logo"],
+            contains: ["logo"],
+            imageOnlyForContains: true
+        },
+        claim: {
+            exact: ["claim", "Size_Holder_Claim"],
+            contains: []
+        },
+        disclaimer: {
+            exact: ["disclaimer", "Size_Holder_Disclaimer"],
+            contains: []
+        },
+        subtitles: {
+            exact: [],
+            contains: ["subtitles"]
+        }
+    };
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -210,10 +242,24 @@
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
         var disclaimerMM = minMaxInOut(v.disclaimer);
-        // Find layers — logo by name contains 'logo' and is bitmap footage; also include exact placeholder 'Size_Holder_Logo'. Claim/disclaimer by known names
-        var namesLogo = { "Size_Holder_Logo": true };
-        var namesClaim = { "claim": true, "Size_Holder_Claim": true };
-        var namesDisclaimer = { "disclaimer": true, "Size_Holder_Disclaimer": true };
+        // Matching helpers using LAYER_NAME_CONFIG
+        function matchesExact(name, list) {
+            if (!name || !list || !list.length) return false;
+            var n = String(name).toLowerCase();
+            for (var i = 0; i < list.length; i++) {
+                if (n === String(list[i]).toLowerCase()) return true;
+            }
+            return false;
+        }
+
+        function matchesContains(name, list) {
+            if (!name || !list || !list.length) return false;
+            var n = String(name).toLowerCase();
+            for (var i = 0; i < list.length; i++) {
+                if (n.indexOf(String(list[i]).toLowerCase()) !== -1) return true;
+            }
+            return false;
+        }
         // Helper to test if layer is an image/bitmap footage
         function isImageFootageLayer(ly) {
             try {
@@ -241,19 +287,19 @@
             } catch (e) { return false; }
         }
 
-        function nameHasLogo(nm) {
-            var s = String(nm || "").toLowerCase();
-            return s.indexOf("logo") !== -1;
-        }
-
         // Always set full comp duration for subtitles and (by default) disclaimer
         for (var si = 1; si <= comp.numLayers; si++) {
             var sLay = comp.layer(si);
-            var sName = String(sLay.name || "").toLowerCase();
-            if (sName.indexOf("subtitles") !== -1) {
+            var sName = String(sLay.name || "");
+            // Subtitles full duration always
+            if (matchesExact(sName, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(sName, LAYER_NAME_CONFIG.subtitles.contains)) {
                 setLayerInOut(sLay, 0, comp.duration, comp.duration);
             }
-            if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER && (sName === "disclaimer" || sName === "size_holder_disclaimer")) {
+            // Disclaimer full duration when gating is OFF
+            if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER && (
+                matchesExact(sName, LAYER_NAME_CONFIG.disclaimer.exact) ||
+                matchesContains(sName, LAYER_NAME_CONFIG.disclaimer.contains)
+            )) {
                 setLayerInOut(sLay, 0, comp.duration, comp.duration);
             }
         }
@@ -263,23 +309,25 @@
         for (var i = 1; i <= comp.numLayers; i++) {
             var ly = comp.layer(i);
             var nm = String(ly.name || "");
-            var nmLC = nm.toLowerCase();
-            // Logo timing (image-based logos OR exact placeholder 'Size_Holder_Logo')
-            if (logoMM && ((nameHasLogo(nm) && isImageFootageLayer(ly)) || namesLogo[nm])) {
+            // Logo timing (exact names or contains matches; contains optionally limited to image-only)
+            var logoExact = matchesExact(nm, LAYER_NAME_CONFIG.logo.exact);
+            var logoContains = matchesContains(nm, LAYER_NAME_CONFIG.logo.contains);
+            var logoContainsOk = logoContains && (!LAYER_NAME_CONFIG.logo.imageOnlyForContains || isImageFootageLayer(ly));
+            if (logoMM && (logoExact || logoContainsOk)) {
                 setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                 log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 appliedAny = true;
                 continue;
             }
             // Claim timing
-            if (claimMM && namesClaim[nm]) {
+            if (claimMM && (matchesExact(nm, LAYER_NAME_CONFIG.claim.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim.contains))) {
                 setLayerInOut(ly, claimMM.tin, claimMM.tout, comp.duration);
                 log("Set claim layer '" + nm + "' to [" + claimMM.tin + ", " + claimMM.tout + ")");
                 appliedAny = true;
                 continue;
             }
             // Disclaimer timing (gated)
-            if (namesDisclaimer[nm]) {
+            if (matchesExact(nm, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(nm, LAYER_NAME_CONFIG.disclaimer.contains)) {
                 if (ENABLE_JSON_TIMING_FOR_DISCLAIMER && disclaimerMM) {
                     setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
                     log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
