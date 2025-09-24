@@ -11,7 +11,7 @@
 // Configuration notes
 // - TEMPLATE_FOLDER_PATH: where the template comp lives in the Project panel tree
 // - ENABLE_JSON_TIMING_FOR_DISCLAIMER: when false, disclaimer spans full comp; when true, JSON timings are applied
-// - LAYER_NAME_CONFIG: lists of names or substrings to identify logo/claim/disclaimer/subtitles layers.
+// - LAYER_NAME_CONFIG: lists of names or substrings to identify logo/claim/disclaimer/subtitles/dataJson layers.
 //   Matching is case-insensitive. For 'logo', contains-matches can be limited to image/bitmap layers.
 //   Edit these arrays to match your template naming conventions.
 // - JSON wiring: For each comp, videoId is derived from name (Title_XXs). Applies in/out for logo/claim; disclaimer optionally by toggle.
@@ -20,6 +20,7 @@
 //     - 'n'   => hidden (OFF)
 //     - 'auto'=> visible only if JSON has at least one valid disclaimer interval (in/out with out>in), otherwise hidden
 //     - other/absent => no change to current visibility
+// - DATA_JSON/data.json layers are forced to full comp duration.
 //
 // Usage
 // - Select one or more target comps (or make one active) and run this script.
@@ -62,6 +63,10 @@
         subtitles: {
             exact: [],
             contains: ["subtitles"]
+        },
+        dataJson: {
+            exact: ["DATA_JSON", "data.json"],
+            contains: []
         }
     };
 
@@ -312,12 +317,16 @@
             } catch (e) { return false; }
         }
 
-        // Always set full comp duration for subtitles and (by default) disclaimer
+        // Always set full comp duration for subtitles, dataJson and (by default) disclaimer
         for (var si = 1; si <= comp.numLayers; si++) {
             var sLay = comp.layer(si);
             var sName = String(sLay.name || "");
             // Subtitles full duration always
             if (matchesExact(sName, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(sName, LAYER_NAME_CONFIG.subtitles.contains)) {
+                setLayerInOut(sLay, 0, comp.duration, comp.duration);
+            }
+            // DATA_JSON/data.json full duration always
+            if (matchesExact(sName, LAYER_NAME_CONFIG.dataJson.exact) || matchesContains(sName, LAYER_NAME_CONFIG.dataJson.contains)) {
                 setLayerInOut(sLay, 0, comp.duration, comp.duration);
             }
             // Disclaimer full duration when gating is OFF
