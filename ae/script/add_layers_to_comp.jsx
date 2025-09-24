@@ -15,7 +15,11 @@
 //   Matching is case-insensitive. For 'logo', contains-matches can be limited to image/bitmap layers.
 //   Edit these arrays to match your template naming conventions.
 // - JSON wiring: For each comp, videoId is derived from name (Title_XXs). Applies in/out for logo/claim; disclaimer optionally by toggle.
-//   New: per-video key `disclaimer_flag` controls visibility of disclaimer layers — 'y' => visible (ON), 'n' => hidden (OFF), case-insensitive.
+//   New: per-video key `disclaimer_flag` controls disclaimer layer visibility (case-insensitive):
+//     - 'y'   => visible (ON)
+//     - 'n'   => hidden (OFF)
+//     - 'auto'=> visible only if JSON has at least one valid disclaimer interval (in/out with out>in), otherwise hidden
+//     - other/absent => no change to current visibility
 //
 // Usage
 // - Select one or more target comps (or make one active) and run this script.
@@ -252,6 +256,17 @@
                 disclaimerFlag = String(df).toLowerCase();
             }
         } catch (eDF) {}
+        // Determine if JSON has any valid disclaimer intervals
+        var hasValidDisclaimer = false;
+        if (v && v.disclaimer && v.disclaimer.length) {
+            for (var di = 0; di < v.disclaimer.length; di++) {
+                var d = v.disclaimer[di];
+                if (!d) continue;
+                var tin = (d["in"] !== undefined) ? parseFloat(d["in"]) : NaN;
+                var tout = (d["out"] !== undefined) ? parseFloat(d["out"]) : NaN;
+                if (!isNaN(tin) && !isNaN(tout) && tout > tin) { hasValidDisclaimer = true; break; }
+            }
+        }
         // Matching helpers using LAYER_NAME_CONFIG
         function matchesExact(name, list) {
             if (!name || !list || !list.length) return false;
@@ -345,9 +360,13 @@
                     // already set to full duration above when gating is off
                 }
                 // Apply visibility if disclaimer_flag present
-                if (disclaimerFlag === 'y' || disclaimerFlag === 'n') {
+                if (disclaimerFlag === 'y' || disclaimerFlag === 'n' || disclaimerFlag === 'auto') {
                     try {
-                        ly.enabled = (disclaimerFlag === 'y');
+                        if (disclaimerFlag === 'auto') {
+                            ly.enabled = hasValidDisclaimer;
+                        } else {
+                            ly.enabled = (disclaimerFlag === 'y');
+                        }
                         log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                     } catch (eVis) {}
                 }
