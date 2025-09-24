@@ -293,6 +293,17 @@
             var ly = comp.layer(i);
             // Skip parented layers
             try { if (ly.parent) continue; } catch (ePar) {}
+            // Recenter/align rules lookups
+            var nm = String(ly.name || "");
+            var rr = LAYER_NAME_CONFIG && LAYER_NAME_CONFIG.recenterRules ? LAYER_NAME_CONFIG.recenterRules : null;
+            var inForce = rr ? nameInListCaseInsensitive(nm, rr.force || []) : false;
+            var inSkip = rr ? nameInListCaseInsensitive(nm, rr.noRecenter || []) : false;
+            var doAlignH = rr ? nameInListCaseInsensitive(nm, rr.alignH || []) : false;
+            var doAlignV = rr ? nameInListCaseInsensitive(nm, rr.alignV || []) : false;
+            var doRecenter = true;
+            if (inSkip) doRecenter = false;
+            if (inForce) doRecenter = true;
+
             var tr = null;
             try { tr = ly.property("ADBE Transform Group"); } catch (eTG) {}
             if (!tr) continue;
@@ -306,8 +317,17 @@
             try { wasLocked = (ly.locked === true); } catch (eLk) {}
             try { if (wasLocked) ly.locked = false; } catch (eUl) {}
             try {
-                if (pos) shiftCombined(pos, cx, cy);
-                else if (posX && posY) shiftSeparated(posX, posY, cx, cy);
+                if (doRecenter) {
+                    if (pos) shiftCombined(pos, cx, cy);
+                    else if (posX && posY) shiftSeparated(posX, posY, cx, cy);
+                }
+                // Alignment step after re-centering (or standalone if recenter skipped)
+                if (doAlignH) {
+                    if (pos) alignXCombined(pos, cx); else if (posX) alignXSeparated(posX, cx);
+                }
+                if (doAlignV) {
+                    if (pos) alignYCombined(pos, cy); else if (posY) alignYSeparated(posY, cy);
+                }
             } catch (eSh) {}
             try { if (wasLocked) ly.locked = true; } catch (eRl) {}
         }
