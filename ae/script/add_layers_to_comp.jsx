@@ -210,7 +210,8 @@
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
         var disclaimerMM = minMaxInOut(v.disclaimer);
-        // Find layers — logo by name contains 'logo' and is bitmap footage; claim/disclaimer by known names
+        // Find layers — logo by name contains 'logo' and is bitmap footage; also include exact placeholder 'Size_Holder_Logo'. Claim/disclaimer by known names
+        var namesLogo = { "Size_Holder_Logo": true };
         var namesClaim = { "claim": true, "Size_Holder_Claim": true };
         var namesDisclaimer = { "disclaimer": true, "Size_Holder_Disclaimer": true };
         // Helper to test if layer is an image/bitmap footage
@@ -263,8 +264,8 @@
             var ly = comp.layer(i);
             var nm = String(ly.name || "");
             var nmLC = nm.toLowerCase();
-            // Logo timing
-            if (logoMM && nameHasLogo(nm) && isImageFootageLayer(ly)) {
+            // Logo timing (image-based logos OR exact placeholder 'Size_Holder_Logo')
+            if (logoMM && ((nameHasLogo(nm) && isImageFootageLayer(ly)) || namesLogo[nm])) {
                 setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                 log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 appliedAny = true;
