@@ -21,6 +21,9 @@
 //     - 'auto'=> visible only if JSON has at least one valid disclaimer interval (in/out with out>in), otherwise hidden
 //     - other/absent => no change to current visibility
 // - DATA_JSON/data.json layers are forced to full comp duration.
+// - TEMPLATE_MATCH_CONFIG: controls picking the best template comp for each target comp (Solution B)
+//   arTolerance: numeric tolerance used to treat two aspect ratios as equal (default: 0.001)
+//   requireAspectRatioMatch: when true, only templates within arTolerance are eligible; if none found, target is skipped
 //
 // Usage
 // - Select one or more target comps (or make one active) and run this script.
@@ -42,6 +45,11 @@
     var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
     // Auto-center un-parented layers when aspect ratio differs from template
     var ENABLE_AUTOCENTER_ON_AR_MISMATCH = true;
+    // Template picking config (Solution B)
+    var TEMPLATE_MATCH_CONFIG = {
+        arTolerance: 0.001,
+        requireAspectRatioMatch: false
+    };
 
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
@@ -144,7 +152,8 @@
         if (!candidates || !candidates.length) return null;
         if (!targetComp) return pickBestTemplateComp(candidates);
         var tAR = ar(targetComp.width, targetComp.height);
-        var tol = 0.001; // AR tolerance
+        var tol = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.arTolerance === 'number') ? TEMPLATE_MATCH_CONFIG.arTolerance : 0.001; // AR tolerance
+        var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
         // Helper to parse date/version for tie-breaks
         function parseDateVer(name) {
             var pat = /^(.+?)_(\d{1,4}s)_template_(\d{6})_v(\d{1,3})$/i;
@@ -152,10 +161,23 @@
             if (m) return { dateNum: parseInt(m[3],10), verNum: parseInt(m[4],10) };
             return { dateNum: -1, verNum: -1 };
         }
+        // If requireAspectRatioMatch is true, limit candidates to those within tolerance
+        var working = candidates;
+        if (requireAR) {
+            var filtered = [];
+            for (var fi = 0; fi < candidates.length; fi++) {
+                var cc = candidates[fi];
+                var cARf = ar(cc.width, cc.height);
+                if (Math.abs(cARf - tAR) <= tol) filtered.push(cc);
+            }
+            if (!filtered.length) return null;
+            working = filtered;
+        }
+
         var best = null;
         var bestScore = null; // lower is better; structure: { arDiff, resDiff, dateNum, verNum }
-        for (var i = 0; i < candidates.length; i++) {
-            var c = candidates[i];
+        for (var i = 0; i < working.length; i++) {
+            var c = working[i];
             var cAR = ar(c.width, c.height);
             var arDiff = Math.abs(cAR - tAR);
             // resDiff: within AR match, prefer closest resolution; otherwise still compute to break ties
@@ -659,8 +681,12 @@
     var addedTotal = 0;
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
-        var templateComp = pickBestTemplateCompForTarget(templateComps, comp) || pickBestTemplateComp(templateComps);
-        if (!templateComp) { log("No suitable template for '" + comp.name + "'. Skipping."); continue; }
+        var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
+        if (!templateComp) {
+            var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
+            if (requireAR) { log("No template matches AR within tolerance for '" + comp.name + "'. Skipping."); continue; }
+            templateComp = pickBestTemplateComp(templateComps);
+        }
         var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
         log("Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
         var added = 0;
