@@ -645,6 +645,9 @@ def convert_csv_to_json(
                 if skip_empty_text and not txt:
                     continue
                 disc_texts_global.append(txt)
+            # If no disclaimer text is present for this country, emit [""] rather than []
+            if not disc_texts_global:
+                disc_texts_global = [""]
 
             # Logo texts (TOP-LEVEL: text only; per-video timings come from per-video rows)
             logo_texts_global: List[str] = []
