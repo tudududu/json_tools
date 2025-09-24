@@ -40,6 +40,8 @@
     var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
     // Gate for applying JSON disclaimer in/out; when false, disclaimer spans full comp
     var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
+    // Auto-center un-parented layers when aspect ratio differs from template
+    var ENABLE_AUTOCENTER_ON_AR_MISMATCH = true;
 
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
@@ -150,6 +152,87 @@
         }
         if (!out.length && proj.activeItem && proj.activeItem instanceof CompItem) out.push(proj.activeItem);
         return out;
+    }
+
+    // Aspect ratio helpers and auto-center logic ————————————————————————
+    function ar(w, h) { return (h && h !== 0) ? (w / h) : 0; }
+    function arMismatch(compA, compB) {
+        var rA = ar(compA.width, compA.height);
+        var rB = ar(compB.width, compB.height);
+        return Math.abs(rA - rB) > 0.001; // tolerance
+    }
+
+    function recenterUnparentedLayers(comp) {
+        var cx = comp.width / 2;
+        var cy = comp.height / 2;
+
+        function shiftCombined(posProp, cx, cy) {
+            if (!posProp) return;
+            try {
+                if (posProp.expressionEnabled) { return; }
+            } catch (eExp) {}
+            var is3D = false; var cur = null; var z = 0;
+            try { cur = posProp.value; is3D = (cur && cur.length === 3); if (is3D) z = cur[2]; } catch (eVal) {}
+            if (posProp.numKeys && posProp.numKeys > 0) {
+                // Compute delta from first key
+                var base = posProp.keyValue(1);
+                var dx = cx - base[0];
+                var dy = cy - base[1];
+                for (var k = 1; k <= posProp.numKeys; k++) {
+                    try {
+                        var v = posProp.keyValue(k);
+                        if (v && v.length) {
+                            var nv = (v.length === 3) ? [v[0] + dx, v[1] + dy, v[2]] : [v[0] + dx, v[1] + dy];
+                            posProp.setValueAtKey(k, nv);
+                        }
+                    } catch (eSetK) {}
+                }
+            } else {
+                try { posProp.setValue(is3D ? [cx, cy, z] : [cx, cy]); } catch (eSet) {}
+            }
+        }
+
+        function shiftSeparated(posX, posY, cx, cy) {
+            if (!posX || !posY) return;
+            try { if (posX.expressionEnabled || posY.expressionEnabled) { return; } } catch (eExp) {}
+            var baseX = (posX.numKeys > 0) ? posX.keyValue(1) : posX.value;
+            var baseY = (posY.numKeys > 0) ? posY.keyValue(1) : posY.value;
+            var dx = cx - baseX;
+            var dy = cy - baseY;
+            if (posX.numKeys > 0) {
+                for (var kx = 1; kx <= posX.numKeys; kx++) {
+                    try { posX.setValueAtKey(kx, posX.keyValue(kx) + dx); } catch (eKX) {}
+                }
+            } else { try { posX.setValue(cx); } catch (eSX) {} }
+            if (posY.numKeys > 0) {
+                for (var ky = 1; ky <= posY.numKeys; ky++) {
+                    try { posY.setValueAtKey(ky, posY.keyValue(ky) + dy); } catch (eKY) {}
+                }
+            } else { try { posY.setValue(cy); } catch (eSY) {} }
+        }
+
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var ly = comp.layer(i);
+            // Skip parented layers
+            try { if (ly.parent) continue; } catch (ePar) {}
+            var tr = null;
+            try { tr = ly.property("ADBE Transform Group"); } catch (eTG) {}
+            if (!tr) continue;
+            var pos = tr.property("ADBE Position");
+            var posX = null, posY = null;
+            if (!pos) {
+                posX = tr.property("ADBE Position_0");
+                posY = tr.property("ADBE Position_1");
+            }
+            var wasLocked = false;
+            try { wasLocked = (ly.locked === true); } catch (eLk) {}
+            try { if (wasLocked) ly.locked = false; } catch (eUl) {}
+            try {
+                if (pos) shiftCombined(pos, cx, cy);
+                else if (posX && posY) shiftSeparated(posX, posY, cx, cy);
+            } catch (eSh) {}
+            try { if (wasLocked) ly.locked = true; } catch (eRl) {}
+        }
     }
 
     // JSON wiring helpers ——————————————————————————————————————
@@ -496,6 +579,11 @@
                 } catch (eSetP) {}
             }
         } catch (eMap) {}
+        // Auto-center for aspect ratio mismatch (un-parented layers only)
+        if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, comp)) {
+            try { recenterUnparentedLayers(comp); } catch (eRC) { log("Auto-center failed for '" + comp.name + "': " + eRC); }
+        }
+
         addedTotal += added;
         log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
         // Apply JSON timings (logo/claim) to corresponding layers
