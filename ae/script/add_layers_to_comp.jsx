@@ -120,6 +120,19 @@
         return s + "/";
     }
 
+    function isDescendantOfFolder(item, folder) {
+        if (!item || !folder) return false;
+        try {
+            var f = item.parentFolder;
+            while (f) {
+                if (f === folder) return true;
+                if (f === proj.rootFolder) break;
+                f = f.parentFolder;
+            }
+        } catch (e) {}
+        return false;
+    }
+
     function collectCompsRecursive(folder, outArr) {
         for (var i = 1; i <= folder.numItems; i++) {
             var it = folder.items[i];
@@ -662,9 +675,30 @@
         return;
     }
 
-    var targets = getSelectedComps();
-    if (!targets.length) {
+    var rawTargets = getSelectedComps();
+    if (!rawTargets.length) {
         alertOnce("Select one or more target compositions.");
+        app.endUndoGroup();
+        return;
+    }
+    // Protect templates: skip any selected comps that live under the template folder
+    var targets = [];
+    var skippedProtectedCount = 0;
+    for (var rt = 0; rt < rawTargets.length; rt++) {
+        var rtComp = rawTargets[rt];
+        if (isDescendantOfFolder(rtComp, templateFolder)) {
+            skippedProtectedCount++;
+            log("Skipping protected template comp '" + rtComp.name + "' (inside template folder)." );
+        } else {
+            targets.push(rtComp);
+        }
+    }
+    if (!targets.length) {
+        if (skippedProtectedCount > 0) {
+            alertOnce("Selection contains only template comps (protected). Aborting.");
+        } else {
+            alertOnce("Select one or more target compositions.");
+        }
         app.endUndoGroup();
         return;
     }
@@ -780,7 +814,7 @@
     }
 
     var processedCount = targets.length - skippedARCount;
-    alertOnce("Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch. Total layers added: " + addedTotal + ".");
+    alertOnce("Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ".");
     app.endUndoGroup();
 })();
 // Script_ae: Add layers to composition. 01
