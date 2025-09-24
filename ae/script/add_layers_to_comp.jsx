@@ -69,7 +69,18 @@
         dataJson: {
             exact: ["DATA_JSON", "data.json"],
             contains: []
-        }
+            },
+            // Auto-center exceptions and alignment rules (case-insensitive exact names)
+            recenterRules: {
+                // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
+                // noRecenter entries will be skipped from auto-centering.
+                // force entries will be auto-centered regardless (useful if default changes in future).
+                // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
+                force: [],        // e.g., ["Logo", "Brand_Safe"]
+                noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
+                alignH: [],       // e.g., ["Claim", "CTA"]
+                alignV: []        // e.g., ["Disclaimer"]
+            }
     };
 
     function findChildFolderByName(parent, name) {
@@ -162,6 +173,13 @@
         return Math.abs(rA - rB) > 0.001; // tolerance
     }
 
+    function nameInListCaseInsensitive(name, list) {
+        if (!name || !list || !list.length) return false;
+        var n = String(name).toLowerCase();
+        for (var i = 0; i < list.length; i++) { if (n === String(list[i]).toLowerCase()) return true; }
+        return false;
+    }
+
     function recenterUnparentedLayers(comp) {
         var cx = comp.width / 2;
         var cy = comp.height / 2;
@@ -209,6 +227,66 @@
                     try { posY.setValueAtKey(ky, posY.keyValue(ky) + dy); } catch (eKY) {}
                 }
             } else { try { posY.setValue(cy); } catch (eSY) {} }
+        }
+
+        function alignXCombined(posProp, cx) {
+            if (!posProp) return; try { if (posProp.expressionEnabled) return; } catch (e) {}
+            var cur = null; try { cur = posProp.value; } catch (eV) {}
+            if (posProp.numKeys && posProp.numKeys > 0) {
+                var base = posProp.keyValue(1);
+                var dx = cx - base[0];
+                for (var k = 1; k <= posProp.numKeys; k++) {
+                    try {
+                        var v = posProp.keyValue(k);
+                        var nv = (v.length === 3) ? [v[0] + dx, v[1], v[2]] : [v[0] + dx, v[1]];
+                        posProp.setValueAtKey(k, nv);
+                    } catch (eSet) {}
+                }
+            } else {
+                try {
+                    var is3D = (cur && cur.length === 3);
+                    var ny = cur ? cur[1] : 0; var nz = is3D ? cur[2] : undefined;
+                    posProp.setValue(is3D ? [cx, ny, nz] : [cx, ny]);
+                } catch (eSet2) {}
+            }
+        }
+
+        function alignYCombined(posProp, cy) {
+            if (!posProp) return; try { if (posProp.expressionEnabled) return; } catch (e) {}
+            var cur = null; try { cur = posProp.value; } catch (eV) {}
+            if (posProp.numKeys && posProp.numKeys > 0) {
+                var base = posProp.keyValue(1);
+                var dy = cy - base[1];
+                for (var k = 1; k <= posProp.numKeys; k++) {
+                    try {
+                        var v = posProp.keyValue(k);
+                        var nv = (v.length === 3) ? [v[0], v[1] + dy, v[2]] : [v[0], v[1] + dy];
+                        posProp.setValueAtKey(k, nv);
+                    } catch (eSet) {}
+                }
+            } else {
+                try {
+                    var is3D = (cur && cur.length === 3);
+                    var nx = cur ? cur[0] : 0; var nz = is3D ? cur[2] : undefined;
+                    posProp.setValue(is3D ? [nx, cy, nz] : [nx, cy]);
+                } catch (eSet2) {}
+            }
+        }
+
+        function alignXSeparated(posX, cx) {
+            if (!posX) return; try { if (posX.expressionEnabled) return; } catch (e) {}
+            if (posX.numKeys > 0) {
+                var base = posX.keyValue(1); var dx = cx - base;
+                for (var k = 1; k <= posX.numKeys; k++) { try { posX.setValueAtKey(k, posX.keyValue(k) + dx); } catch (eK) {} }
+            } else { try { posX.setValue(cx); } catch (eS) {} }
+        }
+
+        function alignYSeparated(posY, cy) {
+            if (!posY) return; try { if (posY.expressionEnabled) return; } catch (e) {}
+            if (posY.numKeys > 0) {
+                var base = posY.keyValue(1); var dy = cy - base;
+                for (var k = 1; k <= posY.numKeys; k++) { try { posY.setValueAtKey(k, posY.keyValue(k) + dy); } catch (eK) {} }
+            } else { try { posY.setValue(cy); } catch (eS) {} }
         }
 
         for (var i = 1; i <= comp.numLayers; i++) {
