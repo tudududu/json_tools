@@ -443,7 +443,16 @@
                 if (!newLayer) { try { newLayer = comp.layer(1); } catch (eNL) {} }
                 // Reposition to preserve order: place after previously inserted
                 if (newLayer && lastInserted && newLayer !== lastInserted) {
+                    // Temporarily unlock involved layers to avoid ordering issues, then restore states
+                    var newWasLocked = false, lastWasLocked = false;
+                    try { newWasLocked = (newLayer.locked === true); } catch (eNLk) {}
+                    try { lastWasLocked = (lastInserted.locked === true); } catch (eLLk) {}
+                    try { if (newWasLocked) newLayer.locked = false; } catch (eNul) {}
+                    try { if (lastWasLocked) lastInserted.locked = false; } catch (eLul) {}
                     try { newLayer.moveAfter(lastInserted); } catch (eMove) {}
+                    // Restore locks
+                    try { if (lastWasLocked) lastInserted.locked = true; } catch (eLrl) {}
+                    try { if (newWasLocked) newLayer.locked = true; } catch (eNrl) {}
                 }
                 if (newLayer) lastInserted = newLayer;
                 added++;
