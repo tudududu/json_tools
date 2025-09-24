@@ -433,14 +433,27 @@
         var comp = targets[t];
         var added = 0;
         var lastInserted = null; // track stacking chain for moveAfter
+        // Track mapping from template layer index -> { newLayer, parentIdx }
+        var mapNewLayers = [];
         // Iterate top -> bottom to mirror order precisely
         for (var li = 1; li <= templateComp.numLayers; li++) {
             if (li === excludeIdx) continue; // skip underlying video footage layer
             var srcLayer = templateComp.layer(li);
             try {
+                // Capture and temporarily clear parent to avoid copy failures for linked layers
+                var origParent = null; var hadParent = false; var parentIdx = null;
+                try {
+                    if (srcLayer.parent) {
+                        origParent = srcLayer.parent; hadParent = true; parentIdx = origParent.index;
+                        srcLayer.parent = null;
+                    }
+                } catch (ePar) {}
+
                 var newLayer = srcLayer.copyToComp(comp);
                 // Fallback if API returns undefined: assume the newest is at top
                 if (!newLayer) { try { newLayer = comp.layer(1); } catch (eNL) {} }
+                // Restore template layer parent
+                try { if (hadParent) srcLayer.parent = origParent; } catch (eParR) {}
                 // Reposition to preserve order: place after previously inserted
                 if (newLayer && lastInserted && newLayer !== lastInserted) {
                     // Temporarily unlock involved layers to avoid ordering issues, then restore states
@@ -455,11 +468,34 @@
                     try { if (newWasLocked) newLayer.locked = true; } catch (eNrl) {}
                 }
                 if (newLayer) lastInserted = newLayer;
+                // Save mapping
+                mapNewLayers[li] = { newLayer: newLayer, parentIdx: parentIdx };
                 added++;
             } catch (eCopy) {
                 log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
             }
         }
+        // Restore parent relationships in target when possible
+        try {
+            for (var li2 = 1; li2 <= templateComp.numLayers; li2++) {
+                if (li2 === excludeIdx) continue;
+                var entry = mapNewLayers[li2];
+                if (!entry || !entry.newLayer) continue;
+                var pIdx = entry.parentIdx;
+                if (pIdx === null || pIdx === undefined || pIdx === excludeIdx) continue;
+                var pEntry = mapNewLayers[pIdx];
+                if (!pEntry || !pEntry.newLayer) continue;
+                try {
+                    var child = entry.newLayer;
+                    var parent = pEntry.newLayer;
+                    var childWasLocked = false;
+                    try { childWasLocked = (child.locked === true); } catch (eCl) {}
+                    try { if (childWasLocked) child.locked = false; } catch (eCu) {}
+                    child.parent = parent;
+                    try { if (childWasLocked) child.locked = true; } catch (eCr) {}
+                } catch (eSetP) {}
+            }
+        } catch (eMap) {}
         addedTotal += added;
         log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
         // Apply JSON timings (logo/claim) to corresponding layers
