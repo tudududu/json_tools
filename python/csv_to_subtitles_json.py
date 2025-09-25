@@ -1276,7 +1276,40 @@ def main(argv: Optional[List[str]] = None) -> int:
                         pass
             return {"errors": errs, "warnings": warnings}
 
-        # Unified per-country per-video shape
+        # Unified per-country per-video shape (orientation-aware)
+        # Orientation top-level objects validation
+        def _validate_orientation_array(name: str, val: Any):
+            if val is None:
+                return
+            if not isinstance(val, dict):
+                errs.append(f"{name} must be an object with landscape/portrait keys")
+                return
+            for key in ("landscape", "portrait"):
+                if key not in val:
+                    errs.append(f"{name}.{key} missing")
+            for key in ("landscape", "portrait"):
+                arr = val.get(key)
+                if arr is None:
+                    continue
+                if not isinstance(arr, list):
+                    errs.append(f"{name}.{key} not a list")
+                else:
+                    # Basic element type check
+                    for i, elem in enumerate(arr):
+                        if not isinstance(elem, str):
+                            errs.append(f"{name}.{key}[{i}] not a string")
+            # Mirroring rule: if portrait empty but landscape not, should be mirrored equal length
+            if isinstance(val.get("landscape"), list) and isinstance(val.get("portrait"), list):
+                land = val["landscape"]
+                port = val["portrait"]
+                if land and not port:
+                    warnings.append(f"{name}: portrait empty while landscape has data (expected mirror)")
+                if land and port and len(port) != len(land):
+                    warnings.append(f"{name}: landscape/portrait length mismatch {len(land)}!={len(port)}")
+
+        _validate_orientation_array("claim", obj.get("claim"))
+        _validate_orientation_array("disclaimer", obj.get("disclaimer"))
+        _validate_orientation_array("logo", obj.get("logo"))
         # Required global metadata keys if any metadata present (configurable)
         gm = obj.get("metadataGlobal", {})
         if gm and isinstance(gm, dict) and required_global_keys:
@@ -1296,6 +1329,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                     if not isinstance(v, dict):
                         errs.append(f"videos[{v_index}] not an object")
                         continue
+                    vid = v.get("videoId")
+                    if isinstance(vid, str):
+                        if not (vid.endswith("_landscape") or vid.endswith("_portrait")):
+                            warnings.append(f"videos[{v_index}].videoId missing orientation suffix")
+                    meta = v.get("metadata", {})
+                    if isinstance(meta, dict):
+                        orient = meta.get("orientation")
+                        if isinstance(vid, str) and (vid.endswith("_landscape") or vid.endswith("_portrait")):
+                            expected = "landscape" if vid.endswith("_landscape") else "portrait"
+                            if orient != expected:
+                                errs.append(f"videos[{v_index}].metadata.orientation '{orient}' != expected '{expected}'")
+                        # Orientation key should exist for duplicated videos
+                        if "orientation" not in meta:
+                            warnings.append(f"videos[{v_index}].metadata missing orientation")
                     subs = v.get("subtitles")
                     if subs is None:
                         continue
