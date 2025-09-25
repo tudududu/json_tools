@@ -273,9 +273,23 @@ def convert_csv_to_json(
             if not code:
                 continue
             country_cols.append((i, code))
-        countries = [c for _, c in country_cols]
+        # Support duplicate country codes for orientation (landscape/portrait)
+        country_occurrences: Dict[str, List[int]] = {}
+        countries_unique: List[str] = []
+        for idx, code in country_cols:
+            country_occurrences.setdefault(code, []).append(idx)
+            if code not in countries_unique:
+                countries_unique.append(code)
+        countries = countries_unique
+        # Map country -> {orientation: column_index or None}
+        country_orientation_cols: Dict[str, Dict[str, Optional[int]]] = {}
+        for c in countries_unique:
+            occ = country_occurrences.get(c, [])
+            land = occ[0] if occ else None
+            port = occ[1] if len(occ) > 1 else None
+            country_orientation_cols[c] = {"landscape": land, "portrait": port}
         if verbose:
-            print(f"Unified schema detected. Countries: {countries}")
+            print(f"Unified schema detected. Countries: {countries} (orientation column mapping: {country_orientation_cols})")
 
         def parse_time_optional(val: str) -> Optional[float]:
             v = (val or "").strip()
@@ -338,20 +352,30 @@ def convert_csv_to_json(
             country_scope_val = r[idx_country_scope].strip().upper() if (idx_country_scope is not None and r[idx_country_scope]) else ""
             metadata_cell_val = r[idx_metadata_val].strip() if (idx_metadata_val is not None and r[idx_metadata_val]) else ""
 
-            # Gather per-country texts
+            # Gather per-country texts for both orientations (portrait optional)
             texts: Dict[str, str] = {}
-            for ci, code in country_cols:
-                val = r[ci].replace("\r", "").strip()
-                texts[code] = val
+            texts_portrait: Dict[str, str] = {}
+            for c in countries:
+                land_idx = country_orientation_cols[c]["landscape"]
+                port_idx = country_orientation_cols[c]["portrait"]
+                land_val = r[land_idx].replace("\r", "").strip() if land_idx is not None and land_idx < len(r) else ""
+                port_val = r[port_idx].replace("\r", "").strip() if port_idx is not None and port_idx < len(r) else ""
+                texts[c] = land_val
+                texts_portrait[c] = port_val
 
             # Propagation for ALL scope on textual rows (claim/disclaimer/sub)
             if country_scope_val == "ALL":
-                # Determine base text (first non-empty)
-                base_text = next((texts[c] for c in countries if texts[c]), "")
-                if base_text:
+                # Propagate separately for each orientation
+                base_land = next((texts[c] for c in countries if texts[c]), "")
+                base_port = next((texts_portrait[c] for c in countries if texts_portrait[c]), "")
+                if base_land:
                     for c in countries:
                         if not texts[c]:
-                            texts[c] = base_text
+                            texts[c] = base_land
+                if base_port:
+                    for c in countries:
+                        if not texts_portrait[c]:
+                            texts_portrait[c] = base_port
 
             # Metadata rows
             if rt in ("meta_global", "meta-global"):
@@ -390,6 +414,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 else:
                     if line_num is None:
@@ -400,6 +425,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 continue
 
@@ -421,6 +447,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 else:
                     if line_num is None and (start_tc is not None or end_tc is not None):
@@ -435,6 +462,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 continue
 
@@ -456,6 +484,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 else:
                     if line_num is None and (start_tc is not None or end_tc is not None):
@@ -469,6 +498,7 @@ def convert_csv_to_json(
                         "start": start_tc,
                         "end": end_tc,
                         "texts": texts,
+                        "texts_portrait": texts_portrait,
                     })
                 continue
 
@@ -490,6 +520,7 @@ def convert_csv_to_json(
                     "start": start_tc,
                     "end": end_tc,
                     "texts": texts,
+                    "texts_portrait": texts_portrait,
                 })
                 continue
 

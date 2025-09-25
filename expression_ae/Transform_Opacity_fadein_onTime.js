@@ -1,20 +1,29 @@
 // Opacity = fade-in for video-level claim line N using JSON timings
 // - Starts at claim.in, lasts FADE_IN seconds (linear), stays 100 until out, then 0
 // - Out is exclusive: visible for t ∈ [in, out)
-var FOOTAGE_NAME = "data_in_SAU.json";  // must match JSON item name in Project panel
+var FOOTAGE_NAME = "data.json";  // must match JSON item name in Project panel
 var desiredLine = 1;                    // claim line number
 var FADE_IN = 0.5;                      // seconds (default 1s)
 var OPAC_IN = 0;                        // starting opacity (default 0)  // 0..100
 
-// Build videoId from comp name: "Title_15s_*" → "Title_15s"
+var ar = thisComp.width / thisComp.height;
+
+function orient(ar) {
+	if (ar > 1) {
+		return "h";
+	}
+	return "v";
+	}
+
+// Build videoId from comp name: "Title_15s_*" → "Title_15s_orient"
 function compVideoId() {
   var parts = thisComp.name.split("_");
-  return (parts.length >= 2) ? (parts[0] + "_" + parts[1]) : "";
+  return (parts.length >= 2) ? (parts[0] + "_" + parts[1] + "_" + orient(ar)) : "";
 }
 
-function findClaimItem(data, videoId, lineNum) {
+function findClaimItem(data, compVideoId, lineNum) {
   if (!data || !data.videos) return null;
-  var idLower = (videoId + "").toLowerCase();
+  var idLower = (compVideoId + "").toLowerCase();
   for (var i = 0; i < data.videos.length; i++) {
     var v = data.videos[i];
     if ((v.videoId + "").toLowerCase() === idLower) {
