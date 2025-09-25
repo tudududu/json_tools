@@ -857,8 +857,15 @@ def convert_csv_to_json(
                 src_discs = per_video_disc_merged.get(vid_full.rsplit("_",1)[0]) or disclaimers_rows_merged
                 disc_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs):
-                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
+                    if orientation == "portrait":
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                    else:
+                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
                     txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
+                    # If portrait and both local/global portrait empty, mirror landscape global text for same index
+                    if orientation == "portrait" and not txt_local and not txt_global:
+                        if i < len(global_disc_land):
+                            txt_global = global_disc_land[i]
                     text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
@@ -875,8 +882,14 @@ def convert_csv_to_json(
                 src_logos = per_video_logo_rows_raw.get(vid_full.rsplit("_",1)[0]) or logo_rows_raw
                 logo_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_logos):
-                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
+                    if orientation == "portrait":
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                    else:
+                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
                     txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
+                    if orientation == "portrait" and not txt_local and not txt_global:
+                        if i < len(global_logo_land):
+                            txt_global = global_logo_land[i]
                     text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
@@ -909,6 +922,8 @@ def convert_csv_to_json(
                 return value
 
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
+            # Remove orientation key from global metadata (orientation now structural)
+            gm_cast.pop("orientation", None)
 
             vlist_cast = []
             for vobj in videos_list:
