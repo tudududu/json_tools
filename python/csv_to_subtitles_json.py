@@ -660,56 +660,93 @@ def convert_csv_to_json(
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
         for c in countries:
-            # Claims (TOP-LEVEL: text only; per-video: timings)
-            # Prepare top-level claim texts (global only)
-            claim_texts_global: List[str] = []
+            # Build orientation-specific top-level arrays
+            claim_landscape: List[str] = []
+            claim_portrait: List[str] = []
             for row in claims_rows:
-                txt = (row["texts"].get(c, "") or "").strip()
-                if skip_empty_text and not txt:
-                    continue
-                claim_texts_global.append(txt)
+                txt_l = (row["texts"].get(c, "") or "").strip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                # If portrait empty mirror later; only append landscape if not empty (unless keeping empty forbidden)
+                if txt_l or not skip_empty_text:
+                    claim_landscape.append(txt_l)
+                if txt_p:
+                    claim_portrait.append(txt_p)
+            # Mirror landscape into portrait if portrait missing or shorter
+            if not claim_portrait and claim_landscape:
+                claim_portrait = claim_landscape.copy()
+            elif claim_portrait and len(claim_portrait) < len(claim_landscape):
+                # Extend portrait with landscape fallbacks
+                for i in range(len(claim_portrait), len(claim_landscape)):
+                    claim_portrait.append(claim_landscape[i])
 
-            # Disclaimers (TOP-LEVEL: text only; per-video: timings)
-            disc_texts_global: List[str] = []
+            disc_landscape: List[str] = []
+            disc_portrait: List[str] = []
             for row in disclaimers_rows_merged:
-                txt = (row["texts"].get(c, "") or "").strip()
-                if skip_empty_text and not txt:
-                    continue
-                disc_texts_global.append(txt)
-            # If no disclaimer text is present for this country, emit [""] rather than []
-            if not disc_texts_global:
-                disc_texts_global = [""]
+                txt_l = (row["texts"].get(c, "") or "").strip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                if txt_l or not skip_empty_text:
+                    disc_landscape.append(txt_l)
+                if txt_p:
+                    disc_portrait.append(txt_p)
+            if not disc_landscape:
+                disc_landscape = [""]
+            if not disc_portrait and disc_landscape:
+                disc_portrait = disc_landscape.copy()
 
-            # Logo texts (TOP-LEVEL: text only; per-video timings come from per-video rows)
-            logo_texts_global: List[str] = []
+            logo_landscape: List[str] = []
+            logo_portrait: List[str] = []
             for row in logo_rows_raw:
-                txt = (row["texts"].get(c, "") or "").strip()
-                if skip_empty_text and not txt:
-                    continue
-                logo_texts_global.append(txt)
+                txt_l = (row["texts"].get(c, "") or "").strip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                if txt_l or not skip_empty_text:
+                    logo_landscape.append(txt_l)
+                if txt_p:
+                    logo_portrait.append(txt_p)
+            if not logo_portrait and logo_landscape:
+                logo_portrait = logo_landscape.copy()
 
-            # Videos
-            videos_list = []
+            # Videos (create landscape + portrait objects always, mirroring when portrait empty)
+            videos_list: List[Dict[str, Any]] = []
             for vid in video_order:
                 vdata = videos[vid]
-                subs = []
+                subs_land: List[Dict[str, Any]] = []
+                subs_port: List[Dict[str, Any]] = []
                 for srow in vdata.get("sub_rows", []):
-                    txt = srow["texts"].get(c, "").strip()
-                    if skip_empty_text and not txt:
+                    txt_l = (srow["texts"].get(c, "") or "").strip()
+                    txt_p = (srow.get("texts_portrait", {}).get(c, "") or "").strip()
+                    # Skip subtitle if landscape text empty and skipping empties
+                    if skip_empty_text and not txt_l:
                         continue
                     if srow["start"] is None or srow["end"] is None:
-                        # Skip invalid timing rows for subtitles
                         continue
-                    subs.append({
+                    subs_land.append({
                         "line": srow["line"],
                         "in": fmt_time(srow["start"]),
                         "out": fmt_time(srow["end"]),
-                        "text": txt,
+                        "text": txt_l,
                     })
+                    # Portrait: use portrait text if provided else mirror landscape
+                    txt_port_final = txt_p if txt_p else txt_l
+                    subs_port.append({
+                        "line": srow["line"],
+                        "in": fmt_time(srow["start"]),
+                        "out": fmt_time(srow["end"]),
+                        "text": txt_port_final,
+                    })
+                base_meta = vdata.get("metadata", {}).copy()
+                land_meta = base_meta.copy()
+                land_meta["orientation"] = "landscape"
+                port_meta = base_meta.copy()
+                port_meta["orientation"] = "portrait"
                 videos_list.append({
-                    "videoId": vid,
-                    "metadata": vdata.get("metadata", {}).copy(),
-                    "subtitles": subs,
+                    "videoId": f"{vid}_landscape",
+                    "metadata": land_meta,
+                    "subtitles": subs_land,
+                })
+                videos_list.append({
+                    "videoId": f"{vid}_portrait",
+                    "metadata": port_meta,
+                    "subtitles": subs_port,
                 })
 
             # Attach per-video claim/disclaimer with timings and choose text (prefer local if requested)
@@ -717,11 +754,14 @@ def convert_csv_to_json(
             def timing_key(r: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
                 return (r.get("start"), r.get("end"))
 
-            global_claim_map = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
+            global_claim_map_land = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
+            global_claim_map_port = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in claims_rows}
             # For disclaimers, order matters but often it's one block; use index-based fallback too
-            global_disc_texts = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+            global_disc_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+            global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
             # For logos, typically one line; use index-based fallback as well
-            global_logo_texts = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
+            global_logo_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
+            global_logo_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in logo_rows_raw]
 
             # Prepare per-video merged disclaimers
             per_video_disc_merged: Dict[str, List[Dict[str, Any]]] = {}
@@ -763,15 +803,20 @@ def convert_csv_to_json(
 
             # Now fill claim/disclaimer in each video object
             for vobj in videos_list:
-                vid = vobj["videoId"]
+                vid_full = vobj["videoId"]
+                orientation = "portrait" if vid_full.endswith("_portrait") else "landscape"
+                # Pick appropriate global maps
+                global_claim_map = global_claim_map_port if orientation == "portrait" else global_claim_map_land
+                global_disc_texts = global_disc_port if orientation == "portrait" else global_disc_land
+                global_logo_texts = global_logo_port if orientation == "portrait" else global_logo_land
                 # Claims source rows
-                src_claims = per_video_claim_rows.get(vid) or claims_rows
-                claim_items = []
+                src_claims = per_video_claim_rows.get(vid_full.rsplit("_", 1)[0]) or claims_rows
+                claim_items: List[Dict[str, Any]] = []
+                # Top-level claim text arrays for current orientation (to support index fallback)
+                claim_texts_global = claim_portrait if orientation == "portrait" else claim_landscape
                 for idx, row in enumerate(src_claims):
-                    txt_local = (row["texts"].get(c, "") or "").strip()
-                    # Try timing-based global lookup first
+                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
                     txt_global_timing = global_claim_map.get(timing_key(row), "")
-                    # Fallback: index-based lookup from top-level global claim texts
                     txt_global_index = (
                         claim_texts_global[idx]
                         if idx < len(claim_texts_global)
@@ -780,27 +825,23 @@ def convert_csv_to_json(
                     if prefer_local_claim_disclaimer and txt_local:
                         text_value = txt_local
                     else:
-                        # Use timing-based match, otherwise index-based global, finally local if present
                         text_value = txt_global_timing or txt_global_index or txt_local
-                    # Optional test prefix
                     if test_mode and text_value:
-                        text_value = f"{vid}_{text_value}"
+                        text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", idx + 1), "text": text_value}
                     if row.get("start") is not None and row.get("end") is not None:
-                        entry["in"] = fmt_time(row["start"]) 
-                        entry["out"] = fmt_time(row["end"]) 
+                        entry["in"] = fmt_time(row["start"])
+                        entry["out"] = fmt_time(row["end"])
                     claim_items.append(entry)
-                # Ensure claim has line 2 as well: if only one item, duplicate timing and fill text from global line 2
                 if len(claim_items) == 1:
                     base = claim_items[0]
-                    # Prefer global second claim text if available, else fallback to first, else empty
                     text2 = (
                         claim_texts_global[1]
                         if len(claim_texts_global) >= 2
                         else (claim_texts_global[0] if claim_texts_global else base.get("text", ""))
                     )
-                    if test_mode and text2 and not str(text2).startswith(f"{vid}_"):
-                        text2 = f"{vid}_{text2}"
+                    if test_mode and text2 and not str(text2).startswith(f"{vid_full}_"):
+                        text2 = f"{vid_full}_{text2}"
                     second = {"line": 2, "text": text2}
                     if "in" in base:
                         second["in"] = base["in"]
@@ -808,48 +849,41 @@ def convert_csv_to_json(
                         second["out"] = base["out"]
                     claim_items.append(second)
                 vobj["claim"] = claim_items
-
-                # Optional: split per-video claims into separate objects claim_01, claim_02, ...
                 if claims_as_objects:
                     for i, item in enumerate(claim_items, start=1):
-                        key = f"claim_{i:02d}"
-                        # Emit as single-item array: key: [ { line, text, in, out } ]
-                        vobj[key] = [item]
-                    # Remove the aggregated array if we're emitting individual objects
+                        vobj[f"claim_{i:02d}"] = [item]
                     del vobj["claim"]
-
-                # Disclaimers source rows
-                src_discs = per_video_disc_merged.get(vid) or disclaimers_rows_merged
-                disc_items = []
+                # Disclaimers
+                src_discs = per_video_disc_merged.get(vid_full.rsplit("_",1)[0]) or disclaimers_rows_merged
+                disc_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs):
-                    txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
                     txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
-                    text_value = (txt_local if prefer_local_claim_disclaimer and txt_local else txt_global)
+                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
                     if test_mode and text_value:
-                        text_value = f"{vid}_{text_value}"
+                        text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
                     if row.get("start") is not None and row.get("end") is not None:
-                        entry["in"] = fmt_time(row["start"]) 
-                        entry["out"] = fmt_time(row["end"]) 
+                        entry["in"] = fmt_time(row["start"])
+                        entry["out"] = fmt_time(row["end"])
                     else:
                         entry["in"] = None
                         entry["out"] = None
                     disc_items.append(entry)
                 vobj["disclaimer"] = disc_items
-
-                # Logo source rows: use per-video rows when present, otherwise fallback to globals (likely no timing)
-                src_logos = per_video_logo_rows_raw.get(vid) or logo_rows_raw
+                # Logo
+                src_logos = per_video_logo_rows_raw.get(vid_full.rsplit("_",1)[0]) or logo_rows_raw
                 logo_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_logos):
-                    txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
                     txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
-                    text_value = (txt_local if prefer_local_claim_disclaimer and txt_local else txt_global)
+                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
                     if test_mode and text_value:
-                        text_value = f"{vid}_{text_value}"
+                        text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
                     if row.get("start") is not None and row.get("end") is not None:
-                        entry["in"] = fmt_time(row["start"]) 
-                        entry["out"] = fmt_time(row["end"]) 
+                        entry["in"] = fmt_time(row["start"])
+                        entry["out"] = fmt_time(row["end"])
                     else:
                         entry["in"] = None
                         entry["out"] = None
@@ -899,9 +933,9 @@ def convert_csv_to_json(
                 "schemaVersion": schema_version,
                 "country": c,
                 "metadataGlobal": gm_cast,
-                "claim": claim_texts_global,
-                "disclaimer": disc_texts_global,
-                "logo": logo_texts_global,
+                "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
+                "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
+                "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
                 "videos": vlist_cast,
             }
             by_country[c] = payload
