@@ -50,7 +50,7 @@
     // Template picking config (Solution B)
     var TEMPLATE_MATCH_CONFIG = {
         arTolerance: 0.001,
-        requireAspectRatioMatch: true
+        requireAspectRatioMatch: false
     };
 
     // Config: Layer name configuration (case-insensitive)
@@ -471,6 +471,7 @@
         return parseJSONSafe(txt);
     }
 
+    // Base (orientation-agnostic) videoId builder from comp name
     function buildVideoIdFromCompName(name) {
         var base = String(name || "");
         var parts = base.split(/[_\s]+/);
@@ -482,6 +483,20 @@
         }
         if (!title || !duration) return null;
         return title + "_" + duration;
+    }
+
+    // Determine orientation of a comp: landscape if width > height; portrait otherwise (square counts as portrait)
+    function getCompOrientation(comp) {
+        try { if (comp && comp.width > comp.height) return "landscape"; } catch (e) {}
+        return "portrait";
+    }
+
+    // Build oriented videoId (e.g., "Title_30s_landscape") from comp; returns { oriented: string|null, base: string|null, orientation: string }
+    function buildOrientedVideoId(comp) {
+        var baseId = buildVideoIdFromCompName(comp ? comp.name : null);
+        var orientation = getCompOrientation(comp);
+        if (!baseId) return { oriented: null, base: null, orientation: orientation };
+        return { oriented: baseId + "_" + orientation, base: baseId, orientation: orientation };
     }
 
     function findVideoById(data, videoId) {
@@ -523,10 +538,18 @@
 
     function applyJSONTimingToComp(comp, data) {
         if (!data) return;
-        var videoId = buildVideoIdFromCompName(comp.name);
-        if (!videoId) { log("No videoId derivable from comp: " + comp.name); return; }
-        var v = findVideoById(data, videoId);
-        if (!v) { log("VideoId not found in JSON: " + videoId); return; }
+        var ids = buildOrientedVideoId(comp);
+        if (!ids.base) { log("No base videoId derivable from comp: " + comp.name); return; }
+        var v = null;
+        // Try orientation-specific first
+        if (ids.oriented) v = findVideoById(data, ids.oriented);
+        // Fallback to base (backward compatibility / missing orientation entry)
+        if (!v) v = findVideoById(data, ids.base);
+        if (!v) {
+            log("VideoId not found (tried oriented: '" + ids.oriented + "', base: '" + ids.base + "'). Orientation=" + ids.orientation);
+            return;
+        }
+        var videoId = v.videoId || ids.oriented || ids.base;
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
         var disclaimerMM = minMaxInOut(v.disclaimer);
@@ -664,7 +687,9 @@
             }
         }
         if (!appliedAny) {
-            log("No logo/claim timing applied for " + videoId + ".");
+            log("No logo/claim timing applied for " + videoId + " (orientation=" + ids.orientation + ").");
+        } else {
+            log("Applied timing for videoId=" + videoId + " (orientation=" + ids.orientation + ").");
         }
     }
 
