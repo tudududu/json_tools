@@ -1,18 +1,17 @@
 // Opacity = fade-in for video-level claim line N using JSON timings
 // - Starts at claim.in, lasts FADE_IN seconds (linear), stays 100 until out, then 0
 // - Out is exclusive: visible for t ∈ [in, out)
-var FOOTAGE_NAME = "data.json";  // must match JSON item name in Project panel
-var desiredLine = 1;                    // claim line number
-var FADE_IN = 0.5;                      // seconds (default 1s)
-var OPAC_IN = 0;                        // starting opacity (default 0)  // 0..100
-
+var FOOTAGE_NAME = "data.json"; // must match JSON item name in Project panel
+var desiredLine = 1;                   // claim line number
+var FADE_IN = 1.0;                     // seconds (default 1s)
+var OPAC_IN = 0;
 var ar = thisComp.width / thisComp.height;
 
 function orient(ar) {
 	if (ar > 1) {
-		return "h";
+		return "landscape";
 	}
-	return "v";
+	return "portrait";
 	}
 
 // Build videoId from comp name: "Title_15s_*" → "Title_15s_orient"
@@ -26,7 +25,7 @@ function findClaimItem(data, compVideoId, lineNum) {
   var idLower = (compVideoId + "").toLowerCase();
   for (var i = 0; i < data.videos.length; i++) {
     var v = data.videos[i];
-    if ((v.videoId + "").toLowerCase() === idLower) {
+    if ((v.videoId + "").toLowerCase() === idLower && v.metadata["orientation"] === "landscape") {
       var arr = v.claim || [];
       for (var j = 0; j < arr.length; j++) {
         var it = arr[j];
@@ -47,7 +46,7 @@ try {
 }
 
 if (!item) {
-  0
+  100
 } else {
   var s = Number(item["in"]);
   var e = Number(item["out"]);
