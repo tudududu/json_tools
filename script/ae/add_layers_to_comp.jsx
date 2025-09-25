@@ -93,6 +93,10 @@
             }
     };
 
+    // Groups (keys of LAYER_NAME_CONFIG) whose layers should always span full comp duration.
+    // Disclaimer layers are handled separately so that JSON gating can still shorten them when enabled.
+    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "dataJson", "center", "template_aspect", "info"]; // Add more keys if needed (e.g., "claim")
+
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
             var it = parent.items[i];
@@ -590,24 +594,29 @@
             } catch (e) { return false; }
         }
 
-        // Always set full comp duration for subtitles, dataJson and (by default) disclaimer
-        for (var si = 1; si <= comp.numLayers; si++) {
-            var sLay = comp.layer(si);
-            var sName = String(sLay.name || "");
-            // Subtitles full duration always
-            if (matchesExact(sName, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(sName, LAYER_NAME_CONFIG.subtitles.contains)) {
-                setLayerInOut(sLay, 0, comp.duration, comp.duration);
-            }
-            // DATA_JSON/data.json full duration always
-            if (matchesExact(sName, LAYER_NAME_CONFIG.dataJson.exact) || matchesContains(sName, LAYER_NAME_CONFIG.dataJson.contains)) {
-                setLayerInOut(sLay, 0, comp.duration, comp.duration);
-            }
-            // Disclaimer full duration when gating is OFF
-            if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER && (
-                matchesExact(sName, LAYER_NAME_CONFIG.disclaimer.exact) ||
-                matchesContains(sName, LAYER_NAME_CONFIG.disclaimer.contains)
-            )) {
-                setLayerInOut(sLay, 0, comp.duration, comp.duration);
+        // Always set full comp duration for configured groups, plus disclaimer when gating is OFF
+        // This replaces the previous hard-coded block with a config-driven iteration.
+        if (FULL_DURATION_LAYER_GROUPS && FULL_DURATION_LAYER_GROUPS.length) {
+            for (var si = 1; si <= comp.numLayers; si++) {
+                var sLay = comp.layer(si);
+                var sName = String(sLay.name || "");
+                // Iterate configured groups
+                for (var g = 0; g < FULL_DURATION_LAYER_GROUPS.length; g++) {
+                    var groupKey = FULL_DURATION_LAYER_GROUPS[g];
+                    var groupCfg = LAYER_NAME_CONFIG[groupKey];
+                    if (!groupCfg) continue;
+                    var isMatch = (matchesExact(sName, groupCfg.exact) || matchesContains(sName, groupCfg.contains));
+                    if (isMatch) {
+                        setLayerInOut(sLay, 0, comp.duration, comp.duration);
+                        break; // no need to test further groups
+                    }
+                }
+                // Disclaimer full duration when gating is OFF (kept outside config for gating logic clarity)
+                if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER) {
+                    if (matchesExact(sName, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(sName, LAYER_NAME_CONFIG.disclaimer.contains)) {
+                        setLayerInOut(sLay, 0, comp.duration, comp.duration);
+                    }
+                }
             }
         }
 
