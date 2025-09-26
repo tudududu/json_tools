@@ -93,9 +93,12 @@
             }
     };
 
-    // Groups (keys of LAYER_NAME_CONFIG) whose layers should always span full comp duration.
-    // Disclaimer layers are handled separately so that JSON gating can still shorten them when enabled.
-    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "dataJson", "center", "template_aspect", "info"]; // Add more keys if needed (e.g., "claim")
+    // FULL_DURATION_LAYER_GROUPS semantics:
+    // Each entry may be either:
+    //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
+    //  - A literal layer name (case-insensitive exact) matched directly
+    // Disclaimer layers remain handled separately to preserve JSON gating behavior.
+    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -620,22 +623,37 @@
         // Always set full comp duration for configured groups, plus disclaimer when gating is OFF
         // This replaces the previous hard-coded block with a config-driven iteration.
         if (FULL_DURATION_LAYER_GROUPS && FULL_DURATION_LAYER_GROUPS.length) {
+            // Precompute raw literal names (those not present as group keys)
+            var rawNameSet = {};
+            for (var fd = 0; fd < FULL_DURATION_LAYER_GROUPS.length; fd++) {
+                var entry = FULL_DURATION_LAYER_GROUPS[fd];
+                if (!LAYER_NAME_CONFIG[entry]) {
+                    rawNameSet[String(entry).toLowerCase()] = true;
+                }
+            }
             for (var si = 1; si <= comp.numLayers; si++) {
                 var sLay = comp.layer(si);
                 var sName = String(sLay.name || "");
-                // Iterate configured groups
-                for (var g = 0; g < FULL_DURATION_LAYER_GROUPS.length; g++) {
-                    var groupKey = FULL_DURATION_LAYER_GROUPS[g];
-                    var groupCfg = LAYER_NAME_CONFIG[groupKey];
-                    if (!groupCfg) continue;
-                    var isMatch = (matchesExact(sName, groupCfg.exact) || matchesContains(sName, groupCfg.contains));
-                    if (isMatch) {
-                        setLayerInOut(sLay, 0, comp.duration, comp.duration);
-                        break; // no need to test further groups
+                var sLower = sName.toLowerCase();
+                var matched = false;
+                // Raw literal match first
+                if (rawNameSet[sLower]) {
+                    setLayerInOut(sLay, 0, comp.duration, comp.duration);
+                    matched = true;
+                } else {
+                    // Group-based match
+                    for (var g = 0; g < FULL_DURATION_LAYER_GROUPS.length && !matched; g++) {
+                        var key = FULL_DURATION_LAYER_GROUPS[g];
+                        var cfg = LAYER_NAME_CONFIG[key];
+                        if (!cfg) continue; // not a group; already covered by rawNameSet check
+                        if (matchesExact(sName, cfg.exact) || matchesContains(sName, cfg.contains)) {
+                            setLayerInOut(sLay, 0, comp.duration, comp.duration);
+                            matched = true;
+                        }
                     }
                 }
-                // Disclaimer full duration when gating is OFF (kept outside config for gating logic clarity)
-                if (!ENABLE_JSON_TIMING_FOR_DISCLAIMER) {
+                // Disclaimer full duration when gating OFF (only if not already matched as some other group)
+                if (!matched && !ENABLE_JSON_TIMING_FOR_DISCLAIMER) {
                     if (matchesExact(sName, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(sName, LAYER_NAME_CONFIG.disclaimer.contains)) {
                         setLayerInOut(sLay, 0, comp.duration, comp.duration);
                     }
