@@ -1,5 +1,5 @@
 // TARGET ► Position — Baseline-locked for TEXT; same alignment for others
-var holder = thisComp.layer("Size_Holder_Claim");
+var holder = thisComp.layer("Size_Holder_Subtit");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
@@ -57,10 +57,17 @@ if (isText(thisLayer)){
     // --- Mode A: lock baseline to LAST line (requested for 2-line subtitles) ---
     // We detect 2-line case specifically; for >2 lines we still geometric-center.
     if (lineCount === 2) {
-      // Baseline of last (second) line is roughly (lineHeight) below baseline of first line.
-      var lineH = r.height / lineCount;
-      var lastBaselineComp = toComp([bx, lineH]);
-      deltaC = P - lastBaselineComp; // place the second line baseline at P
+      // Improved baseline estimate: r.top = -ascender. Height = asc + B + desc.
+      // Let descent ≈ ascender * descentRatio (default 0.25). Then
+      // baseline2Y = r.height + r.top*(1 + descentRatio) (derivation in notes).
+      var descentRatio = ctrl("Descent Ratio", 0.25); // optional fine-tune
+      var baseline2Y = r.height + r.top * (1 + descentRatio);
+      // Fallback: if estimate goes negative or > height, revert to lineH method.
+      if (baseline2Y < 0 || baseline2Y > r.height) {
+        baseline2Y = r.height / lineCount; // fallback
+      }
+      var lastBaselineComp = toComp([bx, baseline2Y]);
+      deltaC = P - lastBaselineComp; // place 2nd line baseline at P
     } else {
       // Fallback to geometric center for 3+ lines
       var centerY = r.top + r.height/2;
