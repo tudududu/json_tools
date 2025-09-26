@@ -23,15 +23,9 @@ function ctrl(name, def){
 var pad = Math.max(0, ctrl("Padding", 0));
 var ax  = Math.max(-1, Math.min(1, ctrl("Align X", 0))); // -1..1
 var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1
-// Vertical alignment mode for TEXT (add a Slider "V Align" on holder):
-// 0 = Baseline (original behavior)
-// 1 = Center block vertically (multiline or single line)
-// 2 = Auto (baseline for 1 line, center if multiline) [default]
-var vAlignMode = Math.round(ctrl("V Align", 2));
-// Center Mode (add Slider "Center Mode" on holder):
-// 0 = baseline shift method (current default)
-// 1 = direct geometric center alignment (alternative if 0 looks offset)
-var centerMode = Math.round(ctrl("Center Mode", 0));
+// Automatic vertical centering for multiline TEXT (2D point text only).
+// Simplified: 1 line = baseline align; >=2 lines = compute baseline offset so block visually centers in holder.
+// (Prev sliders removed for clarity; remove any old "V Align" / "Center Mode" controls if not needed.)
 
 halfW = Math.max(0, halfW - pad);
 halfH = Math.max(0, halfH - pad);
@@ -58,32 +52,28 @@ if (isText(thisLayer)){
     lineCount = norm2.split("\n").length;
   }
 
-  var useCenter = (vAlignMode === 1) || (vAlignMode === 2 && lineCount > 1);
-  var centerY = r.top + r.height/2; // local geometric center Y
-
+  var multiline = lineCount > 1;
   var deltaC;
-  if (useCenter) {
-    if (centerMode === 1) {
-      // Direct geometric center alignment: move so local center maps to P.
-      var pCenterLocal = [bx, centerY];
-      var targetLocal  = fromComp(P);
-      var dLocal       = pCenterLocal - targetLocal;
-      deltaC = toComp(dLocal) - toComp([0,0]);
-    } else {
-      // Baseline shift method (previous logic): adjust baseline so center ends at P.
-      var centerOffsetComp = toComp([0, centerY]) - toComp([0,0]);
-      var targetP = P - centerOffsetComp; // baseline target
-      var pL = [bx, 0];
-      var lP = fromComp(targetP);
-      var dL = pL - lP;
-      deltaC = toComp(dL) - toComp([0,0]);
-    }
+  if (multiline) {
+    // Estimate per-line height; AE's bounding box may include extra top padding.
+    var lineH = r.height / lineCount;
+    // Distance from first baseline (y=0) to visual vertical center approximated
+    // as half of total baseline span: (lineCount-1)*lineH / 2.
+    var baselineToCenter = ((lineCount - 1) * lineH) / 2;
+    // Convert local baselineToCenter downwards (positive Y) into comp vector.
+    var centerOffsetComp2 = toComp([0, baselineToCenter]) - toComp([0,0]);
+    // Baseline must land at P - offset to place block center at P.
+    var targetP2 = P - centerOffsetComp2;
+    var pL = [bx, 0];
+    var lP = fromComp(targetP2);
+    var dL = pL - lP;
+    deltaC = toComp(dL) - toComp([0,0]);
   } else {
-    // Baseline mode: keep original baseline alignment semantics (no vertical adjustment beyond baseline centering)
-    var pL2 = [bx, 0];
-    var lP2 = fromComp(P);
-    var dL2 = pL2 - lP2;
-    deltaC = toComp(dL2) - toComp([0,0]);
+    // Single line → keep baseline centered horizontally only.
+    var pL3 = [bx, 0];
+    var lP3 = fromComp(P);
+    var dL3 = pL3 - lP3;
+    deltaC = toComp(dL3) - toComp([0,0]);
   }
 
   thisLayer.threeDLayer ? value + [deltaC[0], deltaC[1], 0] : value + deltaC;
