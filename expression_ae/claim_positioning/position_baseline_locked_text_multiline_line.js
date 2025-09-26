@@ -28,6 +28,10 @@ var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1
 // 1 = Center block vertically (multiline or single line)
 // 2 = Auto (baseline for 1 line, center if multiline) [default]
 var vAlignMode = Math.round(ctrl("V Align", 2));
+// Center Mode (add Slider "Center Mode" on holder):
+// 0 = baseline shift method (current default)
+// 1 = direct geometric center alignment (alternative if 0 looks offset)
+var centerMode = Math.round(ctrl("Center Mode", 0));
 
 halfW = Math.max(0, halfW - pad);
 halfH = Math.max(0, halfH - pad);
@@ -55,16 +59,32 @@ if (isText(thisLayer)){
   }
 
   var useCenter = (vAlignMode === 1) || (vAlignMode === 2 && lineCount > 1);
-  // r.top is the top edge relative to anchor (baseline y=0 for first line in point text)
-  // Center Y of block in layer space:
-  var centerY = r.top + r.height/2;
-  var yRef = useCenter ? centerY : 0;
-  var pL = [bx, yRef];
+  var centerY = r.top + r.height/2; // local geometric center Y
 
-  // Compute how much to move to place pL exactly at P
-  var lP     = fromComp(P);                     // where P lands in current layer space
-  var deltaL = pL - lP;                         // layer-space shift needed
-  var deltaC = toComp(deltaL) - toComp([0,0]);  // convert to comp-space delta
+  var deltaC;
+  if (useCenter) {
+    if (centerMode === 1) {
+      // Direct geometric center alignment: move so local center maps to P.
+      var pCenterLocal = [bx, centerY];
+      var targetLocal  = fromComp(P);
+      var dLocal       = pCenterLocal - targetLocal;
+      deltaC = toComp(dLocal) - toComp([0,0]);
+    } else {
+      // Baseline shift method (previous logic): adjust baseline so center ends at P.
+      var centerOffsetComp = toComp([0, centerY]) - toComp([0,0]);
+      var targetP = P - centerOffsetComp; // baseline target
+      var pL = [bx, 0];
+      var lP = fromComp(targetP);
+      var dL = pL - lP;
+      deltaC = toComp(dL) - toComp([0,0]);
+    }
+  } else {
+    // Baseline mode: keep original baseline alignment semantics (no vertical adjustment beyond baseline centering)
+    var pL2 = [bx, 0];
+    var lP2 = fromComp(P);
+    var dL2 = pL2 - lP2;
+    deltaC = toComp(dL2) - toComp([0,0]);
+  }
 
   thisLayer.threeDLayer ? value + [deltaC[0], deltaC[1], 0] : value + deltaC;
 } else {
