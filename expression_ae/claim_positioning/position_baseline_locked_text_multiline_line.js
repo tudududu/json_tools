@@ -55,25 +55,15 @@ if (isText(thisLayer)){
   var multiline = lineCount > 1;
   var deltaC;
   if (multiline) {
-    // Estimate per-line height; AE's bounding box may include extra top padding.
-    var lineH = r.height / lineCount;
-    // Distance from first baseline (y=0) to visual vertical center approximated
-    // as half of total baseline span: (lineCount-1)*lineH / 2.
-    var baselineToCenter = ((lineCount - 1) * lineH) / 2;
-    // Convert local baselineToCenter downwards (positive Y) into comp vector.
-    var centerOffsetComp2 = toComp([0, baselineToCenter]) - toComp([0,0]);
-    // Baseline must land at P - offset to place block center at P.
-    var targetP2 = P - centerOffsetComp2;
-    var pL = [bx, 0];
-    var lP = fromComp(targetP2);
-    var dL = pL - lP;
-    deltaC = toComp(dL) - toComp([0,0]);
+    // Robust geometric center method:
+    // centerY = r.top + r.height/2 (layer space). Convert that point & baseline to comp, then shift so center hits P.
+    var centerY = r.top + r.height/2;
+    var centerComp = toComp([bx, centerY]);
+    deltaC = P - centerComp; // move layer so its current center lands at P
   } else {
-    // Single line → keep baseline centered horizontally only.
-    var pL3 = [bx, 0];
-    var lP3 = fromComp(P);
-    var dL3 = pL3 - lP3;
-    deltaC = toComp(dL3) - toComp([0,0]);
+    // Single line: align baseline centerX to P (baseline y=0)
+    var baselineComp = toComp([bx, 0]);
+    deltaC = P - baselineComp;
   }
 
   thisLayer.threeDLayer ? value + [deltaC[0], deltaC[1], 0] : value + deltaC;
