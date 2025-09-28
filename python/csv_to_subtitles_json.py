@@ -29,6 +29,7 @@ import json
 import math
 import os
 import re
+import copy
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -1204,6 +1205,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
+    p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
 
     args = p.parse_args(argv)
 
@@ -1398,6 +1400,73 @@ def main(argv: Optional[List[str]] = None) -> int:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
+    # Create truncated preview of a payload without mutating original
+    def make_sample(payload: Dict[str, Any]) -> Dict[str, Any]:
+        SAMPLE_LIMITS = {
+            "claim": 2,
+            "disclaimer": 1,
+            "logo": 1,
+            "videos": 2,
+            "subtitles": 5,
+            "video_claim": 2,  # per-video claim array length
+        }
+        def _truncate_top_arrays(obj: Dict[str, Any]):
+            out = obj
+            if "claim" in out and isinstance(out["claim"], list):
+                out["claim"] = out["claim"][:SAMPLE_LIMITS["claim"]]
+            if "disclaimer" in out and isinstance(out["disclaimer"], list):
+                out["disclaimer"] = out["disclaimer"][:SAMPLE_LIMITS["disclaimer"]]
+            if "logo" in out and isinstance(out["logo"], list):
+                out["logo"] = out["logo"][:SAMPLE_LIMITS["logo"]]
+            # Orientation-aware objects
+            for key in ("claim", "disclaimer", "logo"):
+                val = out.get(key)
+                if isinstance(val, dict):
+                    for orient in ("landscape", "portrait"):
+                        arr = val.get(orient)
+                        if isinstance(arr, list):
+                            limit = SAMPLE_LIMITS["claim"] if key == "claim" else SAMPLE_LIMITS["disclaimer"] if key == "disclaimer" else SAMPLE_LIMITS["logo"]
+                            val[orient] = arr[:limit]
+            return out
+        sample = copy.deepcopy(payload)
+        # Unified per-country wrapper (we only sample the per-country payloads)
+        if sample.get("_multi") and isinstance(sample.get("byCountry"), dict):
+            for c, pld in sample.get("byCountry", {}).items():
+                sample["byCountry"][c] = make_sample(pld)  # recursive call on each per-country payload
+            # Also maybe truncate list of countries
+            countries = sample.get("countries")
+            if isinstance(countries, list):
+                sample["countries"] = countries[:3]
+            return sample
+        # Per-country payload or legacy/simple shape
+        sample = _truncate_top_arrays(sample)
+        # Videos
+        vids = sample.get("videos")
+        if isinstance(vids, list):
+            vids_trunc = []
+            for v in vids[:SAMPLE_LIMITS["videos"]]:
+                v2 = copy.deepcopy(v)
+                subs = v2.get("subtitles")
+                if isinstance(subs, list):
+                    v2["subtitles"] = subs[:SAMPLE_LIMITS["subtitles"]]
+                # Claim array
+                if "claim" in v2 and isinstance(v2["claim"], list):
+                    v2["claim"] = v2["claim"][:SAMPLE_LIMITS["video_claim"]]
+                # claim_XX objects (claims-as-objects mode) -> keep only first two by sorted key
+                claim_keys = sorted([k for k in v2.keys() if k.startswith("claim_")])
+                for ck in claim_keys[SAMPLE_LIMITS["video_claim"]:]:
+                    del v2[ck]
+                vids_trunc.append(v2)
+            sample["videos"] = vids_trunc
+        # Simple single-structure legacy (subtitles only)
+        if "subtitles" in sample and isinstance(sample["subtitles"], list):
+            sample["subtitles"] = sample["subtitles"][:SAMPLE_LIMITS["subtitles"]]
+        return sample
+
+    def derive_sample_path(path: str) -> str:
+        root, ext = os.path.splitext(path)
+        return f"{root}_sample{ext or '.json'}"
+
     if isinstance(data, dict) and data.get("_multi"):
         countries: List[str] = data.get("countries", [])
         by_country: Dict[str, Any] = data.get("byCountry", {})
@@ -1478,6 +1547,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if args.verbose:
                     print(f"Writing {out_path}")
                 write_json(out_path, payload)
+                if args.sample:
+                    sample_path = derive_sample_path(out_path)
+                    write_json(sample_path, make_sample(payload))
         else:
             # Single output selection: choose requested column or the last
             csel = None
@@ -1489,6 +1561,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.verbose:
                 print(f"Writing {args.output} (selected country: {csel})")
             write_json(args.output, payload)
+            if args.sample:
+                sample_path = derive_sample_path(args.output)
+                write_json(sample_path, make_sample(payload))
     else:
         if args.validate_only or args.dry_run:
             res = _validate_structure(data)
@@ -1529,6 +1604,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print("Dry run complete (no file written).")
                 return 0
         write_json(args.output, data)
+        if args.sample and not (args.validate_only or args.dry_run):
+            sample_path = derive_sample_path(args.output)
+            write_json(sample_path, make_sample(data))
 
     return 0
 
