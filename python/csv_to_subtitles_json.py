@@ -30,6 +30,8 @@ import math
 import os
 import re
 import copy
+import hashlib
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -1247,6 +1249,44 @@ def main(argv: Optional[List[str]] = None) -> int:
         claims_as_objects=args.claims_as_objects,
         no_orientation=args.no_orientation,
     )
+
+    # Inject generation timestamp & checksum (before validation so they appear in output / sample)
+    def _inject_generation_metadata(obj: Dict[str, Any]):
+        try:
+            # Compute SHA256 of input CSV once
+            h = hashlib.sha256()
+            with open(args.input, 'rb') as f_in:
+                for chunk in iter(lambda: f_in.read(8192), b''):
+                    h.update(chunk)
+            checksum = h.hexdigest()
+        except Exception:
+            checksum = ""
+        timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+        def _augment_payload(pld: Dict[str, Any]):
+            if "metadataGlobal" in pld and isinstance(pld.get("metadataGlobal"), dict):
+                mg = pld["metadataGlobal"]
+                mg["generatedAt"] = timestamp
+                mg["inputSha256"] = checksum
+                mg.setdefault("inputFileName", os.path.basename(args.input))
+            elif "metadata" in pld and isinstance(pld.get("metadata"), dict):  # simple/legacy single output shape
+                mg = pld["metadata"]
+                mg["generatedAt"] = timestamp
+                mg["inputSha256"] = checksum
+                mg.setdefault("inputFileName", os.path.basename(args.input))
+
+        # Multi-country wrapper
+        if isinstance(obj, dict) and obj.get("_multi") and isinstance(obj.get("byCountry"), dict):
+            for _c, p in obj.get("byCountry", {}).items():
+                if isinstance(p, dict):
+                    _augment_payload(p)
+        else:
+            if isinstance(obj, dict):
+                _augment_payload(obj)
+
+    # Only inject when we are actually writing outputs (skip validate-only / dry-run)
+    if not (hasattr(args, 'validate_only') and args.validate_only) and not (hasattr(args, 'dry_run') and args.dry_run):
+        _inject_generation_metadata(data)
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:
