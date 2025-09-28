@@ -227,6 +227,7 @@ def convert_csv_to_json(
     prefer_local_claim_disclaimer: bool = False,
     test_mode: bool = False,
     claims_as_objects: bool = False,
+    no_orientation: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -944,15 +945,27 @@ def convert_csv_to_json(
                     base["claim"] = vobj.get("claim", [])
                 vlist_cast.append(base)
 
-            payload = {
-                "schemaVersion": schema_version,
-                "country": c,
-                "metadataGlobal": gm_cast,
-                "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
-                "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
-                "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
-                "videos": vlist_cast,
-            }
+            if no_orientation:
+                # Legacy flattening: keep only landscape arrays
+                payload = {
+                    "schemaVersion": schema_version,
+                    "country": c,
+                    "metadataGlobal": gm_cast,
+                    "claim": claim_landscape,
+                    "disclaimer": disc_landscape if disc_landscape else [""],
+                    "logo": logo_landscape,
+                    "videos": vlist_cast,
+                }
+            else:
+                payload = {
+                    "schemaVersion": schema_version,
+                    "country": c,
+                    "metadataGlobal": gm_cast,
+                    "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
+                    "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
+                    "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
+                    "videos": vlist_cast,
+                }
             by_country[c] = payload
 
         # Multi output
@@ -1150,6 +1163,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("input", help="Path to input CSV file")
     p.add_argument("output", help="Path to output JSON file")
     p.add_argument("--fps", type=float, default=25.0, help="Frames per second for HH:MM:SS:FF timecodes (default: 25)")
+    p.add_argument("--no-orientation", action="store_true", help="Emit legacy non-orientation shape: flat claim/disclaimer/logo arrays and single videoId (landscape only)")
     p.add_argument("--start-line", type=int, default=1, help="Starting line index in output (default: 1)")
     p.add_argument("--round", dest="round_digits", type=int, default=2, help="Round seconds to N digits (default: 2; use -1 to disable)")
     p.add_argument("--times-as-string", action="store_true", help="Write time values as strings (keeps trailing zeros)")
@@ -1229,6 +1243,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
         test_mode=args.test_mode,
         claims_as_objects=args.claims_as_objects,
+        no_orientation=args.no_orientation,
     )
 
     # Basic validation helper
@@ -1276,40 +1291,48 @@ def main(argv: Optional[List[str]] = None) -> int:
                         pass
             return {"errors": errs, "warnings": warnings}
 
-        # Unified per-country per-video shape (orientation-aware)
-        # Orientation top-level objects validation
-        def _validate_orientation_array(name: str, val: Any):
-            if val is None:
-                return
-            if not isinstance(val, dict):
-                errs.append(f"{name} must be an object with landscape/portrait keys")
-                return
-            for key in ("landscape", "portrait"):
-                if key not in val:
-                    errs.append(f"{name}.{key} missing")
-            for key in ("landscape", "portrait"):
-                arr = val.get(key)
-                if arr is None:
-                    continue
-                if not isinstance(arr, list):
-                    errs.append(f"{name}.{key} not a list")
-                else:
-                    # Basic element type check
-                    for i, elem in enumerate(arr):
-                        if not isinstance(elem, str):
-                            errs.append(f"{name}.{key}[{i}] not a string")
-            # Mirroring rule: if portrait empty but landscape not, should be mirrored equal length
-            if isinstance(val.get("landscape"), list) and isinstance(val.get("portrait"), list):
-                land = val["landscape"]
-                port = val["portrait"]
-                if land and not port:
-                    warnings.append(f"{name}: portrait empty while landscape has data (expected mirror)")
-                if land and port and len(port) != len(land):
-                    warnings.append(f"{name}: landscape/portrait length mismatch {len(land)}!={len(port)}")
+        # Unified per-country per-video shape (orientation-aware unless --no-orientation)
+        if args.no_orientation:
+            # Expect legacy flat arrays for claim/disclaimer/logo
+            for nm in ("claim", "disclaimer", "logo"):
+                val = obj.get(nm)
+                if val is not None and not isinstance(val, list):
+                    errs.append(f"{nm} must be a list in --no-orientation mode")
+            # Continue with video checks but skip orientation object validation
+        else:
+            # Orientation top-level objects validation
+            def _validate_orientation_array(name: str, val: Any):
+                if val is None:
+                    return
+                if not isinstance(val, dict):
+                    errs.append(f"{name} must be an object with landscape/portrait keys")
+                    return
+                for key in ("landscape", "portrait"):
+                    if key not in val:
+                        errs.append(f"{name}.{key} missing")
+                for key in ("landscape", "portrait"):
+                    arr = val.get(key)
+                    if arr is None:
+                        continue
+                    if not isinstance(arr, list):
+                        errs.append(f"{name}.{key} not a list")
+                    else:
+                        # Basic element type check
+                        for i, elem in enumerate(arr):
+                            if not isinstance(elem, str):
+                                errs.append(f"{name}.{key}[{i}] not a string")
+                # Mirroring rule: if portrait empty but landscape not, should be mirrored equal length
+                if isinstance(val.get("landscape"), list) and isinstance(val.get("portrait"), list):
+                    land = val["landscape"]
+                    port = val["portrait"]
+                    if land and not port:
+                        warnings.append(f"{name}: portrait empty while landscape has data (expected mirror)")
+                    if land and port and len(port) != len(land):
+                        warnings.append(f"{name}: landscape/portrait length mismatch {len(land)}!={len(port)}")
 
-        _validate_orientation_array("claim", obj.get("claim"))
-        _validate_orientation_array("disclaimer", obj.get("disclaimer"))
-        _validate_orientation_array("logo", obj.get("logo"))
+            _validate_orientation_array("claim", obj.get("claim"))
+            _validate_orientation_array("disclaimer", obj.get("disclaimer"))
+            _validate_orientation_array("logo", obj.get("logo"))
         # Required global metadata keys if any metadata present (configurable)
         gm = obj.get("metadataGlobal", {})
         if gm and isinstance(gm, dict) and required_global_keys:

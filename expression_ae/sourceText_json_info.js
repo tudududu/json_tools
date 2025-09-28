@@ -75,6 +75,7 @@ try {
 
   var client   = toStr(safe(globalMeta, ["client"], "-"));
   var campaign = toStr(safe(globalMeta, ["campaign"], "-"));
+  var country = toStr(safe(data, ["country"], "-"));
 
   var videoId  = video ? toStr(video.videoId) : "(video not found)";
   var vMeta    = video ? video.metadata : null;
@@ -85,8 +86,9 @@ try {
 
   out  = "client: " + client;
   out += "\rcampaign: " + campaign;
+  out += "\rcountry: " + country;
   out += "\rvideoId: " + videoId;
-  out += "\rcompOrient(meta): " + vOrient;
+  out += "\rdata(compOrientMeta): " + vOrient;
   out += "\rcompOrient(test): " + compOrientTest;
   out += "\raspect ratio: " + resultAspect;
   out += "\rduration(meta): " + vDur;

@@ -52,19 +52,66 @@ Meaning:
 
 ### Per-Country Output Structure
 
-When the unified schema is detected the converter produces an internal multi-country structure which can be split to separate files (`--split-by-country`) or a single chosen country file:
+When the unified schema is detected the converter produces an internal multi-country structure which can be split to separate files (`--split-by-country`) or a single chosen country file. There are now two shapes depending on orientation mode:
+
+### Default (Orientation Enabled)
+
+Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landscape` and `portrait` arrays. Each video is duplicated: `<videoId>_landscape` and `<videoId>_portrait`, each containing an `orientation` metadata key. When portrait text is missing it is mirrored from landscape.
+
+```json
+{
+  "schemaVersion": "v2",
+  "country": "GBR",
+  "metadataGlobal": {"version": 6, "fps": 25},
+  "claim": {
+    "landscape": ["Claim line 1", "Claim line 2"],
+    "portrait":  ["Claim line 1", "Claim line 2"]
+  },
+  "disclaimer": {
+    "landscape": ["Disclaimer block"],
+    "portrait":  ["Disclaimer block"]
+  },
+  "logo": {
+    "landscape": ["Logo text"],
+    "portrait":  ["Logo text"]
+  },
+  "videos": [
+     {
+       "videoId": "WTA_30s_landscape",
+       "metadata": {"duration": 30, "orientation": "landscape"},
+       "subtitles": [{"line":1,"in":0.0,"out":2.4,"text":"Hello"}],
+       "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
+       "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
+       "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
+     },
+     {
+       "videoId": "WTA_30s_portrait",
+       "metadata": {"duration": 30, "orientation": "portrait"},
+       "subtitles": [{"line":1,"in":0.0,"out":2.4,"text":"Hello"}],
+       "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
+       "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
+       "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
+     }
+  ]
+}
+```
+
+### Legacy Flattened Mode (`--no-orientation`)
+
+Top-level values are simple arrays and only the landscape set is emitted. Video IDs are not suffixed and no `orientation` metadata key appears.
 
 ```json
 {
   "schemaVersion": "v2",
   "country": "GBR",
   "metadataGlobal": {"version": 6, "fps": 25, "duration": 30},
-  "claim": [ {"line":1, "in":0.0, "out":3.2, "text":"..."} ],
-  "disclaimer": [ {"line":1, "in":0.0, "out":29.5, "text":"...merged..."} ],
+  "claim": [ {"line":1, "in":0.0, "out":3.2, "text":"Claim line 1"}, {"line":2, "text":"Claim line 2"} ],
+  "disclaimer": [ {"line":1, "in":0.0, "out":29.5, "text":"Disclaimer block"} ],
+  "logo": [ {"line":1, "in":29.5, "out":30.0, "text":"Logo text"} ],
   "videos": [
      {
        "videoId": "WTA_30s",
-       "metadata": {"aspect":"16:9"},
+       "metadata": {"duration":30},
        "subtitles": [ {"line":1, "in":0.0, "out":2.4, "text":"Hello"} ]
      }
   ]
@@ -131,6 +178,7 @@ Validation / inspection:
 * `--missing-keys-warn` Downgrade missing required keys to warnings (still reported but do not fail)
 * `--validation-report <path>` Emit a JSON validation report (usable with `--validate-only` or `--dry-run`)
 * `--test-mode` Prefix per-video claim/disclaimer text with '<videoId>_' for testing
+* `--no-orientation` Revert to legacy flat array output (no duplicated videos, ignores portrait columns)
 
 Automatic output naming:
 * `--auto-output` Derive output file name(s) from input base name (adds `_{country}` when splitting)
@@ -141,7 +189,8 @@ Schema tagging:
 
 ## Validation Rules
 The validator performs lightweight structural checks:
-* Arrays `subtitles`, `claim`, `disclaimer` must be lists
+* Arrays `subtitles` plus either (a) flat `claim`/`disclaimer`/`logo` lists in `--no-orientation` mode or (b) orientation objects `{landscape:[],portrait:[]}` in default mode
+* Orientation mode: `claim.landscape` and `claim.portrait` (same for `disclaimer`, `logo`) lengths should match (portrait auto-mirrors when empty)
 * For timed entries: `in <= out`
 * Monotonic non-overlapping subtitle timing per video (start must be >= previous end)
 * Disclaimer / claim timing ordering (if present) receives the same basic in/out sanity check
