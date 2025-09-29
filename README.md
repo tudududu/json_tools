@@ -60,9 +60,7 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
 
 ```json
 {
-  "schemaVersion": "v2",
-  "country": "GBR",
-  "metadataGlobal": {"version": 6, "fps": 25},
+  "metadataGlobal": {"schemaVersion": "v2", "country": "GBR", "briefVersion": 6, "fps": 25},
   "claim": {
     "landscape": ["Claim line 1", "Claim line 2"],
     "portrait":  ["Claim line 1", "Claim line 2"]
@@ -102,9 +100,7 @@ Top-level values are simple arrays and only the landscape set is emitted. Video 
 
 ```json
 {
-  "schemaVersion": "v2",
-  "country": "GBR",
-  "metadataGlobal": {"version": 6, "fps": 25, "duration": 30},
+  "metadataGlobal": {"schemaVersion": "v2", "country": "GBR", "briefVersion": 6, "fps": 25, "duration": 30},
   "claim": [ {"line":1, "in":0.0, "out":3.2, "text":"Claim line 1"}, {"line":2, "text":"Claim line 2"} ],
   "disclaimer": [ {"line":1, "in":0.0, "out":29.5, "text":"Disclaimer block"} ],
   "logo": [ {"line":1, "in":29.5, "out":30.0, "text":"Logo text"} ],
@@ -175,7 +171,7 @@ Multi-country output control:
 Validation / inspection:
 * `--validate-only` Parse & validate only (exit code 0 on success, 1 on validation errors)
 * `--dry-run` Summarize countries, videos, line counts; no files written (always exit 0)
-* `--required-global-keys <k1,k2>` Comma list of required keys in `metadataGlobal` (default `version,fps`; empty string disables)
+* `--required-global-keys <k1,k2>` Comma list of required keys in `metadataGlobal` (default `briefVersion,fps`; empty string disables)
 * `--missing-keys-warn` Downgrade missing required keys to warnings (still reported but do not fail)
 * `--validation-report <path>` Emit a JSON validation report (usable with `--validate-only` or `--dry-run`)
 * `--test-mode` Prefix per-video claim/disclaimer text with '<videoId>_' for testing
@@ -197,7 +193,7 @@ The validator performs lightweight structural checks:
 * For timed entries: `in <= out`
 * Monotonic non-overlapping subtitle timing per video (start must be >= previous end)
 * Disclaimer / claim timing ordering (if present) receives the same basic in/out sanity check
-* Global metadata (`metadataGlobal`) – optional enforcement of keys via `--required-global-keys` (default: `version,fps`)
+* Global metadata (`metadataGlobal`) – optional enforcement of keys via `--required-global-keys` (default: `briefVersion,fps`)
 * Missing keys become warnings instead of errors when `--missing-keys-warn` is set
 * Basic shape checks for per‑video objects
 
@@ -215,12 +211,13 @@ Future enhancements could add: duplicate line detection, empty video detection, 
 * Empty or whitespace text rows are skipped unless `--keep-empty-text`.
 * `country_scope=ALL` will broadcast a non-empty first country text to empty country cells on that row.
 * Time rounding is applied after parsing and before string conversion.
-* No redundant `metadata.country` injection—country lives only in the top level of per‑country outputs.
+* Country & schemaVersion are now stored inside `metadataGlobal` (migrated from former top-level keys) and not duplicated.
 * Each written output now includes generation metadata in `metadataGlobal` (or `metadata` in simple shape):
   * `generatedAt` – UTC ISO-8601 timestamp (no microseconds, `Z` suffix)
   * `inputSha256` – SHA-256 checksum of the source CSV
   * `inputFileName` – basename of the input CSV
   * `converterVersion` – resolved value (auto or provided) from `--converter-version` (default `auto` logic)
+  * `schemaVersion`, `country`, `briefVersion` now reside inside `metadataGlobal` instead of top-level (post-migration)
   * `converterCommit` – short git commit hash when repository and `git` available (best-effort)
   * `pythonVersion`, `pythonImplementation`, `platform` – environment/toolchain information
   * `lastChangeId` – first heading line in `CHANGELOG.md` (best-effort)
@@ -251,6 +248,19 @@ python3 python/bump_changelog.py --part patch --commit --tag
 ```
 
 Resolution order for `converterVersion` already aligns with this (the new top heading becomes the version when using `--converter-version auto`).
+
+### Migration (schemaVersion / country relocation & briefVersion key)
+
+As of version 1.3.x the following changes were introduced:
+* `schemaVersion` and `country` moved from top-level into `metadataGlobal`.
+* `version` metadata key has been renamed to `briefVersion` in CSV and output.
+* Default required global keys changed from `version,fps` to `briefVersion,fps`.
+
+If you still have older CSVs providing `version`, either:
+1. Update the CSV header row (`meta_global` entries) to use `briefVersion`, or
+2. Invoke the converter with `--required-global-keys version,fps` for backward compatibility.
+
+Consumers parsing previous top-level fields should now look inside `metadataGlobal` for `schemaVersion` and `country`.
 
 ## Legacy Simple Example
 Input CSV:

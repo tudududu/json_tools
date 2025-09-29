@@ -1,3 +1,16 @@
+# 1.4.0 - 2025-09-29
+
+Migration:
+- Moved `schemaVersion` and `country` into `metadataGlobal` (removed from top-level output).
+- Renamed global metadata key `version` to `briefVersion` to reduce ambiguity with converter or schema versions.
+- Updated default required global keys to `briefVersion,fps`.
+
+# 1.3.3 - 2025-09-29
+
+Added:
+- Fixed the deprecation warning in bump_changelog.py by replacing datetime.utcnow() with a timezone‑aware datetime.now(datetime.UTC) (with a fallback for older Python versions). Dry run shows no warnings now.
+
+
 # 1.3.2 - 2025-09-29
 
 Added an automated CHANGELOG bump script and documented its usage.

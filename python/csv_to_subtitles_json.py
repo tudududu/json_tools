@@ -951,11 +951,13 @@ def convert_csv_to_json(
                     base["claim"] = vobj.get("claim", [])
                 vlist_cast.append(base)
 
+            # Embed schemaVersion & country inside metadataGlobal (do not duplicate at top-level)
+            if "schemaVersion" not in gm_cast:
+                gm_cast["schemaVersion"] = schema_version
+            if "country" not in gm_cast:
+                gm_cast["country"] = c
             if no_orientation:
-                # Legacy flattening: keep only landscape arrays
                 payload = {
-                    "schemaVersion": schema_version,
-                    "country": c,
                     "metadataGlobal": gm_cast,
                     "claim": claim_landscape,
                     "disclaimer": disc_landscape if disc_landscape else [""],
@@ -964,8 +966,6 @@ def convert_csv_to_json(
                 }
             else:
                 payload = {
-                    "schemaVersion": schema_version,
-                    "country": c,
                     "metadataGlobal": gm_cast,
                     "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
                     "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
@@ -1188,7 +1188,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
     p.add_argument("--text-col", help="Override Text column by name or 1-based index", default=None)
     p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
-    p.add_argument("--schema-version", default="v2", help="Schema version tag to embed in unified output (default v2)")
+    p.add_argument("--schema-version", default="v2", help="Schema version tag to use if not supplied via meta_global 'schemaVersion' row (default v2)")
     p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
@@ -1200,8 +1200,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
     p.add_argument(
         "--required-global-keys",
-        default="version,fps",
-        help="Comma-separated list of required keys that must appear in metadataGlobal (default: version,fps). Empty string to disable.",
+        default="briefVersion,fps",
+        help="Comma-separated list of required keys that must appear in metadataGlobal (default: briefVersion,fps). Empty string to disable.",
     )
     p.add_argument("--missing-keys-warn", action="store_true", help="Treat missing required global metadata keys as warnings (do not fail validation)")
     p.add_argument("--validation-report", default=None, help="Write a JSON validation report to this path during --validate-only or --dry-run")
