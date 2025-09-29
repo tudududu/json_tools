@@ -32,6 +32,7 @@ import re
 import copy
 import hashlib
 from datetime import datetime
+import subprocess
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -1208,6 +1209,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
     p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
+    p.add_argument("--converter-version", default="dev", help="Tag identifying this converter build; embedded as converterVersion in metadataGlobal (default: dev)")
 
     args = p.parse_args(argv)
 
@@ -1271,17 +1273,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Normalize to Z suffix and drop microseconds for stability
         timestamp = utc_now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
+        # Attempt to resolve git commit (best-effort, cached)
+        git_commit: Optional[str] = None
+        try:
+            git_commit = subprocess.check_output([
+                'git','rev-parse','--short','HEAD'
+            ], stderr=subprocess.DEVNULL).decode('utf-8').strip() or None
+        except Exception:
+            git_commit = None
+
         def _augment_payload(pld: Dict[str, Any]):
             if "metadataGlobal" in pld and isinstance(pld.get("metadataGlobal"), dict):
                 mg = pld["metadataGlobal"]
                 mg["generatedAt"] = timestamp
                 mg["inputSha256"] = checksum
                 mg.setdefault("inputFileName", os.path.basename(args.input))
+                mg["converterVersion"] = args.converter_version
+                if git_commit and "converterCommit" not in mg:
+                    mg["converterCommit"] = git_commit
             elif "metadata" in pld and isinstance(pld.get("metadata"), dict):  # simple/legacy single output shape
                 mg = pld["metadata"]
                 mg["generatedAt"] = timestamp
                 mg["inputSha256"] = checksum
                 mg.setdefault("inputFileName", os.path.basename(args.input))
+                mg["converterVersion"] = args.converter_version
+                if git_commit and "converterCommit" not in mg:
+                    mg["converterCommit"] = git_commit
 
         # Multi-country wrapper
         if isinstance(obj, dict) and obj.get("_multi") and isinstance(obj.get("byCountry"), dict):

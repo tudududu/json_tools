@@ -165,6 +165,7 @@ Merging / content behavior:
 * `--join-claim` Merge claim rows sharing identical timing into one block
 * `--claims-as-objects` In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array
 * `--cast-metadata` Attempt numeric casting of metadata values (ints / floats)
+* `--sample` Also emit a truncated preview file alongside each output (adds `_sample` before extension). The sample keeps at most: 2 claim lines, 1 disclaimer line, 1 logo line, 2 videos, 5 subtitles per video, 2 claim entries per video (or first two claim_XX objects).
 
 Multi-country output control:
 * `--split-by-country` Write one JSON per country (pattern can include `{country}`)
@@ -186,6 +187,7 @@ Automatic output naming:
 
 Schema tagging:
 * `--schema-version <tag>` Embed schema version string (default `v2`)
+* `--converter-version <tag>` Embed a converter build/version identifier (default `dev`). Also attempts to record the current git short commit if available.
 
 ## Validation Rules
 The validator performs lightweight structural checks:
@@ -213,6 +215,13 @@ Future enhancements could add: duplicate line detection, empty video detection, 
 * `country_scope=ALL` will broadcast a non-empty first country text to empty country cells on that row.
 * Time rounding is applied after parsing and before string conversion.
 * No redundant `metadata.country` injection—country lives only in the top level of per‑country outputs.
+* Each written output now includes generation metadata in `metadataGlobal` (or `metadata` in simple shape):
+  * `generatedAt` – UTC ISO-8601 timestamp (no microseconds, `Z` suffix)
+  * `inputSha256` – SHA-256 checksum of the source CSV
+  * `inputFileName` – basename of the input CSV
+  * `converterVersion` – value from `--converter-version` (default `dev`)
+  * `converterCommit` – short git commit hash when repository and `git` available (best-effort)
+  These are omitted only during `--validate-only` and `--dry-run` since no files are written.
 
 ## Legacy Simple Example
 Input CSV:
