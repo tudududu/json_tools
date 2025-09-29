@@ -173,7 +173,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.date:
         rel_date = args.date
     else:
-        rel_date = _dt.datetime.utcnow().date().isoformat()
+        # Use timezone-aware UTC now (utcnow is deprecated in future Python versions)
+        try:
+            rel_date = _dt.datetime.now(_dt.UTC).date().isoformat()  # type: ignore[attr-defined]
+        except AttributeError:  # older Python fallback
+            from datetime import timezone
+            rel_date = _dt.datetime.now(timezone.utc).date().isoformat()
 
     # Build new heading block
     heading = f"# {new_version} - {rel_date}"
