@@ -33,6 +33,8 @@ import copy
 import hashlib
 from datetime import datetime
 import subprocess
+import sys
+import platform
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -1210,6 +1212,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
     p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
     p.add_argument("--converter-version", default="dev", help="Tag identifying this converter build; embedded as converterVersion in metadataGlobal (default: dev)")
+    p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
 
     args = p.parse_args(argv)
 
@@ -1282,6 +1285,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception:
             git_commit = None
 
+        # Environment / toolchain metadata
+        py_version = sys.version.split()[0]
+        impl = platform.python_implementation()
+        platform_str = platform.platform()
+        # Parse CHANGELOG.md for last change id (first markdown heading or first line containing a version/commit)
+        last_change_id: Optional[str] = None
+        changelog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'CHANGELOG.md')
+        try:
+            if os.path.isfile(changelog_path):
+                with open(changelog_path, 'r', encoding='utf-8') as chf:
+                    for line in chf:
+                        l = line.strip()
+                        if l.startswith('#'):
+                            # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
+                            last_change_id = l.lstrip('#').strip()
+                            break
+                        if l and ('202' in l or '20' in l) and any(c.isdigit() for c in l):
+                            last_change_id = l
+                            break
+        except Exception:
+            last_change_id = None
+
         def _augment_payload(pld: Dict[str, Any]):
             if "metadataGlobal" in pld and isinstance(pld.get("metadataGlobal"), dict):
                 mg = pld["metadataGlobal"]
@@ -1291,6 +1316,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 mg["converterVersion"] = args.converter_version
                 if git_commit and "converterCommit" not in mg:
                     mg["converterCommit"] = git_commit
+                # Environment/toolchain
+                mg.setdefault("pythonVersion", py_version)
+                mg.setdefault("pythonImplementation", impl)
+                mg.setdefault("platform", platform_str)
+                if last_change_id and "lastChangeId" not in mg:
+                    mg["lastChangeId"] = last_change_id
             elif "metadata" in pld and isinstance(pld.get("metadata"), dict):  # simple/legacy single output shape
                 mg = pld["metadata"]
                 mg["generatedAt"] = timestamp
@@ -1299,6 +1330,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 mg["converterVersion"] = args.converter_version
                 if git_commit and "converterCommit" not in mg:
                     mg["converterCommit"] = git_commit
+                mg.setdefault("pythonVersion", py_version)
+                mg.setdefault("pythonImplementation", impl)
+                mg.setdefault("platform", platform_str)
+                if last_change_id and "lastChangeId" not in mg:
+                    mg["lastChangeId"] = last_change_id
 
         # Multi-country wrapper
         if isinstance(obj, dict) and obj.get("_multi") and isinstance(obj.get("byCountry"), dict):
@@ -1310,7 +1346,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 _augment_payload(obj)
 
     # Only inject when we are actually writing outputs (skip validate-only / dry-run)
-    if not (hasattr(args, 'validate_only') and args.validate_only) and not (hasattr(args, 'dry_run') and args.dry_run):
+    if (not args.no_generation_meta) and (not getattr(args, 'validate_only', False)) and (not getattr(args, 'dry_run', False)):
         _inject_generation_metadata(data)
 
     # Basic validation helper

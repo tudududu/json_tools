@@ -188,6 +188,7 @@ Automatic output naming:
 Schema tagging:
 * `--schema-version <tag>` Embed schema version string (default `v2`)
 * `--converter-version <tag>` Embed a converter build/version identifier (default `dev`). Also attempts to record the current git short commit if available.
+* `--no-generation-meta` Disable automatic injection of generation metadata (useful for deterministic diffing without volatile fields).
 
 ## Validation Rules
 The validator performs lightweight structural checks:
@@ -221,7 +222,12 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   * `inputFileName` – basename of the input CSV
   * `converterVersion` – value from `--converter-version` (default `dev`)
   * `converterCommit` – short git commit hash when repository and `git` available (best-effort)
+  * `pythonVersion`, `pythonImplementation`, `platform` – environment/toolchain information
+  * `lastChangeId` – first heading line in `CHANGELOG.md` (best-effort)
   These are omitted only during `--validate-only` and `--dry-run` since no files are written.
+  Use `--no-generation-meta` to suppress all of the above for reproducible snapshots.
+
+* A `CHANGELOG.md` file tracks recent changes; `lastChangeId` references its latest heading.
 
 ## Legacy Simple Example
 Input CSV:
