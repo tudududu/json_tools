@@ -1,8 +1,13 @@
-# 1.3.0 - 2025-09-29
+# 1.3.2 - 2025-09-29
 
-Enhancements after 1.3.0 (unreleased):
+Added an automated CHANGELOG bump script and documented its usage.
+
+# 1.3.1 - 2025-09-29
+
+Changes:
 - Added automatic converter version derivation when `--converter-version auto` (default) using: env var CONVERTER_VERSION > CHANGELOG heading > latest git tag > 0.0.0+<shortcommit> > dev fallback.
 
+# 1.3.0 - 2025-09-29
 Added features:
 - --sample flag to generate truncated preview JSON alongside outputs
 - Generation metadata: generatedAt, inputSha256, inputFileName, converterVersion, converterCommit

@@ -229,6 +229,29 @@ Future enhancements could add: duplicate line detection, empty video detection, 
 
 * A `CHANGELOG.md` file tracks recent changes; `lastChangeId` references its latest heading.
 
+### CHANGELOG Auto-Bump Helper
+
+Use `python3 python/bump_changelog.py` to prepend a new version heading automatically. Examples:
+
+```
+# Bump patch (e.g., 1.3.0 -> 1.3.1)
+python3 python/bump_changelog.py --part patch
+
+# Explicit version
+python3 python/bump_changelog.py --set 1.4.0
+
+# Pre-release
+python3 python/bump_changelog.py --part minor --pre rc1
+
+# Dry run (no file write)
+python3 python/bump_changelog.py --part patch --dry-run
+
+# Create git commit + tag
+python3 python/bump_changelog.py --part patch --commit --tag
+```
+
+Resolution order for `converterVersion` already aligns with this (the new top heading becomes the version when using `--converter-version auto`).
+
 ## Legacy Simple Example
 Input CSV:
 ```
