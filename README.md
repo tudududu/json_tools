@@ -187,7 +187,7 @@ Automatic output naming:
 
 Schema tagging:
 * `--schema-version <tag>` Embed schema version string (default `v2`)
-* `--converter-version <tag>` Embed a converter build/version identifier (default `dev`). Also attempts to record the current git short commit if available.
+* `--converter-version <tag>` Embed a converter build/version identifier (default `auto`). When left as `auto` (or `dev`), the tool derives a version in this order: (1) `CONVERTER_VERSION` env var, (2) first heading in `CHANGELOG.md`, (3) latest git tag, (4) `0.0.0+<shortcommit>`, else falls back to `dev`. The git short commit is still recorded separately as `converterCommit` when available.
 * `--no-generation-meta` Disable automatic injection of generation metadata (useful for deterministic diffing without volatile fields).
 
 ## Validation Rules
@@ -220,7 +220,7 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   * `generatedAt` – UTC ISO-8601 timestamp (no microseconds, `Z` suffix)
   * `inputSha256` – SHA-256 checksum of the source CSV
   * `inputFileName` – basename of the input CSV
-  * `converterVersion` – value from `--converter-version` (default `dev`)
+  * `converterVersion` – resolved value (auto or provided) from `--converter-version` (default `auto` logic)
   * `converterCommit` – short git commit hash when repository and `git` available (best-effort)
   * `pythonVersion`, `pythonImplementation`, `platform` – environment/toolchain information
   * `lastChangeId` – first heading line in `CHANGELOG.md` (best-effort)

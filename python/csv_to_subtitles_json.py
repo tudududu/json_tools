@@ -1211,10 +1211,66 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
     p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
-    p.add_argument("--converter-version", default="dev", help="Tag identifying this converter build; embedded as converterVersion in metadataGlobal (default: dev)")
+    p.add_argument("--converter-version", default="auto", help=(
+        "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
+        "1) CONVERTER_VERSION env var, 2) first heading in CHANGELOG.md, 3) latest git tag, 4) '0.0.0+<shortcommit>', else 'dev'."
+    ))
     p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
 
     args = p.parse_args(argv)
+
+    # Auto-derive converter version when user leaves default (auto/dev/empty)
+    def _auto_version() -> str:
+        # 1) Environment variable override
+        env_val = os.getenv("CONVERTER_VERSION")
+        if env_val and env_val.strip():
+            return env_val.strip()
+        # 2) CHANGELOG first heading (semantic-ish token at start of line after '#')
+        changelog_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "CHANGELOG.md")
+        try:
+            if os.path.isfile(changelog_path):
+                with open(changelog_path, "r", encoding="utf-8") as chf:
+                    for line in chf:
+                        l = line.strip()
+                        if l.startswith('#'):
+                            # Extract first token after '#'
+                            heading = l.lstrip('#').strip()
+                            # Common forms: "1.3.1 - 2025-09-29" or "[1.3.1]" etc.
+                            m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
+                            if m:
+                                return m.group(1)
+                            # Fallback: take first contiguous non-space chunk
+                            token = heading.split()[0]
+                            if re.match(r"v?[0-9]+\.[0-9]+(\.[0-9]+)?", token):
+                                return token.lstrip('v')
+                            break
+        except Exception:
+            pass
+        # 3) Latest git tag
+        try:
+            import subprocess  # local import to avoid cost when unused
+            tag = subprocess.check_output(['git','describe','--tags','--abbrev=0'], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+            if tag:
+                # Normalize leading 'v'
+                return tag[1:] if tag.startswith('v') else tag
+        except Exception:
+            pass
+        # 4) Short commit hash appended to 0.0.0+
+        try:
+            import subprocess
+            sc = subprocess.check_output(['git','rev-parse','--short','HEAD'], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+            if sc:
+                return f"0.0.0+{sc}"
+        except Exception:
+            pass
+        return "dev"
+
+    if args.converter_version in ("auto", "dev", "", None):  # type: ignore[arg-type]
+        try:
+            args.converter_version = _auto_version()
+        except Exception:
+            # Leave as 'dev' if anything unexpected occurs
+            args.converter_version = "dev"
 
     if args.auto_output:
         in_base = os.path.splitext(os.path.basename(args.input))[0]
