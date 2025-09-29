@@ -1261,7 +1261,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             checksum = h.hexdigest()
         except Exception:
             checksum = ""
-        timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        # Use timezone-aware UTC timestamp (utcnow is deprecated in upcoming Python versions)
+        try:
+            # Python 3.11+ provides datetime.UTC
+            utc_now = datetime.now(datetime.UTC)  # type: ignore[attr-defined]
+        except AttributeError:  # Fallback for older Python versions
+            from datetime import timezone
+            utc_now = datetime.now(timezone.utc)
+        # Normalize to Z suffix and drop microseconds for stability
+        timestamp = utc_now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
         def _augment_payload(pld: Dict[str, Any]):
             if "metadataGlobal" in pld and isinstance(pld.get("metadataGlobal"), dict):
