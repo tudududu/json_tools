@@ -36,6 +36,9 @@
     var APPEND_SUFFIX = "_OUT";                   // Suffix for delivery/export comps
     var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
     var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
+    var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
+    var DEBUG_NAMING = false;                      // When true: verbose logging for each token
+    var DATA_JSON_PRIMARY_NAME = 'data.json';      // Primary expected data JSON name
 
     // --------------------------------------------------------------
     // OUTPUT NAME CONFIG (modular token-based name builder)
@@ -207,6 +210,32 @@
         return parseJSONSafe(txt);
     }
 
+    function tryLoadAnyDataJSON() {
+        // Scan project for any .json footage with metadataGlobal/meta_global keys
+        var best = null;
+        for (var i = 1; i <= proj.numItems; i++) {
+            var it = proj.items[i];
+            if (!(it instanceof FootageItem)) continue;
+            var nm = String(it.name || '');
+            if (nm.toLowerCase().indexOf('.json') === -1) continue;
+            var f = null; try { f = it.mainSource.file; } catch (eF) {}
+            if (!f || !f.exists) continue;
+            var txt = readTextFile(f);
+            if (!txt) continue;
+            var parsed = parseJSONSafe(txt);
+            if (!parsed) continue;
+            if (parsed.metadataGlobal || parsed.meta_global) {
+                // prefer one with more videos entries
+                if (!best) best = { data: parsed, name: nm, videos: (parsed.videos && parsed.videos.length) ? parsed.videos.length : 0 };
+                else {
+                    var count = (parsed.videos && parsed.videos.length) ? parsed.videos.length : 0;
+                    if (count > best.videos) best = { data: parsed, name: nm, videos: count };
+                }
+            }
+        }
+        return best;
+    }
+
     function pad2(n) { n = parseInt(n,10); if (isNaN(n)) return '00'; return (n < 10 ? '0' + n : '' + n); }
 
     function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=a%b; a=b; b=t;} return a||1; }
@@ -292,8 +321,8 @@
                 var yy = now.getFullYear() % 100;
                 var dd = now.getDate();
                 var mm = now.getMonth()+1; // 1-based
-                // Format YYDDMM per spec (note: uncommon ordering)
-                return pad2(yy) + pad2(dd) + pad2(mm);
+                // Corrected to YYMMDD (Year, Month, Day)
+                return pad2(yy) + pad2(mm) + pad2(dd);
             case 'VERSION':
                 var bv = meta && meta.briefVersion ? String(meta.briefVersion) : null;
                 if(!bv) return '';
@@ -329,6 +358,7 @@
             var tk = OUTPUT_NAME_TOKENS[i];
             if(!tk.enabled) continue;
             var val = buildTokenValue(tk.key, ctx);
+            if(DEBUG_NAMING) log("Token " + tk.key + " => '" + val + "'");
             if(!val){ if(OUTPUT_NAME_CONFIG.skipEmpty) continue; else val=''; }
             parts.push(val);
         }
@@ -358,9 +388,13 @@
     var created = 0;
     var skipped = [];
     log("Output root located at path: " + OUTPUT_ROOT_PATH.join("/"));
-    // Load JSON once for naming (expects a footage item named 'data.json')
-    var jsonData = loadProjectJSONByName('data.json');
-    if(!jsonData) log("Naming: JSON 'data.json' not found or failed to parse. Output names will fallback.");
+    // Load JSON once for naming (primary + fallback scan)
+    var jsonData = loadProjectJSONByName(DATA_JSON_PRIMARY_NAME);
+    if(!jsonData){
+        var alt = tryLoadAnyDataJSON();
+        if(alt){ jsonData = alt.data; log("Naming: primary '"+DATA_JSON_PRIMARY_NAME+"' not found; using '"+alt.name+"' with "+alt.videos+" video entries."); }
+        else { log("Naming: no suitable data JSON found (looked for '"+DATA_JSON_PRIMARY_NAME+"')."); }
+    } else { if(jsonData && jsonData.metadataGlobal) { var mg = jsonData.metadataGlobal; log("Naming JSON loaded: client=" + (mg.client||'') + ", campaign=" + (mg.campaign||'') + ", briefVersion=" + (mg.briefVersion||'') ); } }
 
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
@@ -368,7 +402,14 @@
 
         // Determine destination folder early (so we can test existence)
         var relSegs = relativeSegmentsAfterAnchor(item, ANCHOR_SOURCE_FOLDER.toLowerCase());
-        var destFolder = relSegs.length ? ensurePath(outputRoot, relSegs) : outputRoot;
+        // Destination folder (avoid mutating project in dry-run)
+        var destFolder = null;
+        if(DRY_RUN_MODE){
+            // Attempt to locate existing folder chain without creating
+            destFolder = outputRoot; // best-effort: we won't traverse creation to avoid complexity
+        } else {
+            destFolder = relSegs.length ? ensurePath(outputRoot, relSegs) : outputRoot;
+        }
         var expectedBaseName = buildOutputCompName(item, jsonData);
         if(!expectedBaseName){
             expectedBaseName = baseOutputName(item.name); // fallback to original behavior
@@ -384,7 +425,7 @@
         }
 
         // Check if an output comp already exists with the expected base name (without uniqueness increment)
-        if (SKIP_IF_OUTPUT_ALREADY_EXISTS) {
+        if (SKIP_IF_OUTPUT_ALREADY_EXISTS && !DRY_RUN_MODE) {
             var foundExisting = false;
             try {
                 for (var di = 1; di <= destFolder.numItems; di++) {
@@ -397,6 +438,11 @@
                 log("Skip: export already exists as '" + expectedBaseName + "' in folder '" + destFolder.name + "'");
                 continue;
             }
+        }
+
+        if(DRY_RUN_MODE){
+            log("DRY-RUN: would create export comp '" + expectedBaseName + "' (rel path: " + (relSegs.length?relSegs.join('/'):'(root)') + ")");
+            continue; // do not actually create
         }
 
         // Create new export comp (not duplicate) using same settings
