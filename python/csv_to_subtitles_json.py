@@ -319,6 +319,8 @@ def convert_csv_to_json(
             return float(val)
 
         global_meta: Dict[str, Any] = {}
+        # Per-country overrides for certain meta_global keys (currently jobNumber)
+        job_number_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
         # Intermediate containers before splitting per country
@@ -388,7 +390,20 @@ def convert_csv_to_json(
             if rt in ("meta_global", "meta-global"):
                 if not key_name:
                     continue
-                # If any country-specific value exists use first; otherwise metadata column
+                # Special handling for per-country jobNumber overrides:
+                if key_name == "jobNumber":
+                    # For each country pick first non-empty among landscape / portrait text cells, else metadata cell
+                    # If only metadata cell provided (and no per-country text), propagate to all countries.
+                    for c in countries:
+                        per_country_val = (texts.get(c, "") or texts_portrait.get(c, "")).strip()
+                        if per_country_val:
+                            job_number_per_country[c] = per_country_val
+                    if metadata_cell_val and not job_number_per_country:
+                        for c in countries:
+                            job_number_per_country[c] = metadata_cell_val
+                    # Do not store a single global jobNumber in global_meta; it will be injected per country later.
+                    continue
+                # Generic meta_global: pick first non-empty per-country value else metadata column
                 country_val = next((texts[c] for c in countries if texts[c]), "")
                 value = country_val or metadata_cell_val
                 if value != "":
@@ -929,6 +944,9 @@ def convert_csv_to_json(
                 return value
 
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
+            # Inject per-country jobNumber override if present
+            if job_number_per_country.get(c):
+                gm_cast["jobNumber"] = job_number_per_country[c]
             # Remove orientation key from global metadata (orientation now structural)
             gm_cast.pop("orientation", None)
 
