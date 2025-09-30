@@ -20,7 +20,27 @@
 (function packOutputComps() {
     app.beginUndoGroup("Pack Output Comps");
 
-    function log(msg) { try { $.writeln(msg); } catch (e) {} }
+    // Logging configuration (added for debug visibility outside AE's internal console)
+    var ENABLE_FILE_LOG = true;                 // Write log lines to a file
+    // Use fsName to convert Folder object to a native path string; fallback to temp if desktop fails
+    var LOG_FILE_PATH = (function(){ try { return Folder.desktop.fsName + "/pack_output_comps_debug.log"; } catch(e){ try { return Folder.temp.fsName + "/pack_output_comps_debug.log"; } catch(e2){ return "pack_output_comps_debug.log"; } } })();
+    var APPEND_LOG_FILE = false;                // When false, overwrite each run
+    var __logFile = null;
+    if (ENABLE_FILE_LOG) {
+        try {
+            __logFile = new File(LOG_FILE_PATH);
+            if (!APPEND_LOG_FILE && __logFile.exists) { __logFile.remove(); }
+            if (!__logFile.exists) { __logFile.open('w'); __logFile.close(); }
+        } catch (eLFInit) {}
+    }
+    function log(msg) {
+        try { $.writeln(msg); } catch (e1) {}
+        if (ENABLE_FILE_LOG && __logFile) {
+            try {
+                if (__logFile.open('a')) { __logFile.write(msg + "\n"); __logFile.close(); }
+            } catch (eLF) {}
+        }
+    }
     function alertOnce(msg) { try { alert(msg); } catch (e) {} }
 
     var proj = app.project;
@@ -36,8 +56,8 @@
     var APPEND_SUFFIX = "_OUT";                   // Suffix for delivery/export comps
     var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
     var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
-    var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
-    var DEBUG_NAMING = false;                      // When true: verbose logging for each token
+    var DRY_RUN_MODE = true;                      // When true: do NOT create folders or comps; only log what would happen
+    var DEBUG_NAMING = true;                      // When true: verbose logging for each token
     var DATA_JSON_PRIMARY_NAME = 'data.json';      // Primary expected data JSON name
 
     // --------------------------------------------------------------
