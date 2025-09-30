@@ -285,6 +285,50 @@ If `GBR` and `SAU` have explicit per-country entries, they use those; `DEU` (emp
 
 If you need to detect whether a value was truly supplied vs. absent, treat `"noJobNumber"` as the sentinel for "not provided".
 
+### Per-Country meta_local Flags: `disclaimer_flag` / `subtitle_flag` (CSV to JSON 42, 43)
+
+Certain `meta_local` keys now support per-country values rather than a single shared value:
+
+* `disclaimer_flag`
+* `subtitle_flag`
+
+How it works:
+1. For these keys, the parser reads the per-country landscape / portrait text cells on the `meta_local` row. The first non-empty orientation cell becomes that country’s value.
+2. If both orientation cells are empty for a country but the legacy `metadata` fallback column has a value, that fallback is used for that country.
+3. Values are stored per video and injected into each duplicated video metadata object (landscape & portrait) without being overwritten by a global shared value.
+4. `country_scope` is ignored for these keys (previous sheets sometimes used `ALL` with broadcast semantics; real per-country content now wins).
+
+Example simplified row (semicolons omitted for brevity):
+```
+meta_local;SomeVideo;;;;disclaimer_flag;N;;;Y;;Y;;Y;
+```
+Will result in `"disclaimer_flag": "Y"` in `metadata` for each country’s `SomeVideo_landscape` / `SomeVideo_portrait` objects.
+
+Fallback precedence (per key, per country):
+1. Per-country landscape / portrait cell (landscape preferred only because it’s checked first; portrait used if landscape empty and portrait non-empty).
+2. Metadata fallback column value.
+3. (No sentinel added here—key simply omitted for that video & country if no value was ever provided.)
+
+Other `meta_local` keys continue to behave as before: the first non-empty per-country cell (any country) or the metadata column value becomes a single shared metadata value across all countries for the video.
+
+Consumer guidance: Treat absence of these keys as `false` / disabled; treat presence with any non-empty value (e.g. `Y`) as enabled.
+
+### Helper: Inspecting Flags & Job Numbers Safely
+
+To avoid brittle ad-hoc greps (and terminal line-wrap issues), use the helper:
+
+```sh
+python3 python/tools/inspect_flags.py out/v14_test_*.json --per-video
+```
+
+By default it reports `disclaimer_flag`, `subtitle_flag`, and `jobNumber`. Customize:
+
+```sh
+python3 python/tools/inspect_flags.py out/v14_test_GBR.json --keys disclaimer_flag,subtitle_flag --per-video
+```
+
+Add `--show-missing` to list keys that are absent. You can pass directories or mixed glob patterns.
+
 ## Legacy Simple Example
 Input CSV:
 ```

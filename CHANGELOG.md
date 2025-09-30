@@ -1,3 +1,14 @@
+# 1.4.2 - 2025-09-30
+
+Added:
+- Per-country `meta_local` handling for `disclaimer_flag` and `subtitle_flag` (CSV to JSON 42/43):
+	* These keys are now read from the per-country text (landscape/portrait) columns on their `meta_local` rows.
+	* Previous behavior treated `disclaimer_flag` as (in some sheets) broadcast via `country_scope=ALL`; now the parser ignores `country_scope` for these keys and records actual per-country values.
+	* Each video’s `metadata` now includes `disclaimer_flag` / `subtitle_flag` per country (before orientation duplication), without overwriting any existing global values for the same key.
+	* Fallback: if both per-country orientation cells are empty but the legacy `metadata` column has a value, that value is used for countries still missing one.
+	* Other `meta_local` keys continue to use the first non-empty per-country value (or metadata cell) as a shared value.
+		* Added helper script `python/tools/inspect_flags.py` to simplify inspection of these flags and `jobNumber` across generated JSON outputs.
+
 # 1.4.1 - 2025-09-30
 
 Added:
