@@ -35,6 +35,7 @@
     var SKIP_IF_ALREADY_IN_OUTPUT = true;          // Avoid recursion
     var APPEND_SUFFIX = "_OUT";                   // Suffix for delivery/export comps
     var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
+    var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // NEW: If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -152,13 +153,39 @@
     var outputRoot = ensureOutputRoot();
     var created = 0;
     var skipped = [];
+    log("Output root located at path: " + OUTPUT_ROOT_PATH.join("/"));
 
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
-        if (!(item instanceof CompItem)) { skipped.push(item.name + " (not comp)"); continue; }
+        if (!(item instanceof CompItem)) { skipped.push(item.name + " (not comp)" ); log("Skip: '"+item.name+"' not a comp"); continue; }
+
+        // Determine destination folder early (so we can test existence)
+        var relSegs = relativeSegmentsAfterAnchor(item, ANCHOR_SOURCE_FOLDER.toLowerCase());
+        var destFolder = relSegs.length ? ensurePath(outputRoot, relSegs) : outputRoot;
+        var expectedBaseName = baseOutputName(item.name);
+
+        log("Considering: '" + item.name + "' -> dest path segments: " + (relSegs.length ? relSegs.join("/") : "(root)") + ", expected output name: " + expectedBaseName);
+
         if (SKIP_IF_ALREADY_IN_OUTPUT && (isDescendantOf(item, outputRoot) || isInOutputPath(item))) {
             skipped.push(item.name + " (already in output)");
+            log("Skip: source comp already under output root -> '"+item.name+"'");
             continue;
+        }
+
+        // Check if an output comp already exists with the expected base name (without uniqueness increment)
+        if (SKIP_IF_OUTPUT_ALREADY_EXISTS) {
+            var foundExisting = false;
+            try {
+                for (var di = 1; di <= destFolder.numItems; di++) {
+                    var dfItem = destFolder.items[di];
+                    if (dfItem instanceof CompItem && String(dfItem.name) === expectedBaseName) { foundExisting = true; break; }
+                }
+            } catch (eChk) { log("Existence check error for '"+item.name+"': " + eChk); }
+            if (foundExisting) {
+                skipped.push(item.name + " (export exists)");
+                log("Skip: export already exists as '" + expectedBaseName + "' in folder '" + destFolder.name + "'");
+                continue;
+            }
         }
 
         // Create new export comp (not duplicate) using same settings
@@ -166,18 +193,16 @@
         try { if (item.pixelAspect) pa = item.pixelAspect; } catch (ePA) {}
         if (!fps || fps <= 0) fps = 25;
         if (!dur || dur <= 0) dur = 1;
-        var outName = makeUniqueName(baseOutputName(item.name));
+        var outName = makeUniqueName(expectedBaseName);
         var exportComp = null;
-        try { exportComp = proj.items.addComp(outName, w, h, pa, dur, fps); } catch (eAdd) { skipped.push(item.name + " (create failed)" ); continue; }
-        if (!exportComp) { skipped.push(item.name + " (create null)" ); continue; }
+        try { exportComp = proj.items.addComp(outName, w, h, pa, dur, fps); } catch (eAdd) { skipped.push(item.name + " (create failed)" ); log("Create failed for '"+item.name+"': "+eAdd); continue; }
+        if (!exportComp) { skipped.push(item.name + " (create null)" ); log("Create returned null for '"+item.name+"'"); continue; }
         try { exportComp.displayStartTime = item.displayStartTime; } catch (eDST) {}
 
         // Add the source comp as a layer (precomp inclusion)
         try { exportComp.layers.add(item); } catch (eLayer) { log("Layer add failed for " + outName + ": " + eLayer); }
 
-        // Determine relative subpath after anchor
-        var relSegs = relativeSegmentsAfterAnchor(item, ANCHOR_SOURCE_FOLDER.toLowerCase());
-        var destFolder = relSegs.length ? ensurePath(outputRoot, relSegs) : outputRoot;
+        // Assign destination folder (already ensured)
         try { exportComp.parentFolder = destFolder; } catch (ePF) {}
 
         created++;
