@@ -100,6 +100,23 @@
         return false;
     }
 
+    // More robust check: item is inside a folder named 'out' whose direct parent is named 'project' (case-insensitive)
+    function isInOutputPath(item) {
+        if (!item) return false;
+        try {
+            var f = item.parentFolder;
+            while (f && f !== proj.rootFolder) {
+                var fname = String(f.name || "").toLowerCase();
+                if (fname === "out") {
+                    var parent = f.parentFolder;
+                    if (parent && String(parent.name || "").toLowerCase() === "project") return true;
+                }
+                f = f.parentFolder;
+            }
+        } catch (e) {}
+        return false;
+    }
+
     function baseOutputName(sourceName) {
         var nm = String(sourceName || "");
         var suffix = APPEND_SUFFIX;
@@ -139,7 +156,10 @@
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
         if (!(item instanceof CompItem)) { skipped.push(item.name + " (not comp)"); continue; }
-        if (SKIP_IF_ALREADY_IN_OUTPUT && isDescendantOf(item, outputRoot)) { skipped.push(item.name + " (already in output)" ); continue; }
+        if (SKIP_IF_ALREADY_IN_OUTPUT && (isDescendantOf(item, outputRoot) || isInOutputPath(item))) {
+            skipped.push(item.name + " (already in output)");
+            continue;
+        }
 
         // Create new export comp (not duplicate) using same settings
         var w = item.width, h = item.height, dur = item.duration, fps = item.frameRate, pa = 1.0;
