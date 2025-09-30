@@ -98,7 +98,7 @@
     //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
     //  - A literal layer name (case-insensitive exact) matched directly
     // Disclaimer layers remain handled separately to preserve JSON gating behavior.
-    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
+    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtit", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
