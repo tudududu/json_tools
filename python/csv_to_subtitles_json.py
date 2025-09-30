@@ -392,15 +392,26 @@ def convert_csv_to_json(
                     continue
                 # Special handling for per-country jobNumber overrides:
                 if key_name == "jobNumber":
-                    # For each country pick first non-empty among landscape / portrait text cells, else metadata cell
-                    # If only metadata cell provided (and no per-country text), propagate to all countries.
+                    # Precedence rules (CSV to JSON 39):
+                    # 1. Use a country-specific jobNumber value if any (from landscape/portrait text cells)
+                    # 2. Else use the metadata cell value (global fallback) for that country
+                    # 3. Else explicitly set empty string so key is still emitted later
                     for c in countries:
                         per_country_val = (texts.get(c, "") or texts_portrait.get(c, "")).strip()
                         if per_country_val:
                             job_number_per_country[c] = per_country_val
-                    if metadata_cell_val and not job_number_per_country:
+                        else:
+                            # Will fill from metadata cell (same for all) or empty after loop
+                            job_number_per_country.setdefault(c, None)  # placeholder
+                    # Apply metadata cell fallback for any country still unset / None
+                    if metadata_cell_val:
                         for c in countries:
-                            job_number_per_country[c] = metadata_cell_val
+                            if job_number_per_country.get(c) in (None, ""):
+                                job_number_per_country[c] = metadata_cell_val
+                    # Final pass: ensure empty string for any remaining None so key is always present
+                    for c in countries:
+                        if job_number_per_country.get(c) is None:
+                            job_number_per_country[c] = ""
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
                     continue
                 # Generic meta_global: pick first non-empty per-country value else metadata column
@@ -945,8 +956,11 @@ def convert_csv_to_json(
 
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
             # Inject per-country jobNumber override if present
-            if job_number_per_country.get(c):
+            # Always add jobNumber key (even if empty) using precedence already resolved during meta_global parsing
+            if c in job_number_per_country:
                 gm_cast["jobNumber"] = job_number_per_country[c]
+            else:
+                gm_cast.setdefault("jobNumber", "")
             # Remove orientation key from global metadata (orientation now structural)
             gm_cast.pop("orientation", None)
 

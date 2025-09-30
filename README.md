@@ -262,6 +262,26 @@ If you still have older CSVs providing `version`, either:
 
 Consumers parsing previous top-level fields should now look inside `metadataGlobal` for `schemaVersion` and `country`.
 
+### Per-Country jobNumber Override (CSV to JSON 39)
+
+`jobNumber` is now always emitted inside `metadataGlobal` for every country, even when no value was present in the CSV (in which case it is an empty string `""`). The precedence rules when deriving each country's `jobNumber` are:
+
+1. Country-specific value from the per-country landscape/portrait text cells on a `meta_global` row whose key is `jobNumber` (first non-empty among the two orientation cells).
+2. Otherwise, the fallback `metadata` column value on that same row (applied uniformly to all countries still lacking a per-country value).
+3. If neither (1) nor (2) provides a value, an empty string is set so downstream systems can rely on the key's existence.
+
+This fixes a previous edge case where a single populated country-specific cell would suppress a global fallback and omit `jobNumber` entirely for other countries. Now those other countries inherit the global value (if any) or get `""`.
+
+Example `meta_global` row (simplified):
+
+```
+meta_global,,, , ,jobNumber,,,GLOBAL123,GBR_DEU_value,,SAU_value
+```
+
+If `GBR` and `SAU` have explicit per-country entries, they use those; `DEU` (empty) receives `GLOBAL123` from the metadata column. All three outputs will include a `jobNumber` key.
+
+If you need to detect whether a value was truly supplied vs. empty, treat empty string as "absent" semantically.
+
 ## Legacy Simple Example
 Input CSV:
 ```
