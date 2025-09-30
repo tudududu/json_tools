@@ -1,3 +1,11 @@
+# 1.4.1 - 2025-09-30
+
+Added:
+### New keys: jobNumber, brand (CSV to JSON 38, 39, 40)
+`schemaVersion` row at line 2 is still recognized (no special change needed beyond using its meta_global value, which we already did).
+New meta_global key `brand` is captured automatically (generic handling).
+New meta_global key `jobNumber` now supports per‑country overrides
+
 # 1.4.0 - 2025-09-29
 
 Migration:

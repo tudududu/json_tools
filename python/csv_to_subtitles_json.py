@@ -408,10 +408,10 @@ def convert_csv_to_json(
                         for c in countries:
                             if job_number_per_country.get(c) in (None, ""):
                                 job_number_per_country[c] = metadata_cell_val
-                    # Final pass: ensure empty string for any remaining None so key is always present
+                    # Final pass: ensure sentinel value 'noJobNumber' for any remaining None so key is always present
                     for c in countries:
                         if job_number_per_country.get(c) is None:
-                            job_number_per_country[c] = ""
+                            job_number_per_country[c] = "noJobNumber"
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
                     continue
                 # Generic meta_global: pick first non-empty per-country value else metadata column
@@ -960,7 +960,7 @@ def convert_csv_to_json(
             if c in job_number_per_country:
                 gm_cast["jobNumber"] = job_number_per_country[c]
             else:
-                gm_cast.setdefault("jobNumber", "")
+                gm_cast.setdefault("jobNumber", "noJobNumber")
             # Remove orientation key from global metadata (orientation now structural)
             gm_cast.pop("orientation", None)
 

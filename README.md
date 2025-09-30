@@ -262,15 +262,18 @@ If you still have older CSVs providing `version`, either:
 
 Consumers parsing previous top-level fields should now look inside `metadataGlobal` for `schemaVersion` and `country`.
 
-### Per-Country jobNumber Override (CSV to JSON 39)
+### Per-Country jobNumber Override (CSV to JSON 38, 39, 40)
+`schemaVersion` row at line 2 is still recognized (no special change needed beyond using its meta_global value, which we already did).
+New meta_global key `brand` is captured automatically (generic handling).
+New meta_global key `jobNumber` now supports per‑country overrides
 
-`jobNumber` is now always emitted inside `metadataGlobal` for every country, even when no value was present in the CSV (in which case it is an empty string `""`). The precedence rules when deriving each country's `jobNumber` are:
+`jobNumber` is now always emitted inside `metadataGlobal` for every country. When no value is supplied it is set to the sentinel `"noJobNumber"` (CSV to JSON 40; previously an empty string). The precedence rules when deriving each country's `jobNumber` are:
 
 1. Country-specific value from the per-country landscape/portrait text cells on a `meta_global` row whose key is `jobNumber` (first non-empty among the two orientation cells).
 2. Otherwise, the fallback `metadata` column value on that same row (applied uniformly to all countries still lacking a per-country value).
-3. If neither (1) nor (2) provides a value, an empty string is set so downstream systems can rely on the key's existence.
+3. If neither (1) nor (2) provides a value, the sentinel `"noJobNumber"` is set so downstream systems can rely on the key's existence.
 
-This fixes a previous edge case where a single populated country-specific cell would suppress a global fallback and omit `jobNumber` entirely for other countries. Now those other countries inherit the global value (if any) or get `""`.
+This fixes a previous edge case where a single populated country-specific cell would suppress a global fallback and omit `jobNumber` entirely for other countries. Now those other countries inherit the global value (if any) or get `"noJobNumber"`.
 
 Example `meta_global` row (simplified):
 
@@ -280,7 +283,7 @@ meta_global,,, , ,jobNumber,,,GLOBAL123,GBR_DEU_value,,SAU_value
 
 If `GBR` and `SAU` have explicit per-country entries, they use those; `DEU` (empty) receives `GLOBAL123` from the metadata column. All three outputs will include a `jobNumber` key.
 
-If you need to detect whether a value was truly supplied vs. empty, treat empty string as "absent" semantically.
+If you need to detect whether a value was truly supplied vs. absent, treat `"noJobNumber"` as the sentinel for "not provided".
 
 ## Legacy Simple Example
 Input CSV:
