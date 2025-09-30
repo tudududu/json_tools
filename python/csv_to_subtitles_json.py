@@ -323,6 +323,8 @@ def convert_csv_to_json(
         job_number_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
+        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag)
+        per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Intermediate containers before splitting per country
         claims_rows: List[Dict[str, Any]] = []  # global claim rows
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
@@ -426,10 +428,26 @@ def convert_csv_to_json(
                 if video_id not in videos:
                     videos[video_id] = {"metadata": {}, "sub_rows": []}
                     video_order.append(video_id)
-                country_val = next((texts[c] for c in countries if texts[c]), "")
-                value = country_val or metadata_cell_val
-                if value != "":
-                    videos[video_id]["metadata"][key_name] = value
+                key_lower = key_name.lower()
+                # Special per-country meta_local keys: collect values per country instead of a single shared one
+                if key_lower in {"disclaimer_flag", "subtitle_flag"}:
+                    if video_id not in per_video_meta_local_country:
+                        per_video_meta_local_country[video_id] = {}
+                    # For each country, pick per-country landscape/portrait cell (first non-empty among them)
+                    for c in countries:
+                        val = (texts.get(c, "") or texts_portrait.get(c, "")).strip()
+                        if not val and metadata_cell_val:
+                            # Fallback if metadata cell provided (legacy style)
+                            val = metadata_cell_val.strip()
+                        if val:
+                            bucket = per_video_meta_local_country[video_id].setdefault(c, {})
+                            bucket[key_name] = val
+                    # Do not store shared value in videos[video_id]["metadata"] for these keys
+                else:
+                    country_val = next((texts[c] for c in countries if texts[c]), "")
+                    value = country_val or metadata_cell_val
+                    if value != "":
+                        videos[video_id]["metadata"][key_name] = value
                 continue
 
             # Claim rows (each row independent)
@@ -767,6 +785,12 @@ def convert_csv_to_json(
                         "text": txt_port_final,
                     })
                 base_meta = vdata.get("metadata", {}).copy()
+                # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag) if present
+                if vid in per_video_meta_local_country and c in per_video_meta_local_country[vid]:
+                    for mk, mv in per_video_meta_local_country[vid][c].items():
+                        # Only override if not already set globally
+                        if mk not in base_meta:
+                            base_meta[mk] = mv
                 land_meta = base_meta.copy()
                 land_meta["orientation"] = "landscape"
                 port_meta = base_meta.copy()
