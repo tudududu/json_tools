@@ -33,6 +33,8 @@
     var START_AME_ENCODING = false;         // If true, attempt to auto-start encoding in AME (may be ignored by some versions)
     var AME_MAX_QUEUE_ATTEMPTS = 3;         // Retry attempts if Dynamic Link not ready
     var AME_RETRY_DELAY_MS = 650;           // Delay between attempts (ms)
+    var QUEUE_ONLY_WHEN_NEW_OR_CHANGED = true; // If true, only queue to AME when new items were added OR output paths changed
+    var FORCE_QUEUE_ALWAYS = false;            // Override: queue every run regardless (takes precedence)
 
     // 4. Naming / extension fallback
     var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
@@ -216,7 +218,7 @@
     }
 
     // ————— Assign Output Paths —————
-    var processed = 0, skipped = 0, unsorted = 0;
+    var processed = 0, skipped = 0, unsorted = 0, changedCount = 0;
     for (var idx = 0; idx < itemsToProcess.length; idx++) {
         var entry = itemsToProcess[idx];
         var rqi = entry.rqi;
@@ -248,10 +250,17 @@
         }
         ensureFolderExists(destParent);
         var destPath = joinPath(destParent.fsName, baseName + ext);
+        var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
         try {
             om.file = new File(destPath);
             processed++;
-            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push((entry.newlyAdded ? "ADD" : "SET") + " -> " + compName + " => " + destPath);
+            var changed = false;
+            if (!entry.newlyAdded && originalPath) {
+                // Compare normalized lower-case paths for change detection
+                try { if (originalPath.toLowerCase() !== destPath.toLowerCase()) { changed = true; changedCount++; } } catch (eCmp) {}
+            }
+            var tag = entry.newlyAdded ? "ADD" : (changed ? "CHG" : "SET");
+            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag + " -> " + compName + " => " + destPath);
         } catch (eSet2) {
             skipped++;
             detailLines.push("FAIL set " + compName + ": " + eSet2);
@@ -291,7 +300,15 @@
             return false;
         }
     }
-    if (AUTO_QUEUE_IN_AME && itemsToProcess.length) {
+    var shouldQueue = AUTO_QUEUE_IN_AME && itemsToProcess.length > 0;
+    if (shouldQueue && QUEUE_ONLY_WHEN_NEW_OR_CHANGED && !FORCE_QUEUE_ALWAYS) {
+        if (addedCount === 0 && changedCount === 0) {
+            shouldQueue = false; // Nothing new or changed; skip re-queue
+        }
+    }
+    if (FORCE_QUEUE_ALWAYS) shouldQueue = AUTO_QUEUE_IN_AME && itemsToProcess.length > 0;
+
+    if (shouldQueue) {
         for (var qa = 0; qa < AME_MAX_QUEUE_ATTEMPTS && !ameQueued; qa++) {
             ameQueued = attemptQueue(START_AME_ENCODING);
             if (!ameQueued) sleep(AME_RETRY_DELAY_MS);
@@ -303,12 +320,13 @@
         mismatchNote = "\nWARNING: No Render Queue items verified after addition. Re-run script or disable undo grouping.";
     }
 
-    var msg = "Output paths updated. Added:" + addedCount + " (verified:" + verifiedAdded + ") Processed:" + processed + " Skipped:" + skipped +
-              (unsorted ? (" Unsorted:" + unsorted) : "") + (AUTO_QUEUE_IN_AME ? (" AMEQueued:" + (ameQueued ? "yes" : "no")) : "") +
+    var msg = "Output paths updated. Added:" + addedCount + " (verified:" + verifiedAdded + ") Changed:" + changedCount + " Processed:" + processed + " Skipped:" + skipped +
+              (unsorted ? (" Unsorted:" + unsorted) : "") + (AUTO_QUEUE_IN_AME ? (" AMEQueued:" + (shouldQueue ? (ameQueued ? "yes" : "fail") : "skipped")) : "") +
               "\nBase: " + dateFolder.fsName +
               (detailLines.length ? ("\nDetails (" + detailLines.length + ") — showing up to " + MAX_DETAIL_LINES + ":\n" + detailLines.slice(0, MAX_DETAIL_LINES).join("\n")) : "") +
               mismatchNote +
-              (AUTO_QUEUE_IN_AME && !ameQueued ? "\nHint: Launch Media Encoder manually once, then rerun or increase AME_RETRY_DELAY_MS." : "");
+              (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued ? "\nHint: Launch Media Encoder manually once, then rerun or increase AME_RETRY_DELAY_MS." : "") +
+              (!shouldQueue && AUTO_QUEUE_IN_AME && QUEUE_ONLY_WHEN_NEW_OR_CHANGED ? "\n(AME queue skipped: no new or changed outputs)" : "");
     log(msg);
     alertOnce(msg);
 
