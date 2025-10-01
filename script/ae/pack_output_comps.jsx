@@ -164,6 +164,7 @@
     var ANCHOR_SOURCE_FOLDER = "comps";           // Mirror segments AFTER this folder
     var SKIP_IF_ALREADY_IN_OUTPUT = true;          // Avoid recursion
     var APPEND_SUFFIX = "_OUT";                   // Suffix for delivery/export comps
+    var ENABLE_SUFFIX_APPEND = false;               // Toggle: when false, do NOT append APPEND_SUFFIX even if OUTPUT_NAME_CONFIG.appendSuffix is true
     var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
     var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
 
@@ -202,6 +203,10 @@
         { key: 'DATE',         enabled: true },
         { key: 'VERSION',      enabled: true }
     ];
+
+    // Auto-disable logic: if the resolved BRAND value equals this string (case-insensitive), disable the BRAND token.
+    // Set to null/empty string to disable this feature.
+    var AUTO_DISABLE_BRAND_IF_VALUE = "noBrand"; // example trigger value
 
     var OUTPUT_NAME_CONFIG = {
         delimiter: '_',
@@ -461,6 +466,7 @@
     }
 
     function ensureSuffix(name){
+        if(!ENABLE_SUFFIX_APPEND) return name;
         if(!OUTPUT_NAME_CONFIG.appendSuffix) return name;
         if(!APPEND_SUFFIX) return name;
         var lower = String(name).toLowerCase();
@@ -522,6 +528,23 @@
         if(alt){ jsonData = alt.data; log("Naming: primary '"+DATA_JSON_PRIMARY_NAME+"' not found; using '"+alt.name+"' with "+alt.videos+" video entries."); }
         else { log("Naming: no suitable data JSON found (looked for '"+DATA_JSON_PRIMARY_NAME+"')."); }
     } else { if(jsonData && jsonData.metadataGlobal) { var mg = jsonData.metadataGlobal; log("Naming JSON loaded: client=" + (mg.client||'') + ", campaign=" + (mg.campaign||'') + ", briefVersion=" + (mg.briefVersion||'') ); } }
+
+    // After JSON load, evaluate BRAND auto-disable rule
+    if (AUTO_DISABLE_BRAND_IF_VALUE) {
+        var metaForBrand = null;
+        if (jsonData) {
+            if (jsonData.metadataGlobal) metaForBrand = jsonData.metadataGlobal;
+            else if (jsonData.meta_global) metaForBrand = jsonData.meta_global;
+        }
+        var brandVal = metaForBrand && metaForBrand.brand ? String(metaForBrand.brand) : '';
+        if (brandVal && brandVal.toLowerCase() === String(AUTO_DISABLE_BRAND_IF_VALUE).toLowerCase()) {
+            // Find BRAND token and disable it
+            for (var bt = 0; bt < OUTPUT_NAME_TOKENS.length; bt++) {
+                var t = OUTPUT_NAME_TOKENS[bt];
+                if (t.key === 'BRAND') { if (t.enabled) { t.enabled = false; log("Brand token disabled automatically (value='" + brandVal + "')."); } break; }
+            }
+        }
+    }
 
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
