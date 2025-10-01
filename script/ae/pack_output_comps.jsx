@@ -194,12 +194,12 @@
         { key: 'CAMPAIGN',     enabled: true },
         { key: 'TITLE',        enabled: true },
         { key: 'DURATION',     enabled: true },
-        { key: 'MEDIA',        enabled: false }, // future
+        { key: 'MEDIA',        enabled: true }, // now enabled with default placeholder value
         { key: 'ASPECTRATIO',  enabled: true },
         { key: 'RESOLUTION',   enabled: true },
         { key: 'FRAMERATE',    enabled: true },
         { key: 'SUBTITLES',    enabled: true },
-        { key: 'SOUNDLEVEL',   enabled: false }, // future
+        { key: 'SOUNDLEVEL',   enabled: true }, // now enabled with default placeholder value
         { key: 'DATE',         enabled: true },
         { key: 'VERSION',      enabled: true }
     ];
@@ -207,6 +207,8 @@
     // Auto-disable logic: if the resolved BRAND value equals this string (case-insensitive), disable the BRAND token.
     // Set to null/empty string to disable this feature.
     var AUTO_DISABLE_BRAND_IF_VALUE = "noBrand"; // example trigger value
+    // Auto-disable logic for TITLE: if resolved per-comp TITLE equals this, suppress it (per comp) without disabling globally.
+    var AUTO_DISABLE_TITLE_IF_VALUE = "noTitle"; // example trigger value
 
     var OUTPUT_NAME_CONFIG = {
         delimiter: '_',
@@ -427,7 +429,7 @@
                 var dn = parseInt(d,10); if(isNaN(dn)) return '';
                 return (dn < 10 ? '0'+dn : ''+dn) + 's';
             case 'MEDIA':
-                return ''; // placeholder (future)
+                return 'OLV'; // default placeholder until wired to data
             case 'ASPECTRATIO':
                 return comp ? aspectRatioString(comp.width, comp.height) : '';
             case 'RESOLUTION':
@@ -447,7 +449,7 @@
                 try { if(video && video.subtitles && video.subtitles.length) return 'sub'; } catch(eInf){}
                 return '';
             case 'SOUNDLEVEL':
-                return ''; // placeholder
+                return 'webMix'; // default placeholder until wired to data
             case 'DATE':
                 var now = new Date();
                 var yy = now.getFullYear() % 100;
@@ -491,6 +493,11 @@
             var tk = OUTPUT_NAME_TOKENS[i];
             if(!tk.enabled) continue;
             var val = buildTokenValue(tk.key, ctx);
+            // Per-comp suppression for TITLE value when matching trigger
+            if (tk.key === 'TITLE' && AUTO_DISABLE_TITLE_IF_VALUE && val && val.toLowerCase() === String(AUTO_DISABLE_TITLE_IF_VALUE).toLowerCase()) {
+                if (DEBUG_NAMING) log("TITLE value '" + val + "' suppressed (matches AUTO_DISABLE_TITLE_IF_VALUE)");
+                val = '';
+            }
             if(DEBUG_NAMING) log("Token " + tk.key + " => '" + val + "'");
             if(!val){ if(OUTPUT_NAME_CONFIG.skipEmpty) continue; else val=''; }
             parts.push(val);
