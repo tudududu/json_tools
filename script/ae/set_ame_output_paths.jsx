@@ -19,8 +19,10 @@
     app.beginUndoGroup("Set AME Output Paths");
 
     // ————— Settings —————
-    var AUTO_QUEUE_IN_AME = false;   // Set true to add RQ items to AME after path updates
-    var START_AME_ENCODING = false;  // When queuing to AME, true attempts to auto-start encoding
+    // Automatically queue items in AME after updating paths? (Now default: true as requested)
+    var AUTO_QUEUE_IN_AME = true;    // Change to false if you only want to update paths without queuing
+    // Auto start AME encoding after queuing? (Optional, default OFF per request)
+    var START_AME_ENCODING = false;  // Set true to attempt auto-start of encoding in AME
 
     // ————— Utils —————
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
