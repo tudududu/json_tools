@@ -88,9 +88,26 @@
         if (__detailedEnabled && __detailedLogFile) writeFileLine(__detailedLogFile, msg);
     }
 
-    var __createdNames = [];   // for summary
-    var __skippedNames = [];   // skipped with reasons
+    var __createdNames = [];      // for summary
+    var __skippedNames = [];      // raw skipped entries
+    var __skipCategories = {};    // tag -> array of entries
+    var INCLUDE_NOT_COMP_REASON_IN_SUMMARY = false; // hide '(not comp)' from categorized section when false
+    var INCLUDE_TIMING_METRICS = true;             // timing section toggle
+    var __scriptStartTime = new Date();
 
+    function _extractReasonTag(full) {
+        if (!full) return '';
+        var li = full.lastIndexOf('(');
+        var ri = full.lastIndexOf(')');
+        if (li !== -1 && ri !== -1 && ri > li) return full.substring(li + 1, ri);
+        return '';
+    }
+    function recordSkip(fullReason) {
+        var tag = _extractReasonTag(fullReason);
+        if (tag === 'not comp' && !INCLUDE_NOT_COMP_REASON_IN_SUMMARY) return;
+        if (!__skipCategories[tag]) __skipCategories[tag] = [];
+        __skipCategories[tag].push(fullReason);
+    }
     function flushSummary(createdCount, skippedArr) {
         if (!ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
         var lines = [];
@@ -103,6 +120,27 @@
         if (skippedArr && skippedArr.length) {
             lines.push("Skipped (" + skippedArr.length + "):");
             for (var sI=0; sI<skippedArr.length; sI++) lines.push(skippedArr[sI]);
+        }
+        var catKeys = [];
+        for (var k in __skipCategories) if (__skipCategories.hasOwnProperty(k)) catKeys.push(k);
+        if (catKeys.length) {
+            lines.push("Skip categories (counts):");
+            for (var c=0;c<catKeys.length;c++) { var ck = catKeys[c]; lines.push(" - " + (ck || 'unknown') + ": " + __skipCategories[ck].length); }
+        }
+        if (INCLUDE_TIMING_METRICS) {
+            var end = new Date();
+            var ms = end.getTime() - __scriptStartTime.getTime();
+            var sec = Math.round(ms/10)/100;
+            var avgCreated = createdCount ? Math.round((ms/createdCount)/10)/100 : null;
+            var totalSel = sel ? sel.length : 0;
+            var avgSel = totalSel ? Math.round((ms/totalSel)/10)/100 : null;
+            function __isoLike(d){ if(!d) return ''; function p(n){ return (n<10?'0':'')+n;} return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
+            lines.push("Timing:");
+            lines.push(" start=" + __isoLike(__scriptStartTime));
+            lines.push(" end=" + __isoLike(end));
+            lines.push(" elapsedSeconds=" + sec);
+            if (avgCreated !== null) lines.push(" avgPerCreatedSeconds=" + avgCreated);
+            if (avgSel !== null) lines.push(" avgPerSelectedSeconds=" + avgSel);
         }
         for (var li=0; li<lines.length; li++) writeFileLine(__summaryLogFile, lines[li]);
     }
@@ -482,7 +520,7 @@
 
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
-    if (!(item instanceof CompItem)) { var rsn = item.name + " (not comp)"; skipped.push(rsn); __skippedNames.push(rsn); log("Skip: '"+item.name+"' not a comp"); continue; }
+    if (!(item instanceof CompItem)) { var rsn = item.name + " (not comp)"; skipped.push(rsn); __skippedNames.push(rsn); recordSkip(rsn); log("Skip: '"+item.name+"' not a comp"); continue; }
 
         // Determine destination folder early (so we can test existence)
         var relSegs = relativeSegmentsAfterAnchor(item, ANCHOR_SOURCE_FOLDER.toLowerCase());
@@ -503,7 +541,7 @@
         log("Considering: '" + item.name + "' -> dest path segments: " + (relSegs.length ? relSegs.join("/") : "(root)") + ", expected output name: " + expectedBaseName);
 
         if (SKIP_IF_ALREADY_IN_OUTPUT && (isDescendantOf(item, outputRoot) || isInOutputPath(item))) {
-            var rsn2 = item.name + " (already in output)"; skipped.push(rsn2); __skippedNames.push(rsn2);
+            var rsn2 = item.name + " (already in output)"; skipped.push(rsn2); __skippedNames.push(rsn2); recordSkip(rsn2);
             log("Skip: source comp already under output root -> '"+item.name+"'");
             continue;
         }
@@ -518,7 +556,7 @@
                 }
             } catch (eChk) { log("Existence check error for '"+item.name+"': " + eChk); }
             if (foundExisting) {
-                var rsn3 = item.name + " (export exists)"; skipped.push(rsn3); __skippedNames.push(rsn3);
+                var rsn3 = item.name + " (export exists)"; skipped.push(rsn3); __skippedNames.push(rsn3); recordSkip(rsn3);
                 log("Skip: export already exists as '" + expectedBaseName + "' in folder '" + destFolder.name + "'");
                 continue;
             }
@@ -537,8 +575,8 @@
         if (!dur || dur <= 0) dur = 1;
         var outName = makeUniqueName(expectedBaseName);
         var exportComp = null;
-        try { exportComp = proj.items.addComp(outName, w, h, pa, dur, fps); } catch (eAdd) { skipped.push(item.name + " (create failed)" ); log("Create failed for '"+item.name+"': "+eAdd); continue; }
-    if (!exportComp) { var rsn4 = item.name + " (create null)"; skipped.push(rsn4); __skippedNames.push(rsn4); log("Create returned null for '"+item.name+"'"); continue; }
+    try { exportComp = proj.items.addComp(outName, w, h, pa, dur, fps); } catch (eAdd) { var rsn5 = item.name + " (create failed)"; skipped.push(rsn5); __skippedNames.push(rsn5); recordSkip(rsn5); log("Create failed for '"+item.name+"': "+eAdd); continue; }
+    if (!exportComp) { var rsn4 = item.name + " (create null)"; skipped.push(rsn4); __skippedNames.push(rsn4); recordSkip(rsn4); log("Create returned null for '"+item.name+"'"); continue; }
         try { exportComp.displayStartTime = item.displayStartTime; } catch (eDST) {}
 
         // Add the source comp as a layer (precomp inclusion)
