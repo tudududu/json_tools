@@ -25,6 +25,7 @@
 
 	var DEFAULT_STILL_DURATION = 5; // seconds
 	var ENABLE_MARKER_TRIM = false;  // Global toggle: set to false to disable marker-based trimming
+	var SKIP_IF_COMP_EXISTS = true;   // When true, do not recreate a comp if one with the same name already exists in the target folder
 
 	// Utilities —————————————————————————————————————————————
 
@@ -244,29 +245,56 @@
 			continue;
 		}
 
+		var compName = footageToCompName(item);
+
+		// Determine destination folder path under project/work/comps BEFORE creating comp
+		var segs = [];
+		try {
+			if (item.mainSource && item.mainSource.file) {
+				segs = subpathAfterFootage(item.mainSource.file);
+			}
+		} catch (e1) {}
+		if (!segs || segs.length === 0) {
+			segs = subpathFromProjectPanelAfterFootage(item);
+		}
+		var targetFolder = segs.length ? findOrCreatePath(compsRoot, segs) : compsRoot;
+
+		// Check for existing comp with same name in target folder
+		var exists = false;
+		if (SKIP_IF_COMP_EXISTS) {
+			for (var ci = 1; ci <= targetFolder.numItems; ci++) {
+				var existing = targetFolder.items[ci];
+				if (existing instanceof CompItem && String(existing.name) === compName) { exists = true; break; }
+			}
+		}
+		if (exists) {
+			skipped.push(compName + " (exists)");
+			log("Skip: comp already exists '" + compName + "' in folder '" + targetFolder.name + "'");
+			continue;
+		}
+
+		// Gather footage properties only if we will create
 		var dims = getFootageDimensions(item);
 		var fps = getFootageFrameRate(item);
 		var dur = getFootageDuration(item);
 
-		var compName = footageToCompName(item);
 		var comp = proj.items.addComp(compName, dims.w, dims.h, 1.0, dur, fps);
 		comp.displayStartTime = 0;
+		comp.parentFolder = targetFolder;
 
 		// Add layer
 		var layer = comp.layers.add(item);
 		if (layer && layer.stretch !== undefined) {
-			// Optionally: fit to comp duration for stills
-			try { layer.startTime = 0; } catch (e) {}
+			try { layer.startTime = 0; } catch (e2) {}
 		}
 
-		// Marker-based trim (optional via ENABLE_MARKER_TRIM)
+		// Marker-based trim (optional)
 		if (ENABLE_MARKER_TRIM) {
 			try {
 				var markerProp = layer.property("Marker");
 				if (markerProp && markerProp.numKeys > 0) {
 					var inTime = null, outTime = null, durSec = null;
 					if (markerProp.numKeys >= 2) {
-						// Use first and last markers as in/out
 						inTime = markerProp.keyTime(1);
 						outTime = markerProp.keyTime(markerProp.numKeys);
 						if (outTime < inTime) { var tmp = inTime; inTime = outTime; outTime = tmp; }
@@ -274,53 +302,23 @@
 						var t = markerProp.keyTime(1);
 						var mv = markerProp.keyValue(1);
 						var comment = (mv && mv.comment) ? String(mv.comment) : "";
-						// Extract first number (integer or float) from comment
 						var m = comment.match(/[-+]?[0-9]*\.?[0-9]+/);
-						if (m) {
-							durSec = parseFloat(m[0]);
-						}
-						if (!durSec && mv && mv.duration && mv.duration > 0) {
-							durSec = mv.duration;
-						}
-						if (durSec && durSec > 0) {
-							inTime = t;
-							outTime = t + durSec;
-						}
+						if (m) { durSec = parseFloat(m[0]); }
+						if (!durSec && mv && mv.duration && mv.duration > 0) { durSec = mv.duration; }
+						if (durSec && durSec > 0) { inTime = t; outTime = t + durSec; }
 					}
-
 					if (inTime !== null && outTime !== null && outTime > inTime) {
-						durSec = outTime - inTime;
-						// Trim comp to duration and align content to start at 0
+						var trimDur = outTime - inTime;
 						comp.displayStartTime = 0;
-						comp.duration = durSec;
-						// Shift layer so the selected segment starts at 0
-						try { layer.startTime = -inTime; } catch (e) {}
-						// Set layer in/out to 0..durSec in comp space
-						try { layer.inPoint = 0; } catch (e) {}
-						try { layer.outPoint = durSec; } catch (e) {}
-						log("Trimmed by marker: in=" + inTime.toFixed(3) + ", out=" + outTime.toFixed(3) + ", dur=" + durSec.toFixed(3));
+						comp.duration = trimDur;
+						try { layer.startTime = -inTime; } catch (e3) {}
+						try { layer.inPoint = 0; } catch (e4) {}
+						try { layer.outPoint = trimDur; } catch (e5) {}
+						log("Trimmed by marker: in=" + inTime.toFixed(3) + ", out=" + outTime.toFixed(3) + ", dur=" + trimDur.toFixed(3));
 					}
 				}
-			} catch (eMarker) {
-				log("Marker trim skipped (" + eMarker + ")");
-			}
+			} catch (eMarker) { log("Marker trim skipped (" + eMarker + ")"); }
 		}
-
-		// Determine destination folder path under project/work/comps
-		var segs = [];
-		try {
-			if (item.mainSource && item.mainSource.file) {
-				segs = subpathAfterFootage(item.mainSource.file);
-			}
-		} catch (e) {}
-
-		if (!segs || segs.length === 0) {
-			// Fallback to Project panel hierarchy
-			segs = subpathFromProjectPanelAfterFootage(item);
-		}
-
-		var targetFolder = segs.length ? findOrCreatePath(compsRoot, segs) : compsRoot;
-		comp.parentFolder = targetFolder;
 
 		createdCount++;
 		log("Created comp '" + compName + "' -> " + targetFolder.name + (segs.length ? (" (" + segs.join("/") + ")") : ""));
