@@ -19,10 +19,24 @@
     app.beginUndoGroup("Set AME Output Paths");
 
     // ————— Settings —————
-    // Automatically queue items in AME after updating paths? (Now default: true as requested)
-    var AUTO_QUEUE_IN_AME = true;    // Change to false if you only want to update paths without queuing
-    // Auto start AME encoding after queuing? (Optional, default OFF per request)
-    var START_AME_ENCODING = false;  // Set true to attempt auto-start of encoding in AME
+    // 1. Source selection mode
+    var PROCESS_SELECTION = true;          // If true: take currently selected CompItems in Project panel and add them to the Render Queue
+    var PROCESS_EXISTING_RQ = true;         // If true: also process existing (non-rendering, non-done) Render Queue items
+    var ALLOW_DUPLICATE_RQ_ITEMS = false;   // If false: skip adding a comp if it already exists in RQ (status not DONE)
+
+    // 2. Templates (optional)
+    var RENDER_SETTINGS_TEMPLATE = "";     // e.g. "Best Settings" (leave empty for AE default)
+    var OUTPUT_MODULE_TEMPLATE = "";       // e.g. "Lossless" or custom template name (leave empty for current default)
+
+    // 3. AME automation
+    var AUTO_QUEUE_IN_AME = true;           // After setting output paths, queue all eligible items into AME
+    var START_AME_ENCODING = false;         // If true, attempt to auto-start encoding in AME (may be ignored by some versions)
+
+    // 4. Naming / extension fallback
+    var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
+
+    // 5. Logging verbosity
+    var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
 
     // ————— Utils —————
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
@@ -109,36 +123,117 @@
         return;
     }
 
-    // ————— Iterate Render Queue —————
+    // ————— Gather / Create Render Queue Items —————
     var rq = app.project.renderQueue;
-    if (!rq || rq.numItems < 1) {
-        alertOnce("No items in Render Queue.");
+    if (!rq) {
+        alertOnce("Render Queue not available.");
         app.endUndoGroup();
         return;
     }
 
-    var processed = 0, skipped = 0, unsorted = 0;
-    for (var i = 1; i <= rq.numItems; i++) {
-        var rqi = rq.item(i);
-        if (!rqi || !rqi.comp) { skipped++; continue; }
+    var detailLines = [];
 
-        // Skip if already rendering or done
+    function rqItemStatusString(st) {
         try {
-            if (rqi.status === RQItemStatus.DONE || rqi.status === RQItemStatus.RENDERING) { skipped++; continue; }
+            if (st === RQItemStatus.QUEUED) return "QUEUED";
+            if (st === RQItemStatus.NEEDS_OUTPUT) return "NEEDS_OUTPUT";
+            if (st === RQItemStatus.UNQUEUED) return "UNQUEUED";
+            if (st === RQItemStatus.RENDERING) return "RENDERING";
+            if (st === RQItemStatus.DONE) return "DONE";
+            if (st === RQItemStatus.ERR_STOPPED) return "ERR_STOPPED";
         } catch (e) {}
+        return "?";
+    }
+
+    function compAlreadyInRQ(comp) {
+        if (!comp) return false;
+        for (var i = 1; i <= rq.numItems; i++) {
+            var rqi = rq.item(i);
+            if (rqi && rqi.comp === comp) {
+                // Skip only if item is not DONE (we can reuse to change output path)
+                try { if (rqi.status !== RQItemStatus.DONE) return true; } catch (e) { return true; }
+            }
+        }
+        return false;
+    }
+
+    var itemsToProcess = []; // Array of { rqi: RenderQueueItem, newlyAdded: bool }
+    var addedCount = 0;
+
+    // A) Process selection: add selected comps to RQ
+    if (PROCESS_SELECTION) {
+        var sel = app.project.selection;
+        if (sel && sel.length) {
+            for (var s = 0; s < sel.length; s++) {
+                var it = sel[s];
+                if (!(it instanceof CompItem)) continue;
+                if (!ALLOW_DUPLICATE_RQ_ITEMS && compAlreadyInRQ(it)) {
+                    detailLines.push("Skip add (exists) " + it.name);
+                    continue;
+                }
+                var newRQI = null;
+                try { newRQI = rq.items.add(it); } catch (eAdd) { detailLines.push("Failed add " + it.name + ": " + eAdd); }
+                if (newRQI) {
+                    // Apply templates if configured
+                    if (RENDER_SETTINGS_TEMPLATE) {
+                        try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { detailLines.push("Render settings template fail " + it.name + ": " + eRS); }
+                    }
+                    var omNew = null;
+                    try { omNew = newRQI.outputModule(1); } catch (eOMn) {}
+                    if (omNew && OUTPUT_MODULE_TEMPLATE) {
+                        try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
+                    }
+                    itemsToProcess.push({ rqi: newRQI, newlyAdded: true });
+                    addedCount++;
+                }
+            }
+        }
+    }
+
+    // B) Include existing RQ items
+    if (PROCESS_EXISTING_RQ) {
+        for (var iExist = 1; iExist <= rq.numItems; iExist++) {
+            var existingRQI = rq.item(iExist);
+            if (!existingRQI || !existingRQI.comp) continue;
+            // Avoid duplicates: if we already added this rqi instance, skip
+            var already = false;
+            for (var c = 0; c < itemsToProcess.length; c++) {
+                if (itemsToProcess[c].rqi === existingRQI) { already = true; break; }
+            }
+            if (already) continue;
+            // Skip DONE or RENDERING
+            try { if (existingRQI.status === RQItemStatus.DONE || existingRQI.status === RQItemStatus.RENDERING) continue; } catch (eSt) {}
+            itemsToProcess.push({ rqi: existingRQI, newlyAdded: false });
+        }
+    }
+
+    if (!itemsToProcess.length) {
+        alertOnce("No eligible Render Queue items (after selection + existing check)." );
+        app.endUndoGroup();
+        return;
+    }
+
+    // ————— Assign Output Paths —————
+    var processed = 0, skipped = 0, unsorted = 0;
+    for (var idx = 0; idx < itemsToProcess.length; idx++) {
+        var entry = itemsToProcess[idx];
+        var rqi = entry.rqi;
+        if (!rqi || !rqi.comp) { skipped++; continue; }
+        // Re-skip status DONE / RENDERING safeguard
+        try { if (rqi.status === RQItemStatus.DONE || rqi.status === RQItemStatus.RENDERING) { skipped++; continue; } } catch (eS2) {}
 
         var om = null;
-        try { om = rqi.outputModule(1); } catch (eOM) { om = null; }
-        if (!om) { skipped++; continue; }
+        try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
+        if (!om) { skipped++; detailLines.push("No OM " + rqi.comp.name); continue; }
 
         var compName = rqi.comp.name;
-        var curFile = om.file; // File object, may be null if not set yet
-        var ext = ".mov"; // default fallback
+        var curFile = om.file;
+        var ext = DEFAULT_EXTENSION_FALLBACK;
         var baseName = compName;
         if (curFile && curFile.name) {
-            var parts = splitBaseExt(curFile.name);
-            ext = parts.ext || ext;
-            baseName = parts.base || baseName;
+            var parts2 = splitBaseExt(curFile.name);
+            if (parts2.ext) ext = parts2.ext;
+            if (parts2.base) baseName = parts2.base;
         }
 
         var tokens = parseTokensFromName(compName);
@@ -150,16 +245,14 @@
             unsorted++;
         }
         ensureFolderExists(destParent);
-
-        // Preserve existing baseName, only change path
         var destPath = joinPath(destParent.fsName, baseName + ext);
         try {
             om.file = new File(destPath);
             processed++;
-            log("Set output: " + rqi.comp.name + " -> " + destPath);
-        } catch (eSet) {
+            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push((entry.newlyAdded ? "ADD" : "SET") + " -> " + compName + " => " + destPath);
+        } catch (eSet2) {
             skipped++;
-            log("Skip (cannot set output for '" + rqi.comp.name + "'): " + eSet);
+            detailLines.push("FAIL set " + compName + ": " + eSet2);
         }
     }
 
@@ -179,8 +272,9 @@
         }
     }
 
-    var msg = "Output paths updated. Processed: " + processed + ", Skipped: " + skipped + 
-              (unsorted ? (", Unsorted: " + unsorted) : "") + "\nBase: " + dateFolder.fsName;
+    var msg = "Output paths updated. Added:" + addedCount + " Processed:" + processed + " Skipped:" + skipped +
+              (unsorted ? (" Unsorted:" + unsorted) : "") + "\nBase: " + dateFolder.fsName +
+              (detailLines.length ? ("\nDetails (" + detailLines.length + ") — showing up to " + MAX_DETAIL_LINES + ":\n" + detailLines.slice(0, MAX_DETAIL_LINES).join("\n")) : "");
     log(msg);
     alertOnce(msg);
 
