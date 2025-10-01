@@ -556,14 +556,22 @@
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
         var disclaimerMM = minMaxInOut(v.disclaimer);
-        // Disclaimer visibility flag ('y' or 'n', case-insensitive)
+        // Disclaimer visibility flag ('y' or 'n' or 'auto', case-insensitive). Accept both top-level and metadata.* locations.
         var disclaimerFlag = null;
         try {
-            var df = v.disclaimer_flag;
-            if (df !== undefined && df !== null) {
+            var df = (v.disclaimer_flag !== undefined && v.disclaimer_flag !== null) ? v.disclaimer_flag : (v.metadata && v.metadata.disclaimer_flag !== undefined ? v.metadata.disclaimer_flag : null);
+            if (df !== undefined && df !== null && df !== '') {
                 disclaimerFlag = String(df).toLowerCase();
             }
         } catch (eDF) {}
+        // Subtitles visibility flag ('y' or 'n', case-insensitive). Accept both top-level and metadata.* locations.
+        var subtitlesFlag = null;
+        try {
+            var sf = (v.subtitle_flag !== undefined && v.subtitle_flag !== null) ? v.subtitle_flag : (v.metadata && v.metadata.subtitle_flag !== undefined ? v.metadata.subtitle_flag : null);
+            if (sf !== undefined && sf !== null && sf !== '') {
+                subtitlesFlag = String(sf).toLowerCase();
+            }
+        } catch (eSF) {}
         // Determine if JSON has any valid disclaimer intervals
         var hasValidDisclaimer = false;
         if (v && v.disclaimer && v.disclaimer.length) {
@@ -688,10 +696,7 @@
                 if (ENABLE_JSON_TIMING_FOR_DISCLAIMER && disclaimerMM) {
                     setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
                     log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
-                } else {
-                    // already set to full duration above when gating is off
-                }
-                // Apply visibility if disclaimer_flag present
+                } // else already set to full duration above when gating off
                 if (disclaimerFlag === 'y' || disclaimerFlag === 'n' || disclaimerFlag === 'auto') {
                     try {
                         if (disclaimerFlag === 'auto') {
@@ -699,8 +704,22 @@
                         } else {
                             ly.enabled = (disclaimerFlag === 'y');
                         }
-                        log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
-                    } catch (eVis) {}
+                        log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (disclaimerFlag === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
+                    } catch (eVis) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis); }
+                } else if (disclaimerFlag) {
+                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (expected y/n/auto) for '" + nm + "'.");
+                }
+                continue; // prevent also treating as subtitles if naming overlaps
+            }
+            // Subtitles visibility flag (no timing applied here)
+            if (matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains)) {
+                if (subtitlesFlag === 'y' || subtitlesFlag === 'n') {
+                    try {
+                        ly.enabled = (subtitlesFlag === 'y');
+                        log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
+                    } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
+                } else if (subtitlesFlag) {
+                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (expected y/n) for '" + nm + "'.");
                 }
             }
         }
