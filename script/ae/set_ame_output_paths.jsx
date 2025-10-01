@@ -31,6 +31,8 @@
     // 3. AME automation
     var AUTO_QUEUE_IN_AME = true;           // After setting output paths, queue all eligible items into AME
     var START_AME_ENCODING = false;         // If true, attempt to auto-start encoding in AME (may be ignored by some versions)
+    var AME_MAX_QUEUE_ATTEMPTS = 3;         // Retry attempts if Dynamic Link not ready
+    var AME_RETRY_DELAY_MS = 650;           // Delay between attempts (ms)
 
     // 4. Naming / extension fallback
     var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
@@ -256,27 +258,58 @@
         }
     }
 
-    // Optionally queue to AME
-    if (AUTO_QUEUE_IN_AME) {
+    // --- End of preparation phase: close undo group early ---
+    // We'll now verify and queue outside of the undo context to reduce mismatch risk.
+    try { app.endUndoGroup(); } catch (eUG) {}
+
+    // Verification: ensure items actually exist (AE can silently rollback on first run after launch)
+    var verifiedAdded = 0;
+    try {
+        for (var va = 0; va < itemsToProcess.length; va++) {
+            var vrqi = itemsToProcess[va].rqi;
+            if (vrqi && vrqi.comp) {
+                try { if (vrqi.status !== RQItemStatus.DONE) verifiedAdded++; } catch (eVA) { verifiedAdded++; }
+            }
+        }
+    } catch (eChk) {}
+
+    // Queue to AME with retry logic (in case Dynamic Link server not yet ready)
+    var ameQueued = false;
+    function sleep(ms) { try { $.sleep(ms); } catch (e) {} }
+    function attemptQueue(start) {
         try {
-            // Some AE versions accept a boolean to auto-start; some ignore params
-            if (START_AME_ENCODING) {
+            if (start) {
                 try { app.project.renderQueue.queueInAME(true); }
-                catch (e1) { try { app.project.renderQueue.queueInAME(); } catch (e2) {} }
+                catch (e1) { app.project.renderQueue.queueInAME(); }
             } else {
                 try { app.project.renderQueue.queueInAME(false); }
-                catch (e3) { try { app.project.renderQueue.queueInAME(); } catch (e4) {} }
+                catch (e2) { app.project.renderQueue.queueInAME(); }
             }
+            return true;
         } catch (eQ) {
-            log("Failed to queue in AME: " + eQ);
+            log("QueueInAME failed: " + eQ);
+            return false;
+        }
+    }
+    if (AUTO_QUEUE_IN_AME && itemsToProcess.length) {
+        for (var qa = 0; qa < AME_MAX_QUEUE_ATTEMPTS && !ameQueued; qa++) {
+            ameQueued = attemptQueue(START_AME_ENCODING);
+            if (!ameQueued) sleep(AME_RETRY_DELAY_MS);
         }
     }
 
-    var msg = "Output paths updated. Added:" + addedCount + " Processed:" + processed + " Skipped:" + skipped +
-              (unsorted ? (" Unsorted:" + unsorted) : "") + "\nBase: " + dateFolder.fsName +
-              (detailLines.length ? ("\nDetails (" + detailLines.length + ") — showing up to " + MAX_DETAIL_LINES + ":\n" + detailLines.slice(0, MAX_DETAIL_LINES).join("\n")) : "");
+    var mismatchNote = "";
+    if (addedCount > 0 && verifiedAdded === 0) {
+        mismatchNote = "\nWARNING: No Render Queue items verified after addition. Re-run script or disable undo grouping.";
+    }
+
+    var msg = "Output paths updated. Added:" + addedCount + " (verified:" + verifiedAdded + ") Processed:" + processed + " Skipped:" + skipped +
+              (unsorted ? (" Unsorted:" + unsorted) : "") + (AUTO_QUEUE_IN_AME ? (" AMEQueued:" + (ameQueued ? "yes" : "no")) : "") +
+              "\nBase: " + dateFolder.fsName +
+              (detailLines.length ? ("\nDetails (" + detailLines.length + ") — showing up to " + MAX_DETAIL_LINES + ":\n" + detailLines.slice(0, MAX_DETAIL_LINES).join("\n")) : "") +
+              mismatchNote +
+              (AUTO_QUEUE_IN_AME && !ameQueued ? "\nHint: Launch Media Encoder manually once, then rerun or increase AME_RETRY_DELAY_MS." : "");
     log(msg);
     alertOnce(msg);
 
-    app.endUndoGroup();
 })();
