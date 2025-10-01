@@ -91,7 +91,7 @@
     var __createdNames = [];      // for summary
     var __skippedNames = [];      // raw skipped entries
     var __skipCategories = {};    // tag -> array of entries
-    var INCLUDE_NOT_COMP_REASON_IN_SUMMARY = false; // hide '(not comp)' from categorized section when false
+    var INCLUDE_NOT_COMP_REASON_IN_SUMMARY = false; // when false: hide individual '(not comp)' entries from the plain Skipped list, but STILL include their counts in categories
     var INCLUDE_TIMING_METRICS = true;             // timing section toggle
     var __scriptStartTime = new Date();
 
@@ -104,9 +104,8 @@
     }
     function recordSkip(fullReason) {
         var tag = _extractReasonTag(fullReason);
-        if (tag === 'not comp' && !INCLUDE_NOT_COMP_REASON_IN_SUMMARY) return;
         if (!__skipCategories[tag]) __skipCategories[tag] = [];
-        __skipCategories[tag].push(fullReason);
+        __skipCategories[tag].push(fullReason); // always record for counts/categories
     }
     function flushSummary(createdCount, skippedArr) {
         if (!ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
@@ -118,8 +117,14 @@
             for (var i=0;i<__createdNames.length;i++) lines.push(__createdNames[i]);
         }
         if (skippedArr && skippedArr.length) {
-            lines.push("Skipped (" + skippedArr.length + "):");
-            for (var sI=0; sI<skippedArr.length; sI++) lines.push(skippedArr[sI]);
+            var filtered = [];
+            for (var sI=0; sI<skippedArr.length; sI++) {
+                var entry = skippedArr[sI];
+                if (!INCLUDE_NOT_COMP_REASON_IN_SUMMARY && entry.indexOf('(not comp)') !== -1) continue; // suppress listing, keep counts
+                filtered.push(entry);
+            }
+            lines.push("Skipped (" + filtered.length + "):");
+            for (var fI=0; fI<filtered.length; fI++) lines.push(filtered[fI]);
         }
         var catKeys = [];
         for (var k in __skipCategories) if (__skipCategories.hasOwnProperty(k)) catKeys.push(k);
