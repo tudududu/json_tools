@@ -23,7 +23,7 @@
     // Logging configuration (detailed + summary + suppression + timestamped filenames)
     var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
     var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
-    var ENABLE_DETAILED_FILE_LOG = true;          // Master flag for detailed log
+    var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
     var ENABLE_SUMMARY_LOG = true;                // Produce a summary-only log (names list)
     var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true;// If true, disables detailed file log when DRY_RUN_MODE == false
     var USE_PROJECT_LOG_FOLDER = true;            // Try to write logs under project ./log/ folder
@@ -89,9 +89,9 @@
     }
 
     var __createdNames = [];   // for summary
-    var __skippedNames = [];   // optional future use
+    var __skippedNames = [];   // skipped with reasons
 
-    function flushSummary(createdCount) {
+    function flushSummary(createdCount, skippedArr) {
         if (!ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
         var lines = [];
         lines.push("Summary:");
@@ -99,6 +99,10 @@
         if (__createdNames.length) {
             lines.push("Names:");
             for (var i=0;i<__createdNames.length;i++) lines.push(__createdNames[i]);
+        }
+        if (skippedArr && skippedArr.length) {
+            lines.push("Skipped (" + skippedArr.length + "):");
+            for (var sI=0; sI<skippedArr.length; sI++) lines.push(skippedArr[sI]);
         }
         for (var li=0; li<lines.length; li++) writeFileLine(__summaryLogFile, lines[li]);
     }
@@ -478,7 +482,7 @@
 
     for (var s = 0; s < sel.length; s++) {
         var item = sel[s];
-        if (!(item instanceof CompItem)) { skipped.push(item.name + " (not comp)" ); log("Skip: '"+item.name+"' not a comp"); continue; }
+    if (!(item instanceof CompItem)) { var rsn = item.name + " (not comp)"; skipped.push(rsn); __skippedNames.push(rsn); log("Skip: '"+item.name+"' not a comp"); continue; }
 
         // Determine destination folder early (so we can test existence)
         var relSegs = relativeSegmentsAfterAnchor(item, ANCHOR_SOURCE_FOLDER.toLowerCase());
@@ -499,7 +503,7 @@
         log("Considering: '" + item.name + "' -> dest path segments: " + (relSegs.length ? relSegs.join("/") : "(root)") + ", expected output name: " + expectedBaseName);
 
         if (SKIP_IF_ALREADY_IN_OUTPUT && (isDescendantOf(item, outputRoot) || isInOutputPath(item))) {
-            skipped.push(item.name + " (already in output)");
+            var rsn2 = item.name + " (already in output)"; skipped.push(rsn2); __skippedNames.push(rsn2);
             log("Skip: source comp already under output root -> '"+item.name+"'");
             continue;
         }
@@ -514,7 +518,7 @@
                 }
             } catch (eChk) { log("Existence check error for '"+item.name+"': " + eChk); }
             if (foundExisting) {
-                skipped.push(item.name + " (export exists)");
+                var rsn3 = item.name + " (export exists)"; skipped.push(rsn3); __skippedNames.push(rsn3);
                 log("Skip: export already exists as '" + expectedBaseName + "' in folder '" + destFolder.name + "'");
                 continue;
             }
@@ -534,7 +538,7 @@
         var outName = makeUniqueName(expectedBaseName);
         var exportComp = null;
         try { exportComp = proj.items.addComp(outName, w, h, pa, dur, fps); } catch (eAdd) { skipped.push(item.name + " (create failed)" ); log("Create failed for '"+item.name+"': "+eAdd); continue; }
-        if (!exportComp) { skipped.push(item.name + " (create null)" ); log("Create returned null for '"+item.name+"'"); continue; }
+    if (!exportComp) { var rsn4 = item.name + " (create null)"; skipped.push(rsn4); __skippedNames.push(rsn4); log("Create returned null for '"+item.name+"'"); continue; }
         try { exportComp.displayStartTime = item.displayStartTime; } catch (eDST) {}
 
         // Add the source comp as a layer (precomp inclusion)
@@ -552,7 +556,7 @@
     if (skipped.length) summary += "\nSkipped: " + skipped.join(", ");
     log(summary);
     alertOnce(summary);
-    flushSummary(created);
+    flushSummary(created, __skippedNames);
 
     app.endUndoGroup();
 })();
