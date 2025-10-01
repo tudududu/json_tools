@@ -1,3 +1,16 @@
+# 1.4.3 - 2025-10-01
+
+Added:
+- Per-country `meta_global` handling for `disclaimer_flag` and `subtitle_flag` (CSV to JSON 44):
+	* These flag keys may now appear on a `meta_global` row; per‑country cell values (landscape / portrait first non‑empty) are captured.
+	* Captured values act as per‑country defaults applied to every video's metadata for that country.
+	* Precedence: per‑video `meta_local` value (if present) > per‑country `meta_global` value > (key omitted).
+	* Empty per‑video `meta_local` rows now cleanly fall back to the global per‑country values—no duplication required in the sheet.
+	* Values like `N` are treated as meaningful (not falsy) and are preserved in output.
+	* These flags are NOT written as a single shared key in `metadataGlobal` (to avoid implying cross‑country uniformity); they remain per‑video metadata entries.
+	* Backwards compatibility: sheets that only used per‑video `meta_local` rows still behave the same; other `meta_global` keys unchanged.
+	* Internal: added `global_flag_values_per_country` structure and adjusted assembly step to inject defaults before per‑video overrides.
+
 # 1.4.2 - 2025-09-30
 
 Added:

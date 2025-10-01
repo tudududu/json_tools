@@ -325,6 +325,8 @@ def convert_csv_to_json(
         video_order: List[str] = []
         # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag)
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
+        global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
         # Intermediate containers before splitting per country
         claims_rows: List[Dict[str, Any]] = []  # global claim rows
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
@@ -415,6 +417,16 @@ def convert_csv_to_json(
                         if job_number_per_country.get(c) is None:
                             job_number_per_country[c] = "noJobNumber"
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
+                    continue
+                # Per-country flag keys (disclaimer_flag / subtitle_flag) now can appear as meta_global.
+                # Capture per-country values so they can act as defaults for per-video metadata flags.
+                if key_name in ("disclaimer_flag", "subtitle_flag"):
+                    for c in countries:
+                        per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
+                        if per_val:
+                            bucket = global_flag_values_per_country.setdefault(c, {})
+                            bucket[key_name] = per_val
+                    # Do not store as a single shared global_meta value; flags are per-country.
                     continue
                 # Generic meta_global: pick first non-empty per-country value else metadata column
                 country_val = next((texts[c] for c in countries if texts[c]), "")
@@ -786,11 +798,16 @@ def convert_csv_to_json(
                     })
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag) if present
+                # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
+                # First apply global per-country flags as defaults
+                if c in global_flag_values_per_country:
+                    for mk, mv in global_flag_values_per_country[c].items():
+                        if mk not in base_meta:  # don't overwrite any existing regular metadata key
+                            base_meta.setdefault(mk, mv)
+                # Then apply per-video overrides (which may overwrite the global defaults if provided)
                 if vid in per_video_meta_local_country and c in per_video_meta_local_country[vid]:
                     for mk, mv in per_video_meta_local_country[vid][c].items():
-                        # Only override if not already set globally
-                        if mk not in base_meta:
-                            base_meta[mk] = mv
+                        base_meta[mk] = mv
                 land_meta = base_meta.copy()
                 land_meta["orientation"] = "landscape"
                 port_meta = base_meta.copy()
