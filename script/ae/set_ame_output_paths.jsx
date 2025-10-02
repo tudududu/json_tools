@@ -59,7 +59,7 @@
     var LOG_ISO_EXTRACTION = true;                 // Extra logging about ISO extraction
     var DATA_JSON_PROJECT_PATH = ["project","in","data"]; // Path in AE project panel where data.json expected
     var DATA_JSON_ITEM_NAME = "data.json";         // Footage item name
-    var DATA_JSON_COUNTRY_KEY_PATH = ["metadataGlobal","country"]; // JSON path to ISO
+    // (Removed legacy JSON country key path; ISO now derived only from file name or disk scan)
 
     // 4c. File logging options (applies only if file logging enabled later)
     var FILE_LOG_APPEND_MODE = false;          // When true, append to a single persistent file (set_ame_output_paths.log)
@@ -74,11 +74,8 @@
     var DEBUG_DUMP_PROJECT_TREE_MAX_ITEMS = 60;// Max children listed per folder
     var DEBUG_VERBOSE_ISO_STEPS = true;        // Extra step-by-step logs inside ISO extraction
 
-    // 4e. ISO extraction mode (simplify to avoid JSON parse errors)
-    // 'filename' -> read underlying footage file name (expects pattern data_XXX.json where XXX=ISO)
-    // 'json'     -> parse JSON contents and read nested key path (legacy / detailed mode)
-    var ISO_EXTRACTION_MODE = 'filename';
-    var ISO_SCAN_DATA_FOLDER_FALLBACK = true; // When filename mode can't find item, scan POST/IN/data directory for data_XXX.json
+    // 4e. ISO extraction simplified: filename-based only (+ optional directory scan fallback)
+    var ISO_SCAN_DATA_FOLDER_FALLBACK = true; // If filename lookup fails, scan POST/IN/data for data_XXX.json
 
 
     // 5. Logging verbosity
@@ -195,52 +192,7 @@
         var txt = null; try { file.encoding = 'UTF-8'; if (file.open('r')) { txt = file.read(); file.close(); } } catch(e){ try{ file.close(); }catch(e2){} }
         return txt;
     }
-    function parseJSONSafe(str) {
-        if (!str) return null; try { if (typeof JSON !== 'undefined' && JSON.parse) return JSON.parse(str); } catch(e){}
-        try { return eval('(' + str + ')'); } catch(e2){ return null; }
-    }
-    function extractNested(obj, pathArr) {
-        var cur = obj; for (var i=0;i<pathArr.length;i++){ if(!cur) return null; cur = cur[pathArr[i]]; }
-        return cur;
-    }
-    function deriveISOFromDataJSON() {
-        try {
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: derive start");
-            var folder = findProjectFolderPath(DATA_JSON_PROJECT_PATH);
-            if (!folder) { if (LOG_ISO_EXTRACTION) log("ISO: data folder path missing: " + DATA_JSON_PROJECT_PATH.join('/')); return null; }
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: folder resolved '"+folder.name+"'");
-            var item = findItemInFolderByName(folder, DATA_JSON_ITEM_NAME);
-            if (!item || !(item instanceof FootageItem)) { if (LOG_ISO_EXTRACTION) log("ISO: data.json item not found"); return null; }
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: data.json footage item located");
-            var srcFile = null; try { srcFile = item.mainSource ? item.mainSource.file : null; } catch(eMS) {}
-            if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO: data.json file missing on disk"); return null; }
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: file exists -> " + srcFile.fsName);
-            var txt = readTextFile(srcFile); if (!txt) { if (LOG_ISO_EXTRACTION) log("ISO: data.json read failed"); return null; }
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: read text length=" + txt.length);
-            var parsed = parseJSONSafe(txt); if (!parsed) { if (LOG_ISO_EXTRACTION) log("ISO: data.json parse failed"); return null; }
-            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: JSON parsed ok");
-            var iso = null;
-            try {
-                iso = extractNested(parsed, DATA_JSON_COUNTRY_KEY_PATH);
-                if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: extractNested returned type=" + (typeof iso));
-            } catch(exN){ if (LOG_ISO_EXTRACTION) log("ISO DBG: extractNested threw: " + exN); return null; }
-            try {
-                if (typeof iso !== 'string') { if (LOG_ISO_EXTRACTION) log("ISO: country path not string"); return null; }
-                iso = iso.replace(/\s+/g,'').trim();
-            } catch(exPP){ if (LOG_ISO_EXTRACTION) log("ISO DBG: post-process replace/trim error: " + exPP); return null; }
-            try {
-                if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
-            } catch(exUp){ if (LOG_ISO_EXTRACTION) log("ISO DBG: uppercase step error: " + exUp); return null; }
-            try {
-                if (!/^[A-Za-z]{3}$/.test(iso)) {
-                    if (LOG_ISO_EXTRACTION) log("ISO: value invalid '" + iso + "'");
-                    return null;
-                }
-            } catch(exVal){ if (LOG_ISO_EXTRACTION) log("ISO DBG: validation regex error: " + exVal); return null; }
-            if (LOG_ISO_EXTRACTION) log("ISO: extracted '" + iso + "' from data.json");
-            return iso;
-        } catch(eD){ if (LOG_ISO_EXTRACTION) log("ISO: extraction error: " + eD); return null; }
-    }
+    // (Removed legacy JSON parsing helpers: parseJSONSafe, extractNested, deriveISOFromDataJSON)
 
     // Simpler: derive ISO from underlying file name (no JSON parse)
     function deriveISOFromDataFileName() {
@@ -406,14 +358,9 @@
     try {
         if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
             var isoVal = null;
-            if (ISO_EXTRACTION_MODE === 'filename') {
-                isoVal = deriveISOFromDataFileName();
-                if (!isoVal && ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder);
-                // optional fallback to JSON method if filename failed and fallback disabled
-                if (!isoVal && !ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = deriveISOFromDataJSON();
-            } else {
-                isoVal = deriveISOFromDataJSON();
-            }
+            // Filename-based only
+            isoVal = deriveISOFromDataFileName();
+            if (!isoVal && ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder);
             if (!isoVal) {
                 if (REQUIRE_VALID_ISO) {
                     isoVal = DATE_FOLDER_ISO_FALLBACK;
