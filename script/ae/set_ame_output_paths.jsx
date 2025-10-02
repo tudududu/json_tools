@@ -68,6 +68,13 @@
     var LOG_ENV_HEADER = true;                 // Write environment header (project, counts baseline) at start of each run (or section marker if append)
     var LOG_SUMMARY_SECTION = true;            // Emit compact summary section at end (in addition to main message)
 
+    // 4d. Debug instrumentation (set TRUE to enable temporary diagnostics)
+    var DEBUG_DUMP_PROJECT_TREE = false;       // When true, dumps the Project panel folder tree (top-down) to the log
+    var DEBUG_DUMP_PROJECT_TREE_MAX_DEPTH = 6; // Limit recursion depth for tree dump
+    var DEBUG_DUMP_PROJECT_TREE_MAX_ITEMS = 60;// Max children listed per folder
+    var DEBUG_VERBOSE_ISO_STEPS = true;        // Extra step-by-step logs inside ISO extraction
+
+
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
     var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
@@ -153,8 +160,10 @@
             if (!cur || typeof cur.numItems !== 'number') { if (LOG_ISO_EXTRACTION) log("ISO: findProjectFolderPath abort (no numItems at segment '"+seg+"')"); return null; }
             var found = null;
             try {
+                // AE collections are 1-based and accessed via item(index), not items[index]
                 for (var j=1;j<=cur.numItems;j++) {
-                    var it = cur.items[j];
+                    var it = null;
+                    try { it = cur.item(j); } catch(innerErr) { it = null; }
                     if (it instanceof FolderItem && it.name === seg) { found = it; break; }
                 }
             } catch(loopErr) {
@@ -169,7 +178,8 @@
     function findItemInFolderByName(folderItem, name) {
         if (!folderItem) return null;
         for (var i=1;i<=folderItem.numItems;i++) {
-            var it = folderItem.items[i];
+            var it = null;
+            try { it = folderItem.item(i); } catch(innerErr) { it = null; }
             if (it && it.name === name) return it;
         }
         return null;
@@ -189,14 +199,20 @@
     }
     function deriveISOFromDataJSON() {
         try {
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: derive start");
             var folder = findProjectFolderPath(DATA_JSON_PROJECT_PATH);
             if (!folder) { if (LOG_ISO_EXTRACTION) log("ISO: data folder path missing: " + DATA_JSON_PROJECT_PATH.join('/')); return null; }
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: folder resolved '"+folder.name+"'");
             var item = findItemInFolderByName(folder, DATA_JSON_ITEM_NAME);
             if (!item || !(item instanceof FootageItem)) { if (LOG_ISO_EXTRACTION) log("ISO: data.json item not found"); return null; }
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: data.json footage item located");
             var srcFile = null; try { srcFile = item.mainSource ? item.mainSource.file : null; } catch(eMS) {}
             if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO: data.json file missing on disk"); return null; }
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: file exists -> " + srcFile.fsName);
             var txt = readTextFile(srcFile); if (!txt) { if (LOG_ISO_EXTRACTION) log("ISO: data.json read failed"); return null; }
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: read text length=" + txt.length);
             var parsed = parseJSONSafe(txt); if (!parsed) { if (LOG_ISO_EXTRACTION) log("ISO: data.json parse failed"); return null; }
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: JSON parsed ok");
             var iso = extractNested(parsed, DATA_JSON_COUNTRY_KEY_PATH);
             if (typeof iso !== 'string') { if (LOG_ISO_EXTRACTION) log("ISO: country path not string"); return null; }
             iso = iso.replace(/\s+/g,'').trim();
@@ -208,6 +224,40 @@
             if (LOG_ISO_EXTRACTION) log("ISO: extracted '" + iso + "' from data.json");
             return iso;
         } catch(eD){ if (LOG_ISO_EXTRACTION) log("ISO: extraction error: " + eD); return null; }
+    }
+
+    // Debug: dump project tree if enabled
+    function dumpProjectTree() {
+        if (!DEBUG_DUMP_PROJECT_TREE) return;
+        try {
+            log("--- PROJECT TREE DUMP BEGIN ---");
+            var root = app.project.rootFolder;
+            function nodeKind(it){
+                if (it instanceof CompItem) return "[Comp]";
+                if (it instanceof FolderItem) return "[Folder]";
+                if (it instanceof FootageItem) return "[Footage]";
+                return "[Item]";
+            }
+            function walk(folder, depth){
+                if (!folder) return; if (depth > DEBUG_DUMP_PROJECT_TREE_MAX_DEPTH) return;
+                var prefix = new Array(depth+1).join("  ");
+                log(prefix + nodeKind(folder) + " " + folder.name + (folder.numItems?" ("+folder.numItems+")":""));
+                if (!(folder instanceof FolderItem)) return;
+                var limit = Math.min(folder.numItems, DEBUG_DUMP_PROJECT_TREE_MAX_ITEMS);
+                for (var i=1;i<=limit;i++) {
+                    var child = null; try { child = folder.item(i); } catch(eC){ child = null; }
+                    if (!child) continue;
+                    if (child instanceof FolderItem) {
+                        walk(child, depth+1);
+                    } else {
+                        log(prefix + "  " + nodeKind(child) + " " + child.name);
+                    }
+                }
+                if (folder.numItems > limit) log(prefix + "  ... (" + (folder.numItems - limit) + " more items truncated) ...");
+            }
+            walk(root, 0);
+            log("--- PROJECT TREE DUMP END ---");
+        } catch(ePT) { log("PROJECT TREE DUMP ERROR: " + ePT); }
     }
 
     // ————— Resolve POST and OUT/MASTER/YYMMDD —————
@@ -283,7 +333,13 @@
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
             }
+            // Optional debug tree dump
+            dumpProjectTree();
         } catch(eWrap) {}
+    }
+    if (!__fileLog) {
+        // Still allow debug tree dump to console if logging not active
+        dumpProjectTree();
     }
     var baseDateName = todayYYMMDD();
     var dateFolderName = baseDateName;
