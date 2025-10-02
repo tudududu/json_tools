@@ -143,10 +143,16 @@
         var cur = app.project.rootFolder;
         for (var i=0;i<pathSegments.length;i++) {
             var seg = pathSegments[i]; if (!seg) continue;
+            if (!cur || typeof cur.numItems !== 'number') { if (LOG_ISO_EXTRACTION) log("ISO: findProjectFolderPath abort (no numItems at segment '"+seg+"')"); return null; }
             var found = null;
-            for (var j=1;j<=cur.numItems;j++) {
-                var it = cur.items[j];
-                if (it instanceof FolderItem && it.name === seg) { found = it; break; }
+            try {
+                for (var j=1;j<=cur.numItems;j++) {
+                    var it = cur.items[j];
+                    if (it instanceof FolderItem && it.name === seg) { found = it; break; }
+                }
+            } catch(loopErr) {
+                if (LOG_ISO_EXTRACTION) log("ISO: loop error at segment '"+seg+"' -> " + loopErr);
+                return null;
             }
             if (!found) return null; // Must already exist (we only read)
             cur = found;
