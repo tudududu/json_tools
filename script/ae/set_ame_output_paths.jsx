@@ -34,7 +34,7 @@
         "1x1": "25Mbs",
         "16x9": "25Mbs",
         "9x16": "25Mbs",
-        "4x5": "ProRes4444"
+        "4x5": "25Mbs"
     };
     // Optional: Map by Aspect Ratio + Duration combo (AR|DUR) -> template (overrides AR-only mapping if present)
     // Example key: "1x1|06s": "H264_Square_Short"
