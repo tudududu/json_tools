@@ -27,6 +27,18 @@
     // 2. Templates (optional)
     var RENDER_SETTINGS_TEMPLATE = "";     // e.g. "Best Settings" (leave empty for AE default)
     var OUTPUT_MODULE_TEMPLATE = "";       // e.g. "Lossless" or custom template name (leave empty for current default)
+    var ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION = true; // If true, choose OM template per comp via mappings below
+    // Map by Aspect Ratio token -> Output Module template name (must exist in AE's Output Module Templates)
+    var OUTPUT_MODULE_TEMPLATE_BY_AR = {
+        // Define your mappings. Example names must match templates you created in AE (Edit > Templates > Output Module)
+        "1x1": "25Mbs",
+        "16x9": "25Mbs",
+        "9x16": "25Mbs",
+        "4x5": "ProRes4444"
+    };
+    // Optional: Map by Aspect Ratio + Duration combo (AR|DUR) -> template (overrides AR-only mapping if present)
+    // Example key: "1x1|06s": "H264_Square_Short"
+    var OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION = { };
 
     // 3. AME automation
     var AUTO_QUEUE_IN_AME = true;           // After setting output paths, queue all eligible items into AME
@@ -41,6 +53,7 @@
 
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
+    var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
 
     // ————— Utils —————
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
@@ -97,6 +110,18 @@
         var mDur = String(nameBase).match(/(?:^|[_\-\s])(\d{1,4}s)(?:$|[_\-\s])/i);
         if (mDur) dur = normalizeDuration(mDur[1]);
         return { ar: ar, duration: dur };
+    }
+
+    function pickOutputModuleTemplate(tokens) {
+        if (!ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION || !tokens) return OUTPUT_MODULE_TEMPLATE || "";
+        var ar = tokens.ar || "";
+        var dur = tokens.duration || "";
+        if (ar && dur) {
+            var key = ar + "|" + dur;
+            if (OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION[key]) return OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION[key];
+        }
+        if (ar && OUTPUT_MODULE_TEMPLATE_BY_AR[ar]) return OUTPUT_MODULE_TEMPLATE_BY_AR[ar];
+        return OUTPUT_MODULE_TEMPLATE || ""; // fallback
     }
 
     // ————— Resolve POST and OUT/MASTER/YYMMDD —————
@@ -187,6 +212,13 @@
                     if (omNew && OUTPUT_MODULE_TEMPLATE) {
                         try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
                     }
+                    if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+                        var toks = parseTokensFromName(it.name);
+                        var dynTemplate = pickOutputModuleTemplate(toks);
+                        if (dynTemplate && dynTemplate.length) {
+                            try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
+                        }
+                    }
                     itemsToProcess.push({ rqi: newRQI, newlyAdded: true });
                     addedCount++;
                 }
@@ -241,6 +273,14 @@
         }
 
         var tokens = parseTokensFromName(compName);
+        // Optionally apply dynamic OM template for existing items (or re-apply for added ones if order changed)
+        if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
+            var dynT = pickOutputModuleTemplate(tokens);
+            if (dynT && dynT.length) {
+                try { om.applyTemplate(dynT); if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
+                catch (eTpl) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl); }
+            }
+        }
         var destParent = dateFolder;
         if (tokens.ar && tokens.duration) {
             destParent = new Folder(joinPath(joinPath(dateFolder.fsName, tokens.ar), tokens.duration));
