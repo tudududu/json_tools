@@ -45,6 +45,7 @@
     var ENABLE_ALIGN_AUDIO_TO_MARKERS = false; // Set true to align audio start to first comp marker; false = place at 0s
     var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // When true, remove all pre-existing audio-only layers (FootageItem with audio, no video) after inserting the new one
     var ENABLE_MUTE_EXISTING_AUDIO_LAYERS = true; // When true (and removal is false), mute (audioEnabled=false) on any other audio-capable layers
+    var CLEAR_EXISTING_PROJECT_SOUND_FOLDER = true; // When true, BEFORE importing, clear AE Project panel folder project/in/sound/ (its contents only)
 
     function ensureProjectPath(segments) {
         var cur = proj.rootFolder; // Root
@@ -298,6 +299,18 @@
     }
 
     log("Importing SOUND folder: " + dateFolder.fsName);
+
+    // Optional Step 0: Clear existing AE project folder project/in/sound/ before new import
+    if (CLEAR_EXISTING_PROJECT_SOUND_FOLDER) {
+        var projSoundFolder = ensureProjectPath(["project", "in", "sound"]); // ensures path exists
+        var removedCount = 0;
+        if (projSoundFolder && projSoundFolder.numItems > 0) {
+            for (var cf = projSoundFolder.numItems; cf >= 1; cf--) {
+                try { projSoundFolder.items[cf].remove(); removedCount++; } catch (eClr) {}
+            }
+        }
+        log("Cleared project/in/sound/ contents (" + removedCount + " item(s) removed)");
+    }
 
     // Import the folder (as a folder). If direct import fails, do a recursive manual import fallback.
     var importedFolderItem = null;
