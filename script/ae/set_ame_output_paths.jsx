@@ -426,6 +426,20 @@
                 }
                 var newRQI = null;
                 try { newRQI = rq.items.add(it); } catch (eAdd) { detailLines.push("Failed add " + it.name + ": " + eAdd); }
+                // Validate the returned object is actually a RenderQueueItem (AE sometimes can yield an Error object in rare cases)
+                var isValidRQI = false;
+                if (newRQI) {
+                    try {
+                        // Heuristic: must have a 'comp' property referencing the same comp and an 'outputModule' function
+                        if (newRQI.comp === it && typeof newRQI.outputModule === 'function') {
+                            isValidRQI = true;
+                        }
+                    } catch (eVal) { isValidRQI = false; }
+                }
+                if (newRQI && !isValidRQI) {
+                    detailLines.push("Add returned non-RQ item (skipped) " + it.name + " type=" + (newRQI.constructor ? newRQI.constructor.name : typeof newRQI));
+                    newRQI = null;
+                }
                 if (newRQI) {
                     // Apply templates if configured
                     if (RENDER_SETTINGS_TEMPLATE) {
@@ -455,6 +469,13 @@
     if (PROCESS_EXISTING_RQ) {
         for (var iExist = 1; iExist <= rq.numItems; iExist++) {
             var existingRQI = rq.item(iExist);
+            // Validate existing item shape
+            try {
+                if (existingRQI && (typeof existingRQI.outputModule !== 'function' || !existingRQI.comp)) {
+                    detailLines.push("Skip non-standard RQ entry index=" + iExist);
+                    continue;
+                }
+            } catch(eValExist) { continue; }
             if (!existingRQI || !existingRQI.comp) continue;
             // Avoid duplicates: if we already added this rqi instance, skip
             var already = false;
@@ -479,7 +500,7 @@
     for (var idx = 0; idx < itemsToProcess.length; idx++) {
         var entry = itemsToProcess[idx];
         var rqi = entry.rqi;
-        if (!rqi || !rqi.comp) { skipped++; continue; }
+        if (!rqi || !rqi.comp || typeof rqi.outputModule !== 'function') { skipped++; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("Skip invalid RQI idx="+idx); continue; }
         // Re-skip status DONE / RENDERING safeguard
         try { if (rqi.status === RQItemStatus.DONE || rqi.status === RQItemStatus.RENDERING) { skipped++; continue; } } catch (eS2) {}
 
