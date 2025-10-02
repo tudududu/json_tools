@@ -339,6 +339,9 @@
     var parentOfPost = postFolder ? postFolder.parent : null;
     if (parentOfPost && parentOfPost.exists) {
         var parentName = parentOfPost.name || "";
+        if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
+            log("[data.json] Parent of POST folder name: '" + parentName + "'");
+        }
         // Pattern: someText <space>-<space> ISO (3 letters). Use last 3 letters group after dash.
         // Accepts: "C21380146 - GBR" or "XYZ123 -DEU" (optional spaces around dash) case-insensitive.
         var mIso = parentName.match(/^[^\-]+-\s*([A-Za-z]{3})$/) || parentName.match(/^[^\-]+\s-\s([A-Za-z]{3})$/);
@@ -352,6 +355,13 @@
         }
         if (mIso && mIso[1]) {
             DATA_JSON_ISO_CODE = mIso[1].toUpperCase();
+            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
+                log("[data.json] Auto-detected ISO from parent folder: " + DATA_JSON_ISO_CODE);
+            }
+        } else {
+            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
+                log("[data.json] Could not auto-detect ISO from parent folder name; will use manual fallback.");
+            }
         }
     }
     if (!DATA_JSON_ISO_CODE) {
