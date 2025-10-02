@@ -48,7 +48,8 @@
     var CLEAR_EXISTING_PROJECT_SOUND_FOLDER = true; // When true, BEFORE importing, clear AE Project panel folder project/in/sound/ (its contents only)
     // New: JSON data relink settings
     var ENABLE_RELINK_DATA_JSON = true;            // Master switch for data.json relink/import
-    var DATA_JSON_ISO_CODE = "GBR";               // 3-letter ISO country code used in file name data_<ISO>.json
+    var DATA_JSON_ISO_CODE_MANUAL = "SAU";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
+    var DATA_JSON_ISO_CODE = null;                 // Actual ISO code used (auto-detected first, fallback to manual)
     var DATA_JSON_PROJECT_FOLDER = ["project","in","data"]; // Project panel target folder path
     var DATA_JSON_PROJECT_ITEM_NAME = "data.json"; // Desired item name inside AE project
     var DATA_JSON_FS_SUBPATH = ["IN","data"];    // Relative path under POST where data files live
@@ -295,6 +296,33 @@
         return;
     }
 
+    // Auto-detect ISO code from parent of POST: parentFolderName pattern "jobNumber - ISO"
+    // Example path: /.../<Parent>/<POST>/WORK/project.aep, we need <Parent> folder name.
+    var parentOfPost = postFolder ? postFolder.parent : null;
+    if (parentOfPost && parentOfPost.exists) {
+        var parentName = parentOfPost.name || "";
+        // Pattern: someText <space>-<space> ISO (3 letters). Use last 3 letters group after dash.
+        // Accepts: "C21380146 - GBR" or "XYZ123 -DEU" (optional spaces around dash) case-insensitive.
+        var mIso = parentName.match(/^[^\-]+-\s*([A-Za-z]{3})$/) || parentName.match(/^[^\-]+\s-\s([A-Za-z]{3})$/);
+        if (!mIso) { // more tolerant: split by '-' and trim
+            var partsDash = parentName.split('-');
+            if (partsDash.length >= 2) {
+                var cand = partsDash[partsDash.length - 1];
+                cand = (cand || "").replace(/\s+/g, "").toUpperCase();
+                if (/^[A-Z]{3}$/.test(cand)) mIso = [null, cand];
+            }
+        }
+        if (mIso && mIso[1]) {
+            DATA_JSON_ISO_CODE = mIso[1].toUpperCase();
+        }
+    }
+    if (!DATA_JSON_ISO_CODE) {
+        DATA_JSON_ISO_CODE = (DATA_JSON_ISO_CODE_MANUAL || "XXX").toUpperCase();
+    }
+    if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
+        log("[data.json] ISO code used: " + DATA_JSON_ISO_CODE + (DATA_JSON_ISO_CODE_MANUAL && DATA_JSON_ISO_CODE_MANUAL.toUpperCase() === DATA_JSON_ISO_CODE ? " (manual)" : " (auto)"));
+    }
+
     var inFolder = new Folder(joinPath(postFolder.fsName, joinPath("IN", "SOUND")));
     if (!inFolder.exists) {
         alertOnce("SOUND folder not found: " + inFolder.fsName);
@@ -409,7 +437,7 @@
                 }
                 return null;
             }
-            var iso = String(DATA_JSON_ISO_CODE || "").toUpperCase();
+            var iso = String(DATA_JSON_ISO_CODE || "").toUpperCase(); // already auto-detected or manual fallback earlier
             var dataFolderFS = new Folder(joinPath(postFolder.fsName, joinPath(DATA_JSON_FS_SUBPATH[0], DATA_JSON_FS_SUBPATH[1])));
             var fsFile = new File(joinPath(dataFolderFS.fsName, DATA_JSON_FILE_PREFIX + iso + DATA_JSON_FILE_SUFFIX));
             if (!fsFile.exists) {
