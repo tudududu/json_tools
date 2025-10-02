@@ -62,7 +62,7 @@
         logo: {
             exact: ["Size_Holder_Logo"],
             contains: ["logo"],
-            imageOnlyForContains: true
+            imageOnlyForContains: false
         },
         claim: {
             exact: ["claim", "Size_Holder_Claim"],

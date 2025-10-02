@@ -603,7 +603,9 @@ def convert_csv_to_json(
                         "line": row["line"],
                         "start": row["start"],
                         "end": row["end"],
+                        # Preserve both landscape and portrait per-country texts
                         "texts": {c: row["texts"][c] for c in countries},
+                        "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
                     }
                 else:
                     # Continuation lines
@@ -614,6 +616,7 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"][c] for c in countries},
+                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
                         }
                     else:
                         for c in countries:
@@ -623,6 +626,12 @@ def convert_csv_to_json(
                                     current_block["texts"][c] += "\n" + extra
                                 else:
                                     current_block["texts"][c] = extra
+                            extra_p = row.get("texts_portrait", {}).get(c, "")
+                            if extra_p:
+                                if current_block.get("texts_portrait", {}).get(c, ""):
+                                    current_block["texts_portrait"][c] += "\n" + extra_p
+                                else:
+                                    current_block["texts_portrait"][c] = extra_p
             if current_block:
                 disclaimers_rows_merged.append(current_block)
         else:
@@ -852,6 +861,7 @@ def convert_csv_to_json(
                                 "start": row["start"],
                                 "end": row["end"],
                                 "texts": {cc: row["texts"][cc] for cc in countries},
+                                "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
                             }
                         else:
                             if not current_block:
@@ -860,6 +870,7 @@ def convert_csv_to_json(
                                     "start": row["start"],
                                     "end": row["end"],
                                     "texts": {cc: row["texts"][cc] for cc in countries},
+                                    "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
                                 }
                             else:
                                 for cc in countries:
@@ -869,6 +880,12 @@ def convert_csv_to_json(
                                             current_block["texts"][cc] += "\n" + extra
                                         else:
                                             current_block["texts"][cc] = extra
+                                    extra_p = row.get("texts_portrait", {}).get(cc, "")
+                                    if extra_p:
+                                        if current_block.get("texts_portrait", {}).get(cc, ""):
+                                            current_block["texts_portrait"][cc] += "\n" + extra_p
+                                        else:
+                                            current_block["texts_portrait"][cc] = extra_p
                     if current_block:
                         merged.append(current_block)
                 else:

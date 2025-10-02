@@ -1,3 +1,14 @@
+# 1.4.4 - 2025-10-02
+
+Added:
+- Bugfix: Preserve portrait disclaimer text (CSV to JSON 45)
+	* Fixed an issue where portrait disclaimer lines were overwritten by (or fell back to) landscape text.
+	* Root cause: during disclaimer block merging we only stored `texts` (landscape) and discarded `texts_portrait`; later selection logic therefore had no portrait content and reused landscape.
+	* Now both global and per‑video disclaimer merging maintain `texts_portrait` and merge continuation lines for portrait just like landscape.
+	* Multi‑line portrait disclaimers (separate continuation rows) are concatenated with `\n` exactly as for landscape.
+	* No schema/output shape changes; only content correctness for portrait disclaimers.
+	* Internal: added `texts_portrait` dict to merged disclaimer block structures and updated continuation append logic.
+
 # 1.4.3 - 2025-10-01
 
 Added:
