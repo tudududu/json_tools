@@ -69,10 +69,16 @@
     var LOG_SUMMARY_SECTION = true;            // Emit compact summary section at end (in addition to main message)
 
     // 4d. Debug instrumentation (set TRUE to enable temporary diagnostics)
-    var DEBUG_DUMP_PROJECT_TREE = true;       // When true, dumps the Project panel folder tree (top-down) to the log
+    var DEBUG_DUMP_PROJECT_TREE = false;       // When true, dumps the Project panel folder tree (top-down) to the log
     var DEBUG_DUMP_PROJECT_TREE_MAX_DEPTH = 6; // Limit recursion depth for tree dump
     var DEBUG_DUMP_PROJECT_TREE_MAX_ITEMS = 60;// Max children listed per folder
     var DEBUG_VERBOSE_ISO_STEPS = true;        // Extra step-by-step logs inside ISO extraction
+
+    // 4e. ISO extraction mode (simplify to avoid JSON parse errors)
+    // 'filename' -> read underlying footage file name (expects pattern data_XXX.json where XXX=ISO)
+    // 'json'     -> parse JSON contents and read nested key path (legacy / detailed mode)
+    var ISO_EXTRACTION_MODE = 'filename';
+    var ISO_SCAN_DATA_FOLDER_FALLBACK = true; // When filename mode can't find item, scan POST/IN/data directory for data_XXX.json
 
 
     // 5. Logging verbosity
@@ -236,6 +242,50 @@
         } catch(eD){ if (LOG_ISO_EXTRACTION) log("ISO: extraction error: " + eD); return null; }
     }
 
+    // Simpler: derive ISO from underlying file name (no JSON parse)
+    function deriveISOFromDataFileName() {
+        try {
+            if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG(FN): derive start");
+            var folder = findProjectFolderPath(DATA_JSON_PROJECT_PATH);
+            if (!folder) { if (LOG_ISO_EXTRACTION) log("ISO(FN): data folder path missing"); return null; }
+            var item = findItemInFolderByName(folder, DATA_JSON_ITEM_NAME);
+            if (!item || !(item instanceof FootageItem)) { if (LOG_ISO_EXTRACTION) log("ISO(FN): data.json item not found"); return null; }
+            var srcFile = null; try { srcFile = item.mainSource ? item.mainSource.file : null; } catch(eMS) {}
+            if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO(FN): underlying file missing"); return null; }
+            var fname = srcFile.name || ""; // e.g. data_GBL.json
+            var m = fname.match(/^data_([A-Za-z]{3})\.json$/);
+            if (!m) { if (LOG_ISO_EXTRACTION) log("ISO(FN): filename pattern mismatch '"+fname+"'"); return null; }
+            var iso = m[1];
+            if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
+            if (LOG_ISO_EXTRACTION) log("ISO(FN): extracted '"+iso+"' from filename '"+fname+"'");
+            return iso;
+        } catch(eFN) { if (LOG_ISO_EXTRACTION) log("ISO(FN): error: " + eFN); return null; }
+    }
+
+    // Fallback: scan POST/IN/data directory for data_XXX.json files
+    function scanISOFromDataDirectory(postFolderRef) {
+        try {
+            if (!postFolderRef || !postFolderRef.exists) return null;
+            var inFolder = new Folder(joinPath(postFolderRef.fsName, 'IN'));
+            if (!inFolder.exists) return null;
+            var dataFolder = new Folder(joinPath(inFolder.fsName, 'data'));
+            if (!dataFolder.exists) return null;
+            var files = dataFolder.getFiles(function(f){ return (f instanceof File) && /^data_[A-Za-z]{3}\.json$/i.test(f.name); });
+            if (!files || !files.length) return null;
+            // If multiple, choose the most recently modified
+            files.sort(function(a,b){ try { return b.modified.getTime() - a.modified.getTime(); } catch(e){ return 0; } });
+            var top = files[0];
+            var m = top.name.match(/^data_([A-Za-z]{3})\.json$/i);
+            if (m) {
+                var iso = m[1];
+                if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
+                if (LOG_ISO_EXTRACTION) log("ISO(SCAN): picked '"+iso+"' from file '"+top.name+"'");
+                return iso;
+            }
+            return null;
+        } catch(eScan){ if (LOG_ISO_EXTRACTION) log("ISO(SCAN): error: " + eScan); return null; }
+    }
+
     // Debug: dump project tree if enabled
     function dumpProjectTree() {
         if (!DEBUG_DUMP_PROJECT_TREE) return;
@@ -355,7 +405,15 @@
     var dateFolderName = baseDateName;
     try {
         if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
-            var isoVal = deriveISOFromDataJSON();
+            var isoVal = null;
+            if (ISO_EXTRACTION_MODE === 'filename') {
+                isoVal = deriveISOFromDataFileName();
+                if (!isoVal && ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder);
+                // optional fallback to JSON method if filename failed and fallback disabled
+                if (!isoVal && !ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = deriveISOFromDataJSON();
+            } else {
+                isoVal = deriveISOFromDataJSON();
+            }
             if (!isoVal) {
                 if (REQUIRE_VALID_ISO) {
                     isoVal = DATE_FOLDER_ISO_FALLBACK;
