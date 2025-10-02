@@ -51,18 +51,19 @@
     // 4. Naming / extension fallback
     var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
 
-    // 4b. Date folder ISO suffix feature
+    // 4b. Date folder ISO suffix feature & parent folder customization
     var ENABLE_DATE_FOLDER_ISO_SUFFIX = true;      // When true, append _<ISO> to date folder (e.g. 251002_DEU)
     var DATE_FOLDER_ISO_FALLBACK = "XXX";          // Fallback ISO if extraction fails (used only if ENABLE_DATE_FOLDER_ISO_SUFFIX && REQUIRE_VALID_ISO)
     var REQUIRE_VALID_ISO = false;                 // If true, use fallback when extracted not 3 letters; if false, silently skip suffix
     var DATE_FOLDER_ISO_UPPERCASE = true;          // Force uppercase
     var LOG_ISO_EXTRACTION = true;                 // Extra logging about ISO extraction
+    var DATE_PARENT_FOLDER_NAME = "PREVIEWS";        // Parent folder under OUT where date folder tree is created (configurable)
     var DATA_JSON_PROJECT_PATH = ["project","in","data"]; // Path in AE project panel where data.json expected
     var DATA_JSON_ITEM_NAME = "data.json";         // Footage item name
     // (Removed legacy JSON country key path; ISO now derived only from file name or disk scan)
 
     // 4c. File logging options (applies only if file logging enabled later)
-    var FILE_LOG_APPEND_MODE = false;          // When true, append to a single persistent file (set_ame_output_paths.log)
+    var FILE_LOG_APPEND_MODE = true;          // When true, append to a single persistent file (set_ame_output_paths.log)
     var FILE_LOG_PRUNE_ENABLED = true;         // When true, prune old log files (pattern set_ame_output_paths_*.log) beyond max
     var FILE_LOG_MAX_FILES = 12;               // Keep at most this many timestamped log files (ignored if append mode only and no rotation needed)
     var LOG_ENV_HEADER = true;                 // Write environment header (project, counts baseline) at start of each run (or section marker if append)
@@ -187,11 +188,7 @@
         }
         return null;
     }
-    function readTextFile(file) {
-        if (!file || !file.exists) return null;
-        var txt = null; try { file.encoding = 'UTF-8'; if (file.open('r')) { txt = file.read(); file.close(); } } catch(e){ try{ file.close(); }catch(e2){} }
-        return txt;
-    }
+
     // (Removed legacy JSON parsing helpers: parseJSONSafe, extractNested, deriveISOFromDataJSON)
 
     // Simpler: derive ISO from underlying file name (no JSON parse)
@@ -287,7 +284,7 @@
         }
     }
 
-    var outMaster = new Folder(joinPath(postFolder.fsName, joinPath("OUT", "MASTER")));
+    var outMaster = new Folder(joinPath(postFolder.fsName, joinPath("OUT", DATE_PARENT_FOLDER_NAME)));
     if (!ensureFolderExists(outMaster)) {
         alertOnce("Cannot create OUT/MASTER under: " + postFolder.fsName);
         app.endUndoGroup();
@@ -332,6 +329,8 @@
             var __origLogFn = log;
             log = function(msg){ __origLogFn(msg); __writeFileLine(__fileLog,msg); };
             log("[log] File logging started: " + __fileLog.fsName + (FILE_LOG_APPEND_MODE ? " (append mode)" : ""));
+            // Always place a delimiter line so consecutive runs are visually separated even if header disabled
+            log("==== RUN DELIMITER ==== " + __tsHuman());
             if (LOG_ENV_HEADER) {
                 log("--- ENV HEADER BEGIN ---");
                 try {
@@ -634,23 +633,21 @@
         mismatchNote = "\nWARNING: No Render Queue items verified after addition. Re-run script or disable undo grouping.";
     }
 
-    var msg = "Output paths updated. Added:" + addedCount + " (verified:" + verifiedAdded + ") Changed:" + changedCount + " Processed:" + processed + " Skipped:" + skipped +
-              (unsorted ? (" Unsorted:" + unsorted) : "") + (AUTO_QUEUE_IN_AME ? (" AMEQueued:" + (shouldQueue ? (ameQueued ? "yes" : "fail") : "skipped")) : "") +
-              "\nBase: " + dateFolder.fsName +
-              (detailLines.length ? ("\nDetails (" + detailLines.length + ") — showing up to " + MAX_DETAIL_LINES + ":\n" + detailLines.slice(0, MAX_DETAIL_LINES).join("\n")) : "") +
-              mismatchNote +
-              (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued ? "\nHint: Launch Media Encoder manually once, then rerun or increase AME_RETRY_DELAY_MS." : "") +
-              (!shouldQueue && AUTO_QUEUE_IN_AME && QUEUE_ONLY_WHEN_NEW_OR_CHANGED ? "\n(AME queue skipped: no new or changed outputs)" : "");
-    log(msg);
+    // Build concise summary (alert should only show summary now)
+    var summaryLines = [];
+    summaryLines.push("Added:" + addedCount + " (verified:" + verifiedAdded + ") Changed:" + changedCount + " Processed:" + processed + " Skipped:" + skipped + (unsorted?" Unsorted:"+unsorted:""));
+    if (AUTO_QUEUE_IN_AME) summaryLines.push("AMEQueued:" + (shouldQueue ? (ameQueued?"yes":"fail") : (QUEUE_ONLY_WHEN_NEW_OR_CHANGED?"skipped-no-change":"skipped")) );
+    if (mismatchNote) summaryLines.push(mismatchNote.replace(/^\n/,''));
+    if (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued) summaryLines.push("Hint: Launch Media Encoder once or raise retry delay.");
+    summaryLines.push("" ); // blank line before path
+    summaryLines.push("DateFolder: " + dateFolder.fsName);
+    var summaryMsg = summaryLines.join("\n");
+    log(summaryMsg);
     if (LOG_SUMMARY_SECTION) {
         log("--- SUMMARY BEGIN ---");
-        log("DateFolder: " + dateFolder.fsName);
-        log("Added: " + addedCount + ", Changed: " + changedCount + ", Processed: " + processed + ", Skipped: " + skipped + (unsorted?", Unsorted: "+unsorted:""));
-        log("VerifiedAdded: " + verifiedAdded + ", AMEQueued: " + (AUTO_QUEUE_IN_AME ? (shouldQueue ? (ameQueued?"yes":"fail") : "skipped") : "disabled"));
-        log("DynamicTemplates: " + ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION + ", DoubleApply: " + DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES);
-        log("QueueOnlyWhenNewOrChanged: " + QUEUE_ONLY_WHEN_NEW_OR_CHANGED + ", ForceQueueAlways: " + FORCE_QUEUE_ALWAYS);
+        for (var sl=0; sl<summaryLines.length; sl++) { if (summaryLines[sl].length) log(summaryLines[sl]); }
         log("--- SUMMARY END ---");
     }
-    alertOnce(msg);
+    alertOnce(summaryMsg);
 
 })();
