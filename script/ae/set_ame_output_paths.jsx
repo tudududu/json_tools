@@ -51,6 +51,16 @@
     // 4. Naming / extension fallback
     var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
 
+    // 4b. Date folder ISO suffix feature
+    var ENABLE_DATE_FOLDER_ISO_SUFFIX = true;      // When true, append _<ISO> to date folder (e.g. 251002_DEU)
+    var DATE_FOLDER_ISO_FALLBACK = "XXX";          // Fallback ISO if extraction fails (used only if ENABLE_DATE_FOLDER_ISO_SUFFIX && REQUIRE_VALID_ISO)
+    var REQUIRE_VALID_ISO = false;                 // If true, use fallback when extracted not 3 letters; if false, silently skip suffix
+    var DATE_FOLDER_ISO_UPPERCASE = true;          // Force uppercase
+    var LOG_ISO_EXTRACTION = true;                 // Extra logging about ISO extraction
+    var DATA_JSON_PROJECT_PATH = ["project","in","data"]; // Path in AE project panel where data.json expected
+    var DATA_JSON_ITEM_NAME = "data.json";         // Footage item name
+    var DATA_JSON_COUNTRY_KEY_PATH = ["metadataGlobal","country"]; // JSON path to ISO
+
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
     var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
@@ -128,6 +138,65 @@
         return OUTPUT_MODULE_TEMPLATE || ""; // fallback
     }
 
+    // ————— data.json ISO extraction helpers —————
+    function findProjectFolderPath(pathSegments) {
+        var cur = app.project.rootFolder;
+        for (var i=0;i<pathSegments.length;i++) {
+            var seg = pathSegments[i]; if (!seg) continue;
+            var found = null;
+            for (var j=1;j<=cur.numItems;j++) {
+                var it = cur.items[j];
+                if (it instanceof FolderItem && it.name === seg) { found = it; break; }
+            }
+            if (!found) return null; // Must already exist (we only read)
+            cur = found;
+        }
+        return cur;
+    }
+    function findItemInFolderByName(folderItem, name) {
+        if (!folderItem) return null;
+        for (var i=1;i<=folderItem.numItems;i++) {
+            var it = folderItem.items[i];
+            if (it && it.name === name) return it;
+        }
+        return null;
+    }
+    function readTextFile(file) {
+        if (!file || !file.exists) return null;
+        var txt = null; try { file.encoding = 'UTF-8'; if (file.open('r')) { txt = file.read(); file.close(); } } catch(e){ try{ file.close(); }catch(e2){} }
+        return txt;
+    }
+    function parseJSONSafe(str) {
+        if (!str) return null; try { if (typeof JSON !== 'undefined' && JSON.parse) return JSON.parse(str); } catch(e){}
+        try { return eval('(' + str + ')'); } catch(e2){ return null; }
+    }
+    function extractNested(obj, pathArr) {
+        var cur = obj; for (var i=0;i<pathArr.length;i++){ if(!cur) return null; cur = cur[pathArr[i]]; }
+        return cur;
+    }
+    function deriveISOFromDataJSON() {
+        try {
+            var folder = findProjectFolderPath(DATA_JSON_PROJECT_PATH);
+            if (!folder) { if (LOG_ISO_EXTRACTION) log("ISO: data folder path missing: " + DATA_JSON_PROJECT_PATH.join('/')); return null; }
+            var item = findItemInFolderByName(folder, DATA_JSON_ITEM_NAME);
+            if (!item || !(item instanceof FootageItem)) { if (LOG_ISO_EXTRACTION) log("ISO: data.json item not found"); return null; }
+            var srcFile = null; try { srcFile = item.mainSource ? item.mainSource.file : null; } catch(eMS) {}
+            if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO: data.json file missing on disk"); return null; }
+            var txt = readTextFile(srcFile); if (!txt) { if (LOG_ISO_EXTRACTION) log("ISO: data.json read failed"); return null; }
+            var parsed = parseJSONSafe(txt); if (!parsed) { if (LOG_ISO_EXTRACTION) log("ISO: data.json parse failed"); return null; }
+            var iso = extractNested(parsed, DATA_JSON_COUNTRY_KEY_PATH);
+            if (typeof iso !== 'string') { if (LOG_ISO_EXTRACTION) log("ISO: country path not string"); return null; }
+            iso = iso.replace(/\s+/g,'').trim();
+            if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
+            if (!/^[A-Za-z]{3}$/.test(iso)) {
+                if (LOG_ISO_EXTRACTION) log("ISO: value invalid '" + iso + "'");
+                return null;
+            }
+            if (LOG_ISO_EXTRACTION) log("ISO: extracted '" + iso + "' from data.json");
+            return iso;
+        } catch(eD){ if (LOG_ISO_EXTRACTION) log("ISO: extraction error: " + eD); return null; }
+    }
+
     // ————— Resolve POST and OUT/MASTER/YYMMDD —————
     var postFolder = null;
     if (app.project && app.project.file && app.project.file.parent && app.project.file.parent.parent) {
@@ -149,7 +218,23 @@
         app.endUndoGroup();
         return;
     }
-    var dateFolder = new Folder(joinPath(outMaster.fsName, todayYYMMDD()));
+    var baseDateName = todayYYMMDD();
+    var dateFolderName = baseDateName;
+    if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
+        var isoVal = deriveISOFromDataJSON();
+        if (!isoVal) {
+            if (REQUIRE_VALID_ISO) {
+                isoVal = DATE_FOLDER_ISO_FALLBACK;
+                if (LOG_ISO_EXTRACTION) log("ISO: using fallback '" + isoVal + "'");
+            }
+        }
+        if (isoVal && /^[A-Za-z]{3}$/.test(isoVal)) {
+            dateFolderName = baseDateName + "_" + (DATE_FOLDER_ISO_UPPERCASE ? isoVal.toUpperCase() : isoVal);
+        } else if (LOG_ISO_EXTRACTION) {
+            log("ISO: no valid ISO append; using plain date folder");
+        }
+    }
+    var dateFolder = new Folder(joinPath(outMaster.fsName, dateFolderName));
     if (!ensureFolderExists(dateFolder)) {
         alertOnce("Cannot create date folder: " + dateFolder.fsName);
         app.endUndoGroup();
