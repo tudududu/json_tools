@@ -61,6 +61,13 @@
     var DATA_JSON_ITEM_NAME = "data.json";         // Footage item name
     var DATA_JSON_COUNTRY_KEY_PATH = ["metadataGlobal","country"]; // JSON path to ISO
 
+    // 4c. File logging options (applies only if file logging enabled later)
+    var FILE_LOG_APPEND_MODE = false;          // When true, append to a single persistent file (set_ame_output_paths.log)
+    var FILE_LOG_PRUNE_ENABLED = true;         // When true, prune old log files (pattern set_ame_output_paths_*.log) beyond max
+    var FILE_LOG_MAX_FILES = 12;               // Keep at most this many timestamped log files (ignored if append mode only and no rotation needed)
+    var LOG_ENV_HEADER = true;                 // Write environment header (project, counts baseline) at start of each run (or section marker if append)
+    var LOG_SUMMARY_SECTION = true;            // Emit compact summary section at end (in addition to main message)
+
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
     var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
@@ -232,6 +239,7 @@
     function __ts() {
         var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
     }
+    function __tsHuman(){ var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" " + p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
     if (ENABLE_FILE_LOG) {
         try {
             var workFolder = new Folder(joinPath(postFolder.fsName, "WORK"));
@@ -239,8 +247,19 @@
                 var logFolder = new Folder(joinPath(workFolder.fsName, FILE_LOG_SUBFOLDER));
                 if (!logFolder.exists) logFolder.create();
                 if (logFolder.exists) {
-                    var logName = "set_ame_output_paths_" + __ts() + ".log";
+                    var logName = FILE_LOG_APPEND_MODE ? "set_ame_output_paths.log" : ("set_ame_output_paths_" + __ts() + ".log");
                     __fileLog = new File(joinPath(logFolder.fsName, logName));
+                    // Prune old logs if enabled and not in pure append (we still can prune timestamped files while appending)
+                    if (FILE_LOG_PRUNE_ENABLED) {
+                        try {
+                            var all = logFolder.getFiles(function(f){ return (f instanceof File) && /set_ame_output_paths_\d{8}_\d{6}\.log$/i.test(f.name); });
+                            if (all && all.length && FILE_LOG_MAX_FILES > 0) {
+                                // Sort by name ascending (timestamp in name ensures chronological)
+                                all.sort(function(a,b){ if(a.name < b.name) return -1; if(a.name > b.name) return 1; return 0; });
+                                while (all.length > FILE_LOG_MAX_FILES) { var oldF = all.shift(); try { oldF.remove(); } catch(prErr) {} }
+                            }
+                        } catch(pruneErr) {}
+                    }
                 }
             }
         } catch (eFL) {}
@@ -250,7 +269,20 @@
         try {
             var __origLogFn = log;
             log = function(msg){ __origLogFn(msg); __writeFileLine(__fileLog,msg); };
-            log("[log] File logging started: " + __fileLog.fsName);
+            log("[log] File logging started: " + __fileLog.fsName + (FILE_LOG_APPEND_MODE ? " (append mode)" : ""));
+            if (LOG_ENV_HEADER) {
+                log("--- ENV HEADER BEGIN ---");
+                try {
+                    var pjPath = (app.project && app.project.file) ? app.project.file.fsName : "(unsaved)";
+                    log("ProjectPath: " + pjPath);
+                    log("ProjectName: " + ((app.project && app.project.file) ? app.project.file.name : "(unsaved)"));
+                } catch(ePH) { log("ProjectPath: (error)" ); }
+                log("RunTimestamp: " + __tsHuman());
+                log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
+                log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
+                log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
+                log("--- ENV HEADER END ---");
+            }
         } catch(eWrap) {}
     }
     var baseDateName = todayYYMMDD();
@@ -516,6 +548,15 @@
               (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued ? "\nHint: Launch Media Encoder manually once, then rerun or increase AME_RETRY_DELAY_MS." : "") +
               (!shouldQueue && AUTO_QUEUE_IN_AME && QUEUE_ONLY_WHEN_NEW_OR_CHANGED ? "\n(AME queue skipped: no new or changed outputs)" : "");
     log(msg);
+    if (LOG_SUMMARY_SECTION) {
+        log("--- SUMMARY BEGIN ---");
+        log("DateFolder: " + dateFolder.fsName);
+        log("Added: " + addedCount + ", Changed: " + changedCount + ", Processed: " + processed + ", Skipped: " + skipped + (unsorted?", Unsorted: "+unsorted:""));
+        log("VerifiedAdded: " + verifiedAdded + ", AMEQueued: " + (AUTO_QUEUE_IN_AME ? (shouldQueue ? (ameQueued?"yes":"fail") : "skipped") : "disabled"));
+        log("DynamicTemplates: " + ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION + ", DoubleApply: " + DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES);
+        log("QueueOnlyWhenNewOrChanged: " + QUEUE_ONLY_WHEN_NEW_OR_CHANGED + ", ForceQueueAlways: " + FORCE_QUEUE_ALWAYS);
+        log("--- SUMMARY END ---");
+    }
     alertOnce(msg);
 
 })();
