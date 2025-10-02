@@ -50,6 +50,7 @@
     var ENABLE_RELINK_DATA_JSON = true;            // Master switch for data.json relink/import
     var DATA_JSON_ISO_CODE_MANUAL = "SAU";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
     var DATA_JSON_ISO_CODE = null;                 // Actual ISO code used (auto-detected first, fallback to manual)
+    var DATA_JSON_ISO_MODE = "auto";              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
     var DATA_JSON_PROJECT_FOLDER = ["project","in","data"]; // Project panel target folder path
     var DATA_JSON_PROJECT_ITEM_NAME = "data.json"; // Desired item name inside AE project
     var DATA_JSON_FS_SUBPATH = ["IN","data"];    // Relative path under POST where data files live
@@ -336,61 +337,66 @@
 
     // Auto-detect ISO code from parent of POST: parentFolderName pattern "jobNumber - ISO"
     // Example path: /.../<Parent>/<POST>/WORK/project.aep, we need <Parent> folder name.
+    var __isoOrigin = "manual"; // default assumption
     var parentOfPost = postFolder ? postFolder.parent : null;
-    if (parentOfPost && parentOfPost.exists) {
-        var parentNameRaw = parentOfPost.name || "";
-        var decodedName = parentNameRaw;
-        // Attempt URI decode (handles %20 etc.)
-        try { decodedName = decodeURIComponent(parentNameRaw); } catch (eDec) {
-            // Fallback simple replacement for %20 only
-            decodedName = parentNameRaw.replace(/%20/g, ' ');
-        }
-        // Also replace remaining %XX sequences generically if not decoded
-        if (decodedName === parentNameRaw && /%[0-9A-Fa-f]{2}/.test(parentNameRaw)) {
-            decodedName = parentNameRaw.replace(/%([0-9A-Fa-f]{2})/g, function(m,h){
-                try { return String.fromCharCode(parseInt(h,16)); } catch(eC){ return m; }
-            });
-        }
-        // Normalize whitespace
-        var normalizedName = decodedName.replace(/\s+/g,' ').replace(/\s*-\s*/,' - ').replace(/^\s+|\s+$/g,'');
-        if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
-            log("[data.json] Parent of POST folder name (raw): '" + parentNameRaw + "'");
-            if (parentNameRaw !== decodedName) log("[data.json] Decoded name: '" + decodedName + "'");
-            if (decodedName !== normalizedName) log("[data.json] Normalized name: '" + normalizedName + "'");
-        }
-        var workName = normalizedName || decodedName || parentNameRaw;
-        var mIso = null;
-        // Primary pattern: anything - ISO (3 letters at end)
-        var m1 = workName.match(/-\s*([A-Za-z]{3})$/);
-        if (m1) mIso = m1;
-        // Secondary: last whitespace separated token is 3 letters
-        if (!mIso) {
-            var parts = workName.split(/[\s_]+/);
-            if (parts.length) {
-                var last = parts[parts.length - 1];
-                if (/^[A-Za-z]{3}$/.test(last)) mIso = [null, last];
+    if (DATA_JSON_ISO_MODE !== "manual") {
+        if (parentOfPost && parentOfPost.exists) {
+            var parentNameRaw = parentOfPost.name || "";
+            var decodedName = parentNameRaw;
+            // Attempt URI decode (handles %20 etc.)
+            try { decodedName = decodeURIComponent(parentNameRaw); } catch (eDec) {
+                // Fallback simple replacement for %20 only
+                decodedName = parentNameRaw.replace(/%20/g, ' ');
             }
-        }
-        // Tertiary: dash-split last trimmed token of length 3
-        if (!mIso) {
-            var dashParts = workName.split('-');
-            if (dashParts.length >= 2) {
-                var cand = dashParts[dashParts.length - 1].replace(/\s+/g,'');
-                if (/^[A-Za-z]{3}$/.test(cand)) mIso = [null, cand];
+            // Also replace remaining %XX sequences generically if not decoded
+            if (decodedName === parentNameRaw && /%[0-9A-Fa-f]{2}/.test(parentNameRaw)) {
+                decodedName = parentNameRaw.replace(/%([0-9A-Fa-f]{2})/g, function(m,h){
+                    try { return String.fromCharCode(parseInt(h,16)); } catch(eC){ return m; }
+                });
             }
-        }
-        if (mIso && mIso[1]) {
-            DATA_JSON_ISO_CODE = mIso[1].toUpperCase();
-            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Auto-detected ISO from parent folder: " + DATA_JSON_ISO_CODE);
-        } else {
-            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Could not auto-detect ISO from parent folder name (after decoding/normalizing); will use manual fallback.");
+            // Normalize whitespace
+            var normalizedName = decodedName.replace(/\s+/g,' ').replace(/\s*-\s*/,' - ').replace(/^\s+|\s+$/g,'');
+            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
+                log("[data.json] Parent of POST folder name (raw): '" + parentNameRaw + "'");
+                if (parentNameRaw !== decodedName) log("[data.json] Decoded name: '" + decodedName + "'");
+                if (decodedName !== normalizedName) log("[data.json] Normalized name: '" + normalizedName + "'");
+            }
+            var workName = normalizedName || decodedName || parentNameRaw;
+            var mIso = null;
+            // Primary pattern: anything - ISO (3 letters at end)
+            var m1 = workName.match(/-\s*([A-Za-z]{3})$/);
+            if (m1) mIso = m1;
+            // Secondary: last whitespace separated token is 3 letters
+            if (!mIso) {
+                var parts = workName.split(/[\s_]+/);
+                if (parts.length) {
+                    var last = parts[parts.length - 1];
+                    if (/^[A-Za-z]{3}$/.test(last)) mIso = [null, last];
+                }
+            }
+            // Tertiary: dash-split last trimmed token of length 3
+            if (!mIso) {
+                var dashParts = workName.split('-');
+                if (dashParts.length >= 2) {
+                    var cand = dashParts[dashParts.length - 1].replace(/\s+/g,'');
+                    if (/^[A-Za-z]{3}$/.test(cand)) mIso = [null, cand];
+                }
+            }
+            if (mIso && mIso[1]) {
+                DATA_JSON_ISO_CODE = mIso[1].toUpperCase();
+                __isoOrigin = "auto";
+                if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Auto-detected ISO from parent folder: " + DATA_JSON_ISO_CODE);
+            } else {
+                if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Could not auto-detect ISO from parent folder name (after decoding/normalizing); will use manual fallback.");
+            }
         }
     }
-    if (!DATA_JSON_ISO_CODE) {
+    if (!DATA_JSON_ISO_CODE) { // either manual mode or auto failed
         DATA_JSON_ISO_CODE = (DATA_JSON_ISO_CODE_MANUAL || "XXX").toUpperCase();
+        __isoOrigin = (DATA_JSON_ISO_MODE === "manual") ? "manual(forced)" : "manual(fallback)";
     }
     if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
-        log("[data.json] ISO code used: " + DATA_JSON_ISO_CODE + (DATA_JSON_ISO_CODE_MANUAL && DATA_JSON_ISO_CODE_MANUAL.toUpperCase() === DATA_JSON_ISO_CODE ? " (manual)" : " (auto)"));
+        log("[data.json] ISO code used: " + DATA_JSON_ISO_CODE + " (" + __isoOrigin + ")");
     }
 
     var inFolder = new Folder(joinPath(postFolder.fsName, joinPath("IN", "SOUND")));

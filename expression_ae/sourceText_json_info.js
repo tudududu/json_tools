@@ -75,7 +75,7 @@ try {
 
   var client   = toStr(safe(globalMeta, ["client"], "-"));
   var campaign = toStr(safe(globalMeta, ["campaign"], "-"));
-  var country = toStr(safe(data, ["country"], "-"));
+  var country = toStr(safe(globalMeta, ["country"], "-"));
 
   var videoId  = video ? toStr(video.videoId) : "(video not found)";
   var vMeta    = video ? video.metadata : null;
