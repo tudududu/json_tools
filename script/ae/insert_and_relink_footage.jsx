@@ -296,6 +296,44 @@
         return;
     }
 
+    // ------------------------------------------------------------
+    // File logging (writes to ./POST/WORK/log/insert_and_relink_footage_<timestamp>.log)
+    // Inspired by pack_output_comps.jsx pattern (simplified)
+    // ------------------------------------------------------------
+    var ENABLE_FILE_LOG = true;          // Master toggle
+    var FILE_LOG_SUBFOLDER = "log";     // Folder name under POST/WORK
+    var __fileLog = null;
+    function __buildTimestamp() {
+        var d = new Date();
+        function p(n){ return (n<10?'0':'')+n; }
+        return d.getFullYear()+ p(d.getMonth()+1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+    }
+    if (ENABLE_FILE_LOG && workFolder && workFolder.exists) {
+        try {
+            var logFolder = new Folder(joinPath(workFolder.fsName, FILE_LOG_SUBFOLDER));
+            if (!logFolder.exists) { logFolder.create(); }
+            if (logFolder.exists) {
+                var lfName = "insert_and_relink_footage_" + __buildTimestamp() + ".log";
+                __fileLog = new File(joinPath(logFolder.fsName, lfName));
+            }
+        } catch (eLF) {}
+    }
+    function __writeFileLine(f, line) {
+        if (!f) return;
+        try { if (f.open('a')) { f.write(line + "\n"); f.close(); } } catch (eWL) {}
+    }
+    // Wrap existing log to also write to file
+    if (__fileLog) {
+        try {
+            var __origLogFn = log;
+            log = function(msg){
+                __origLogFn(msg);
+                __writeFileLine(__fileLog, msg);
+            };
+            log("[log] File logging started: " + __fileLog.fsName);
+        } catch (eWrap) {}
+    }
+
     // Auto-detect ISO code from parent of POST: parentFolderName pattern "jobNumber - ISO"
     // Example path: /.../<Parent>/<POST>/WORK/project.aep, we need <Parent> folder name.
     var parentOfPost = postFolder ? postFolder.parent : null;
