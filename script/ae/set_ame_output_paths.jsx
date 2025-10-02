@@ -69,7 +69,7 @@
     var LOG_SUMMARY_SECTION = true;            // Emit compact summary section at end (in addition to main message)
 
     // 4d. Debug instrumentation (set TRUE to enable temporary diagnostics)
-    var DEBUG_DUMP_PROJECT_TREE = false;       // When true, dumps the Project panel folder tree (top-down) to the log
+    var DEBUG_DUMP_PROJECT_TREE = true;       // When true, dumps the Project panel folder tree (top-down) to the log
     var DEBUG_DUMP_PROJECT_TREE_MAX_DEPTH = 6; // Limit recursion depth for tree dump
     var DEBUG_DUMP_PROJECT_TREE_MAX_ITEMS = 60;// Max children listed per folder
     var DEBUG_VERBOSE_ISO_STEPS = true;        // Extra step-by-step logs inside ISO extraction
@@ -213,14 +213,24 @@
             if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: read text length=" + txt.length);
             var parsed = parseJSONSafe(txt); if (!parsed) { if (LOG_ISO_EXTRACTION) log("ISO: data.json parse failed"); return null; }
             if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: JSON parsed ok");
-            var iso = extractNested(parsed, DATA_JSON_COUNTRY_KEY_PATH);
-            if (typeof iso !== 'string') { if (LOG_ISO_EXTRACTION) log("ISO: country path not string"); return null; }
-            iso = iso.replace(/\s+/g,'').trim();
-            if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
-            if (!/^[A-Za-z]{3}$/.test(iso)) {
-                if (LOG_ISO_EXTRACTION) log("ISO: value invalid '" + iso + "'");
-                return null;
-            }
+            var iso = null;
+            try {
+                iso = extractNested(parsed, DATA_JSON_COUNTRY_KEY_PATH);
+                if (DEBUG_VERBOSE_ISO_STEPS && LOG_ISO_EXTRACTION) log("ISO DBG: extractNested returned type=" + (typeof iso));
+            } catch(exN){ if (LOG_ISO_EXTRACTION) log("ISO DBG: extractNested threw: " + exN); return null; }
+            try {
+                if (typeof iso !== 'string') { if (LOG_ISO_EXTRACTION) log("ISO: country path not string"); return null; }
+                iso = iso.replace(/\s+/g,'').trim();
+            } catch(exPP){ if (LOG_ISO_EXTRACTION) log("ISO DBG: post-process replace/trim error: " + exPP); return null; }
+            try {
+                if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
+            } catch(exUp){ if (LOG_ISO_EXTRACTION) log("ISO DBG: uppercase step error: " + exUp); return null; }
+            try {
+                if (!/^[A-Za-z]{3}$/.test(iso)) {
+                    if (LOG_ISO_EXTRACTION) log("ISO: value invalid '" + iso + "'");
+                    return null;
+                }
+            } catch(exVal){ if (LOG_ISO_EXTRACTION) log("ISO DBG: validation regex error: " + exVal); return null; }
             if (LOG_ISO_EXTRACTION) log("ISO: extracted '" + iso + "' from data.json");
             return iso;
         } catch(eD){ if (LOG_ISO_EXTRACTION) log("ISO: extraction error: " + eD); return null; }
@@ -343,20 +353,22 @@
     }
     var baseDateName = todayYYMMDD();
     var dateFolderName = baseDateName;
-    if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
-        var isoVal = deriveISOFromDataJSON();
-        if (!isoVal) {
-            if (REQUIRE_VALID_ISO) {
-                isoVal = DATE_FOLDER_ISO_FALLBACK;
-                if (LOG_ISO_EXTRACTION) log("ISO: using fallback '" + isoVal + "'");
+    try {
+        if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
+            var isoVal = deriveISOFromDataJSON();
+            if (!isoVal) {
+                if (REQUIRE_VALID_ISO) {
+                    isoVal = DATE_FOLDER_ISO_FALLBACK;
+                    if (LOG_ISO_EXTRACTION) log("ISO: using fallback '" + isoVal + "'");
+                }
+            }
+            if (isoVal && /^[A-Za-z]{3}$/.test(isoVal)) {
+                dateFolderName = baseDateName + "_" + (DATE_FOLDER_ISO_UPPERCASE ? isoVal.toUpperCase() : isoVal);
+            } else if (LOG_ISO_EXTRACTION) {
+                log("ISO: no valid ISO append; using plain date folder");
             }
         }
-        if (isoVal && /^[A-Za-z]{3}$/.test(isoVal)) {
-            dateFolderName = baseDateName + "_" + (DATE_FOLDER_ISO_UPPERCASE ? isoVal.toUpperCase() : isoVal);
-        } else if (LOG_ISO_EXTRACTION) {
-            log("ISO: no valid ISO append; using plain date folder");
-        }
-    }
+    } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
     var dateFolder = new Folder(joinPath(outMaster.fsName, dateFolderName));
     if (!ensureFolderExists(dateFolder)) {
         alertOnce("Cannot create date folder: " + dateFolder.fsName);
