@@ -224,6 +224,35 @@
         app.endUndoGroup();
         return;
     }
+
+    // -------- File logging (POST/WORK/log) --------
+    var ENABLE_FILE_LOG = true;             // Master toggle for file log
+    var FILE_LOG_SUBFOLDER = "log";        // Subfolder under POST/WORK
+    var __fileLog = null;                   // File handle
+    function __ts() {
+        var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+    }
+    if (ENABLE_FILE_LOG) {
+        try {
+            var workFolder = new Folder(joinPath(postFolder.fsName, "WORK"));
+            if (workFolder.exists) {
+                var logFolder = new Folder(joinPath(workFolder.fsName, FILE_LOG_SUBFOLDER));
+                if (!logFolder.exists) logFolder.create();
+                if (logFolder.exists) {
+                    var logName = "set_ame_output_paths_" + __ts() + ".log";
+                    __fileLog = new File(joinPath(logFolder.fsName, logName));
+                }
+            }
+        } catch (eFL) {}
+    }
+    function __writeFileLine(f,line){ if(!f) return; try{ if(f.open('a')){ f.write(line+"\n"); f.close(); } }catch(e){}}
+    if (__fileLog) {
+        try {
+            var __origLogFn = log;
+            log = function(msg){ __origLogFn(msg); __writeFileLine(__fileLog,msg); };
+            log("[log] File logging started: " + __fileLog.fsName);
+        } catch(eWrap) {}
+    }
     var baseDateName = todayYYMMDD();
     var dateFolderName = baseDateName;
     if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
