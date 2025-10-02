@@ -54,6 +54,10 @@
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
     var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
+    var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
+    var INJECT_PRESET_TOKEN_IN_FILENAME = false; // Append __TemplateName to filename before extension (lets you see which preset intended)
+    var FILENAME_TEMPLATE_SANITIZE = true; // Sanitize token when injecting
+    var VERBOSE_TEMPLATE_DEBUG = false; // Extra logging for template reapplication
 
     // ————— Utils —————
     function log(msg) { try { $.writeln(msg); } catch (e) {} }
@@ -212,14 +216,15 @@
                     if (omNew && OUTPUT_MODULE_TEMPLATE) {
                         try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
                     }
+                    var chosenDynTemplate = null;
                     if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
                         var toks = parseTokensFromName(it.name);
                         var dynTemplate = pickOutputModuleTemplate(toks);
                         if (dynTemplate && dynTemplate.length) {
-                            try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
+                            try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); chosenDynTemplate = dynTemplate; } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
                         }
                     }
-                    itemsToProcess.push({ rqi: newRQI, newlyAdded: true });
+                    itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
                     addedCount++;
                 }
             }
@@ -273,11 +278,11 @@
         }
 
         var tokens = parseTokensFromName(compName);
-        // Optionally apply dynamic OM template for existing items (or re-apply for added ones if order changed)
+        var dynTemplateUsed = entry.dynTemplate || null;
         if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
             var dynT = pickOutputModuleTemplate(tokens);
             if (dynT && dynT.length) {
-                try { om.applyTemplate(dynT); if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
+                try { om.applyTemplate(dynT); dynTemplateUsed = dynT; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
                 catch (eTpl) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl); }
             }
         }
@@ -291,6 +296,12 @@
         ensureFolderExists(destParent);
         var destPath = joinPath(destParent.fsName, baseName + ext);
         var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
+        if (INJECT_PRESET_TOKEN_IN_FILENAME && dynTemplateUsed) {
+            var token = dynTemplateUsed;
+            if (FILENAME_TEMPLATE_SANITIZE) token = token.replace(/[^A-Za-z0-9_\-]+/g, "_");
+            var injectedBase = baseName + "__" + token;
+            destPath = joinPath(destParent.fsName, injectedBase + ext);
+        }
         try {
             om.file = new File(destPath);
             processed++;
@@ -324,6 +335,23 @@
 
     // Queue to AME with retry logic (in case Dynamic Link server not yet ready)
     var ameQueued = false;
+    // Optional second-pass: reapply templates right before queueing (helps AME pick up correct format)
+    if (DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+        for (var ra = 0; ra < itemsToProcess.length; ra++) {
+            var ent = itemsToProcess[ra];
+            if (!ent || !ent.rqi) continue;
+            try {
+                var omRe = ent.rqi.outputModule(1);
+                if (!omRe) continue;
+                var rTok = parseTokensFromName(ent.rqi.comp.name);
+                var rTpl = pickOutputModuleTemplate(rTok);
+                if (rTpl && rTpl.length) {
+                    try { omRe.applyTemplate(rTpl); if (VERBOSE_TEMPLATE_DEBUG && detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY -> " + ent.rqi.comp.name + " => " + rTpl); }
+                    catch (eRA) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY FAIL " + ent.rqi.comp.name + ": " + eRA); }
+                }
+            } catch (eOuter) {}
+        }
+    }
     function sleep(ms) { try { $.sleep(ms); } catch (e) {} }
     function attemptQueue(start) {
         try {
