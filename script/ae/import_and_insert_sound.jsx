@@ -1,6 +1,6 @@
 // Script for Adobe After Effects — Import newest SOUND folder and place under project/in/sound
 // ——————————————————————————————————————————————————————————————
-// Step 1:
+// 
 // 1) Inspect the IN/SOUND folder located relative to the saved project
 //    Expected layout:
 //      ./POST/WORK/<project>.aep   ← current project file
@@ -10,7 +10,9 @@
 // 4) Move the imported folder to: project/in/sound/
 //
 // Usage:
-// - Save your project to POST/WORK first, then run this script.
+// 1 Save your project to POST/WORK
+// 2 Select compositions.
+// 3 Run this script.
 
 (function importNewestSoundFolderAndInsert() {
     app.beginUndoGroup("Import Newest SOUND Folder");
@@ -41,7 +43,8 @@
 
     // Settings
     var ENABLE_ALIGN_AUDIO_TO_MARKERS = false; // Set true to align audio start to first comp marker; false = place at 0s
-    var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // Step 4: when true, remove all pre-existing audio layers in comp after inserting the new one
+    var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // When true, remove all pre-existing audio-only layers (FootageItem with audio, no video) after inserting the new one
+    var ENABLE_MUTE_EXISTING_AUDIO_LAYERS = true; // When true (and removal is false), mute (audioEnabled=false) on any other audio-capable layers
 
     function ensureProjectPath(segments) {
         var cur = proj.rootFolder; // Root
@@ -390,22 +393,7 @@
             inserted++;
             log("Inserted audio '" + match.name + "' into comp '" + comp.name + "' at " + t0.toFixed(3) + "s");
 
-            // Step 3: Mute all existing audio layers except the newly inserted one
-            if (!ENABLE_REMOVE_EXISTING_AUDIO_LAYERS) {
-                for (var li = 1; li <= comp.numLayers; li++) {
-                    var ly = comp.layer(li);
-                    if (ly === layer) continue;
-                    try {
-                        var hasAud = false;
-                        try { hasAud = !!ly.hasAudio; } catch (eHA) { hasAud = (ly.audioEnabled !== undefined); }
-                        if (hasAud && ly.audioEnabled !== undefined) {
-                            ly.audioEnabled = false;
-                        }
-                    } catch (eMute) {}
-                }
-            }
-
-            // Step 4: Optionally remove all existing audio-only footage layers except the newly inserted one
+            // Step 3: Optionally remove existing audio-only footage layers (takes precedence over mute)
             if (ENABLE_REMOVE_EXISTING_AUDIO_LAYERS) {
                 for (var r = comp.numLayers; r >= 1; r--) {
                     var rl = comp.layer(r);
@@ -415,6 +403,19 @@
                             rl.remove();
                         }
                     } catch (eRem) {}
+                }
+            } if (ENABLE_MUTE_EXISTING_AUDIO_LAYERS) {
+                // Step 4: Mute any other audio-capable layers (including precomps with audio)
+                for (var li = 1; li <= comp.numLayers; li++) {
+                    var ly = comp.layer(li);
+                    if (ly === layer) continue;
+                    try {
+                        var hasAud2 = false;
+                        try { hasAud2 = !!ly.hasAudio; } catch (eHA2) { hasAud2 = (ly.audioEnabled !== undefined); }
+                        if (hasAud2 && ly.audioEnabled !== undefined) {
+                            ly.audioEnabled = false;
+                        }
+                    } catch (eMute2) {}
                 }
             }
         } catch (eIns) {
