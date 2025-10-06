@@ -58,6 +58,17 @@
     // Change here if the JSON schema evolves.
     var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n','auto' (case-insensitive)
     var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
+    // Configurable acceptable values (all compared case-insensitively)
+    // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
+    var DISCLAIMER_FLAG_VALUES = {
+        ON:   ['y', 'yes', '1'],
+        OFF:  ['n', 'no', '0'],
+        AUTO: ['auto']
+    };
+    var SUBTITLES_FLAG_VALUES = {
+        ON:  ['y', 'yes', '1'],
+        OFF: ['n', 'no', '0']
+    };
 
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
@@ -575,9 +586,21 @@
             } catch (eFlag) {}
             return null;
         }
-        // Visibility flags (lower-cased or null)
-        var disclaimerFlag = extractFlag(v, DISCLAIMER_FLAG_KEY);   // 'y','n','auto' or null
-        var subtitlesFlag  = extractFlag(v, SUBTITLES_FLAG_KEY);    // 'y','n' or null
+        // Visibility flags (raw lower-cased values or null)
+        var disclaimerFlag = extractFlag(v, DISCLAIMER_FLAG_KEY);   // raw value; interpret below
+        var subtitlesFlag  = extractFlag(v, SUBTITLES_FLAG_KEY);
+
+        function interpretFlag(raw, cfg, allowAuto) {
+            if (!raw) return null;
+            var val = String(raw).toLowerCase();
+            function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++){ if(val===String(list[i]).toLowerCase()) return true; } return false; }
+            if (inList(cfg.ON)) return 'on';
+            if (inList(cfg.OFF)) return 'off';
+            if (allowAuto && inList(cfg.AUTO)) return 'auto';
+            return null; // unrecognized
+        }
+        var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, true);  // 'on','off','auto', or null
+        var subtitlesMode  = interpretFlag(subtitlesFlag, SUBTITLES_FLAG_VALUES, false);    // 'on','off', or null
         // Determine if JSON has any valid disclaimer intervals
         var hasValidDisclaimer = false;
         if (v && v.disclaimer && v.disclaimer.length) {
@@ -703,29 +726,31 @@
                     setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
                     log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
                 } // else already set to full duration above when gating off
-                if (disclaimerFlag === 'y' || disclaimerFlag === 'n' || disclaimerFlag === 'auto') {
+                if (disclaimerMode) {
                     try {
-                        if (disclaimerFlag === 'auto') {
+                        if (disclaimerMode === 'auto') {
                             ly.enabled = hasValidDisclaimer;
-                        } else {
-                            ly.enabled = (disclaimerFlag === 'y');
+                        } else if (disclaimerMode === 'on') {
+                            ly.enabled = true;
+                        } else if (disclaimerMode === 'off') {
+                            ly.enabled = false;
                         }
-                        log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (disclaimerFlag === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
-                    } catch (eVis) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis); }
+                        log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (disclaimerMode === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
+                    } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
                 } else if (disclaimerFlag) {
-                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (expected y/n/auto) for '" + nm + "'.");
+                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+DISCLAIMER_FLAG_VALUES.ON.join('/')+", OFF:"+DISCLAIMER_FLAG_VALUES.OFF.join('/')+", AUTO:"+DISCLAIMER_FLAG_VALUES.AUTO.join('/')+") for '" + nm + "'.");
                 }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
             // Subtitles visibility flag (no timing applied here)
             if (matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains)) {
-                if (subtitlesFlag === 'y' || subtitlesFlag === 'n') {
+                if (subtitlesMode === 'on' || subtitlesMode === 'off') {
                     try {
-                        ly.enabled = (subtitlesFlag === 'y');
+                        ly.enabled = (subtitlesMode === 'on');
                         log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                     } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
                 } else if (subtitlesFlag) {
-                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (expected y/n) for '" + nm + "'.");
+                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (configured ON:"+SUBTITLES_FLAG_VALUES.ON.join('/')+", OFF:"+SUBTITLES_FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
                 }
             }
         }
