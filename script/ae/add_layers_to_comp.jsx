@@ -53,6 +53,12 @@
         requireAspectRatioMatch: false
     };
 
+    // Visibility flag configuration (JSON key names)
+    // These keys are looked up first on each video object, then (if not found) under video.metadata.*
+    // Change here if the JSON schema evolves.
+    var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n','auto' (case-insensitive)
+    var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
+
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
     // - contains: list of substrings; if present in layer name, it's a match
@@ -556,22 +562,22 @@
         var logoMM = minMaxInOut(v.logo);
         var claimMM = minMaxInOut(v.claim);
         var disclaimerMM = minMaxInOut(v.disclaimer);
-        // Disclaimer visibility flag ('y' or 'n' or 'auto', case-insensitive). Accept both top-level and metadata.* locations.
-        var disclaimerFlag = null;
-        try {
-            var df = (v.disclaimer_flag !== undefined && v.disclaimer_flag !== null) ? v.disclaimer_flag : (v.metadata && v.metadata.disclaimer_flag !== undefined ? v.metadata.disclaimer_flag : null);
-            if (df !== undefined && df !== null && df !== '') {
-                disclaimerFlag = String(df).toLowerCase();
-            }
-        } catch (eDF) {}
-        // Subtitles visibility flag ('y' or 'n', case-insensitive). Accept both top-level and metadata.* locations.
-        var subtitlesFlag = null;
-        try {
-            var sf = (v.subtitle_flag !== undefined && v.subtitle_flag !== null) ? v.subtitle_flag : (v.metadata && v.metadata.subtitle_flag !== undefined ? v.metadata.subtitle_flag : null);
-            if (sf !== undefined && sf !== null && sf !== '') {
-                subtitlesFlag = String(sf).toLowerCase();
-            }
-        } catch (eSF) {}
+        // Helper to extract flag value given a configured key (checks video then video.metadata)
+        function extractFlag(videoObj, keyName) {
+            if (!videoObj || !keyName) return null;
+            try {
+                if (videoObj.hasOwnProperty(keyName) && videoObj[keyName] !== undefined && videoObj[keyName] !== null && videoObj[keyName] !== '') {
+                    return String(videoObj[keyName]).toLowerCase();
+                }
+                if (videoObj.metadata && videoObj.metadata.hasOwnProperty(keyName) && videoObj.metadata[keyName] !== undefined && videoObj.metadata[keyName] !== null && videoObj.metadata[keyName] !== '') {
+                    return String(videoObj.metadata[keyName]).toLowerCase();
+                }
+            } catch (eFlag) {}
+            return null;
+        }
+        // Visibility flags (lower-cased or null)
+        var disclaimerFlag = extractFlag(v, DISCLAIMER_FLAG_KEY);   // 'y','n','auto' or null
+        var subtitlesFlag  = extractFlag(v, SUBTITLES_FLAG_KEY);    // 'y','n' or null
         // Determine if JSON has any valid disclaimer intervals
         var hasValidDisclaimer = false;
         if (v && v.disclaimer && v.disclaimer.length) {
@@ -888,11 +894,3 @@
     alertOnce("Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ".");
     app.endUndoGroup();
 })();
-// Script_ae: Add layers to composition. 01
-
-// After Effetcs script to add layers to selected composition from a template composition.
-
-// 1. Locate the template composition: In the AE project panel, project internal path: ./work/template/
-// The template composition name pattern will be: ‘title_duration_template_date_version’, e.g. ‘WTA_30s_template_250923_v01’
-// 2. Copy all of the layers except the underlaying video file i.e. footage layer with the highest layer number whose source file is AVItem - video (e.g. *.mp4, *.mov, etc.)
-// 3. Add the copied layers into the selected compositions.

@@ -1,5 +1,5 @@
 // TARGET ► Position — Baseline-locked for TEXT; same alignment for others
-// v01
+// v02
 
 var holder = thisComp.layer("Size_Holder_Subtit");
 var group  = holder.content("PLACEHOLDER");
