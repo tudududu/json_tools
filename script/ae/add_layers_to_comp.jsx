@@ -53,6 +53,13 @@
         requireAspectRatioMatch: false
     };
 
+    // Logo timing behavior toggle:
+    // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
+    // and layer.outPoint to the logo JSON out value (tout). This causes the layer's internal time zero to align
+    // with its visible inPoint (useful for expressions referencing time / sourceTime inside the logo layer).
+    // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
+    var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
+
     // Visibility flag configuration (JSON key names)
     // These keys are looked up first on each video object, then (if not found) under video.metadata.*
     // Change here if the JSON schema evolves.
@@ -708,8 +715,18 @@
             var logoContains = matchesContains(nm, LAYER_NAME_CONFIG.logo.contains);
             var logoContainsOk = logoContains && (!LAYER_NAME_CONFIG.logo.imageOnlyForContains || isImageFootageLayer(ly));
             if (logoMM && (logoExact || logoContainsOk)) {
-                setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
-                log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
+                if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) {
+                    var tinL = logoMM.tin < 0 ? 0 : logoMM.tin;
+                    var toutL = logoMM.tout;
+                    if (toutL > comp.duration) toutL = comp.duration;
+                    try { ly.startTime = tinL; } catch (eLS) {}
+                    try { ly.inPoint = tinL; } catch (eLI) {}
+                    try { ly.outPoint = toutL; } catch (eLO) {}
+                    log("Set logo layer '" + nm + "' (startTime=inPoint mode) to [" + tinL + ", " + toutL + ")");
+                } else {
+                    setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
+                    log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
+                }
                 appliedAny = true;
                 continue;
             }
