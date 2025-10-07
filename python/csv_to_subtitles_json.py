@@ -327,8 +327,10 @@ def convert_csv_to_json(
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
         global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
-        # Multi-row meta_global mappings keyed by a sub-key (e.g., duration) -> value
+        # Multi-row meta_global mappings keyed by a sub-key (duration) -> default value
         logo_anim_flag_by_duration: Dict[str, str] = {}
+        # Per-country overrides for logo_anim_flag: duration -> {country: value}
+        logo_anim_flag_per_country: Dict[str, Dict[str, str]] = {}
         # Intermediate containers before splitting per country
         claims_rows: List[Dict[str, Any]] = []  # global claim rows
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
@@ -437,19 +439,20 @@ def convert_csv_to_json(
                 #   2. Per-country landscape overrides metadata (ALL) cell
                 #   For the aggregated global mapping, we use the ALL/metadata value if present; per-country specific differences are not aggregated (design choice for simplicity).
                 if key_name == "logo_anim_flag":
-                    duration_subkey = (country_scope_val or "").strip()  # treat country_scope as duration string
+                    duration_subkey = (country_scope_val or "").strip()
                     if not duration_subkey:
-                        # Skip if no duration provided
                         continue
-                    # Determine a canonical value: prefer metadata cell; if empty, fall back to first non-empty per-country landscape; then portrait if still empty
-                    canonical_val = (metadata_cell_val or "").strip()
-                    if not canonical_val:
-                        # look for any per-country landscape text
-                        canonical_val = next((texts[c] for c in countries if texts.get(c, "")), "").strip()
-                    if not canonical_val:
-                        canonical_val = next((texts_portrait[c] for c in countries if texts_portrait.get(c, "")), "").strip()
-                    if canonical_val:
-                        logo_anim_flag_by_duration[duration_subkey] = canonical_val
+                    default_val = (metadata_cell_val or "").strip()
+                    # Build per-country values with precedence portrait > landscape > default
+                    for ctry in countries:
+                        per_val = (texts_portrait.get(ctry, "") or texts.get(ctry, "") or default_val).strip()
+                        if per_val:
+                            logo_anim_flag_per_country.setdefault(duration_subkey, {})[ctry] = per_val
+                    # Derive default if still empty: fallback to first per-country captured value
+                    if not default_val and duration_subkey in logo_anim_flag_per_country:
+                        default_val = next(iter(logo_anim_flag_per_country[duration_subkey].values()), "")
+                    if default_val:
+                        logo_anim_flag_by_duration[duration_subkey] = default_val
                     continue
                 # Generic meta_global: pick first non-empty per-country value else metadata column
                 country_val = next((texts[c] for c in countries if texts[c]), "")
@@ -615,8 +618,21 @@ def convert_csv_to_json(
 
         # Before merging blocks, finalize multi-row overview mappings
         if logo_anim_flag_by_duration and "logo_anim_flag" not in global_meta:
-            # Sort durations lexicographically by numeric length then value for stable output (6,15,30,...)
-            global_meta["logo_anim_flag"] = dict(sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])))
+            overview: Dict[str, Any] = {}
+            for dur, def_val in sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])):
+                per_map = logo_anim_flag_per_country.get(dur, {})
+                # If every country maps to same value as default, emit simple string for backward compatibility
+                unique_vals = set(per_map.values()) if per_map else set()
+                if per_map and (len(unique_vals) > 1 or (unique_vals and list(unique_vals)[0] != def_val)):
+                    # Build nested object with _default plus explicit country entries
+                    nested = {"_default": def_val}
+                    # Stable country ordering
+                    for cc in sorted(per_map.keys()):
+                        nested[cc] = per_map[cc]
+                    overview[dur] = nested
+                else:
+                    overview[dur] = def_val
+            global_meta["logo_anim_flag"] = overview
 
         # Merge disclaimer rows into blocks
         disclaimers_rows_merged: List[Dict[str, Any]] = []
@@ -838,8 +854,12 @@ def convert_csv_to_json(
                 if logo_anim_flag_by_duration:
                     dur_key = str(base_meta.get("duration", "")).strip()
                     if dur_key and dur_key in logo_anim_flag_by_duration:
-                        # Do not overwrite if already set via meta_local (explicit override)
-                        base_meta.setdefault("logo_anim_flag", logo_anim_flag_by_duration[dur_key])
+                        if "logo_anim_flag" not in base_meta:
+                            # Pick per-country override if present
+                            per_map = logo_anim_flag_per_country.get(dur_key, {})
+                            country_specific = per_map.get(c)
+                            value_to_use = country_specific if country_specific else logo_anim_flag_by_duration[dur_key]
+                            base_meta["logo_anim_flag"] = value_to_use
                 # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag) if present
                 # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
                 # First apply global per-country flags as defaults
@@ -1049,7 +1069,19 @@ def convert_csv_to_json(
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
             # Fallback injection if earlier embedding missed
             if logo_anim_flag_by_duration and "logo_anim_flag" not in gm_cast:
-                gm_cast["logo_anim_flag"] = dict(sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])))
+                # Fallback apply same overview logic (should already exist)
+                overview_fallback: Dict[str, Any] = {}
+                for dur, def_val in sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])):
+                    per_map_fb = logo_anim_flag_per_country.get(dur, {})
+                    unique_vals_fb = set(per_map_fb.values()) if per_map_fb else set()
+                    if per_map_fb and (len(unique_vals_fb) > 1 or (unique_vals_fb and list(unique_vals_fb)[0] != def_val)):
+                        nested_fb = {"_default": def_val}
+                        for cc in sorted(per_map_fb.keys()):
+                            nested_fb[cc] = per_map_fb[cc]
+                        overview_fallback[dur] = nested_fb
+                    else:
+                        overview_fallback[dur] = def_val
+                gm_cast["logo_anim_flag"] = overview_fallback
             # Inject per-country jobNumber override if present
             # Always add jobNumber key (even if empty) using precedence already resolved during meta_global parsing
             if c in job_number_per_country:
