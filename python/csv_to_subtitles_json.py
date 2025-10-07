@@ -327,6 +327,8 @@ def convert_csv_to_json(
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
         global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
+        # Multi-row meta_global mappings keyed by a sub-key (e.g., duration) -> value
+        logo_anim_flag_by_duration: Dict[str, str] = {}
         # Intermediate containers before splitting per country
         claims_rows: List[Dict[str, Any]] = []  # global claim rows
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
@@ -427,6 +429,27 @@ def convert_csv_to_json(
                             bucket = global_flag_values_per_country.setdefault(c, {})
                             bucket[key_name] = per_val
                     # Do not store as a single shared global_meta value; flags are per-country.
+                    continue
+                # Special multi-row meta_global: logo_anim_flag
+                # Rows supply: key=logo_anim_flag, country_scope column used as a 'duration' sub-key, metadata column (or per-country columns) as value.
+                # Precedence rules for value derivation per row:
+                #   1. Per-country portrait cell overrides per-country landscape
+                #   2. Per-country landscape overrides metadata (ALL) cell
+                #   For the aggregated global mapping, we use the ALL/metadata value if present; per-country specific differences are not aggregated (design choice for simplicity).
+                if key_name == "logo_anim_flag":
+                    duration_subkey = (country_scope_val or "").strip()  # treat country_scope as duration string
+                    if not duration_subkey:
+                        # Skip if no duration provided
+                        continue
+                    # Determine a canonical value: prefer metadata cell; if empty, fall back to first non-empty per-country landscape; then portrait if still empty
+                    canonical_val = (metadata_cell_val or "").strip()
+                    if not canonical_val:
+                        # look for any per-country landscape text
+                        canonical_val = next((texts[c] for c in countries if texts.get(c, "")), "").strip()
+                    if not canonical_val:
+                        canonical_val = next((texts_portrait[c] for c in countries if texts_portrait.get(c, "")), "").strip()
+                    if canonical_val:
+                        logo_anim_flag_by_duration[duration_subkey] = canonical_val
                     continue
                 # Generic meta_global: pick first non-empty per-country value else metadata column
                 country_val = next((texts[c] for c in countries if texts[c]), "")
@@ -806,6 +829,12 @@ def convert_csv_to_json(
                         "text": txt_port_final,
                     })
                 base_meta = vdata.get("metadata", {}).copy()
+                # Inject logo_anim_flag per video based on its duration (string match)
+                if logo_anim_flag_by_duration:
+                    dur_key = str(base_meta.get("duration", "")).strip()
+                    if dur_key and dur_key in logo_anim_flag_by_duration:
+                        # Do not overwrite if already set via meta_local (explicit override)
+                        base_meta.setdefault("logo_anim_flag", logo_anim_flag_by_duration[dur_key])
                 # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag) if present
                 # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
                 # First apply global per-country flags as defaults
