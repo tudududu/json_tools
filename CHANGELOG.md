@@ -1,3 +1,17 @@
+# 1.4.5 - 2025-10-07
+
+Added:
+- Multi-row `meta_global` aggregation for `logo_anim_flag` (CSV to JSON 46–48):
+	* Multiple `meta_global` rows with `key=logo_anim_flag` now build an overview object inside `metadataGlobal.logo_anim_flag` mapping duration strings → flag value.
+	* Duration is taken from the `country_scope` column (e.g. `6`, `15`, `30`, ...); value from the `metadata` column (typical ALL usage) with per‑country landscape / portrait cells as fallback if metadata empty.
+	* Stable sort order: ascending by string length then lexicographically (so 6,15,30,60,90,120).
+	* Per‑video metadata automatically receives a single `logo_anim_flag` value based on its own `duration` (cast as string) unless overridden by a `meta_local` row for that video.
+	* New CLI flag `--no-logo-anim-overview` removes the aggregated object from outputs while keeping per‑video injected values.
+	* Safe with casting: overview remains a dictionary even when `--cast-metadata` is used.
+
+Fixed/Adjusted:
+- Ensured fallback injection of overview if early embedding phase is skipped (defensive redundancy inside converter pipeline).
+
 # 1.4.4 - 2025-10-02
 
 Added:

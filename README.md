@@ -313,6 +313,41 @@ Other `meta_local` keys continue to behave as before: the first non-empty per-co
 
 Consumer guidance: Treat absence of these keys as `false` / disabled; treat presence with any non-empty value (e.g. `Y`) as enabled.
 
+### Multi-Row Global Logo Animation Overview: `logo_anim_flag` (CSV to JSON 46–48)
+
+Some campaigns need a quick lookup for whether the logo animates at a given video duration. This is modeled via multiple `meta_global` rows whose `key` is `logo_anim_flag` and whose `country_scope` column holds the duration string (e.g. `6`, `15`, `30`, `60`, `90`, `120`). The flag value (`Y` / `N`) is taken from the `metadata` column (typical `ALL` usage) with a fallback to per-country landscape, then portrait cells if the metadata cell is empty.
+
+At output time:
+* `metadataGlobal.logo_anim_flag` becomes an object mapping duration → value, stably ordered by (length, lexicographic) for predictable diffs: `{"6":"N","15":"Y",...}`.
+* Each video's `metadata.logo_anim_flag` is populated by looking up the video's `duration` (string compare) in the overview. (Videos whose duration is not present simply omit the key.)
+* A future `meta_local` row for `logo_anim_flag` could override per-video injection; current logic uses `setdefault` to avoid clobbering explicit values.
+* Disable embedding of the overview object (but keep per-video injected values) with `--no-logo-anim-overview`.
+
+Example rows:
+```
+meta_global;;;;;logo_anim_flag;;6;N;;;;;;
+meta_global;;;;;logo_anim_flag;;15;Y;;;;;;
+meta_global;;;;;logo_anim_flag;;120;Y;;;;;;
+```
+
+Example output excerpt:
+```jsonc
+"metadataGlobal": {
+  "logo_anim_flag": { "6": "N", "15": "Y", "120": "Y" },
+  "briefVersion": 19,
+  ...
+},
+"videos": [
+  { "videoId": "Brand_120s_landscape", "metadata": { "duration": "120", "logo_anim_flag": "Y", ... } },
+  { "videoId": "Brand_120s_portrait",  "metadata": { "duration": "120", "logo_anim_flag": "Y", ... } }
+]
+```
+
+CLI toggle:
+```
+--no-logo-anim-overview   Remove metadataGlobal.logo_anim_flag (per-video values stay)
+```
+
 ### Helper: Inspecting Flags & Job Numbers Safely
 
 To avoid brittle ad-hoc greps (and terminal line-wrap issues), use the helper:

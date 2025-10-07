@@ -613,6 +613,11 @@ def convert_csv_to_json(
             # Unknown record type ignored
             continue
 
+        # Before merging blocks, finalize multi-row overview mappings
+        if logo_anim_flag_by_duration and "logo_anim_flag" not in global_meta:
+            # Sort durations lexicographically by numeric length then value for stable output (6,15,30,...)
+            global_meta["logo_anim_flag"] = dict(sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])))
+
         # Merge disclaimer rows into blocks
         disclaimers_rows_merged: List[Dict[str, Any]] = []
         if merge_disclaimer:
@@ -1042,6 +1047,9 @@ def convert_csv_to_json(
                 return value
 
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
+            # Fallback injection if earlier embedding missed
+            if logo_anim_flag_by_duration and "logo_anim_flag" not in gm_cast:
+                gm_cast["logo_anim_flag"] = dict(sorted(logo_anim_flag_by_duration.items(), key=lambda x: (len(x[0]), x[0])))
             # Inject per-country jobNumber override if present
             # Always add jobNumber key (even if empty) using precedence already resolved during meta_global parsing
             if c in job_number_per_country:
@@ -1335,6 +1343,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "1) CONVERTER_VERSION env var, 2) first heading in CHANGELOG.md, 3) latest git tag, 4) '0.0.0+<shortcommit>', else 'dev'."
     ))
     p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
+    p.add_argument("--no-logo-anim-overview", action="store_true", help="Do not embed aggregated logo_anim_flag mapping object in metadataGlobal (CSV to JSON 47)")
 
     args = p.parse_args(argv)
 
@@ -1429,6 +1438,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         claims_as_objects=args.claims_as_objects,
         no_orientation=args.no_orientation,
     )
+
+    # Optionally strip overview if disabled flag set
+    if args.no_logo_anim_overview and isinstance(data, dict):
+        def _strip(obj: Dict[str, Any]):
+            mg = obj.get("metadataGlobal") or obj.get("metadata")
+            if isinstance(mg, dict) and "logo_anim_flag" in mg:
+                del mg["logo_anim_flag"]
+        if data.get("_multi"):
+            for _c, node in (data.get("byCountry") or {}).items():
+                if isinstance(node, dict):
+                    _strip(node)
+        else:
+            _strip(data)
 
     # Inject generation timestamp & checksum (before validation so they appear in output / sample)
     def _inject_generation_metadata(obj: Dict[str, Any]):
