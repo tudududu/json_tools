@@ -113,5 +113,59 @@ class LogoAnimFlagTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_missing_duration_no_logo_flag_injection(self):
+        """Video duration not present in mapping should not get a logo_anim_flag automatically."""
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_missing_')
+        try:
+            csv_path = os.path.join(tmpdir, 'missing.csv')
+            # Mapping only for 60, video duration 45
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU;SAU;SAU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;60;Y;;;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_45s;;;;duration;N;ALL;45;;;;;;\n'
+                'meta_local;WTA_45s;;;;title;N;ALL;WTA;;;;;;\n'
+                'sub;WTA_45s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f: f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            deu_path = out_pattern.replace('{country}', 'DEU')
+            data = load_json(deu_path)
+            v = next((v for v in data.get('videos', []) if v.get('metadata', {}).get('duration') in ('45', 45)), None)
+            self.assertIsNotNone(v, 'Video WTA_45s not found')
+            self.assertNotIn('logo_anim_flag', v['metadata'], 'Unexpected logo_anim_flag for unmapped duration')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_malformed_logo_anim_row_ignored(self):
+        """Row missing duration (empty country_scope) should be ignored without crashing."""
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_malformed_')
+        try:
+            csv_path = os.path.join(tmpdir, 'malformed.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU;SAU;SAU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;;Y;;;;;;\n'  # missing country_scope duration
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_60s;;;;duration;N;ALL;60;;;;;;\n'
+                'meta_local;WTA_60s;;;;title;N;ALL;WTA;;;;;;\n'
+                'sub;WTA_60s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f: f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            deu_path = out_pattern.replace('{country}', 'DEU')
+            data = load_json(deu_path)
+            mg = data.get('metadataGlobal', {})
+            self.assertNotIn('logo_anim_flag', mg, 'Malformed row should not create overview mapping')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
