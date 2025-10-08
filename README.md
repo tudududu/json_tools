@@ -313,14 +313,14 @@ Other `meta_local` keys continue to behave as before: the first non-empty per-co
 
 Consumer guidance: Treat absence of these keys as `false` / disabled; treat presence with any non-empty value (e.g. `Y`) as enabled.
 
-### Multi-Row Global Logo Animation Overview: `logo_anim_flag` (CSV to JSON 46–48)
+### Multi-Row Global Logo Animation Overview: `logo_anim_flag` (CSV to JSON 46–51)
 
 Some campaigns need a quick lookup for whether the logo animates at a given video duration. This is modeled via multiple `meta_global` rows whose `key` is `logo_anim_flag` and whose `country_scope` column holds the duration string (e.g. `6`, `15`, `30`, `60`, `90`, `120`). The flag value (`Y` / `N`) is taken from the `metadata` column (typical `ALL` usage) with a fallback to per-country landscape, then portrait cells if the metadata cell is empty.
 
 At output time:
 * `metadataGlobal.logo_anim_flag` becomes an object mapping duration → value, stably ordered by (length, lexicographic) for predictable diffs: `{"6":"N","15":"Y",...}`.
 * Each video's `metadata.logo_anim_flag` is populated by looking up the video's `duration` (string compare) in the overview. (Videos whose duration is not present simply omit the key.)
-* A future `meta_local` row for `logo_anim_flag` could override per-video injection; current logic uses `setdefault` to avoid clobbering explicit values.
+* A `meta_local` row for `logo_anim_flag` now overrides the duration-derived (and per-country) mapping for that specific video & country (portrait > landscape > metadata fallback). Precedence per video per country: meta_local > per-country meta_global override > meta_global default value.
 * Disable embedding of the overview object (but keep per-video injected values) with `--no-logo-anim-overview`.
 
 Example rows:

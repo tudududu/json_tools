@@ -1,4 +1,12 @@
 # 1.4.5 - 2025-10-07
+# 1.4.6 - 2025-10-08
+
+Added:
+- `meta_local` per-country override support for `logo_anim_flag` (CSV to JSON 51):
+	* A `meta_local` row with `key=logo_anim_flag` now records per-country values (portrait > landscape > metadata fallback) per video.
+	* During video assembly, any per-video `logo_anim_flag` from `meta_local` overrides the duration-derived mapping injection.
+	* Precedence summary for per-video `logo_anim_flag`: meta_local per-country value > per-country meta_global override > meta_global default mapping.
+
 
 Added:
 - Multi-row `meta_global` aggregation for `logo_anim_flag` (CSV to JSON 46–48):

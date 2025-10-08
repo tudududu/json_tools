@@ -468,7 +468,7 @@ def convert_csv_to_json(
                     video_order.append(video_id)
                 key_lower = key_name.lower()
                 # Special per-country meta_local keys: collect values per country instead of a single shared one
-                if key_lower in {"disclaimer_flag", "subtitle_flag"}:
+                if key_lower in {"disclaimer_flag", "subtitle_flag", "logo_anim_flag"}:
                     if video_id not in per_video_meta_local_country:
                         per_video_meta_local_country[video_id] = {}
                     # For each country, pick per-country landscape/portrait cell (first non-empty among them)
