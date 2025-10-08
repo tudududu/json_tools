@@ -1873,6 +1873,21 @@ def main(argv: Optional[List[str]] = None) -> int:
                 pattern = f"{root}_{{country}}{ext}"
             for c in countries:
                 payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                # Per-country export: reduce logo_anim_flag overview to only this country's values
+                mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                if isinstance(mg, dict) and "logo_anim_flag" in mg:
+                    overview = mg["logo_anim_flag"]
+                    if isinstance(overview, dict):
+                        trimmed: Dict[str, Any] = {}
+                        for dur, val in overview.items():
+                            if isinstance(val, dict) and "_default" in val:
+                                # Pick country-specific if exists; else fallback to _default
+                                country_val = val.get(c, val.get("_default"))
+                                trimmed[dur] = country_val
+                            else:
+                                # Simple scalar applies to all countries; keep as-is
+                                trimmed[dur] = val
+                        mg["logo_anim_flag"] = trimmed
                 out_path = pattern.replace("{country}", c)
                 if args.verbose:
                     print(f"Writing {out_path}")
@@ -1888,6 +1903,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 csel = countries[-1]
             payload = by_country.get(csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+            # Also trim overview for single selected country (same logic as split loop)
+            mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+            if isinstance(mg, dict) and "logo_anim_flag" in mg:
+                overview = mg["logo_anim_flag"]
+                if isinstance(overview, dict):
+                    trimmed: Dict[str, Any] = {}
+                    for dur, val in overview.items():
+                        if isinstance(val, dict) and "_default" in val:
+                            country_val = val.get(csel, val.get("_default"))
+                            trimmed[dur] = country_val
+                        else:
+                            trimmed[dur] = val
+                    mg["logo_anim_flag"] = trimmed
             if args.verbose:
                 print(f"Writing {args.output} (selected country: {csel})")
             write_json(args.output, payload)
