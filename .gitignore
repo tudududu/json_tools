@@ -46,3 +46,15 @@ temp/
 # Jupyter
 .ipynb_checkpoints/
 EOF
+
+# Test results
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+.hypothesis/
+# Coverage artifacts relocated
+python/tests/coverage/*
+!python/tests/coverage/coverage.svg
+!.gitignore
+.coverage

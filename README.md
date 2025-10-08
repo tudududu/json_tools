@@ -1,5 +1,7 @@
 # CSV → JSON Subtitle Converter (Unified Multi‑Country / Multi‑Video)
 
+![Coverage](python/tests/coverage/coverage.svg "Test Coverage")
+
 This Python CLI converts several related CSV formats into structured JSON suitable for automation / templating pipelines. It supports:
 
 1. Simple legacy CSV: `Start Time, End Time, Text` → `{ "subtitles": [...] }`
