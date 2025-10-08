@@ -348,6 +348,14 @@ CLI toggle:
 --no-logo-anim-overview   Remove metadataGlobal.logo_anim_flag (per-video values stay)
 ```
 
+Splitting Behavior (`--split-by-country`):
+When writing per-country JSON files the overview is filtered/simplified for that country:
+* Nested entries (with `_default` + country keys) are reduced to just the effective scalar for that country.
+* Scalar durations remain unchanged.
+* Result: each per-country file exposes only values relevant to its own country (no leakage of other country overrides, no `_default`).
+
+Use a non-split (combined) run if you need the full multi-country matrix with nested objects.
+
 ### Helper: Inspecting Flags & Job Numbers Safely
 
 To avoid brittle ad-hoc greps (and terminal line-wrap issues), use the helper:

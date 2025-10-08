@@ -63,8 +63,26 @@ def test_overview_removed_with_flag():
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
+
+def test_trimmed_overview_no_nested_objects():
+    """Ensure per-country split output flattens nested per-country overrides (no _default objects)."""
+    tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_trim_')
+    try:
+        out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+        run([sys.executable, CONVERTER, CSV_PATH, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+        deu_path = out_pattern.replace('{country}', 'DEU')
+        data = load_json(deu_path)
+        mapping = data.get('metadataGlobal', {}).get('logo_anim_flag', {})
+        assert mapping, 'Overview missing for trimming test'
+        for dur, val in mapping.items():
+            # After trimming, each value should be a scalar (string) not a dict
+            assert not isinstance(val, dict), f"Duration {dur} still has nested object after trimming"
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
 if __name__ == '__main__':
     # Run tests manually if executed directly
     test_overview_present_and_per_video_injection()
     test_overview_removed_with_flag()
+    test_trimmed_overview_no_nested_objects()
     print('All logo_anim_flag tests passed.')
