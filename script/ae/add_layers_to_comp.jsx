@@ -112,6 +112,11 @@
         requireAspectRatioMatch: false
     };
 
+    // Skip-copy behavior toggles: when true, layers with flag OFF are not copied at all (instead of copying then disabling)
+    var SKIP_COPY_FOR_DISCLAIMER_OFF = false;
+    var SKIP_COPY_FOR_SUBTITLES_OFF = false;
+    var SKIP_COPY_FOR_LOGO_ANIM_OFF = false;
+
     // Logo timing behavior toggle:
     // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
     // and layer.outPoint to the logo JSON out value (tout). This causes the layer's internal time zero to align
@@ -178,6 +183,25 @@
                 alignV: []        // e.g., ["Disclaimer"]
             }
     };
+
+    // Simple name matching helpers (case-insensitive)
+    function _matchesExact(name, list) {
+        if (!name || !list || !list.length) return false;
+        var n = String(name).toLowerCase();
+        for (var i = 0; i < list.length; i++) if (n === String(list[i]).toLowerCase()) return true;
+        return false;
+    }
+    function _matchesContains(name, list) {
+        if (!name || !list || !list.length) return false;
+        var n = String(name).toLowerCase();
+        for (var i = 0; i < list.length; i++) if (n.indexOf(String(list[i]).toLowerCase()) !== -1) return true;
+        return false;
+    }
+    function nameMatchesGroup(name, groupKey) {
+        var cfg = LAYER_NAME_CONFIG[groupKey];
+        if (!cfg) return false;
+        return _matchesExact(name, cfg.exact) || _matchesContains(name, cfg.contains);
+    }
 
     // FULL_DURATION_LAYER_GROUPS semantics:
     // Each entry may be either:
@@ -942,11 +966,54 @@
         var lastInserted = null; // track stacking chain for moveAfter
         // Track mapping from template layer index -> { newLayer, parentIdx }
         var mapNewLayers = [];
+
+        // Resolve flags for this comp ahead of copying to allow skip-copy behavior
+        var ids = buildOrientedVideoId(comp);
+        var vRec = null; if (ids.oriented) vRec = findVideoById(jsonData, ids.oriented); if (!vRec) vRec = findVideoById(jsonData, ids.base);
+        function _extractFlagLocal(vobj, key) {
+            if (!vobj || !key) return null;
+            try {
+                if (vobj.hasOwnProperty(key) && vobj[key] !== undefined && vobj[key] !== null && vobj[key] !== '') return String(vobj[key]).toLowerCase();
+                if (vobj.metadata && vobj.metadata.hasOwnProperty(key) && vobj.metadata[key] !== undefined && vobj.metadata[key] !== null && vobj.metadata[key] !== '') return String(vobj.metadata[key]).toLowerCase();
+            } catch (eF) {}
+            return null;
+        }
+        function _interpret(raw, cfg) {
+            if (!raw) return null; var val = String(raw).toLowerCase();
+            function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++) if(val===String(list[i]).toLowerCase()) return true; return false; }
+            if (inList(cfg.ON)) return 'on'; if (inList(cfg.OFF)) return 'off'; return null;
+        }
+        var _discMode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
+        if (vRec) {
+            var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
+            var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
+            var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
+            var dm = _interpret(dfRaw, DISCLAIMER_FLAG_VALUES);
+            var sm = _interpret(sfRaw, SUBTITLES_FLAG_VALUES);
+            var lm = _interpret(lafRaw, LOGO_ANIM_FLAG_VALUES);
+            _discMode = dm || 'off';
+            _subtMode = sm || 'off';
+            _logoAnimMode = lm || 'off';
+        }
+
         // Iterate top -> bottom to mirror order precisely
         for (var li = 1; li <= templateComp.numLayers; li++) {
             if (li === excludeIdx) continue; // skip underlying video footage layer
             var srcLayer = templateComp.layer(li);
             try {
+                // Skip-copy behavior per-flag
+                var lname = String(srcLayer.name || "");
+                var isLogoAnim = nameMatchesGroup(lname, 'logoAnim');
+                var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim; // avoid double-match
+                var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
+                var isSubtitles = nameMatchesGroup(lname, 'subtitles');
+                if (SKIP_COPY_FOR_LOGO_ANIM_OFF) {
+                    if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)"); continue; }
+                    if (isLogoGeneric && _logoAnimMode === 'on') { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)"); continue; }
+                }
+                if (SKIP_COPY_FOR_DISCLAIMER_OFF && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); continue; }
+                if (SKIP_COPY_FOR_SUBTITLES_OFF && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); continue; }
+
                 // Capture and temporarily clear parent to avoid copy failures for linked layers
                 var origParent = null; var hadParent = false; var parentIdx = null;
                 try {
