@@ -118,6 +118,12 @@
     var SKIP_COPY_FOR_LOGO_ANIM_OFF = true;
     // Base logo layers that must always be copied (case-insensitive exact names)
     var ALWAYS_COPY_LOGO_BASE_NAMES = ["Size_Holder_Logo"]; // extend if needed
+    // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags). When enabled, any matching layer will not be copied.
+    var SKIP_COPY_GROUPS_ENABLED = false;
+    var SKIP_COPY_GROUP_KEYS = [/* e.g., "claim" */];
+    // Ad-hoc skip list (simple name tokens); when enabled, any layer whose name contains one of these tokens (case-insensitive) is not copied
+    var AD_HOC_SKIP_LAYERS_ENABLED = true;
+    var AD_HOC_SKIP_LAYERS = ["info", "template_aspect"]; // example; edit as needed
 
     // Logo timing behavior toggle:
     // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
@@ -204,13 +210,23 @@
         if (!cfg) return false;
         return _matchesExact(name, cfg.exact) || _matchesContains(name, cfg.contains);
     }
+    function nameMatchesAnyTokenContains(name, tokens) {
+        if (!name || !tokens || !tokens.length) return false;
+        var n = String(name).toLowerCase();
+        for (var i = 0; i < tokens.length; i++) {
+            var t = String(tokens[i]).toLowerCase();
+            if (!t) continue;
+            if (n.indexOf(t) !== -1) return true;
+        }
+        return false;
+    }
 
     // FULL_DURATION_LAYER_GROUPS semantics:
     // Each entry may be either:
     //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
     //  - A literal layer name (case-insensitive exact) matched directly
     // Disclaimer layers remain handled separately to preserve JSON gating behavior.
-    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtit", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
+    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -1018,6 +1034,19 @@
                 }
                 if (SKIP_COPY_FOR_DISCLAIMER_OFF && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); continue; }
                 if (SKIP_COPY_FOR_SUBTITLES_OFF && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); continue; }
+                if (SKIP_COPY_GROUPS_ENABLED && SKIP_COPY_GROUP_KEYS && SKIP_COPY_GROUP_KEYS.length) {
+                    var groupSkipped = false;
+                    for (var gk = 0; gk < SKIP_COPY_GROUP_KEYS.length; gk++) {
+                        var key = SKIP_COPY_GROUP_KEYS[gk]; if (!key) continue;
+                        // Do not skip base logo names through this mechanism
+                        if (alwaysCopyBaseLogo && (key === 'logo' || key === 'logoAnim')) continue;
+                        if (nameMatchesGroup(lname, key)) { log("Skip copy: '"+lname+"' (group skip: " + key + ")"); groupSkipped = true; break; }
+                    }
+                    if (groupSkipped) continue;
+                }
+                if (AD_HOC_SKIP_LAYERS_ENABLED && AD_HOC_SKIP_LAYERS && AD_HOC_SKIP_LAYERS.length) {
+                    if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, AD_HOC_SKIP_LAYERS)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); continue; }
+                }
 
                 // Capture and temporarily clear parent to avoid copy failures for linked layers
                 var origParent = null; var hadParent = false; var parentIdx = null;
