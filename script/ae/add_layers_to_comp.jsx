@@ -113,9 +113,11 @@
     };
 
     // Skip-copy behavior toggles: when true, layers with flag OFF are not copied at all (instead of copying then disabling)
-    var SKIP_COPY_FOR_DISCLAIMER_OFF = false;
-    var SKIP_COPY_FOR_SUBTITLES_OFF = false;
-    var SKIP_COPY_FOR_LOGO_ANIM_OFF = false;
+    var SKIP_COPY_FOR_DISCLAIMER_OFF = true;
+    var SKIP_COPY_FOR_SUBTITLES_OFF = true;
+    var SKIP_COPY_FOR_LOGO_ANIM_OFF = true;
+    // Base logo layers that must always be copied (case-insensitive exact names)
+    var ALWAYS_COPY_LOGO_BASE_NAMES = ["Size_Holder_Logo"]; // extend if needed
 
     // Logo timing behavior toggle:
     // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
@@ -152,7 +154,7 @@
         },
         // Specific match for animated logo variant to distinguish from generic 'logo'
         logoAnim: {
-            exact: ["logo_anim", "Size_Holder_Logo_Anim"],
+            exact: ["logo_anim", "Size_Holder_Logo"],
             contains: ["logo_anim"]
         },
         claim: {
@@ -1007,9 +1009,12 @@
                 var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim; // avoid double-match
                 var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
                 var isSubtitles = nameMatchesGroup(lname, 'subtitles');
+                var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, ALWAYS_COPY_LOGO_BASE_NAMES);
+                // If a base logo name also matches logoAnim due to config, force it to be treated as generic base logo
+                if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
                 if (SKIP_COPY_FOR_LOGO_ANIM_OFF) {
                     if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)"); continue; }
-                    if (isLogoGeneric && _logoAnimMode === 'on') { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)"); continue; }
+                    if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)"); continue; }
                 }
                 if (SKIP_COPY_FOR_DISCLAIMER_OFF && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); continue; }
                 if (SKIP_COPY_FOR_SUBTITLES_OFF && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); continue; }
