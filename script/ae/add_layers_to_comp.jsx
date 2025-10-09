@@ -873,12 +873,25 @@
                             var finalPercent = desiredPercent;
                             if (finalPercent > basePercent) finalPercent = basePercent;
                             if (finalPercent < 1) finalPercent = 1; // avoid pathological values
-                            // Apply stretch: AE Layer.timeStretch expects percent, 100 = normal, 50 = 2x speed
+                            // Apply stretch: prefer ly.stretch if available (UI property), fallback to ly.timeStretch
+                            // 100 = normal speed, 50 = 2x speed
+                            var beforeIn = ly.inPoint;
                             var beforeOut = ly.outPoint;
-                            ly.timeStretch = finalPercent;
-                            // Keep outPoint locked at target time
-                            try { ly.outPoint = beforeOut; } catch (eKeep) {}
-                            log("Applied gated stretch to '" + nm + "': span=" + span.toFixed(3) + "s, desired=" + desiredPercent.toFixed(2) + "%, final=" + finalPercent.toFixed(2) + "% (base=" + basePercent + "%)");
+                            var appliedProp = null;
+                            // Warn if time remap is enabled; AE may ignore stretch behavior with timeRemap
+                            try { if (ly.timeRemapEnabled === true) { log("Note: timeRemapEnabled on '" + nm + "' — stretch may have no visible effect."); } } catch (eTR) {}
+                            try { ly.stretch = finalPercent; appliedProp = 'stretch'; } catch (eS) {
+                                try { ly.timeStretch = finalPercent; appliedProp = 'timeStretch'; } catch (eTS) {
+                                    log("Stretch application failed for '"+nm+"' (no stretch property): " + eTS);
+                                }
+                            }
+                            // Re-apply endpoints to keep target timing intact
+                            try { ly.inPoint = beforeIn; } catch (eRI) {}
+                            try { ly.outPoint = beforeOut; } catch (eRO) {}
+                            if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) { try { ly.startTime = beforeIn; } catch (eRS) {} }
+                            // Readback and log
+                            var rb = null; try { rb = (typeof ly.stretch !== 'undefined') ? ly.stretch : ((typeof ly.timeStretch !== 'undefined') ? ly.timeStretch : null); } catch (eRB) { rb = null; }
+                            log("Applied gated stretch to '" + nm + "': span=" + span.toFixed(3) + "s, desired=" + desiredPercent.toFixed(2) + "%, final=" + finalPercent.toFixed(2) + "% (base=" + basePercent + "%)" + (rb!==null? (", readback=" + rb + "% via " + (appliedProp||"?")) : ""));
                         } else {
                             log("Stretch gated OFF for '" + nm + "' (span=" + (span>0?span.toFixed(3):span) + "s, gate max=" + LOGO_ANIM_STRETCH_GATE_MAX_DURATION + "s)");
                         }
