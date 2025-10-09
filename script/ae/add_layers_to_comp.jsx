@@ -139,6 +139,20 @@
     // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
     var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
 
+    // Time-stretch configuration for 'logo_anim' layers
+    // Enables speeding up the first N seconds of the logo_anim source so that the animation ends around
+    // a fraction of the target layer's in/out span, while keeping the layer outPoint at the target time.
+    // - ENABLE_LOGO_ANIM_TIMESTRETCH: master ON/OFF
+    // - LOGO_ANIM_STRETCH_PERCENT: base percent (e.g., 66 means 0.66x duration, i.e., faster)
+    // - LOGO_ANIM_SOURCE_ANIM_DURATION: how many seconds at the start of the source contain the animated part (e.g., 2.0s)
+    // - LOGO_ANIM_ANIM_END_FRACTION: desired fraction of the target span where the animated part should complete (e.g., 2/3)
+    // - LOGO_ANIM_STRETCH_GATE_MAX_DURATION: do NOT apply stretch if target layer span exceeds this threshold (e.g., 2.2s)
+    var ENABLE_LOGO_ANIM_TIMESTRETCH = true;
+    var LOGO_ANIM_STRETCH_PERCENT = 66;               // base stretch percent
+    var LOGO_ANIM_SOURCE_ANIM_DURATION = 2.0;         // seconds
+    var LOGO_ANIM_ANIM_END_FRACTION = 2.0/3.0;        // target fraction of span to end animation
+    var LOGO_ANIM_STRETCH_GATE_MAX_DURATION = 2.2;    // seconds; if span > this, no stretch is applied
+
     // Visibility flag configuration (JSON key names)
     // These keys are looked up first on each video object, then (if not found) under video.metadata.*
     // Change here if the JSON schema evolves.
@@ -842,6 +856,34 @@
                     setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                     log("Set logo_anim layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 }
+                // Optional gated stretch: speed up content while keeping outPoint at target time
+                try {
+                    if (ENABLE_LOGO_ANIM_TIMESTRETCH === true) {
+                        var span = ly.outPoint - ly.inPoint;
+                        if (span > 0 && span <= LOGO_ANIM_STRETCH_GATE_MAX_DURATION) {
+                            // Compute desired stretch so that the first LOGO_ANIM_SOURCE_ANIM_DURATION seconds
+                            // fit into (LOGO_ANIM_ANIM_END_FRACTION * span) seconds.
+                            var targetAnimTime = LOGO_ANIM_ANIM_END_FRACTION * span;
+                            // desired stretch percent = (target duration / source anim duration) * 100
+                            var desiredPercent = (targetAnimTime / LOGO_ANIM_SOURCE_ANIM_DURATION) * 100.0;
+                            // Base cap: do not exceed the configured base speed-up (i.e., do not go above LOGO_ANIM_STRETCH_PERCENT)
+                            var basePercent = LOGO_ANIM_STRETCH_PERCENT;
+                            // We want to make content faster (percent < 100). Use the smaller percent to be faster or equal to base.
+                            // If desiredPercent is greater (slower) than basePercent, cap at basePercent; else use desiredPercent.
+                            var finalPercent = desiredPercent;
+                            if (finalPercent > basePercent) finalPercent = basePercent;
+                            if (finalPercent < 1) finalPercent = 1; // avoid pathological values
+                            // Apply stretch: AE Layer.timeStretch expects percent, 100 = normal, 50 = 2x speed
+                            var beforeOut = ly.outPoint;
+                            ly.timeStretch = finalPercent;
+                            // Keep outPoint locked at target time
+                            try { ly.outPoint = beforeOut; } catch (eKeep) {}
+                            log("Applied gated stretch to '" + nm + "': span=" + span.toFixed(3) + "s, desired=" + desiredPercent.toFixed(2) + "%, final=" + finalPercent.toFixed(2) + "% (base=" + basePercent + "%)");
+                        } else {
+                            log("Stretch gated OFF for '" + nm + "' (span=" + (span>0?span.toFixed(3):span) + "s, gate max=" + LOGO_ANIM_STRETCH_GATE_MAX_DURATION + "s)");
+                        }
+                    }
+                } catch (eStr) { log("Stretch application failed for '"+nm+"': " + eStr); }
                 // visibility toggle: ON => logo_anim ON, logo OFF; OFF => logo_anim OFF, logo ON
                 try { ly.enabled = (effectiveLogoAnimMode === 'on'); } catch (eAVis) {}
                 log("logo_anim_flag => " + effectiveLogoAnimMode.toUpperCase() + " | '"+nm+"' -> " + (ly.enabled ? "ON" : "OFF"));
