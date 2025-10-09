@@ -125,6 +125,7 @@
     // Change here if the JSON schema evolves.
     var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n','auto' (case-insensitive)
     var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
+    var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
     // Configurable acceptable values (all compared case-insensitively)
     // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
     var DISCLAIMER_FLAG_VALUES = {
@@ -136,6 +137,7 @@
         ON:  ['y', 'yes', '1'],
         OFF: ['n', 'no', '0']
     };
+    var LOGO_ANIM_FLAG_VALUES = SUBTITLES_FLAG_VALUES; // share the same ON/OFF tokens
 
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
@@ -147,6 +149,11 @@
             exact: ["Size_Holder_Logo"],
             contains: ["logo"],
             imageOnlyForContains: false
+        },
+        // Specific match for animated logo variant to distinguish from generic 'logo'
+        logoAnim: {
+            exact: ["logo_anim", "Size_Holder_Logo_Anim"],
+            contains: ["logo_anim"]
         },
         claim: {
             exact: ["claim", "Size_Holder_Claim"],
@@ -666,8 +673,14 @@
             if (allowAuto && inList(cfg.AUTO)) return 'auto';
             return null; // unrecognized
         }
-        var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, true);  // 'on','off','auto', or null
-        var subtitlesMode  = interpretFlag(subtitlesFlag, SUBTITLES_FLAG_VALUES, false);    // 'on','off', or null
+    var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, true);  // 'on','off','auto', or null
+    var subtitlesMode  = interpretFlag(subtitlesFlag, SUBTITLES_FLAG_VALUES, false);   // 'on','off', or null
+    var logoAnimFlag   = extractFlag(v, LOGO_ANIM_FLAG_KEY);
+    var logoAnimMode   = interpretFlag(logoAnimFlag, LOGO_ANIM_FLAG_VALUES, false);    // 'on','off', or null
+    // Defaults when flags are missing: force OFF
+    var effectiveDisclaimerMode = disclaimerMode || 'off';
+    var effectiveSubtitlesMode  = subtitlesMode  || 'off';
+    var effectiveLogoAnimMode   = logoAnimMode   || 'off';
         // Determine if JSON has any valid disclaimer intervals
         var hasValidDisclaimer = false;
         if (v && v.disclaimer && v.disclaimer.length) {
@@ -770,11 +783,36 @@
         for (var i = 1; i <= comp.numLayers; i++) {
             var ly = comp.layer(i);
             var nm = String(ly.name || "");
-            // Logo timing (exact names or contains matches; contains optionally limited to image-only)
+            // Logo matching (handle logo_anim first to avoid generic 'logo' contains-match)
+            var isLogoAnim = (matchesExact(nm, LAYER_NAME_CONFIG.logoAnim.exact) || matchesContains(nm, LAYER_NAME_CONFIG.logoAnim.contains));
             var logoExact = matchesExact(nm, LAYER_NAME_CONFIG.logo.exact);
             var logoContains = matchesContains(nm, LAYER_NAME_CONFIG.logo.contains);
             var logoContainsOk = logoContains && (!LAYER_NAME_CONFIG.logo.imageOnlyForContains || isImageFootageLayer(ly));
-            if (logoMM && (logoExact || logoContainsOk)) {
+            var isGenericLogo = (logoExact || logoContainsOk) && !isLogoAnim;
+
+            // Apply for logo_anim first
+            if (logoMM && isLogoAnim) {
+                // timing (treat like logo timing)
+                if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) {
+                    var tinA = logoMM.tin < 0 ? 0 : logoMM.tin;
+                    var toutA = logoMM.tout; if (toutA > comp.duration) toutA = comp.duration;
+                    try { ly.startTime = tinA; } catch (eAS) {}
+                    try { ly.inPoint   = tinA; } catch (eAI) {}
+                    try { ly.outPoint  = toutA; } catch (eAO) {}
+                    log("Set logo_anim layer '" + nm + "' (startTime=inPoint mode) to [" + tinA + ", " + toutA + ")");
+                } else {
+                    setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
+                    log("Set logo_anim layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
+                }
+                // visibility toggle: ON => logo_anim ON, logo OFF; OFF => logo_anim OFF, logo ON
+                try { ly.enabled = (effectiveLogoAnimMode === 'on'); } catch (eAVis) {}
+                log("logo_anim_flag => " + effectiveLogoAnimMode.toUpperCase() + " | '"+nm+"' -> " + (ly.enabled ? "ON" : "OFF"));
+                appliedAny = true;
+                continue;
+            }
+
+            // Apply for generic 'logo'
+            if (logoMM && isGenericLogo) {
                 if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) {
                     var tinL = logoMM.tin < 0 ? 0 : logoMM.tin;
                     var toutL = logoMM.tout;
@@ -787,6 +825,9 @@
                     setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                     log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 }
+                // visibility per logo_anim_flag inverse
+                try { ly.enabled = (effectiveLogoAnimMode !== 'on'); } catch (eLVis) {}
+                log("logo_anim_flag => " + effectiveLogoAnimMode.toUpperCase() + " | '"+nm+"' -> " + (ly.enabled ? "ON" : "OFF"));
                 appliedAny = true;
                 continue;
             }
@@ -803,30 +844,30 @@
                     setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
                     log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
                 } // else already set to full duration above when gating off
-                if (disclaimerMode) {
-                    try {
-                        if (disclaimerMode === 'auto') {
-                            ly.enabled = hasValidDisclaimer;
-                        } else if (disclaimerMode === 'on') {
-                            ly.enabled = true;
-                        } else if (disclaimerMode === 'off') {
-                            ly.enabled = false;
-                        }
-                        log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (disclaimerMode === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
-                    } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
-                } else if (disclaimerFlag) {
+                // Apply default OFF when missing
+                try {
+                    if (effectiveDisclaimerMode === 'auto') {
+                        ly.enabled = hasValidDisclaimer;
+                    } else if (effectiveDisclaimerMode === 'on') {
+                        ly.enabled = true;
+                    } else {
+                        ly.enabled = false; // default off
+                    }
+                    log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (effectiveDisclaimerMode === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
+                } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
+                if (!disclaimerMode && disclaimerFlag) {
                     log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+DISCLAIMER_FLAG_VALUES.ON.join('/')+", OFF:"+DISCLAIMER_FLAG_VALUES.OFF.join('/')+", AUTO:"+DISCLAIMER_FLAG_VALUES.AUTO.join('/')+") for '" + nm + "'.");
                 }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
             // Subtitles visibility flag (no timing applied here)
             if (matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains)) {
-                if (subtitlesMode === 'on' || subtitlesMode === 'off') {
-                    try {
-                        ly.enabled = (subtitlesMode === 'on');
-                        log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
-                    } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
-                } else if (subtitlesFlag) {
+                // Apply default OFF when missing
+                try {
+                    ly.enabled = (effectiveSubtitlesMode === 'on');
+                    log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
+                } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
+                if (!subtitlesMode && subtitlesFlag) {
                     log("Subtitles flag value '" + subtitlesFlag + "' not recognized (configured ON:"+SUBTITLES_FLAG_VALUES.ON.join('/')+", OFF:"+SUBTITLES_FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
                 }
             }
