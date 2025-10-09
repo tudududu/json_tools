@@ -1,4 +1,27 @@
-# 1.4.5 - 2025-10-07
+# 1.4.8 - 2025-10-09
+
+Added:
+- Test coverage tooling and CI (CSV to JSON 61):
+	* Installing pytest-cov, added to requirements-test.txt
+	* Introduced `.coveragerc` with branch coverage, `python` as source, and outputs into `python/tests/coverage/`.
+	* Makefile targets: `make test`, `make coverage` (unittest runner), and `make pytest-cov` (pytest-cov reports: term, xml, html).
+	* GitHub Actions workflow `.github/workflows/tests.yml` running unittest runner and pytest-cov; uploads `coverage.xml` as an artifact.
+	* README shows a coverage badge referencing `python/tests/coverage/coverage.svg` (generated when running coverage locally).
+
+# 1.4.7 - 2025-10-08
+
+Added:
+- Added coverage tooling and reporting for the project.
+	Implemented:
+	requirements-test.txt: added coverage and coverage-badge dependencies.
+	pyproject.toml already had coverage config (source path).
+	run_tests.py: supports coverage mode when run with environment variable COVERAGE=1:
+		Runs tests under coverage (branch analysis).
+		Generates coverage.xml, coverage.json, and coverage.svg badge.
+		Prints a coverage report to the console.
+	README.md: inserted coverage badge reference (will display once coverage.svg is produced and committed).
+	Tests run successfully in both normal and coverage modes (6 tests passing).
+
 # 1.4.6 - 2025-10-08
 
 Added:
@@ -7,7 +30,7 @@ Added:
 	* During video assembly, any per-video `logo_anim_flag` from `meta_local` overrides the duration-derived mapping injection.
 	* Precedence summary for per-video `logo_anim_flag`: meta_local per-country value > per-country meta_global override > meta_global default mapping.
 
-
+# 1.4.5 - 2025-10-07
 Added:
 - Multi-row `meta_global` aggregation for `logo_anim_flag` (CSV to JSON 46–48):
 	* Multiple `meta_global` rows with `key=logo_anim_flag` now build an overview object inside `metadataGlobal.logo_anim_flag` mapping duration strings → flag value.

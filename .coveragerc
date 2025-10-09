@@ -1,0 +1,21 @@
+[run]
+branch = True
+source =
+    python
+omit =
+    python/tests/*
+    python/tools/*
+
+[report]
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+
+[xml]
+output = python/tests/coverage/coverage.xml
+
+[json]
+output = python/tests/coverage/coverage.json
