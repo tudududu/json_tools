@@ -972,6 +972,7 @@
     // after the previously inserted one. This yields the same stacking as the template.
     var addedTotal = 0;
     var skippedARCount = 0;
+    var skippedCopyTotal = 0; // total layers skipped due to skip-copy rules across all comps
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
         var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
@@ -990,7 +991,7 @@
             templateComp = pickBestTemplateComp(templateComps);
         }
         var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
-        log("Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
+        log("\n" + "Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
     var added = 0;
     var skipCopyCount = 0; // per-comp count of layers skipped due to skip-copy rules
         var lastInserted = null; // track stacking chain for moveAfter
@@ -1121,7 +1122,8 @@
             try { recenterUnparentedLayers(comp); } catch (eRC) { log("Auto-center failed for '" + comp.name + "': " + eRC); }
         }
 
-    addedTotal += added;
+        addedTotal += added;
+        skippedCopyTotal += skipCopyCount;
     log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + comp.name + "'.");
     log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
         // Apply JSON timings (logo/claim) to corresponding layers
@@ -1131,6 +1133,8 @@
     }
 
     var processedCount = targets.length - skippedARCount;
-    alertOnce("Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ".");
+    var __summaryMsg = "Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ". Total layers skipped (copy): " + skippedCopyTotal + ".";
+    log("\n" + __summaryMsg); // add the complete summarising alert at the end to the log as well
+    alertOnce(__summaryMsg);
     app.endUndoGroup();
 })();
