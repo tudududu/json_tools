@@ -18,8 +18,7 @@
 //   New: per-video key `disclaimer_flag` controls disclaimer layer visibility (case-insensitive):
 //     - 'y'   => visible (ON)
 //     - 'n'   => hidden (OFF)
-//     - 'auto'=> visible only if JSON has at least one valid disclaimer interval (in/out with out>in), otherwise hidden
-//     - other/absent => no change to current visibility
+//     - other/absent => defaults to OFF
 // - DATA_JSON/data.json layers are forced to full comp duration.
 // - TEMPLATE_MATCH_CONFIG: controls picking the best template comp for each target comp (Solution B)
 //   arTolerance: numeric tolerance used to treat two aspect ratios as equal (default: 0.001)
@@ -123,21 +122,17 @@
     // Visibility flag configuration (JSON key names)
     // These keys are looked up first on each video object, then (if not found) under video.metadata.*
     // Change here if the JSON schema evolves.
-    var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n','auto' (case-insensitive)
+    var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n' (case-insensitive)
     var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
     var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
     // Configurable acceptable values (all compared case-insensitively)
     // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
     var DISCLAIMER_FLAG_VALUES = {
         ON:   ['y', 'yes', '1'],
-        OFF:  ['n', 'no', '0'],
-        AUTO: ['auto']
+        OFF:  ['n', 'no', '0']
     };
-    var SUBTITLES_FLAG_VALUES = {
-        ON:  ['y', 'yes', '1'],
-        OFF: ['n', 'no', '0']
-    };
-    var LOGO_ANIM_FLAG_VALUES = SUBTITLES_FLAG_VALUES; // share the same ON/OFF tokens
+    var SUBTITLES_FLAG_VALUES = DISCLAIMER_FLAG_VALUES;
+    var LOGO_ANIM_FLAG_VALUES = DISCLAIMER_FLAG_VALUES; // share the same ON/OFF tokens
 
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
@@ -673,7 +668,7 @@
             if (allowAuto && inList(cfg.AUTO)) return 'auto';
             return null; // unrecognized
         }
-    var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, true);  // 'on','off','auto', or null
+    var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, false);  // 'on','off', or null
     var subtitlesMode  = interpretFlag(subtitlesFlag, SUBTITLES_FLAG_VALUES, false);   // 'on','off', or null
     var logoAnimFlag   = extractFlag(v, LOGO_ANIM_FLAG_KEY);
     var logoAnimMode   = interpretFlag(logoAnimFlag, LOGO_ANIM_FLAG_VALUES, false);    // 'on','off', or null
@@ -681,17 +676,7 @@
     var effectiveDisclaimerMode = disclaimerMode || 'off';
     var effectiveSubtitlesMode  = subtitlesMode  || 'off';
     var effectiveLogoAnimMode   = logoAnimMode   || 'off';
-        // Determine if JSON has any valid disclaimer intervals
-        var hasValidDisclaimer = false;
-        if (v && v.disclaimer && v.disclaimer.length) {
-            for (var di = 0; di < v.disclaimer.length; di++) {
-                var d = v.disclaimer[di];
-                if (!d) continue;
-                var tin = (d["in"] !== undefined) ? parseFloat(d["in"]) : NaN;
-                var tout = (d["out"] !== undefined) ? parseFloat(d["out"]) : NaN;
-                if (!isNaN(tin) && !isNaN(tout) && tout > tin) { hasValidDisclaimer = true; break; }
-            }
-        }
+        // AUTO regime removed: no need to compute valid disclaimer intervals
         // Matching helpers using LAYER_NAME_CONFIG
         function matchesExact(name, list) {
             if (!name || !list || !list.length) return false;
@@ -846,17 +831,15 @@
                 } // else already set to full duration above when gating off
                 // Apply default OFF when missing
                 try {
-                    if (effectiveDisclaimerMode === 'auto') {
-                        ly.enabled = hasValidDisclaimer;
-                    } else if (effectiveDisclaimerMode === 'on') {
+                    if (effectiveDisclaimerMode === 'on') {
                         ly.enabled = true;
                     } else {
                         ly.enabled = false; // default off
                     }
-                    log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF") + (effectiveDisclaimerMode === 'auto' ? " (auto; hasValidDisclaimer="+hasValidDisclaimer+")" : ""));
+                    log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
                 if (!disclaimerMode && disclaimerFlag) {
-                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+DISCLAIMER_FLAG_VALUES.ON.join('/')+", OFF:"+DISCLAIMER_FLAG_VALUES.OFF.join('/')+", AUTO:"+DISCLAIMER_FLAG_VALUES.AUTO.join('/')+") for '" + nm + "'.");
+                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+DISCLAIMER_FLAG_VALUES.ON.join('/')+", OFF:"+DISCLAIMER_FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
                 }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
