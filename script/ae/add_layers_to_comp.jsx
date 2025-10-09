@@ -112,18 +112,25 @@
         requireAspectRatioMatch: false
     };
 
-    // Skip-copy behavior toggles: when true, layers with flag OFF are not copied at all (instead of copying then disabling)
-    var SKIP_COPY_FOR_DISCLAIMER_OFF = true;
-    var SKIP_COPY_FOR_SUBTITLES_OFF = true;
-    var SKIP_COPY_FOR_LOGO_ANIM_OFF = true;
-    // Base logo layers that must always be copied (case-insensitive exact names)
-    var ALWAYS_COPY_LOGO_BASE_NAMES = ["Size_Holder_Logo"]; // extend if needed
-    // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags). When enabled, any matching layer will not be copied.
-    var SKIP_COPY_GROUPS_ENABLED = false;
-    var SKIP_COPY_GROUP_KEYS = [/* e.g., "claim" */];
-    // Ad-hoc skip list (simple name tokens); when enabled, any layer whose name contains one of these tokens (case-insensitive) is not copied
-    var AD_HOC_SKIP_LAYERS_ENABLED = true;
-    var AD_HOC_SKIP_LAYERS = ["info", "template_aspect"]; // example; edit as needed
+    // Skip-copy configuration (compact)
+    var SKIP_COPY_CONFIG = {
+        // When true, these layers will not be copied when their flag resolves to OFF
+        disclaimerOff: true,
+        subtitlesOff: true,
+        logoAnimOff:  true,
+        // Base logo layers that must always be copied (case-insensitive exact names)
+        alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
+        // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
+        groups: {
+            enabled: false,
+            keys: ["info"/* e.g., "claim" */]
+        },
+        // Ad-hoc skip list (name tokens); case-insensitive contains match
+        adHoc: {
+            enabled: false,
+            tokens: ["info", "template_aspect"]
+        }
+    };
 
     // Logo timing behavior toggle:
     // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
@@ -153,6 +160,10 @@
     // - imageOnlyForContains (logo only): when true, a 'contains' match is valid only for image/bitmap footage layers
     // Adjust these lists to match your template naming conventions.
     var LAYER_NAME_CONFIG = {
+        info: {
+            exact: ["info"],
+            contains: ["info"]
+        },
         logo: {
             exact: ["Size_Holder_Logo"],
             contains: ["logo"],
@@ -980,7 +991,8 @@
         }
         var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
         log("Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
-        var added = 0;
+    var added = 0;
+    var skipCopyCount = 0; // per-comp count of layers skipped due to skip-copy rules
         var lastInserted = null; // track stacking chain for moveAfter
         // Track mapping from template layer index -> { newLayer, parentIdx }
         var mapNewLayers = [];
@@ -1025,27 +1037,27 @@
                 var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim; // avoid double-match
                 var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
                 var isSubtitles = nameMatchesGroup(lname, 'subtitles');
-                var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, ALWAYS_COPY_LOGO_BASE_NAMES);
+                var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
                 // If a base logo name also matches logoAnim due to config, force it to be treated as generic base logo
                 if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
-                if (SKIP_COPY_FOR_LOGO_ANIM_OFF) {
-                    if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)"); continue; }
-                    if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)"); continue; }
+                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
+                    if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)" ); skipCopyCount++; continue; }
+                    if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)" ); skipCopyCount++; continue; }
                 }
-                if (SKIP_COPY_FOR_DISCLAIMER_OFF && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); continue; }
-                if (SKIP_COPY_FOR_SUBTITLES_OFF && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); continue; }
-                if (SKIP_COPY_GROUPS_ENABLED && SKIP_COPY_GROUP_KEYS && SKIP_COPY_GROUP_KEYS.length) {
+                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimerOff && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); skipCopyCount++; continue; }
+                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
+                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
                     var groupSkipped = false;
-                    for (var gk = 0; gk < SKIP_COPY_GROUP_KEYS.length; gk++) {
-                        var key = SKIP_COPY_GROUP_KEYS[gk]; if (!key) continue;
+                    for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
+                        var key = SKIP_COPY_CONFIG.groups.keys[gk]; if (!key) continue;
                         // Do not skip base logo names through this mechanism
                         if (alwaysCopyBaseLogo && (key === 'logo' || key === 'logoAnim')) continue;
                         if (nameMatchesGroup(lname, key)) { log("Skip copy: '"+lname+"' (group skip: " + key + ")"); groupSkipped = true; break; }
                     }
-                    if (groupSkipped) continue;
+                    if (groupSkipped) { skipCopyCount++; continue; }
                 }
-                if (AD_HOC_SKIP_LAYERS_ENABLED && AD_HOC_SKIP_LAYERS && AD_HOC_SKIP_LAYERS.length) {
-                    if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, AD_HOC_SKIP_LAYERS)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); continue; }
+                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.tokens && SKIP_COPY_CONFIG.adHoc.tokens.length) {
+                    if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.tokens)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
                 }
 
                 // Capture and temporarily clear parent to avoid copy failures for linked layers
@@ -1109,8 +1121,9 @@
             try { recenterUnparentedLayers(comp); } catch (eRC) { log("Auto-center failed for '" + comp.name + "': " + eRC); }
         }
 
-        addedTotal += added;
-        log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
+    addedTotal += added;
+    log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + comp.name + "'.");
+    log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
         // Apply JSON timings (logo/claim) to corresponding layers
         if (jsonData) {
             applyJSONTimingToComp(comp, jsonData);
