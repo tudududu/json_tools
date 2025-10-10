@@ -20,7 +20,12 @@
 // - If the path doesn't contain a "footage" segment, comps are placed directly in project/work/comps
 // - The script is safe to re-run; it will reuse existing folders under project/work/comps
 
-(function createCompsFromSelection() {
+
+// Pipeline detection and API namespace
+var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE === 'pipeline') ? AE_PIPE : null;
+if (typeof AE_CreateComps === 'undefined') { var AE_CreateComps = {}; }
+
+function __CreateComps_coreRun(opts) {
 	app.beginUndoGroup("Create Comps from Selected Footage");
 
 	var DEFAULT_STILL_DURATION = 5; // seconds
@@ -30,10 +35,12 @@
 	// Utilities —————————————————————————————————————————————
 
 	function log(msg) {
+		if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch (eL) {} return; }
 		try { $.writeln(msg); } catch (e) {}
 	}
 
 	function alertOnce(msg) {
+		if (__AE_PIPE__) { log(msg); return; }
 		try { alert(msg); } catch (e) {}
 	}
 
@@ -223,19 +230,21 @@
 	if (!proj) {
 		alertOnce("No project open.");
 		app.endUndoGroup();
-		return;
+		return { created: [], skipped: ["No project open"] };
 	}
 
-	var selection = proj.selection;
+	// Selection: prefer provided list when in pipeline/API mode
+	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : proj.selection;
 	if (!selection || selection.length === 0) {
 		alertOnce("Select one or more footage items in the Project panel.");
 		app.endUndoGroup();
-		return;
+		return { created: [], skipped: ["No footage selected"] };
 	}
 
 	var compsRoot = getOrCreateProjectPath();
 
 	var createdCount = 0;
+	var createdList = [];
 	var skipped = [];
 
 	for (var s = 0; s < selection.length; s++) {
@@ -321,6 +330,12 @@
 		}
 
 		createdCount++;
+		// Tag with runId for pipeline discovery and return list
+		var runId = (opts && opts.runId) || (__AE_PIPE__ && __AE_PIPE__.RUN_ID) || null;
+		if (runId) {
+			try { comp.comment = (comp.comment ? (comp.comment + " ") : "") + ("runId=" + runId); } catch (eCmt) {}
+		}
+		createdList.push(comp);
 		log("Created comp '" + compName + "' -> " + targetFolder.name + (segs.length ? (" (" + segs.join("/") + ")") : ""));
 	}
 
@@ -328,9 +343,16 @@
 	if (skipped.length) msg += "\nSkipped: " + skipped.join(", ");
 	log(msg);
 	alertOnce(msg);
-
 	app.endUndoGroup();
-})();
+	return { created: createdList, skipped: skipped };
+}
+
+AE_CreateComps.run = function(opts) { return __CreateComps_coreRun(opts || {}); };
+
+// Standalone auto-run only when not in pipeline
+if (!__AE_PIPE__) {
+	(function createCompsFromSelection_IIFE(){ __CreateComps_coreRun({}); })();
+}
 
 
 

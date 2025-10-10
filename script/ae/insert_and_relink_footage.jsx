@@ -15,11 +15,21 @@
 // 2 Select compositions.
 // 3 Run this script.
 
-(function importNewestSoundFolderAndInsert() {
+// Pipeline detection and API namespace
+var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE === 'pipeline') ? AE_PIPE : null;
+if (typeof AE_InsertRelink === 'undefined') { var AE_InsertRelink = {}; }
+
+function __InsertRelink_coreRun(opts) {
     app.beginUndoGroup("Import Newest SOUND Folder");
 
-    function log(msg) { try { $.writeln(msg); } catch (e) {} }
-    function alertOnce(msg) { try { alert(msg); } catch (e) {} }
+    function log(msg) {
+        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch (eL) {} return; }
+        try { $.writeln(msg); } catch (e) {}
+    }
+    function alertOnce(msg) {
+        if (__AE_PIPE__) { log(msg); return; }
+        try { alert(msg); } catch (e) {}
+    }
 
     var proj = app.project;
     if (!proj) {
@@ -556,11 +566,11 @@
     }
 
     // Step 2: Insert audio into selected comps
-    var comps = getSelectedComps();
+    var comps = (opts && opts.comps && opts.comps.length) ? opts.comps : getSelectedComps();
     if (!comps.length) {
         log("No selected comps. Skipping audio insertion.");
         app.endUndoGroup();
-        return;
+        return { processed: [] };
     }
 
     // Collect all footage items under the imported folder (recursively)
@@ -624,16 +634,13 @@
     var summary = "Audio insert: " + inserted + " added" + (missed.length ? ", missed: " + missed.length : "");
     log(summary + (missed.length ? "\n- " + missed.join("\n- ") : ""));
     alertOnce(summary);
-
     app.endUndoGroup();
-})();
-// Script_ae: Import and insert sound. (01)
+    return { processed: comps };
+}
 
-// Step 1: 
-// 1. We want to inspect a ‘IN/SOUND’ folder located as follows:
-// ./POST/WORK/*.aep
-// ./POST/IN/SOUND/250922
-// 2. Search if there is a YYMMDD style named folder (e.g. ’250922’) in the ’SOUND’ folder.
-// 3. Import this folder into the opened AE project. In case of more date named folders in the ‘SOUND’ folder import only the newest one.
-// 4. Place the imported folder onto project internal path: ‘project/in/sound/’
+AE_InsertRelink.run = function(opts) { return __InsertRelink_coreRun(opts || {}); };
 
+// Standalone auto-run only when not in pipeline
+if (!__AE_PIPE__) {
+    (function importNewestSoundFolderAndInsert_IIFE(){ __InsertRelink_coreRun({}); })();
+}
