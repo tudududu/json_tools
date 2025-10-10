@@ -30,6 +30,11 @@
     var LOG_PREFIX = "pipeline_run";
     var __logFile = null;
 
+    // Pipeline toggles
+    // When true (default), Step 5 will queue items to AME after setting output paths.
+    // When false, only output paths are set (no AME queue).
+    var PIPELINE_QUEUE_TO_AME = true;
+
     function findOrCreateLogFolder() {
         try {
             var root = app.project && app.project.rootFolder ? app.project.rootFolder : null;
@@ -222,8 +227,9 @@
     try {
         $.evalFile(SET_AME_PATH);
         if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
-            // Pass comps directly and disable queue on first integration to avoid Dynamic Link race; integrator can re-enable later
-            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: false });
+            // Pass comps directly; control queueing via top-level toggle
+            log("Step 5: Queue to AME = " + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF"));
+            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: !PIPELINE_QUEUE_TO_AME });
             if (res5 && res5.configured) AE_PIPE.results.ame = res5.configured;
             step5UsedAPI = true;
         }
