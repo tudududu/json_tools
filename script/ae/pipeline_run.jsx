@@ -2,12 +2,11 @@
 // 1) create_compositions -> 2) insert_and_relink_footage -> 3) add_layers_to_comp -> 4) pack_output_comps -> 5) set_ame_output_paths
 
 (function runPipelineAll() {
-    app.beginUndoGroup("Pipeline: Steps 1–5");
 
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
     var base = here();
-    if (!base) { alert("Cannot resolve script folder."); app.endUndoGroup(); return; }
+    if (!base) { alert("Cannot resolve script folder."); return; }
 
     function join(p, rel) { return File(p.fsName + "/" + rel); }
 
@@ -76,7 +75,7 @@
 
     // Helpers - selection management
     var proj = app.project;
-    if (!proj) { alert("No project open."); app.endUndoGroup(); return; }
+    if (!proj) { alert("No project open."); return; }
 
     function selectedFootageItems() {
         var out = [];
@@ -231,11 +230,7 @@
     } catch (e5) {
         log("Step 5 API path failed, falling back to default behavior. Error: " + (e5 && e5.message ? e5.message : e5));
     }
-    if (!step5UsedAPI) {
-        try { app.project.selection = AE_PIPE.results.pack; } catch (eSel5) {}
-        try { $.evalFile(SET_AME_PATH); } catch (e5b) { log("set_ame_output_paths threw: " + e5b); }
-        AE_PIPE.results.ame = AE_PIPE.results.pack.slice(0);
-    }
+    // No fallback: avoid double execution and potential undo/queue conflicts
     log("Step 5: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
     t5e = nowMs();
 
@@ -248,5 +243,4 @@
     var finalMsg = summary.join("\n");
     log(finalMsg);
     try { alert(finalMsg); } catch (eAF) {}
-    app.endUndoGroup();
 })();
