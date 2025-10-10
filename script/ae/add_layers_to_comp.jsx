@@ -153,6 +153,17 @@
     var LOGO_ANIM_ANIM_END_FRACTION = 2.0/3.0;        // target fraction of span to end animation
     var LOGO_ANIM_STRETCH_GATE_MAX_DURATION = 2.2;    // seconds; if span > this, no stretch is applied
 
+    // Start-time shift configuration for 'logo_anim' layers
+    // Shift startTime backwards by a small amount to skip initial frames while keeping in/out unchanged.
+    // - ENABLE_LOGO_ANIM_START_SHIFT: master ON/OFF
+    // - LOGO_ANIM_START_SHIFT_SECONDS: e.g., -0.20 means move startTime 0.20s earlier relative to current
+    // - LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER: multiply the shift when comp duration < (gate/2)
+    // - LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE: only apply shift when comp.duration < this threshold (seconds)
+    var ENABLE_LOGO_ANIM_START_SHIFT = true;
+    var LOGO_ANIM_START_SHIFT_SECONDS = -0.20;            // seconds (negative to cut the beginning)
+    var LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER = 1.5;
+    var LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE = 35.0; // seconds
+
     // Visibility flag configuration (JSON key names)
     // These keys are looked up first on each video object, then (if not found) under video.metadata.*
     // Change here if the JSON schema evolves.
@@ -900,6 +911,33 @@
                 // visibility toggle: ON => logo_anim ON, logo OFF; OFF => logo_anim OFF, logo ON
                 try { ly.enabled = (effectiveLogoAnimMode === 'on'); } catch (eAVis) {}
                 log("logo_anim_flag => " + effectiveLogoAnimMode.toUpperCase() + " | '"+nm+"' -> " + (ly.enabled ? "ON" : "OFF"));
+                // Optional start-time shift (cut beginning frames), preserving in/out
+                try {
+                    if (ENABLE_LOGO_ANIM_START_SHIFT === true) {
+                        var durGate = LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE;
+                        var progressiveMul = LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER;
+                        var baseShift = LOGO_ANIM_START_SHIFT_SECONDS; // expected negative to move start earlier
+                        var compDur = comp.duration;
+                        if (compDur < durGate) {
+                            var shift = baseShift;
+                            if (compDur < (durGate / 2.0)) shift = baseShift * progressiveMul;
+                            // Preserve in/out, just shift startTime. Clamp so inPoint doesn't underflow comp start.
+                            var beforeInP = ly.inPoint;
+                            var beforeOutP = ly.outPoint;
+                            var targetStart = (typeof ly.startTime === 'number') ? (ly.startTime + shift) : (beforeInP + shift);
+                            // Ensure startTime <= inPoint so the visible cut is kept; also keep non-negative
+                            if (targetStart > beforeInP) targetStart = beforeInP;
+                            if (targetStart < 0) targetStart = 0;
+                            try { ly.startTime = targetStart; } catch (eSetS) {}
+                            // Restore in/out explicitly
+                            try { ly.inPoint = beforeInP; } catch (eSetI) {}
+                            try { ly.outPoint = beforeOutP; } catch (eSetO) {}
+                            log("Applied start shift to '"+nm+"': shift=" + shift.toFixed(3) + "s, startTime=" + targetStart.toFixed(3) + "s (compDur=" + compDur.toFixed(2) + ")");
+                        } else {
+                            log("Start shift gated OFF for '"+nm+"' (compDur=" + compDur.toFixed(2) + "s >= gate=" + durGate + "s)");
+                        }
+                    }
+                } catch (eSh) { log("Start shift failed for '"+nm+"': " + eSh); }
                 appliedAny = true;
                 continue;
             }
