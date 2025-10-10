@@ -1,7 +1,8 @@
-// AE Pipeline Orchestrator (Steps 1 & 2): create_compositions -> insert_and_relink_footage
+// AE Pipeline Orchestrator (Steps 1–5)
+// 1) create_compositions -> 2) insert_and_relink_footage -> 3) add_layers_to_comp -> 4) pack_output_comps -> 5) set_ame_output_paths
 
-(function runPipeline12() {
-    app.beginUndoGroup("Pipeline: Steps 1+2");
+(function runPipelineAll() {
+    app.beginUndoGroup("Pipeline: Steps 1–5");
 
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
@@ -13,6 +14,9 @@
     // Adjust these relative paths to match your repo layout
     var CREATE_COMPS_PATH = join(base, "create_compositions.jsx");
     var INSERT_RELINK_PATH = join(base, "insert_and_relink_footage.jsx");
+    var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
+    var PACK_OUTPUT_PATH   = join(base, "pack_output_comps.jsx");
+    var SET_AME_PATH       = join(base, "set_ame_output_paths.jsx");
 
     // Shared logger (console + optional file)
     function timestamp() {
@@ -24,7 +28,7 @@
     // Optional: write logs to ./project/log under the AE project root folder
     var ENABLE_FILE_LOG = true;
     var LOG_PATH_SEGMENTS = ["project","log"];
-    var LOG_PREFIX = "pipeline_12";
+    var LOG_PREFIX = "pipeline_run";
     var __logFile = null;
 
     function findOrCreateLogFolder() {
@@ -66,7 +70,7 @@
     if (typeof AE_PIPE === "undefined") { AE_PIPE = {}; }
     AE_PIPE.MODE = "pipeline";
     AE_PIPE.RUN_ID = RUN_ID;
-    AE_PIPE.results = { createComps: [], insertRelink: [] };
+    AE_PIPE.results = { createComps: [], insertRelink: [], addLayers: [], pack: [], ame: [] };
     AE_PIPE.options = AE_PIPE.options || {};
     AE_PIPE.log = log;
 
@@ -86,7 +90,14 @@
         return out;
     }
 
+    // Timing helpers
+    function nowMs(){ return (new Date()).getTime(); }
+    function sec(ms){ return Math.round(ms/10)/100; }
+    var t0All = nowMs();
+    var t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
+
     // Step 1: Create compositions from selected footage
+    t1s = nowMs();
     var footageSel = selectedFootageItems();
     if (!footageSel.length) {
         alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
@@ -127,6 +138,7 @@
         AE_PIPE.results.createComps = created;
     }
     log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
+    t1e = nowMs();
 
     if (!AE_PIPE.results.createComps.length) {
         alert("No compositions created in Step 1. Aborting.");
@@ -135,6 +147,7 @@
     }
 
     // Step 2: Insert & relink into those comps
+    t2s = nowMs();
     log("Step 2: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
     var step2UsedAPI = false;
     try {
@@ -155,8 +168,84 @@
         AE_PIPE.results.insertRelink = AE_PIPE.results.createComps.slice(0);
     }
 
-    var msg = "Pipeline 1+2 complete. Created: " + AE_PIPE.results.createComps.length + ", Inserted/Relinked: " + AE_PIPE.results.insertRelink.length + ".";
-    log(msg);
-    try { alert(msg); } catch (eA) {}
+    t2e = nowMs();
+
+    // Step 3: Add layers from template to the processed comps
+    t3s = nowMs();
+    log("Step 3: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
+    var step3UsedAPI = false;
+    try {
+        $.evalFile(ADD_LAYERS_PATH);
+        if (typeof AE_AddLayers !== "undefined" && AE_AddLayers && typeof AE_AddLayers.run === "function") {
+            var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log });
+            if (res3 && res3.processed) AE_PIPE.results.addLayers = res3.processed;
+            step3UsedAPI = true;
+        }
+    } catch (e3) {
+        log("Step 3 API path failed, falling back to selection. Error: " + (e3 && e3.message ? e3.message : e3));
+    }
+    if (!step3UsedAPI) {
+        try { app.project.selection = AE_PIPE.results.insertRelink; } catch (eSel3) {}
+        try { $.evalFile(ADD_LAYERS_PATH); } catch (e3b) { log("add_layers_to_comp threw: " + e3b); }
+        AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
+    }
+    log("Step 3: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
+    t3e = nowMs();
+
+    // Step 4: Pack output comps
+    t4s = nowMs();
+    log("Step 4: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
+    var step4UsedAPI = false;
+    try {
+        $.evalFile(PACK_OUTPUT_PATH);
+        if (typeof AE_Pack !== "undefined" && AE_Pack && typeof AE_Pack.run === "function") {
+            var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log });
+            if (res4 && res4.outputComps) AE_PIPE.results.pack = res4.outputComps;
+            step4UsedAPI = true;
+        }
+    } catch (e4) {
+        log("Step 4 API path failed, falling back to default behavior. Error: " + (e4 && e4.message ? e4.message : e4));
+    }
+    if (!step4UsedAPI) {
+        // Fallback: many packing scripts detect and process comps internally; provide selection for best effort
+        try { app.project.selection = AE_PIPE.results.addLayers; } catch (eSel4) {}
+        try { $.evalFile(PACK_OUTPUT_PATH); } catch (e4b) { log("pack_output_comps threw: " + e4b); }
+        // Assume 1:1 packed or internally resolved; keep same count for summary if unknown
+        AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
+    }
+    log("Step 4: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
+    t4e = nowMs();
+
+    // Step 5: Set AME output paths
+    t5s = nowMs();
+    log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
+    var step5UsedAPI = false;
+    try {
+        $.evalFile(SET_AME_PATH);
+        if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
+            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log });
+            if (res5 && res5.configured) AE_PIPE.results.ame = res5.configured;
+            step5UsedAPI = true;
+        }
+    } catch (e5) {
+        log("Step 5 API path failed, falling back to default behavior. Error: " + (e5 && e5.message ? e5.message : e5));
+    }
+    if (!step5UsedAPI) {
+        try { app.project.selection = AE_PIPE.results.pack; } catch (eSel5) {}
+        try { $.evalFile(SET_AME_PATH); } catch (e5b) { log("set_ame_output_paths threw: " + e5b); }
+        AE_PIPE.results.ame = AE_PIPE.results.pack.slice(0);
+    }
+    log("Step 5: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
+    t5e = nowMs();
+
+    // Unified summary with per-phase counts and timing
+    var totalMs = nowMs() - t0All;
+    var summary = [];
+    summary.push("Pipeline complete.");
+    summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length);
+    summary.push("Timing (s) => create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
+    var finalMsg = summary.join("\n");
+    log(finalMsg);
+    try { alert(finalMsg); } catch (eAF) {}
     app.endUndoGroup();
 })();
