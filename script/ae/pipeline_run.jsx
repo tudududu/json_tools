@@ -223,7 +223,8 @@
     try {
         $.evalFile(SET_AME_PATH);
         if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
-            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log });
+            // Pass comps directly and disable queue on first integration to avoid Dynamic Link race; integrator can re-enable later
+            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: false });
             if (res5 && res5.configured) AE_PIPE.results.ame = res5.configured;
             step5UsedAPI = true;
         }

@@ -20,7 +20,8 @@ var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE ===
 if (typeof AE_AME === 'undefined') { var AE_AME = {}; }
 
 function __AME_coreRun(opts) {
-    app.beginUndoGroup("Set AME Output Paths");
+    var __openedUndo = false;
+    if (!__AE_PIPE__) { try { app.beginUndoGroup("Set AME Output Paths"); __openedUndo = true; } catch(eUGB) {} }
 
     // ————— Settings —————
     // 1. Source selection mode
@@ -569,9 +570,9 @@ function __AME_coreRun(opts) {
         }
     }
 
-    // --- End of preparation phase: close undo group early ---
+    // --- End of preparation phase: close undo group early (only if we opened one) ---
     // We'll now verify and queue outside of the undo context to reduce mismatch risk.
-    try { app.endUndoGroup(); } catch (eUG) {}
+    if (__openedUndo) { try { app.endUndoGroup(); __openedUndo = false; } catch (eUG) {} }
 
     // Verification: ensure items actually exist (AE can silently rollback on first run after launch)
     var verifiedAdded = 0;
@@ -619,6 +620,8 @@ function __AME_coreRun(opts) {
             return false;
         }
     }
+    // Allow pipeline to disable queueing this run
+    if (opts && (opts.noQueue === true)) { AUTO_QUEUE_IN_AME = false; }
     var shouldQueue = AUTO_QUEUE_IN_AME && itemsToProcess.length > 0;
     if (shouldQueue && QUEUE_ONLY_WHEN_NEW_OR_CHANGED && !FORCE_QUEUE_ALWAYS) {
         if (addedCount === 0 && changedCount === 0) {
@@ -655,7 +658,6 @@ function __AME_coreRun(opts) {
         log("--- SUMMARY END ---");
     }
     alertOnce(summaryMsg);
-    app.endUndoGroup();
     // Return comps that have RQ items
     var configured = [];
     try { var rq2 = app.project.renderQueue; for (var i2=1;i2<=rq2.numItems;i2++){ var rqi2=rq2.item(i2); if (rqi2 && rqi2.comp) configured.push(rqi2.comp); } } catch(eRQ) {}
