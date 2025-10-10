@@ -122,7 +122,7 @@
         alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
         // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
         groups: {
-            enabled: false,
+            enabled: true,
             keys: ["info"/* e.g., "claim" */]
         },
         // Ad-hoc skip list (name tokens); case-insensitive contains match
