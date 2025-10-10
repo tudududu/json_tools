@@ -28,7 +28,11 @@
 // - Select one or more target comps (or make one active) and run this script.
 // - Ensure a template comp exists under ./work/template/ as described above.
 
-(function addLayersFromTemplate() {
+// Pipeline detection and API namespace
+var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE === 'pipeline') ? AE_PIPE : null;
+if (typeof AE_AddLayers === 'undefined') { var AE_AddLayers = {}; }
+
+function __AddLayers_coreRun(opts) {
     app.beginUndoGroup("Add Layers From Template");
 
     // ---------------- Logging Configuration ----------------
@@ -89,10 +93,11 @@
     function __writeFileLine(line){ if(!__logFile) return; try { if(__logFile.open('a')) { __logFile.write(line + '\n'); __logFile.close(); } } catch(eWF) { try { __logFile.close(); } catch(eC) {} } }
 
     function log(msg) {
-        if(!SUPPRESS_CONSOLE_LOG){ try { $.writeln(msg); } catch(eC) {} }
+        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch(eC) {} }
+        else if(!SUPPRESS_CONSOLE_LOG){ try { $.writeln(msg); } catch(eC2) {} }
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
     }
-    function alertOnce(msg) { try { alert(msg); } catch (e) {} }
+    function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
     // One-time alert guard for AR-skip warning
     var __AR_SKIP_ALERT_SHOWN = false;
 
@@ -1024,7 +1029,7 @@
         return;
     }
 
-    var rawTargets = getSelectedComps();
+    var rawTargets = (opts && opts.comps && opts.comps.length) ? opts.comps : getSelectedComps();
     if (!rawTargets.length) {
         alertOnce("Select one or more target compositions.");
         app.endUndoGroup();
@@ -1230,4 +1235,12 @@
     log("\n" + __summaryMsg); // add the complete summarising alert at the end to the log as well
     alertOnce(__summaryMsg);
     app.endUndoGroup();
-})();
+    return { processed: targets, addedTotal: addedTotal };
+}
+
+AE_AddLayers.run = function(opts){ return __AddLayers_coreRun(opts || {}); };
+
+// Standalone auto-run only when not in pipeline
+if (!__AE_PIPE__) {
+    (function addLayersFromTemplate_IIFE(){ __AddLayers_coreRun({}); })();
+}

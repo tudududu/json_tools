@@ -15,7 +15,11 @@
 // - If you already have items in AME, After Effects cannot reliably update their paths; re-queue from AE
 //   after running this script.
 
-(function setAMEOutputPaths() {
+// Pipeline detection and API namespace
+var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE === 'pipeline') ? AE_PIPE : null;
+if (typeof AE_AME === 'undefined') { var AE_AME = {}; }
+
+function __AME_coreRun(opts) {
     app.beginUndoGroup("Set AME Output Paths");
 
     // ————— Settings —————
@@ -88,8 +92,8 @@
     var VERBOSE_TEMPLATE_DEBUG = false; // Extra logging for template reapplication
 
     // ————— Utils —————
-    function log(msg) { try { $.writeln(msg); } catch (e) {} }
-    function alertOnce(msg) { try { alert(msg); } catch (e) {} }
+    function log(msg) { if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch(e){} return; } try { $.writeln(msg); } catch (e) {} }
+    function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 
     function joinPath(a, b) {
         if (!a) return b || "";
@@ -419,8 +423,9 @@
     var addedCount = 0;
 
     // A) Process selection: add selected comps to RQ
-    if (PROCESS_SELECTION) {
-        var sel = app.project.selection;
+    var providedComps = (opts && opts.comps && opts.comps.length) ? opts.comps : null;
+    if (PROCESS_SELECTION || providedComps) {
+        var sel = providedComps || app.project.selection;
         if (sel && sel.length) {
             for (var s = 0; s < sel.length; s++) {
                 var it = sel[s];
@@ -650,5 +655,16 @@
         log("--- SUMMARY END ---");
     }
     alertOnce(summaryMsg);
+    app.endUndoGroup();
+    // Return comps that have RQ items
+    var configured = [];
+    try { var rq2 = app.project.renderQueue; for (var i2=1;i2<=rq2.numItems;i2++){ var rqi2=rq2.item(i2); if (rqi2 && rqi2.comp) configured.push(rqi2.comp); } } catch(eRQ) {}
+    return { configured: configured };
+}
 
-})();
+AE_AME.run = function(opts){ return __AME_coreRun(opts || {}); };
+
+// Standalone auto-run only when not in pipeline
+if (!__AE_PIPE__) {
+    (function setAMEOutputPaths_IIFE(){ __AME_coreRun({}); })();
+}

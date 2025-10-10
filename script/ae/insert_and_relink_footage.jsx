@@ -59,7 +59,7 @@ function __InsertRelink_coreRun(opts) {
     var CLEAR_EXISTING_PROJECT_SOUND_FOLDER = true; // When true, BEFORE importing, clear AE Project panel folder project/in/sound/ (its contents only)
     // New: JSON data relink settings
     var ENABLE_RELINK_DATA_JSON = true;            // Master switch for data.json relink/import
-    var DATA_JSON_ISO_CODE_MANUAL = "SAU";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
+    var DATA_JSON_ISO_CODE_MANUAL = "GBL";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
     var DATA_JSON_ISO_CODE = null;                 // Actual ISO code used (auto-detected first, fallback to manual)
     var DATA_JSON_ISO_MODE = "manual";              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
     var DATA_JSON_PROJECT_FOLDER = ["project","in","data"]; // Project panel target folder path

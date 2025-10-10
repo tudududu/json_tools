@@ -17,7 +17,11 @@
 // - Batch selection filters (e.g., only matching a pattern)
 // - Metadata stamping (markers / comments)
 // ------------------------------------------------------------
-(function packOutputComps() {
+// Pipeline detection and API namespace
+var __AE_PIPE__ = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.MODE === 'pipeline') ? AE_PIPE : null;
+if (typeof AE_Pack === 'undefined') { var AE_Pack = {}; }
+
+function __Pack_coreRun(opts) {
     app.beginUndoGroup("Pack Output Comps");
 
     // Logging configuration (detailed + summary + suppression + timestamped filenames)
@@ -150,14 +154,14 @@
         for (var li=0; li<lines.length; li++) writeFileLine(__summaryLogFile, lines[li]);
     }
 
-    function alertOnce(msg) { try { alert(msg); } catch (e) {} }
-    function alertOnce(msg) { try { alert(msg); } catch (e) {} }
+    function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
+    function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 
     var proj = app.project;
     if (!proj) { alertOnce("No project open."); app.endUndoGroup(); return; }
 
-    var sel = proj.selection;
-    if (!sel || !sel.length) { alertOnce("Select one or more compositions."); app.endUndoGroup(); return; }
+    var sel = (opts && opts.comps && opts.comps.length) ? opts.comps : proj.selection;
+    if (!sel || !sel.length) { alertOnce("Select one or more compositions."); app.endUndoGroup(); return { outputComps: [] }; }
 
     // Config ------------------------------------------------
     var OUTPUT_ROOT_PATH = ["project", "out"];   // Base output path
@@ -632,5 +636,28 @@
     flushSummary(created, __skippedNames);
 
     app.endUndoGroup();
-})();
+    // Return created comps by resolving by names under outputRoot
+    var outComps = [];
+    try {
+        var outputRoot = ensureOutputRoot();
+        // Collect comps under outputRoot whose names are in __createdNames
+        var nameSet = {}; for (var ni=0; ni<__createdNames.length; ni++) nameSet[__createdNames[ni]] = true;
+        function collectUnder(folder){
+            for (var i=1;i<=folder.numItems;i++){
+                var it = folder.items[i];
+                if (it instanceof FolderItem) collectUnder(it);
+                else if (it instanceof CompItem) { if (nameSet[it.name]) outComps.push(it); }
+            }
+        }
+        collectUnder(outputRoot);
+    } catch(eCol) {}
+    return { outputComps: outComps };
+}
+
+AE_Pack.run = function(opts){ return __Pack_coreRun(opts || {}); };
+
+// Standalone auto-run only when not in pipeline
+if (!__AE_PIPE__) {
+    (function packOutputComps_IIFE(){ __Pack_coreRun({}); })();
+}
 
