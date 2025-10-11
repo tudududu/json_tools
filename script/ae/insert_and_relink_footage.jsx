@@ -71,6 +71,25 @@ function __InsertRelink_coreRun(opts) {
     var DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = true; // Rename imported item to data.json even if file name differs
     var DATA_JSON_LOG_VERBOSE = true;             // Extra logging for relink process
 
+    // Options overrides
+    try {
+        var o = opts && opts.options ? opts.options : null;
+        if (o) {
+            if (o.ENABLE_ALIGN_AUDIO_TO_MARKERS !== undefined) ENABLE_ALIGN_AUDIO_TO_MARKERS = !!o.ENABLE_ALIGN_AUDIO_TO_MARKERS;
+            if (o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS;
+            if (o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_MUTE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS;
+            if (o.CLEAR_EXISTING_PROJECT_SOUND_FOLDER !== undefined) CLEAR_EXISTING_PROJECT_SOUND_FOLDER = !!o.CLEAR_EXISTING_PROJECT_SOUND_FOLDER;
+            if (o.ENABLE_RELINK_DATA_JSON !== undefined) ENABLE_RELINK_DATA_JSON = !!o.ENABLE_RELINK_DATA_JSON;
+            if (o.DATA_JSON_ISO_MODE) DATA_JSON_ISO_MODE = String(o.DATA_JSON_ISO_MODE);
+            if (o.DATA_JSON_ISO_CODE_MANUAL) DATA_JSON_ISO_CODE_MANUAL = String(o.DATA_JSON_ISO_CODE_MANUAL);
+            if (o.DATA_JSON_PROJECT_FOLDER) DATA_JSON_PROJECT_FOLDER = o.DATA_JSON_PROJECT_FOLDER;
+            if (o.DATA_JSON_PROJECT_ITEM_NAME) DATA_JSON_PROJECT_ITEM_NAME = String(o.DATA_JSON_PROJECT_ITEM_NAME);
+            if (o.DATA_JSON_IMPORT_IF_MISSING !== undefined) DATA_JSON_IMPORT_IF_MISSING = !!o.DATA_JSON_IMPORT_IF_MISSING;
+            if (o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL !== undefined) DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = !!o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL;
+            if (o.DATA_JSON_LOG_VERBOSE !== undefined) DATA_JSON_LOG_VERBOSE = !!o.DATA_JSON_LOG_VERBOSE;
+        }
+    } catch (eOpt) {}
+
     function ensureProjectPath(segments) {
         var cur = proj.rootFolder; // Root
         for (var i = 0; i < segments.length; i++) {

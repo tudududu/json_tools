@@ -31,6 +31,15 @@ function __CreateComps_coreRun(opts) {
 	var DEFAULT_STILL_DURATION = 5; // seconds
 	var ENABLE_MARKER_TRIM = false;  // Global toggle: set to false to disable marker-based trimming
 	var SKIP_IF_COMP_EXISTS = true;   // When true, do not recreate a comp if one with the same name already exists in the target folder
+	// Options overrides
+	try {
+		var o = opts && opts.options ? opts.options : null;
+		if (o) {
+			if (o.DEFAULT_STILL_DURATION !== undefined) DEFAULT_STILL_DURATION = o.DEFAULT_STILL_DURATION;
+			if (o.ENABLE_MARKER_TRIM !== undefined) ENABLE_MARKER_TRIM = !!o.ENABLE_MARKER_TRIM;
+			if (o.SKIP_IF_COMP_EXISTS !== undefined) SKIP_IF_COMP_EXISTS = !!o.SKIP_IF_COMP_EXISTS;
+		}
+	} catch (eOpt) {}
 
 	// Utilities —————————————————————————————————————————————
 

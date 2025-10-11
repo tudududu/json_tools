@@ -83,6 +83,23 @@ function __AME_coreRun(opts) {
     // 4e. ISO extraction simplified: filename-based only (+ optional directory scan fallback)
     var ISO_SCAN_DATA_FOLDER_FALLBACK = true; // If filename lookup fails, scan POST/IN/data for data_XXX.json
 
+    // Options overrides
+    try {
+        var o = opts && opts.options ? opts.options : null;
+        if (o) {
+            if (o.PROCESS_SELECTION !== undefined) PROCESS_SELECTION = !!o.PROCESS_SELECTION;
+            if (o.PROCESS_EXISTING_RQ !== undefined) PROCESS_EXISTING_RQ = !!o.PROCESS_EXISTING_RQ;
+            if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;
+            if (o.AME_MAX_QUEUE_ATTEMPTS !== undefined) AME_MAX_QUEUE_ATTEMPTS = parseInt(o.AME_MAX_QUEUE_ATTEMPTS, 10);
+            if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
+            if (o.FILE_LOG_APPEND_MODE !== undefined) FILE_LOG_APPEND_MODE = !!o.FILE_LOG_APPEND_MODE;
+            if (o.FILE_LOG_MAX_FILES !== undefined) FILE_LOG_MAX_FILES = parseInt(o.FILE_LOG_MAX_FILES, 10);
+            if (o.FILE_LOG_PRUNE_ENABLED !== undefined) FILE_LOG_PRUNE_ENABLED = !!o.FILE_LOG_PRUNE_ENABLED;
+            if (o.DEBUG_VERBOSE_ISO_STEPS !== undefined) DEBUG_VERBOSE_ISO_STEPS = !!o.DEBUG_VERBOSE_ISO_STEPS;
+            if (o.ISO_SCAN_DATA_FOLDER_FALLBACK !== undefined) ISO_SCAN_DATA_FOLDER_FALLBACK = !!o.ISO_SCAN_DATA_FOLDER_FALLBACK;
+        }
+    } catch(eOpt){}
+
 
     // 5. Logging verbosity
     var MAX_DETAIL_LINES = 80;             // Limit detail lines logged

@@ -64,6 +64,19 @@ function __Pack_coreRun(opts) {
         return null;
     }
 
+    // Options overrides
+    try {
+        var o = opts && opts.options ? opts.options : null;
+        if (o) {
+            if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
+            if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
+            if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
+            if (o.ENABLE_SUFFIX_APPEND !== undefined) ENABLE_SUFFIX_APPEND = !!o.ENABLE_SUFFIX_APPEND;
+            if (o.SKIP_IF_OUTPUT_ALREADY_EXISTS !== undefined) SKIP_IF_OUTPUT_ALREADY_EXISTS = !!o.SKIP_IF_OUTPUT_ALREADY_EXISTS;
+            if (o.ENSURE_UNIQUE_NAME !== undefined) ENSURE_UNIQUE_NAME = !!o.ENSURE_UNIQUE_NAME;
+        }
+    } catch(eOpt){}
+
     var __timestamp = buildTimestamp();
     var __logBaseFolder = resolveLogBaseFolder();
     var __detailedLogFile = null;

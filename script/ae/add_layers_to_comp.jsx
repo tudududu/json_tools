@@ -116,6 +116,22 @@ function __AddLayers_coreRun(opts) {
         arTolerance: 0.001,
         requireAspectRatioMatch: false
     };
+    // Options overrides
+    try {
+        var o = opts && opts.options ? opts.options : null;
+        if (o) {
+            if (o.ENABLE_JSON_TIMING_FOR_DISCLAIMER !== undefined) ENABLE_JSON_TIMING_FOR_DISCLAIMER = !!o.ENABLE_JSON_TIMING_FOR_DISCLAIMER;
+            if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = !!o.ENABLE_AUTOCENTER_ON_AR_MISMATCH;
+            if (o.TEMPLATE_MATCH_CONFIG) {
+                if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
+                if (typeof o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch = o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch;
+            }
+            if (o.SKIP_COPY_CONFIG) {
+                try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
+            }
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
+        }
+    } catch(eOpt){}
 
     // Skip-copy configuration (compact)
     var SKIP_COPY_CONFIG = {

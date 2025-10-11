@@ -33,7 +33,10 @@
             ENABLE_REMOVE_EXISTING_AUDIO_LAYERS: true,
             ENABLE_MUTE_EXISTING_AUDIO_LAYERS: true,
             CLEAR_EXISTING_PROJECT_SOUND_FOLDER: true,
-            ENABLE_RELINK_DATA_JSON: true
+            ENABLE_RELINK_DATA_JSON: true,
+            DATA_JSON_ISO_CODE_MANUAL: "SAU",        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
+            DATA_JSON_ISO_CODE: null,                 // Actual ISO code used (auto-detected first, fallback to manual)
+            DATA_JSON_ISO_MODE: "manual",              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
         },
         addLayers: {
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
