@@ -35,7 +35,9 @@
     // Load options utilities and defaults, then build merged options (defaults <- AE_PIPE.options)
     try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
     try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
-    var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(AE_PIPE.options) : (AE_PIPE.options || {});
+    // Build options safely even when AE_PIPE is not defined yet
+    var __userOpts = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options) ? AE_PIPE.options : {};
+    var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(__userOpts) : (__userOpts || {});
     // Pipeline toggles (derived from options)
     // When true (default), Step 5 will queue items to AME after setting output paths.
     // When false, only output paths are set (no AME queue).
@@ -113,7 +115,6 @@
     var footageSel = selectedFootageItems();
     if (!footageSel.length) {
         alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
-        app.endUndoGroup();
         return;
     }
     log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
@@ -154,7 +155,6 @@
 
     if (!AE_PIPE.results.createComps.length) {
         alert("No compositions created in Step 1. Aborting.");
-        app.endUndoGroup();
         return;
     }
 
