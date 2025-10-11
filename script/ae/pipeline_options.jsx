@@ -34,7 +34,7 @@
             ENABLE_MUTE_EXISTING_AUDIO_LAYERS: true,
             CLEAR_EXISTING_PROJECT_SOUND_FOLDER: true,
             ENABLE_RELINK_DATA_JSON: true,
-            DATA_JSON_ISO_CODE_MANUAL: "DEU",        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
+            DATA_JSON_ISO_CODE_MANUAL: "SAU",        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
             DATA_JSON_ISO_CODE: null,                 // Actual ISO code used (auto-detected first, fallback to manual)
             DATA_JSON_ISO_MODE: "manual",              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
         },

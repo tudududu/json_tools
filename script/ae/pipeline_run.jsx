@@ -32,7 +32,9 @@
     var LOG_PREFIX = "pipeline_run";
     var __logFile = null;
 
-    // Load options utilities and defaults, then build merged options (defaults <- AE_PIPE.options)
+    // Load options utilities and defaults with hot-reload to pick up changes without restarting AE
+    try { if (typeof AE_OPTS_UTILS !== 'undefined') { AE_OPTS_UTILS = undefined; } } catch (eClrU) {}
+    try { if (typeof AE_PIPELINE_OPTIONS !== 'undefined') { AE_PIPELINE_OPTIONS = undefined; } } catch (eClrP) {}
     try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
     try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
     // Build options safely even when AE_PIPE is not defined yet
@@ -85,7 +87,8 @@
     AE_PIPE.MODE = "pipeline";
     AE_PIPE.RUN_ID = RUN_ID;
     AE_PIPE.results = { createComps: [], insertRelink: [], addLayers: [], pack: [], ame: [] };
-    AE_PIPE.options = AE_PIPE.options || {};
+    // Expose the merged options for any downstream scripts that read AE_PIPE.options directly
+    AE_PIPE.options = OPTS;
     AE_PIPE.log = log;
 
     // Helpers - selection management
