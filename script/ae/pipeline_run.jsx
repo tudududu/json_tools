@@ -16,6 +16,8 @@
     var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
     var PACK_OUTPUT_PATH   = join(base, "pack_output_comps.jsx");
     var SET_AME_PATH       = join(base, "set_ame_output_paths.jsx");
+    var OPTS_UTILS_PATH    = join(base, "options_utils.jsx");
+    var PIPELINE_OPTS_PATH = join(base, "pipeline_options.jsx");
 
     // Shared logger (console + optional file)
     function timestamp() {
@@ -30,10 +32,14 @@
     var LOG_PREFIX = "pipeline_run";
     var __logFile = null;
 
-    // Pipeline toggles
+    // Load options utilities and defaults, then build merged options (defaults <- AE_PIPE.options)
+    try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
+    try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
+    var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(AE_PIPE.options) : (AE_PIPE.options || {});
+    // Pipeline toggles (derived from options)
     // When true (default), Step 5 will queue items to AME after setting output paths.
     // When false, only output paths are set (no AME queue).
-    var PIPELINE_QUEUE_TO_AME = true;
+    var PIPELINE_QUEUE_TO_AME = (typeof AE_OPTS_UTILS !== 'undefined') ? AE_OPTS_UTILS.optBool(OPTS, 'PIPELINE_QUEUE_TO_AME', true) : (OPTS.PIPELINE_QUEUE_TO_AME !== false);
 
     function findOrCreateLogFolder() {
         try {
@@ -53,6 +59,8 @@
         } catch (e) { return Folder.desktop; }
     }
     function openLogFile() {
+        // Allow options to control pipeline file logging
+        if (typeof OPTS !== 'undefined') { try { ENABLE_FILE_LOG = (OPTS.ENABLE_FILE_LOG !== false); } catch(eEL){} }
         if (!ENABLE_FILE_LOG) return null;
         var folder = findOrCreateLogFolder();
         try { return new File(folder.fsName + "/" + LOG_PREFIX + "_" + RUN_ID + ".log"); } catch (e) { return null; }
@@ -116,7 +124,7 @@
         // Load once; script may expose AE_CreateComps
         $.evalFile(CREATE_COMPS_PATH);
         if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
-            var res1 = AE_CreateComps.run({ selection: footageSel, runId: RUN_ID, log: log });
+            var res1 = AE_CreateComps.run({ selection: footageSel, runId: RUN_ID, log: log, options: (OPTS.createComps || {}) });
             if (res1 && res1.created && res1.created.length) {
                 AE_PIPE.results.createComps = res1.created;
                 step1UsedAPI = true;
@@ -157,7 +165,7 @@
     try {
         $.evalFile(INSERT_RELINK_PATH);
         if (typeof AE_InsertRelink !== "undefined" && AE_InsertRelink && typeof AE_InsertRelink.run === "function") {
-            var res2 = AE_InsertRelink.run({ comps: AE_PIPE.results.createComps, runId: RUN_ID, log: log });
+            var res2 = AE_InsertRelink.run({ comps: AE_PIPE.results.createComps, runId: RUN_ID, log: log, options: (OPTS.insertRelink || {}) });
             if (res2 && res2.processed) AE_PIPE.results.insertRelink = res2.processed;
             step2UsedAPI = true;
         }
@@ -181,7 +189,7 @@
     try {
         $.evalFile(ADD_LAYERS_PATH);
         if (typeof AE_AddLayers !== "undefined" && AE_AddLayers && typeof AE_AddLayers.run === "function") {
-            var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log });
+            var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log, options: (OPTS.addLayers || {}) });
             if (res3 && res3.processed) AE_PIPE.results.addLayers = res3.processed;
             step3UsedAPI = true;
         }
@@ -203,7 +211,7 @@
     try {
         $.evalFile(PACK_OUTPUT_PATH);
         if (typeof AE_Pack !== "undefined" && AE_Pack && typeof AE_Pack.run === "function") {
-            var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log });
+            var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log, options: (OPTS.pack || {}) });
             if (res4 && res4.outputComps) AE_PIPE.results.pack = res4.outputComps;
             step4UsedAPI = true;
         }
@@ -229,7 +237,7 @@
         if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
             // Pass comps directly; control queueing via top-level toggle
             log("Step 5: Queue to AME = " + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF"));
-            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: !PIPELINE_QUEUE_TO_AME });
+            var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: !PIPELINE_QUEUE_TO_AME, options: (OPTS.ame || {}) });
             if (res5 && res5.configured) AE_PIPE.results.ame = res5.configured;
             step5UsedAPI = true;
         }
