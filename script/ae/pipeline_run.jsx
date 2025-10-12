@@ -115,6 +115,14 @@
     AE_PIPE.optionsEffective = OPTS;
     AE_PIPE.log = log;
 
+    // If preset metadata is present (from pipeline_preset_loader.jsx), log it for traceability
+    try {
+        var __meta = (AE_PIPE.userOptions && AE_PIPE.userOptions.__presetMeta) ? AE_PIPE.userOptions.__presetMeta : null;
+        if (__meta && (__meta.path || __meta.loadedAt)) {
+            log("Preset: " + (__meta.path || "(unknown path)") + (__meta.loadedAt ? (" | loadedAt=" + __meta.loadedAt) : ""));
+        }
+    } catch(ePM) {}
+
     // Helpers - selection management
     var proj = app.project;
     if (!proj) { alert("No project open."); return; }
