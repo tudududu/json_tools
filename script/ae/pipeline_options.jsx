@@ -58,7 +58,10 @@
             ENABLE_JSON_TIMING_FOR_DISCLAIMER: false,
             TEMPLATE_MATCH_CONFIG: { arTolerance: 0.001, requireAspectRatioMatch: false },
             SKIP_COPY_CONFIG: { disclaimerOff:true, subtitlesOff:true, logoAnimOff:true, groups:{enabled:false,keys:[]}, adHoc:{enabled:false,tokens:[]}, alwaysCopyLogoBaseNames:["Size_Holder_Logo"] },
-            ENABLE_FILE_LOG: true
+            ENABLE_FILE_LOG: true,
+            // Pipeline log controls for Step 3
+            PIPELINE_SHOW_CONCISE_LOG: true,
+            PIPELINE_SHOW_VERBOSE_LOG: false
         },
         pack: {
             DRY_RUN_MODE: false,

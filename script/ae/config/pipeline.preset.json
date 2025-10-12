@@ -13,10 +13,16 @@
 
 "AUTO_FROM_PROJECT_FOOTAGE": true,
 
-"insertRelink": 
-    { 
+"insertRelink": { 
     "DATA_JSON_ISO_MODE": "manual",
     "DATA_JSON_ISO_CODE_MANUAL": "GBL"
     },
-"addLayers": { "ENABLE_FILE_LOG": false }
+"addLayers": { 
+    "ENABLE_FILE_LOG": false,
+    "PIPELINE_SHOW_CONCISE_LOG": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": false
+    },
+"pack": {
+    "DRY_RUN_MODE": false
+    }
 }

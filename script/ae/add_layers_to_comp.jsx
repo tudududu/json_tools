@@ -1087,6 +1087,7 @@ function __AddLayers_coreRun(opts) {
     var addedTotal = 0;
     var skippedARCount = 0;
     var skippedCopyTotal = 0; // total layers skipped due to skip-copy rules across all comps
+    var __concise = [];
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
         var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
@@ -1104,8 +1105,10 @@ function __AddLayers_coreRun(opts) {
             }
             templateComp = pickBestTemplateComp(templateComps);
         }
-        var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
-        log("\n" + "Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : ""));
+    var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
+    var __header = "Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
+    log("\n" + __header);
+    try { __concise.push(__header); } catch(eHC) {}
     var added = 0;
     var skipCopyCount = 0; // per-comp count of layers skipped due to skip-copy rules
         var lastInserted = null; // track stacking chain for moveAfter
@@ -1251,7 +1254,7 @@ function __AddLayers_coreRun(opts) {
     log("\n" + __summaryMsg); // add the complete summarising alert at the end to the log as well
     alertOnce(__summaryMsg);
     app.endUndoGroup();
-    return { processed: targets, addedTotal: addedTotal };
+    return { processed: targets, addedTotal: addedTotal, pipelineConcise: __concise, pipelineSummary: __summaryMsg };
 }
 
 AE_AddLayers.run = function(opts){ return __AddLayers_coreRun(opts || {}); };

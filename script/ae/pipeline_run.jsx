@@ -11,7 +11,7 @@
     function join(p, rel) { return File(p.fsName + "/" + rel); }
 
     // Adjust these relative paths to match your repo layout
-    var CREATE_COMPS_PATH = join(base, "create_compositions.jsx");
+    var CREATE_COMPS_PATH  = join(base, "create_compositions.jsx");
     var INSERT_RELINK_PATH = join(base, "insert_and_relink_footage.jsx");
     var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
     var PACK_OUTPUT_PATH   = join(base, "pack_output_comps.jsx");
@@ -272,6 +272,17 @@
         if (typeof AE_AddLayers !== "undefined" && AE_AddLayers && typeof AE_AddLayers.run === "function") {
             var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log, options: (OPTS.addLayers || {}) });
             if (res3 && res3.processed) AE_PIPE.results.addLayers = res3.processed;
+            try {
+                var alOpts = OPTS.addLayers || {};
+                if (alOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
+                    var lines = res3 && res3.pipelineConcise ? res3.pipelineConcise : [];
+                    for (var ci=0; ci<lines.length; ci++) log(lines[ci]);
+                    if (res3 && res3.pipelineSummary) log(res3.pipelineSummary);
+                }
+                if (alOpts.PIPELINE_SHOW_VERBOSE_LOG === true) {
+                    // No-op here: verbose already logged by the phase script; leaving switch for future routing
+                }
+            } catch(eALlog) {}
             step3UsedAPI = true;
         }
     } catch (e3) {
