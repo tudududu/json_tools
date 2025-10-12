@@ -142,6 +142,12 @@
     // Timing helpers
     function nowMs(){ return (new Date()).getTime(); }
     function sec(ms){ return Math.round(ms/10)/100; }
+    function maybeSleep(label){
+        try {
+            var ms = (OPTS && typeof OPTS.sleepBetweenPhasesMs === 'number') ? OPTS.sleepBetweenPhasesMs : 0;
+            if (ms && ms > 0) { log("Stabilize: sleeping " + ms + "ms before " + label + "…"); $.sleep(ms); }
+        } catch(eS) {}
+    }
     var t0All = nowMs();
     var t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
 
@@ -195,6 +201,7 @@
     }
 
     // Step 2: Insert & relink into those comps
+    maybeSleep("Step 2");
     t2s = nowMs();
     log("Step 2: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
     var step2UsedAPI = false;
@@ -220,6 +227,7 @@
     t2e = nowMs();
 
     // Step 3: Add layers from template to the processed comps
+    maybeSleep("Step 3");
     t3s = nowMs();
     log("Step 3: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
     var step3UsedAPI = false;
@@ -243,6 +251,7 @@
     t3e = nowMs();
 
     // Step 4: Pack output comps
+    maybeSleep("Step 4");
     t4s = nowMs();
     log("Step 4: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
     var step4UsedAPI = false;
@@ -268,6 +277,7 @@
     t4e = nowMs();
 
     // Step 5: Set AME output paths
+    maybeSleep("Step 5");
     t5s = nowMs();
     log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
     // Diagnostics for effective options
@@ -312,6 +322,8 @@
                     v.push("  ame.PROCESS_SELECTION=" + (OPTS.ame.PROCESS_SELECTION !== false));
                     v.push("  ame.AUTO_QUEUE_IN_AME=" + (OPTS.ame.AUTO_QUEUE_IN_AME !== false));
                 }
+                // integrator
+                v.push("  sleepBetweenPhasesMs=" + (OPTS.sleepBetweenPhasesMs || 0));
                 for (var i=0;i<v.length;i++) log(v[i]);
             } catch(eV) {}
         }
