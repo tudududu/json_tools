@@ -158,11 +158,20 @@
         t1e = nowMs();
     } else {
         var footageSel = selectedFootageItems();
-        if (!footageSel.length) {
+        // Allow empty selection when AUTO_FROM_PROJECT_FOOTAGE is enabled (top-level or under createComps)
+        var __autoCreate = false;
+        try {
+            __autoCreate = (OPTS && ((OPTS.createComps && OPTS.createComps.AUTO_FROM_PROJECT_FOOTAGE === true) || (OPTS.AUTO_FROM_PROJECT_FOOTAGE === true)));
+        } catch(eAC) {}
+        if (!footageSel.length && !__autoCreate) {
             alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
             return;
         }
-        log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
+        if (__autoCreate && !footageSel.length) {
+            log("Step 1: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
+        } else {
+            log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
+        }
 
     // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
     var step1UsedAPI = false;
@@ -171,7 +180,17 @@
         try { if (typeof AE_CreateComps !== 'undefined') { AE_CreateComps = undefined; } } catch(eCLR1) {}
         $.evalFile(CREATE_COMPS_PATH);
         if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
-            var res1 = AE_CreateComps.run({ selection: footageSel, runId: RUN_ID, log: log, options: (OPTS.createComps || {}) });
+            // Normalize options for Step 1: support top-level synonyms for AUTO mode keys
+            var __opts1 = (OPTS.createComps || {});
+            try {
+                function __maybeAssign(k){ if (OPTS.hasOwnProperty(k) && !__opts1.hasOwnProperty(k)) __opts1[k] = OPTS[k]; }
+                __maybeAssign('AUTO_FROM_PROJECT_FOOTAGE');
+                __maybeAssign('FOOTAGE_PROJECT_PATH');
+                __maybeAssign('FOOTAGE_DATE_YYMMDD');
+                __maybeAssign('INCLUDE_SUBFOLDERS');
+            } catch(eNrm) {}
+            var selArg = (__autoCreate && !footageSel.length) ? [] : footageSel;
+            var res1 = AE_CreateComps.run({ selection: selArg, runId: RUN_ID, log: log, options: __opts1 });
             if (res1 && res1.created && res1.created.length) {
                 AE_PIPE.results.createComps = res1.created;
                 step1UsedAPI = true;
