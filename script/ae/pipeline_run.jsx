@@ -38,7 +38,30 @@
     try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
     try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
     // Build options safely even when AE_PIPE is not defined yet
-    var __userOpts = (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options) ? AE_PIPE.options : {};
+    // Prefer AE_PIPE.userOptions as the explicit user overrides. Only use AE_PIPE.options if it doesn't
+    // look like a full effective bundle from a previous run (prevents sticky options across runs).
+    function __looksEffectiveBundle(o) {
+        try {
+            if (!o || typeof o !== 'object') return false;
+            // Heuristic: presence of phase namespaces or top-level pipeline keys indicates a merged effective bundle
+            if (o.createComps || o.insertRelink || o.addLayers || o.pack || o.ame) return true;
+            if (o.hasOwnProperty('PIPELINE_QUEUE_TO_AME') || o.hasOwnProperty('ENABLE_FILE_LOG')) return true;
+        } catch(eLB) {}
+        return false;
+    }
+    var __userOpts = {};
+    try {
+        if (typeof AE_PIPE !== 'undefined' && AE_PIPE) {
+            if (AE_PIPE.userOptions && typeof AE_PIPE.userOptions === 'object') {
+                __userOpts = AE_PIPE.userOptions;
+            } else if (AE_PIPE.options && typeof AE_PIPE.options === 'object' && !__looksEffectiveBundle(AE_PIPE.options)) {
+                __userOpts = AE_PIPE.options; // legacy path: options used as user overrides
+            } else if (AE_PIPE.options && __looksEffectiveBundle(AE_PIPE.options)) {
+                // Proactively clear stale effective bundle so it doesn't affect subsequent runs
+                try { AE_PIPE.options = {}; } catch(eClr) {}
+            }
+        }
+    } catch (eUO) {}
     var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(__userOpts) : (__userOpts || {});
     // Pipeline toggles (derived from options)
     // When true (default), Step 5 will queue items to AME after setting output paths.
@@ -87,8 +110,9 @@
     AE_PIPE.MODE = "pipeline";
     AE_PIPE.RUN_ID = RUN_ID;
     AE_PIPE.results = { createComps: [], insertRelink: [], addLayers: [], pack: [], ame: [] };
-    // Expose the merged options for any downstream scripts that read AE_PIPE.options directly
-    AE_PIPE.options = OPTS;
+    // Preserve user overrides (if provided) and expose effective options for consumers separately
+    if (__userOpts && typeof __userOpts === 'object') { AE_PIPE.userOptions = __userOpts; }
+    AE_PIPE.optionsEffective = OPTS;
     AE_PIPE.log = log;
 
     // Helpers - selection management
@@ -125,7 +149,8 @@
     // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
     var step1UsedAPI = false;
     try {
-        // Load once; script may expose AE_CreateComps
+        // Hot-reload phase singleton then load; script may expose AE_CreateComps
+        try { if (typeof AE_CreateComps !== 'undefined') { AE_CreateComps = undefined; } } catch(eCLR1) {}
         $.evalFile(CREATE_COMPS_PATH);
         if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
             var res1 = AE_CreateComps.run({ selection: footageSel, runId: RUN_ID, log: log, options: (OPTS.createComps || {}) });
@@ -166,6 +191,7 @@
     log("Step 2: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
     var step2UsedAPI = false;
     try {
+        try { if (typeof AE_InsertRelink !== 'undefined') { AE_InsertRelink = undefined; } } catch(eCLR2) {}
         $.evalFile(INSERT_RELINK_PATH);
         if (typeof AE_InsertRelink !== "undefined" && AE_InsertRelink && typeof AE_InsertRelink.run === "function") {
             var res2 = AE_InsertRelink.run({ comps: AE_PIPE.results.createComps, runId: RUN_ID, log: log, options: (OPTS.insertRelink || {}) });
@@ -190,6 +216,7 @@
     log("Step 3: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
     var step3UsedAPI = false;
     try {
+        try { if (typeof AE_AddLayers !== 'undefined') { AE_AddLayers = undefined; } } catch(eCLR3) {}
         $.evalFile(ADD_LAYERS_PATH);
         if (typeof AE_AddLayers !== "undefined" && AE_AddLayers && typeof AE_AddLayers.run === "function") {
             var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log, options: (OPTS.addLayers || {}) });
@@ -212,6 +239,7 @@
     log("Step 4: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
     var step4UsedAPI = false;
     try {
+        try { if (typeof AE_Pack !== 'undefined') { AE_Pack = undefined; } } catch(eCLR4) {}
         $.evalFile(PACK_OUTPUT_PATH);
         if (typeof AE_Pack !== "undefined" && AE_Pack && typeof AE_Pack.run === "function") {
             var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log, options: (OPTS.pack || {}) });
@@ -234,8 +262,14 @@
     // Step 5: Set AME output paths
     t5s = nowMs();
     log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
+    // Diagnostics for effective options
+    try {
+        var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
+        log("Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO_MANUAL=" + __isoEff);
+    } catch(eDiag) {}
     var step5UsedAPI = false;
     try {
+        try { if (typeof AE_AME !== 'undefined') { AE_AME = undefined; } } catch(eCLR5) {}
         $.evalFile(SET_AME_PATH);
         if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
             // Pass comps directly; control queueing via top-level toggle
@@ -260,4 +294,10 @@
     var finalMsg = summary.join("\n");
     log(finalMsg);
     try { alert(finalMsg); } catch (eAF) {}
+    // Consume non-sticky user options to prevent unintended carry-over across runs
+    try {
+        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options && AE_PIPE.options.__sticky !== true) {
+            AE_PIPE.options = {};
+        }
+    } catch(eClear) {}
 })();
