@@ -1,6 +1,6 @@
 // AE Pipeline — Preset Loader
-// Loads a JSON preset (per-run options) from POST/IN/config and invokes pipeline_run.jsx.
-// Default preset path (relative to POST): IN/config/pipeline.preset.json
+// Loads a JSON preset (per-run options) from POST/IN/data/config and invokes pipeline_run.jsx.
+// Default preset path (relative to POST): IN/data/config/pipeline.preset.json
 // Behavior:
 // - Parses the preset into AE_PIPE.userOptions (not the merged effective bundle)
 // - Calls pipeline_run.jsx (sibling of this loader)
@@ -18,7 +18,7 @@
     // 1) Verify project and resolve POST folder
     var proj = app.project;
     if (!proj || !proj.file) {
-        alert("Preset Loader: Save the project under POST/WORK before running.\nExpected: POST/WORK/<project>.aep and POST/IN/config/<preset>.json");
+        alert("Preset Loader: Save the project under POST/WORK before running.\nExpected: POST/WORK/<project>.aep and POST/IN/data/config/<preset>.json");
         return;
     }
     var workFolder = null; try { workFolder = proj.file.parent; } catch(eW) {}
@@ -27,12 +27,12 @@
     if (!postFolder || !postFolder.exists) { alert("Preset Loader: Cannot resolve POST folder (parent of WORK)."); return; }
 
     // 2) Default preset location
-    var defaultPresetFs = joinFs(postFolder.fsName, "IN/config/pipeline.preset.json");
+    var defaultPresetFs = joinFs(postFolder.fsName, "IN/data/config/pipeline.preset.json");
     var presetFile = new File(defaultPresetFs);
 
-    // If missing, let user pick a JSON file under POST/IN/config
+    // If missing, let user pick a JSON file under POST/IN/data/config
     if (!presetFile.exists) {
-        var cfgFolder = new Folder(joinFs(postFolder.fsName, "IN/config"));
+        var cfgFolder = new Folder(joinFs(postFolder.fsName, "IN/data/config"));
         var picked = cfgFolder.exists ? cfgFolder.openDlg("Select a preset JSON", "JSON:*.json") : File.openDialog("Select a preset JSON", "JSON:*.json");
         if (!picked) { alert("Preset Loader: No preset selected."); return; }
         presetFile = picked;
