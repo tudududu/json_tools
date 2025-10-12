@@ -145,7 +145,7 @@
     function maybeSleep(label){
         try {
             var ms = (OPTS && typeof OPTS.sleepBetweenPhasesMs === 'number') ? OPTS.sleepBetweenPhasesMs : 0;
-            if (ms && ms > 0) { log("Stabilize: sleeping " + ms + "ms before " + label + "…"); $.sleep(ms); }
+            if (ms && ms > 0) { log("Stabilize: sleeping " + ms + "ms before " + label + "..."); $.sleep(ms); }
         } catch(eS) {}
     }
     var t0All = nowMs();
@@ -180,14 +180,14 @@
         try { if (typeof AE_CreateComps !== 'undefined') { AE_CreateComps = undefined; } } catch(eCLR1) {}
         $.evalFile(CREATE_COMPS_PATH);
         if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
-            // Normalize options for Step 1: support top-level synonyms for AUTO mode keys
+            // Normalize options for Step 1: allow top-level synonyms to override createComps defaults
             var __opts1 = (OPTS.createComps || {});
             try {
-                function __maybeAssign(k){ if (OPTS.hasOwnProperty(k) && !__opts1.hasOwnProperty(k)) __opts1[k] = OPTS[k]; }
-                __maybeAssign('AUTO_FROM_PROJECT_FOOTAGE');
-                __maybeAssign('FOOTAGE_PROJECT_PATH');
-                __maybeAssign('FOOTAGE_DATE_YYMMDD');
-                __maybeAssign('INCLUDE_SUBFOLDERS');
+                function __assignTop(k){ if (OPTS.hasOwnProperty(k)) __opts1[k] = OPTS[k]; }
+                __assignTop('AUTO_FROM_PROJECT_FOOTAGE');
+                __assignTop('FOOTAGE_PROJECT_PATH');
+                __assignTop('FOOTAGE_DATE_YYMMDD');
+                __assignTop('INCLUDE_SUBFOLDERS');
             } catch(eNrm) {}
             var selArg = (__autoCreate && !footageSel.length) ? [] : footageSel;
             var res1 = AE_CreateComps.run({ selection: selArg, runId: RUN_ID, log: log, options: __opts1 });

@@ -1,0 +1,22 @@
+{
+"sleepBetweenPhasesMs": 250,
+"ENABLE_FINAL_ALERT": true,
+"VERBOSE": true,
+"DEBUG_DUMP_EFFECTIVE_OPTIONS": false,
+"PIPELINE_QUEUE_TO_AME": true,
+
+"RUN_create_compositions": true,
+"RUN_insert_and_relink_footage": true,
+"RUN_add_layers_to_comp": true,
+"RUN_pack_output_comps": true,
+"RUN_set_ame_output_paths": true,
+
+"AUTO_FROM_PROJECT_FOOTAGE": true,
+
+"insertRelink": 
+    { 
+    "DATA_JSON_ISO_MODE": "manual",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBL"
+    },
+"addLayers": { "ENABLE_FILE_LOG": false }
+}

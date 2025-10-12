@@ -122,14 +122,18 @@ function __CreateComps_coreRun(opts) {
 	}
 
 	function findProjectPath(rootFolder, segments) {
-		// Traverse existing Project panel folders by name; return FolderItem or null
+		// Traverse existing Project panel folders by name (case-insensitive); return FolderItem or null
 		var cur = rootFolder;
 		for (var i = 0; i < segments.length; i++) {
 			var seg = segments[i]; if (!seg) continue;
+			var segLc = String(seg).toLowerCase();
 			var found = null;
 			for (var j = 1; j <= cur.numItems; j++) {
 				var it = cur.items[j];
-				if (it && it instanceof FolderItem && String(it.name) === String(seg)) { found = it; break; }
+				if (it && it instanceof FolderItem) {
+					var nmLc = String(it.name || "").toLowerCase();
+					if (nmLc === segLc) { found = it; break; }
+				}
 			}
 			if (!found) return null;
 			cur = found;
@@ -160,6 +164,19 @@ function __CreateComps_coreRun(opts) {
 			if (it instanceof FootageItem) outArr.push(it);
 			else if (includeSubfolders && it instanceof FolderItem) collectFootageRecursive(it, includeSubfolders, outArr);
 		}
+	}
+
+	function dumpFolderChildren(folderItem, label, maxItems) {
+		try {
+			var max = (typeof maxItems === 'number' && maxItems > 0) ? maxItems : 40;
+			log("Auto footage DBG: Listing children of '" + label + "' (count=" + folderItem.numItems + ")");
+			for (var i = 1; i <= folderItem.numItems && i <= max; i++) {
+				var it = folderItem.items[i];
+				var t = (it instanceof FolderItem) ? 'Folder' : (it instanceof FootageItem ? 'Footage' : (it instanceof CompItem ? 'Comp' : 'Item'));
+				log("  - [" + t + "] " + it.name);
+			}
+			if (folderItem.numItems > max) log("  ... (" + (folderItem.numItems - max) + " more)");
+		} catch(eD) {}
 	}
 
 	function normalizePathString(p) {
@@ -296,10 +313,15 @@ function __CreateComps_coreRun(opts) {
 	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : proj.selection;
 	if ((!opts || !opts.selection || !opts.selection.length) && AUTO_FROM_PROJECT_FOOTAGE) {
 		try {
+			log("Auto footage: resolving path '" + FOOTAGE_PROJECT_PATH.join("/") + "' (case-insensitive)");
 			var footageRoot = findProjectPath(app.project.rootFolder, FOOTAGE_PROJECT_PATH);
 			if (!footageRoot) {
 				alertOnce("Auto footage: path not found: " + FOOTAGE_PROJECT_PATH.join("/"));
 			} else {
+				log("Auto footage: root found -> '" + footageRoot.name + "' (items=" + footageRoot.numItems + ")");
+				// verbose: dump first level
+				var __verbose = false; try { __verbose = !!(__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.VERBOSE); } catch(eVB) {}
+				if (__verbose) dumpFolderChildren(footageRoot, footageRoot.name, 60);
 				var dateFolder = null;
 				if (FOOTAGE_DATE_YYMMDD && /^\d{6}$/.test(FOOTAGE_DATE_YYMMDD)) {
 					dateFolder = findChildFolderByName(footageRoot, FOOTAGE_DATE_YYMMDD);
@@ -309,8 +331,11 @@ function __CreateComps_coreRun(opts) {
 					if (!dateFolder) alertOnce("Auto footage: no YYMMDD subfolder under: " + FOOTAGE_PROJECT_PATH.join("/"));
 				}
 				if (dateFolder) {
+					log("Auto footage: using date folder '" + dateFolder.name + "' (items=" + dateFolder.numItems + ")");
+					if (__verbose) dumpFolderChildren(dateFolder, dateFolder.name, 60);
 					var coll = [];
 					collectFootageRecursive(dateFolder, INCLUDE_SUBFOLDERS, coll);
+					log("Auto footage: collected FootageItems count = " + coll.length + ", includeSubfolders=" + (INCLUDE_SUBFOLDERS?"true":"false"));
 					if (coll.length) {
 						selection = coll;
 						log("Auto footage: using " + coll.length + " footage item(s) from '" + dateFolder.name + "'.");
