@@ -21,6 +21,7 @@
         DRY_RUN: false,
         PIPELINE_QUEUE_TO_AME: true,
         VERBOSE: false,
+        DEBUG_DUMP_EFFECTIVE_OPTIONS: false,
 
         // Phase-specific namespaces
         createComps: {
