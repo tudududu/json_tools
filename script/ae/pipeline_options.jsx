@@ -23,6 +23,7 @@
         VERBOSE: false,
         DEBUG_DUMP_EFFECTIVE_OPTIONS: false,
         sleepBetweenPhasesMs: 0,
+        ENABLE_FINAL_ALERT: true,
 
         // Phase-specific namespaces
         createComps: {

@@ -386,7 +386,11 @@
     summary.push("Timing (s) => create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
     var finalMsg = summary.join("\n");
     log(finalMsg);
-    try { alert(finalMsg); } catch (eAF) {}
+    try {
+        var __doAlert = true;
+        try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}
+        if (__doAlert) { alert(finalMsg); }
+    } catch (eAF) {}
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {
         if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options && AE_PIPE.options.__sticky !== true) {
