@@ -31,6 +31,11 @@ function __CreateComps_coreRun(opts) {
 	var DEFAULT_STILL_DURATION = 5; // seconds
 	var ENABLE_MARKER_TRIM = false;  // Global toggle: set to false to disable marker-based trimming
 	var SKIP_IF_COMP_EXISTS = true;   // When true, do not recreate a comp if one with the same name already exists in the target folder
+	// New: automatic footage scan mode (project panel path)
+	var AUTO_FROM_PROJECT_FOOTAGE = false;
+	var FOOTAGE_PROJECT_PATH = ["project","in","footage"]; // Folder chain in AE Project panel
+	var FOOTAGE_DATE_YYMMDD = ""; // empty => pick newest YYMMDD under FOOTAGE_PROJECT_PATH
+	var INCLUDE_SUBFOLDERS = true;
 	// Options overrides
 	try {
 		var o = opts && opts.options ? opts.options : null;
@@ -38,6 +43,10 @@ function __CreateComps_coreRun(opts) {
 			if (o.DEFAULT_STILL_DURATION !== undefined) DEFAULT_STILL_DURATION = o.DEFAULT_STILL_DURATION;
 			if (o.ENABLE_MARKER_TRIM !== undefined) ENABLE_MARKER_TRIM = !!o.ENABLE_MARKER_TRIM;
 			if (o.SKIP_IF_COMP_EXISTS !== undefined) SKIP_IF_COMP_EXISTS = !!o.SKIP_IF_COMP_EXISTS;
+			if (o.AUTO_FROM_PROJECT_FOOTAGE !== undefined) AUTO_FROM_PROJECT_FOOTAGE = !!o.AUTO_FROM_PROJECT_FOOTAGE;
+			if (o.FOOTAGE_PROJECT_PATH && o.FOOTAGE_PROJECT_PATH.length) FOOTAGE_PROJECT_PATH = o.FOOTAGE_PROJECT_PATH;
+			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);
+			if (o.INCLUDE_SUBFOLDERS !== undefined) INCLUDE_SUBFOLDERS = !!o.INCLUDE_SUBFOLDERS;
 		}
 	} catch (eOpt) {}
 
@@ -110,6 +119,47 @@ function __CreateComps_coreRun(opts) {
 			if (it && it instanceof FolderItem && it.name === name) return it;
 		}
 		return null;
+	}
+
+	function findProjectPath(rootFolder, segments) {
+		// Traverse existing Project panel folders by name; return FolderItem or null
+		var cur = rootFolder;
+		for (var i = 0; i < segments.length; i++) {
+			var seg = segments[i]; if (!seg) continue;
+			var found = null;
+			for (var j = 1; j <= cur.numItems; j++) {
+				var it = cur.items[j];
+				if (it && it instanceof FolderItem && String(it.name) === String(seg)) { found = it; break; }
+			}
+			if (!found) return null;
+			cur = found;
+		}
+		return cur;
+	}
+
+	function findNewestYYMMDDSubfolder(folderItem) {
+		if (!folderItem) return null;
+		var best = null, bestNum = -1;
+		for (var i = 1; i <= folderItem.numItems; i++) {
+			var it = folderItem.items[i];
+			if (it instanceof FolderItem) {
+				var nm = String(it.name || "");
+				if (/^\d{6}$/.test(nm)) {
+					var n = parseInt(nm, 10);
+					if (n > bestNum) { bestNum = n; best = it; }
+				}
+			}
+		}
+		return best;
+	}
+
+	function collectFootageRecursive(folderItem, includeSubfolders, outArr) {
+		if (!folderItem) return;
+		for (var i = 1; i <= folderItem.numItems; i++) {
+			var it = folderItem.items[i];
+			if (it instanceof FootageItem) outArr.push(it);
+			else if (includeSubfolders && it instanceof FolderItem) collectFootageRecursive(it, includeSubfolders, outArr);
+		}
 	}
 
 	function normalizePathString(p) {
@@ -242,8 +292,35 @@ function __CreateComps_coreRun(opts) {
 		return { created: [], skipped: ["No project open"] };
 	}
 
-	// Selection: prefer provided list when in pipeline/API mode
+	// Selection: prefer provided list when in pipeline/API mode, else build from project path if AUTO mode enabled
 	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : proj.selection;
+	if ((!opts || !opts.selection || !opts.selection.length) && AUTO_FROM_PROJECT_FOOTAGE) {
+		try {
+			var footageRoot = findProjectPath(app.project.rootFolder, FOOTAGE_PROJECT_PATH);
+			if (!footageRoot) {
+				alertOnce("Auto footage: path not found: " + FOOTAGE_PROJECT_PATH.join("/"));
+			} else {
+				var dateFolder = null;
+				if (FOOTAGE_DATE_YYMMDD && /^\d{6}$/.test(FOOTAGE_DATE_YYMMDD)) {
+					dateFolder = findChildFolderByName(footageRoot, FOOTAGE_DATE_YYMMDD);
+					if (!dateFolder) alertOnce("Auto footage: date folder not found: " + FOOTAGE_DATE_YYMMDD);
+				} else {
+					dateFolder = findNewestYYMMDDSubfolder(footageRoot);
+					if (!dateFolder) alertOnce("Auto footage: no YYMMDD subfolder under: " + FOOTAGE_PROJECT_PATH.join("/"));
+				}
+				if (dateFolder) {
+					var coll = [];
+					collectFootageRecursive(dateFolder, INCLUDE_SUBFOLDERS, coll);
+					if (coll.length) {
+						selection = coll;
+						log("Auto footage: using " + coll.length + " footage item(s) from '" + dateFolder.name + "'.");
+					} else {
+						alertOnce("Auto footage: no footage items found under '" + dateFolder.name + "'.");
+					}
+				}
+			}
+		} catch(eAuto) { alertOnce("Auto footage error: " + eAuto); }
+	}
 	if (!selection || selection.length === 0) {
 		alertOnce("Select one or more footage items in the Project panel.");
 		app.endUndoGroup();

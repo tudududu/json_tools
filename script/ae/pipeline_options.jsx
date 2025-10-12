@@ -36,7 +36,12 @@
         createComps: {
             DEFAULT_STILL_DURATION: 5,
             ENABLE_MARKER_TRIM: false,
-            SKIP_IF_COMP_EXISTS: true
+            SKIP_IF_COMP_EXISTS: true,
+            // New: automatic footage scan mode (project panel path)
+            AUTO_FROM_PROJECT_FOOTAGE: false,
+            FOOTAGE_PROJECT_PATH: ["project","in","footage"],
+            FOOTAGE_DATE_YYMMDD: "", // empty => pick newest YYMMDD folder under FOOTAGE_PROJECT_PATH
+            INCLUDE_SUBFOLDERS: true
         },
         insertRelink: {
             ENABLE_ALIGN_AUDIO_TO_MARKERS: false,
