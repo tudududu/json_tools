@@ -25,6 +25,13 @@
         sleepBetweenPhasesMs: 0,
         ENABLE_FINAL_ALERT: true,
 
+        // Phase run toggles (default ON). Names mirror script files for recognisability.
+        RUN_create_compositions: true,
+        RUN_insert_and_relink_footage: true,
+        RUN_add_layers_to_comp: true,
+        RUN_pack_output_comps: true,
+        RUN_set_ame_output_paths: true,
+
         // Phase-specific namespaces
         createComps: {
             DEFAULT_STILL_DURATION: 5,

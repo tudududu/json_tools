@@ -153,12 +153,16 @@
 
     // Step 1: Create compositions from selected footage
     t1s = nowMs();
-    var footageSel = selectedFootageItems();
-    if (!footageSel.length) {
-        alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
-        return;
-    }
-    log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
+    if (OPTS.RUN_create_compositions === false) {
+        log("Step 1 (create_compositions.jsx): SKIPPED by toggle.");
+        t1e = nowMs();
+    } else {
+        var footageSel = selectedFootageItems();
+        if (!footageSel.length) {
+            alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
+            return;
+        }
+        log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
 
     // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
     var step1UsedAPI = false;
@@ -192,10 +196,11 @@
         }
         AE_PIPE.results.createComps = created;
     }
-    log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
-    t1e = nowMs();
+        log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
+        t1e = nowMs();
+    }
 
-    if (!AE_PIPE.results.createComps.length) {
+    if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
         alert("No compositions created in Step 1. Aborting.");
         return;
     }
@@ -203,7 +208,12 @@
     // Step 2: Insert & relink into those comps
     maybeSleep("Step 2");
     t2s = nowMs();
-    log("Step 2: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
+    if (OPTS.RUN_insert_and_relink_footage === false) {
+        log("Step 2 (insert_and_relink_footage.jsx): SKIPPED by toggle.");
+        AE_PIPE.results.insertRelink = AE_PIPE.results.createComps.slice(0);
+        t2e = nowMs();
+    } else {
+        log("Step 2: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
     var step2UsedAPI = false;
     try {
         try { if (typeof AE_InsertRelink !== 'undefined') { AE_InsertRelink = undefined; } } catch(eCLR2) {}
@@ -224,12 +234,18 @@
         AE_PIPE.results.insertRelink = AE_PIPE.results.createComps.slice(0);
     }
 
-    t2e = nowMs();
+        t2e = nowMs();
+    }
 
     // Step 3: Add layers from template to the processed comps
     maybeSleep("Step 3");
     t3s = nowMs();
-    log("Step 3: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
+    if (OPTS.RUN_add_layers_to_comp === false) {
+        log("Step 3 (add_layers_to_comp.jsx): SKIPPED by toggle.");
+        AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
+        t3e = nowMs();
+    } else {
+        log("Step 3: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
     var step3UsedAPI = false;
     try {
         try { if (typeof AE_AddLayers !== 'undefined') { AE_AddLayers = undefined; } } catch(eCLR3) {}
@@ -247,13 +263,19 @@
         try { $.evalFile(ADD_LAYERS_PATH); } catch (e3b) { log("add_layers_to_comp threw: " + e3b); }
         AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
     }
-    log("Step 3: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
-    t3e = nowMs();
+        log("Step 3: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
+        t3e = nowMs();
+    }
 
     // Step 4: Pack output comps
     maybeSleep("Step 4");
     t4s = nowMs();
-    log("Step 4: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
+    if (OPTS.RUN_pack_output_comps === false) {
+        log("Step 4 (pack_output_comps.jsx): SKIPPED by toggle.");
+        AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
+        t4e = nowMs();
+    } else {
+        log("Step 4: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
     var step4UsedAPI = false;
     try {
         try { if (typeof AE_Pack !== 'undefined') { AE_Pack = undefined; } } catch(eCLR4) {}
@@ -273,13 +295,18 @@
         // Assume 1:1 packed or internally resolved; keep same count for summary if unknown
         AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
     }
-    log("Step 4: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
-    t4e = nowMs();
+        log("Step 4: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
+        t4e = nowMs();
+    }
 
     // Step 5: Set AME output paths
     maybeSleep("Step 5");
     t5s = nowMs();
-    log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
+    if (OPTS.RUN_set_ame_output_paths === false) {
+        log("Step 5 (set_ame_output_paths.jsx): SKIPPED by toggle.");
+        t5e = nowMs();
+    } else {
+        log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
     // Diagnostics for effective options
     try {
         var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
@@ -374,9 +401,10 @@
     } catch (e5) {
         log("Step 5 API path failed, falling back to default behavior. Error: " + (e5 && e5.message ? e5.message : e5));
     }
-    // No fallback: avoid double execution and potential undo/queue conflicts
-    log("Step 5: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
-    t5e = nowMs();
+        // No fallback: avoid double execution and potential undo/queue conflicts
+        log("Step 5: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
+        t5e = nowMs();
+    }
 
     // Unified summary with per-phase counts and timing
     var totalMs = nowMs() - t0All;
