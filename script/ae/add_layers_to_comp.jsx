@@ -43,6 +43,9 @@ function __AddLayers_coreRun(opts) {
     var LOG_FILENAME_PREFIX = "add_layers_to_comp";      // Base filename prefix
     var SUPPRESS_CONSOLE_LOG = false;            // If true, only file logging (no $.writeln)
     var __logFile = null;                        // File handle once resolved
+    // Pipeline log controls (whether to forward logs to AE_PIPE.log)
+    var PIPELINE_SHOW_CONCISE_LOG = true;  // used by orchestrator; kept for consistency
+    var PIPELINE_SHOW_VERBOSE_LOG = false; // when false in pipeline, suppress forwarding verbose phase logs
 
     function __buildTimestamp(){ var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+''+p(d.getMonth()+1)+''+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
 
@@ -93,9 +96,14 @@ function __AddLayers_coreRun(opts) {
     function __writeFileLine(line){ if(!__logFile) return; try { if(__logFile.open('a')) { __logFile.write(line + '\n'); __logFile.close(); } } catch(eWF) { try { __logFile.close(); } catch(eC) {} } }
 
     function log(msg) {
-        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch(eC) {} }
-        else if(!SUPPRESS_CONSOLE_LOG){ try { $.writeln(msg); } catch(eC2) {} }
+        // Always write to file when enabled
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
+        // Forward to pipeline log only if verbose allowed; else keep logs local to file
+        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') {
+            try { if (PIPELINE_SHOW_VERBOSE_LOG === true) { __AE_PIPE__.log(msg); } } catch(eC) {}
+        } else if(!SUPPRESS_CONSOLE_LOG){
+            try { $.writeln(msg); } catch(eC2) {}
+        }
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
     // One-time alert guard for AR-skip warning
@@ -130,6 +138,8 @@ function __AddLayers_coreRun(opts) {
                 try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
             }
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
+            if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = !!o.PIPELINE_SHOW_CONCISE_LOG;
+            if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = !!o.PIPELINE_SHOW_VERBOSE_LOG;
         }
     } catch(eOpt){}
 

@@ -15,10 +15,10 @@
 
 "insertRelink": { 
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "GBL"
+    "DATA_JSON_ISO_CODE_MANUAL": "SAU"
     },
 "addLayers": { 
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false
     },
