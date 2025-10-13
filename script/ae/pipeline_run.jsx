@@ -97,9 +97,23 @@
     function fileLogLine(s) {
         if (!__logFile) return;
         try {
-            if (__logFile.open("a")) { __logFile.write(s + "\n"); __logFile.close(); }
+            var line = s;
+            try { if (OPTS && OPTS.LOG_WITH_TIMESTAMPS) { line = "[" + (new Date()).toLocaleString() + "] " + s; } } catch(eTS) {}
+            if (__logFile.open("a")) { __logFile.write(line + "\n"); __logFile.close(); }
         } catch (e) { try { __logFile.close(); } catch (e2) {} }
     }
+    // Optional pruning of older pipeline_run logs
+    try {
+        if (OPTS && OPTS.PIPELINE_FILE_LOG_PRUNE_ENABLED) {
+            var folder = __logFile ? __logFile.parent : findOrCreateLogFolder();
+            var files = folder.getFiles(function(f){ return f instanceof File && /^pipeline_run_.*\.log$/i.test(String(f.name||"")); });
+            var maxKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
+            if (files && files.length > maxKeep) {
+                files.sort(function(a,b){ try { return a.modified - b.modified; } catch(eS){ return 0; } });
+                for (var i=0; i<files.length-maxKeep; i++) { try { files[i].remove(); } catch(eRm) {} }
+            }
+        }
+    } catch(ePrune) {}
     function log(s) {
         try { $.writeln(s); } catch (e) {}
         if (ENABLE_FILE_LOG) fileLogLine(s);
@@ -114,7 +128,15 @@
     if (__userOpts && typeof __userOpts === 'object') { AE_PIPE.userOptions = __userOpts; }
     AE_PIPE.optionsEffective = OPTS;
     AE_PIPE.log = log;
+    try { AE_PIPE.pipelineLogPath = (__logFile && __logFile.fsName) ? __logFile.fsName : null; } catch(ePLP) {}
 
+    // Structured header
+    try {
+        var __projPath = (app.project && app.project.file && app.project.file.fsName) ? app.project.file.fsName : "(unsaved)";
+        log("=== PIPELINE RUN BEGIN ===");
+        log("RunId=" + RUN_ID);
+        log("ProjectPath: " + __projPath);
+    } catch(eHdr) {}
     // If preset metadata is present (from pipeline_preset_loader.jsx), log it for traceability
     try {
         var __meta = (AE_PIPE.userOptions && AE_PIPE.userOptions.__presetMeta) ? AE_PIPE.userOptions.__presetMeta : null;
@@ -122,6 +144,7 @@
             log("Preset: " + (__meta.path || "(unknown path)") + (__meta.loadedAt ? (" | loadedAt=" + __meta.loadedAt) : ""));
         }
     } catch(ePM) {}
+    try { log("=========================="); } catch(eHdr2) {}
 
     // Helpers - selection management
     var proj = app.project;
@@ -272,6 +295,10 @@
         if (typeof AE_AddLayers !== "undefined" && AE_AddLayers && typeof AE_AddLayers.run === "function") {
             var res3 = AE_AddLayers.run({ comps: AE_PIPE.results.insertRelink, runId: RUN_ID, log: log, options: (OPTS.addLayers || {}) });
             if (res3 && res3.processed) AE_PIPE.results.addLayers = res3.processed;
+            try {
+                AE_PIPE.results.meta = AE_PIPE.results.meta || {};
+                AE_PIPE.results.meta.addLayersAddedTotal = (res3 && typeof res3.addedTotal === 'number') ? res3.addedTotal : 0;
+            } catch(eMeta3) {}
             try {
                 var alOpts = OPTS.addLayers || {};
                 if (alOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
@@ -440,10 +467,12 @@
     var totalMs = nowMs() - t0All;
     var summary = [];
     summary.push("Pipeline complete.");
-    summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length);
+    var layersAddedTotal = 0; try { layersAddedTotal = (AE_PIPE.results.meta && AE_PIPE.results.meta.addLayersAddedTotal) ? AE_PIPE.results.meta.addLayersAddedTotal : 0; } catch(eMT) {}
+    summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length + ", layersAddedTotal=" + layersAddedTotal);
     summary.push("Timing (s) => create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
     var finalMsg = summary.join("\n");
     log(finalMsg);
+    try { log("=== PIPELINE RUN END ==="); } catch(eFtr) {}
     try {
         var __doAlert = true;
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}

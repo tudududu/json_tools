@@ -32,6 +32,11 @@
         RUN_pack_output_comps: true,
         RUN_set_ame_output_paths: true,
 
+    // Pipeline logger controls
+    LOG_WITH_TIMESTAMPS: false,
+    PIPELINE_FILE_LOG_PRUNE_ENABLED: true,
+    PIPELINE_FILE_LOG_MAX_FILES: 24,
+
         // Phase-specific namespaces
         createComps: {
             DEFAULT_STILL_DURATION: 5,
