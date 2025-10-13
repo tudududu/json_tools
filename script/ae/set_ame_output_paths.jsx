@@ -110,13 +110,13 @@ function __AME_coreRun(opts) {
     var VERBOSE_TEMPLATE_DEBUG = false; // Extra logging for template reapplication
 
     // ————— Utils —————
+    // Tagged logger
+    var __logger = null;
+    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('ame'); } } catch(eLG) {}
+
     function log(msg) {
-        var shared = false;
-        try {
-            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
-            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
-        } catch(e){}
-        if (!shared) { try { $.writeln(msg); } catch (e2) {} }
+        if (__logger) { try { __logger.info(msg); } catch(e) {} return; }
+        try { $.writeln(msg); } catch (e2) {}
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 

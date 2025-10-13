@@ -99,15 +99,15 @@ function __Pack_coreRun(opts) {
         try { if (f.open('a')) { f.write(line + "\n"); f.close(); } } catch (eW) {}
     }
 
+    // Tagged logger
+    var __logger = null;
+    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('pack'); } } catch(eLG) {}
+
     function log(msg) {
         // Write detailed file log if enabled
         if (__detailedEnabled && __detailedLogFile) writeFileLine(__detailedLogFile, msg);
-        var shared = false;
-        try {
-            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
-            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
-        } catch(eFwd) {}
-        if (!shared) { try { $.writeln(msg); } catch (e1) {} }
+        if (__logger) { try { __logger.info(msg); } catch(e) {} return; }
+        try { $.writeln(msg); } catch (e1) {}
     }
 
     var __createdNames = [];      // for summary

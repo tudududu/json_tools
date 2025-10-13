@@ -95,20 +95,19 @@ function __AddLayers_coreRun(opts) {
 
     function __writeFileLine(line){ if(!__logFile) return; try { if(__logFile.open('a')) { __logFile.write(line + '\n'); __logFile.close(); } } catch(eWF) { try { __logFile.close(); } catch(eC) {} } }
 
+    // Tagged logger
+    var __logger = null;
+    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('add_layers'); } } catch(eLG) {}
+
     function log(msg) {
         // Always write to file when enabled
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
-        var shared = false;
-        var allowVerboseToPipeline = (PIPELINE_SHOW_VERBOSE_LOG === true);
-        try {
-            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
-            if (share && allowVerboseToPipeline && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') {
-                __AE_PIPE__.log(msg); shared = true;
-            }
-        } catch(eShare) {}
-        if (!shared && !SUPPRESS_CONSOLE_LOG) {
-            try { $.writeln(msg); } catch(eC2) {}
+        // Prefer shared tagged logger but respect verbose gating for pipeline forwarding
+        if (__logger) {
+            try { __logger.info(msg); } catch(e) {}
+            return;
         }
+        if (!SUPPRESS_CONSOLE_LOG) { try { $.writeln(msg); } catch(eC2) {} }
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
     // One-time alert guard for AR-skip warning

@@ -22,13 +22,13 @@ if (typeof AE_InsertRelink === 'undefined') { var AE_InsertRelink = {}; }
 function __InsertRelink_coreRun(opts) {
     app.beginUndoGroup("Import Newest SOUND Folder");
 
+    // Tagged logger
+    var __logger = null;
+    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('insert_relink'); } } catch(eLG) {}
+
     function log(msg) {
-        var shared = false;
-        try {
-            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
-            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
-        } catch(eFwd) {}
-        if (!shared) { try { $.writeln(msg); } catch (e) {} }
+        if (__logger) { try { __logger.info(msg); } catch(e) {} return; }
+        try { $.writeln(msg); } catch (e2) {}
     }
     function alertOnce(msg) {
         if (__AE_PIPE__) { log(msg); return; }

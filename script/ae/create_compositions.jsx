@@ -52,13 +52,19 @@ function __CreateComps_coreRun(opts) {
 
 	// Utilities —————————————————————————————————————————————
 
+	// Tagged logger (shared pipeline-aware) — created if running under pipeline with getLogger available
+	var __logger = null;
+	try {
+		if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
+			__logger = __AE_PIPE__.getLogger('create_compositions');
+		}
+	} catch(eLG) {}
+
 	function log(msg) {
-		var forwarded = false;
-		try {
-			var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
-			if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); forwarded = true; }
-		} catch(eFwd) {}
-		if (!forwarded) { try { $.writeln(msg); } catch (e) {} }
+		// Prefer shared tagged logger when available
+		if (__logger) { try { __logger.info(msg); } catch(eL) {} return; }
+		// Fallback (standalone): console only
+		try { $.writeln(msg); } catch (e) {}
 	}
 
 	function alertOnce(msg) {
