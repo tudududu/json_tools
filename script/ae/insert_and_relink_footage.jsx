@@ -23,8 +23,12 @@ function __InsertRelink_coreRun(opts) {
     app.beginUndoGroup("Import Newest SOUND Folder");
 
     function log(msg) {
-        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch (eL) {} return; }
-        try { $.writeln(msg); } catch (e) {}
+        var shared = false;
+        try {
+            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
+            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
+        } catch(eFwd) {}
+        if (!shared) { try { $.writeln(msg); } catch (e) {} }
     }
     function alertOnce(msg) {
         if (__AE_PIPE__) { log(msg); return; }

@@ -18,6 +18,7 @@
     var SET_AME_PATH       = join(base, "set_ame_output_paths.jsx");
     var OPTS_UTILS_PATH    = join(base, "options_utils.jsx");
     var PIPELINE_OPTS_PATH = join(base, "pipeline_options.jsx");
+    var LOGGER_UTILS_PATH  = join(base, "logger_utils.jsx");
 
     // Shared logger (console + optional file)
     function timestamp() {
@@ -37,6 +38,7 @@
     try { if (typeof AE_PIPELINE_OPTIONS !== 'undefined') { AE_PIPELINE_OPTIONS = undefined; } } catch (eClrP) {}
     try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
     try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
+    try { $.evalFile(LOGGER_UTILS_PATH); } catch (eLU) { /* optional */ }
     // Build options safely even when AE_PIPE is not defined yet
     // Prefer AE_PIPE.userOptions as the explicit user overrides. Only use AE_PIPE.options if it doesn't
     // look like a full effective bundle from a previous run (prevents sticky options across runs).
@@ -128,6 +130,14 @@
     if (__userOpts && typeof __userOpts === 'object') { AE_PIPE.userOptions = __userOpts; }
     AE_PIPE.optionsEffective = OPTS;
     AE_PIPE.log = log;
+    // Expose shared logger helpers if available
+    try {
+        if (typeof AE_LOGGER !== 'undefined' && AE_LOGGER && typeof AE_LOGGER.getLogger === 'function') {
+            AE_PIPE.getLogger = function(tag, cfg){ return AE_LOGGER.getLogger(tag, cfg||{}); };
+            // A convenience root logger for this run; phases may call AE_PIPE.getLogger and create children
+            AE_PIPE.pipelineLogger = AE_LOGGER.getLogger('pipeline', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
+        }
+    } catch(eExpo) {}
     try { AE_PIPE.pipelineLogPath = (__logFile && __logFile.fsName) ? __logFile.fsName : null; } catch(ePLP) {}
 
     // Structured header

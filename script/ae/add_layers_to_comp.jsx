@@ -98,10 +98,15 @@ function __AddLayers_coreRun(opts) {
     function log(msg) {
         // Always write to file when enabled
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
-        // Forward to pipeline log only if verbose allowed; else keep logs local to file
-        if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') {
-            try { if (PIPELINE_SHOW_VERBOSE_LOG === true) { __AE_PIPE__.log(msg); } } catch(eC) {}
-        } else if(!SUPPRESS_CONSOLE_LOG){
+        var shared = false;
+        var allowVerboseToPipeline = (PIPELINE_SHOW_VERBOSE_LOG === true);
+        try {
+            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
+            if (share && allowVerboseToPipeline && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') {
+                __AE_PIPE__.log(msg); shared = true;
+            }
+        } catch(eShare) {}
+        if (!shared && !SUPPRESS_CONSOLE_LOG) {
             try { $.writeln(msg); } catch(eC2) {}
         }
     }

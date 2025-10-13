@@ -110,7 +110,14 @@ function __AME_coreRun(opts) {
     var VERBOSE_TEMPLATE_DEBUG = false; // Extra logging for template reapplication
 
     // ————— Utils —————
-    function log(msg) { if (__AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { try { __AE_PIPE__.log(msg); } catch(e){} return; } try { $.writeln(msg); } catch (e) {} }
+    function log(msg) {
+        var shared = false;
+        try {
+            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
+            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
+        } catch(e){}
+        if (!shared) { try { $.writeln(msg); } catch (e2) {} }
+    }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 
     function joinPath(a, b) {

@@ -100,9 +100,14 @@ function __Pack_coreRun(opts) {
     }
 
     function log(msg) {
-        // Always attempt AE console (ignored if not available)
-        try { $.writeln(msg); } catch (e1) {}
+        // Write detailed file log if enabled
         if (__detailedEnabled && __detailedLogFile) writeFileLine(__detailedLogFile, msg);
+        var shared = false;
+        try {
+            var share = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true);
+            if (share && __AE_PIPE__ && typeof __AE_PIPE__.log === 'function') { __AE_PIPE__.log(msg); shared = true; }
+        } catch(eFwd) {}
+        if (!shared) { try { $.writeln(msg); } catch (e1) {} }
     }
 
     var __createdNames = [];      // for summary
