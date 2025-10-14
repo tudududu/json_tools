@@ -1,6 +1,6 @@
 {
 "sleepBetweenPhasesMs": 250,
-"ENABLE_FINAL_ALERT": true,
+"ENABLE_FINAL_ALERT": false,
 "VERBOSE": true,
 "DEBUG_DUMP_EFFECTIVE_OPTIONS": false,
 "PIPELINE_QUEUE_TO_AME": true,
@@ -11,18 +11,68 @@
 "RUN_pack_output_comps": true,
 "RUN_set_ame_output_paths": true,
 
-"AUTO_FROM_PROJECT_FOOTAGE": true,
+"PHASES_SHARE_PIPELINE_LOG": true,
+"LOG_WITH_TIMESTAMPS": false,
+"PIPELINE_FILE_LOG_PRUNE_ENABLED": true,
+"PIPELINE_FILE_LOG_MAX_FILES": 24,
 
+"createComps": {
+    "ENABLE_FILE_LOG": false,
+    "DEFAULT_STILL_DURATION": 5,
+    "ENABLE_MARKER_TRIM": false,
+    "SKIP_IF_COMP_EXISTS": true,
+
+    "AUTO_FROM_PROJECT_FOOTAGE": false,
+    "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
+    "FOOTAGE_DATE_YYMMDD": "",
+    "INCLUDE_SUBFOLDERS": true
+},
 "insertRelink": { 
-    "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "SAU"
+    "ENABLE_FILE_LOG": false,
+    "ENABLE_ALIGN_AUDIO_TO_MARKERS": false,
+    "ENABLE_REMOVE_EXISTING_AUDIO_LAYERS": true,
+    "ENABLE_MUTE_EXISTING_AUDIO_LAYERS": true,
+    "CLEAR_EXISTING_PROJECT_SOUND_FOLDER": true,
+    "ENABLE_RELINK_DATA_JSON": true,
+    "DATA_JSON_ISO_CODE_MANUAL": "SAU",
+    "DATA_JSON_ISO_CODE": null,
+    "DATA_JSON_ISO_MODE": "manual"
     },
-"addLayers": { 
-    "ENABLE_FILE_LOG": true,
+"addLayers": {
+    "ENABLE_FILE_LOG": false,
+    "PIPELINE_SHOW_CONCISE_LOG": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
+    "ENABLE_AUTOCENTER_ON_AR_MISMATCH": true,
+    "ENABLE_JSON_TIMING_FOR_DISCLAIMER": false,
+    "TEMPLATE_MATCH_CONFIG": { "arTolerance": 0.001, "requireAspectRatioMatch": false },
+    "SKIP_COPY_CONFIG": { 
+        "disclaimerOff":true, 
+        "subtitlesOff":true, 
+        "logoAnimOff":true, 
+        "groups":{"enabled":false,"keys":[]}, 
+        "adHoc":{"enabled":false,"tokens":[]}, 
+        "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
+        }
+    },
+"pack": {
+    "ENABLE_FILE_LOG": false,
+    "DRY_RUN_MODE": false,
+    "ENABLE_SUMMARY_LOG": true,
+    "ENABLE_DETAILED_FILE_LOG": false,
+    "ENABLE_SUFFIX_APPEND": false,
+    "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
+    "ENSURE_UNIQUE_NAME": true,
+    
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false
     },
-"pack": {
-    "DRY_RUN_MODE": false
+"ame": {
+    "ENABLE_FILE_LOG": false,
+    "PROCESS_SELECTION": true,
+    "PROCESS_EXISTING_RQ": true,
+    "AUTO_QUEUE_IN_AME": true,
+    "AME_MAX_QUEUE_ATTEMPTS": 3,
+    "AME_RETRY_DELAY_MS": 650,
+    "FILE_LOG_APPEND_MODE": true
     }
 }

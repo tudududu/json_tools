@@ -31,7 +31,14 @@ function __CreateComps_coreRun(opts) {
 	var DEFAULT_STILL_DURATION = 5; // seconds
 	var ENABLE_MARKER_TRIM = false;  // Global toggle: set to false to disable marker-based trimming
 	var SKIP_IF_COMP_EXISTS = true;   // When true, do not recreate a comp if one with the same name already exists in the target folder
-	var ENABLE_FILE_LOG = true;       // Per-phase file log (reserved; no file writer currently)
+	var ENABLE_FILE_LOG = true;       // Per-phase file log (now active)
+	var USE_PROJECT_LOG_FOLDER = true; // When true, attempt to write under project ./log/
+	var PROJECT_LOG_SUBFOLDER = "log"; // Subfolder for logs
+	var LOG_FILENAME_PREFIX = "create_compositions"; // Base name for log file(s)
+	var ENABLE_SUMMARY_SECTION = true; // Append concise summary block at end of file log
+	var ENABLE_ENV_HEADER = true;      // Emit environment header at start regardless of summary toggle
+	var MAX_LOG_LINES = 2000;          // Safety cap to avoid runaway file growth
+	var __logLineCount = 0;            // Internal counter
 	// New: automatic footage scan mode (project panel path)
 	var AUTO_FROM_PROJECT_FOOTAGE = false;
 	var FOOTAGE_PROJECT_PATH = ["project","in","footage"]; // Folder chain in AE Project panel
@@ -54,7 +61,59 @@ function __CreateComps_coreRun(opts) {
 
 	// Utilities —————————————————————————————————————————————
 
-	// Tagged logger (shared pipeline-aware) — created if running under pipeline with getLogger available
+	// File logging scaffolding
+	function __buildTimestamp() {
+		var d = new Date(); function p(n){ return (n<10?'0':'')+n; }
+		return '' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+	}
+	function __resolveLogBaseFolder() {
+		if (USE_PROJECT_LOG_FOLDER) {
+			try {
+				if (app.project && app.project.file) {
+					var projFolder = app.project.file.parent;
+					if (projFolder && projFolder.exists) {
+						var logFolder = new Folder(projFolder.fsName + '/' + PROJECT_LOG_SUBFOLDER);
+						if (!logFolder.exists) { logFolder.create(); }
+						if (logFolder.exists) return logFolder;
+					}
+				}
+			} catch(eRF) {}
+		}
+		try { return Folder.desktop; } catch(eD) {}
+		try { return Folder.temp; } catch(eT) {}
+		return null;
+	}
+	function __writeFileLine(f, line) {
+		if (!f || !line) return;
+		try { if (f.open('a')) { f.write(line + "\n"); f.close(); __logLineCount++; } } catch(eWL) {}
+	}
+	var __timestamp = null;
+	var __logBaseFolder = null;
+	var __logFile = null;
+	if (ENABLE_FILE_LOG) {
+		__timestamp = __buildTimestamp();
+		__logBaseFolder = __resolveLogBaseFolder();
+		if (__logBaseFolder) {
+			try { __logFile = new File(__logBaseFolder.fsName + '/' + LOG_FILENAME_PREFIX + '_' + __timestamp + '.log'); } catch(eCF) {}
+		}
+	}
+	function __emitEnvHeader(initialSelectionCount) {
+		if (!ENABLE_FILE_LOG || !ENABLE_ENV_HEADER || !__logFile) return;
+		var runId = (opts && opts.runId) || (__AE_PIPE__ && __AE_PIPE__.RUN_ID) || '';
+		var lines = [];
+		lines.push('============================================================');
+		lines.push('ENV HEADER: create_compositions');
+		lines.push(' timestamp=' + (__timestamp || ''));
+		if (runId) lines.push(' runId=' + runId);
+		lines.push(' initialSelectionCount=' + initialSelectionCount);
+		try { if (app.project && app.project.file) lines.push(' projectFile=' + app.project.file.fsName); } catch(ePF) {}
+		lines.push(' ENABLE_FILE_LOG=' + (ENABLE_FILE_LOG?'true':'false'));
+		lines.push(' AUTO_FROM_PROJECT_FOOTAGE=' + (AUTO_FROM_PROJECT_FOOTAGE?'true':'false'));
+		lines.push('============================================================');
+		for (var i=0;i<lines.length;i++) __writeFileLine(__logFile, lines[i]);
+	}
+
+	// Tagged logger (shared pipeline-aware)  created if running under pipeline with getLogger available
 	var __logger = null;
 	try {
 		if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
@@ -63,10 +122,13 @@ function __CreateComps_coreRun(opts) {
 	} catch(eLG) {}
 
 	function log(msg) {
+		var m = String(msg);
+		// Write to file first (incremental) if enabled and below cap
+		if (ENABLE_FILE_LOG && __logFile && __logLineCount < MAX_LOG_LINES) __writeFileLine(__logFile, m);
 		// Prefer shared tagged logger when available
-		if (__logger) { try { __logger.info(msg); } catch(eL) {} return; }
+		if (__logger) { try { __logger.info(m); } catch(eL) {} return; }
 		// Fallback (standalone): console only
-		try { $.writeln(msg); } catch (e) {}
+		try { $.writeln(m); } catch (e) {}
 	}
 
 	function alertOnce(msg) {
@@ -358,6 +420,8 @@ function __CreateComps_coreRun(opts) {
 			}
 		} catch(eAuto) { alertOnce("Auto footage error: " + eAuto); }
 	}
+	// Emit environment header now that we know initial selection size (before AUTO mode alters it)
+	__emitEnvHeader(selection ? selection.length : 0);
 	if (!selection || selection.length === 0) {
 		alertOnce("Select one or more footage items in the Project panel.");
 		app.endUndoGroup();
@@ -465,6 +529,23 @@ function __CreateComps_coreRun(opts) {
 	var msg = "Created " + createdCount + " comp(s).";
 	if (skipped.length) msg += "\nSkipped: " + skipped.join(", ");
 	log(msg);
+	// Summary section (optional)
+	if (ENABLE_FILE_LOG && ENABLE_SUMMARY_SECTION && __logFile) {
+		var lines = [];
+		lines.push('--- Summary ---');
+		lines.push('createdCount=' + createdCount);
+		lines.push('skippedCount=' + skipped.length);
+		if (createdList.length) {
+			lines.push('Created Names:');
+			for (var cn=0; cn<createdList.length; cn++) lines.push('  - ' + createdList[cn].name);
+		}
+		if (skipped.length) {
+			lines.push('Skipped Reasons:');
+			for (var sk=0; sk<skipped.length; sk++) lines.push('  - ' + skipped[sk]);
+		}
+		lines.push('---------------');
+		for (var si=0; si<lines.length; si++) __writeFileLine(__logFile, lines[si]);
+	}
 	alertOnce(msg);
 	app.endUndoGroup();
 	return { created: createdList, skipped: skipped };
