@@ -57,6 +57,12 @@ function __CreateComps_coreRun(opts) {
 			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);
 			if (o.INCLUDE_SUBFOLDERS !== undefined) INCLUDE_SUBFOLDERS = !!o.INCLUDE_SUBFOLDERS;
 		}
+		// Master switch: disable if top-level pipeline effective has PHASE_FILE_LOGS_MASTER_ENABLE=false
+		try {
+			if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
+				ENABLE_FILE_LOG = false;
+			}
+		} catch(eMSCC) {}
 	} catch (eOpt) {}
 
 	// Utilities —————————————————————————————————————————————

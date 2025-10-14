@@ -159,6 +159,7 @@ function __AddLayers_coreRun(opts) {
             if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = __toBool(o.PIPELINE_SHOW_CONCISE_LOG, true);
             if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
         }
+        try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAL) {}
     } catch(eOpt){}
 
     // Skip-copy configuration (compact)

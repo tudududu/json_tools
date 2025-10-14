@@ -18,6 +18,8 @@
     var Defaults = {
         // Common toggles to consider
         ENABLE_FILE_LOG: true,
+        // Master switch: when false, all per-phase ENABLE_FILE_LOG toggles are forcibly disabled regardless of per-phase setting.
+        PHASE_FILE_LOGS_MASTER_ENABLE: true,
         DRY_RUN: false,
         PIPELINE_QUEUE_TO_AME: true,
         VERBOSE: false,
