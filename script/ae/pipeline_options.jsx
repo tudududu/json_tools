@@ -38,11 +38,11 @@
         PHASES_SHARE_PIPELINE_LOG: false,
         // Pipeline logger controls
         LOG_WITH_TIMESTAMPS: false,
-    PIPELINE_FILE_LOG_APPEND_MODE: false,
+        PIPELINE_FILE_LOG_APPEND_MODE: false,
         PIPELINE_FILE_LOG_PRUNE_ENABLED: true,
         PIPELINE_FILE_LOG_MAX_FILES: 24,
-    // Pipeline log content controls
-    PIPELINE_SHOW_PHASE_TAGS: true,
+        // Pipeline log content controls
+        PIPELINE_SHOW_PHASE_TAGS: true,
 
         // Phase-specific namespaces
         createComps: {

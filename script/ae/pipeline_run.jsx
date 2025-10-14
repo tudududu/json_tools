@@ -38,6 +38,7 @@
     try { if (typeof AE_PIPELINE_OPTIONS !== 'undefined') { AE_PIPELINE_OPTIONS = undefined; } } catch (eClrP) {}
     try { $.evalFile(OPTS_UTILS_PATH); } catch (eOU) { /* optional */ }
     try { $.evalFile(PIPELINE_OPTS_PATH); } catch (ePO) { /* optional */ }
+    try { if (typeof AE_LOGGER !== 'undefined') { AE_LOGGER = undefined; } } catch (eClrL) {}
     try { $.evalFile(LOGGER_UTILS_PATH); } catch (eLU) { /* optional */ }
     // Build options safely even when AE_PIPE is not defined yet
     // Prefer AE_PIPE.userOptions as the explicit user overrides. Only use AE_PIPE.options if it doesn't
@@ -130,9 +131,21 @@
             }
         }
     } catch(ePrune) {}
+    function __stripPhaseTagIfNeeded(s) {
+        try {
+            if (PIPELINE_SHOW_PHASE_TAGS === false) {
+                // Pattern: optional [timestamp] then LEVEL then {tag}
+                var re = /^(\[[^\]]+\]\s*)?([A-Za-z]+)\s+\{[^}]+\}\s*(.*)$/;
+                var m = String(s).match(re);
+                if (m) return (m[1]||"") + m[2].toUpperCase() + " " + (m[3]||"");
+            }
+        } catch(eST) {}
+        return s;
+    }
     function log(s) {
-        try { $.writeln(s); } catch (e) {}
-        if (ENABLE_FILE_LOG) fileLogLine(s);
+        var out = __stripPhaseTagIfNeeded(s);
+        try { $.writeln(out); } catch (e) {}
+        if (ENABLE_FILE_LOG) fileLogLine(out);
     }
 
     // Shared bus
