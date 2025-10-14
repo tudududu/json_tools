@@ -95,9 +95,15 @@ function __AddLayers_coreRun(opts) {
 
     function __writeFileLine(line){ if(!__logFile) return; try { if(__logFile.open('a')) { __logFile.write(line + '\n'); __logFile.close(); } } catch(eWF) { try { __logFile.close(); } catch(eC) {} } }
 
-    // Tagged logger
+    // Tagged logger (forwarding gated by both global share toggle and local verbose toggle)
     var __logger = null;
-    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('add_layers'); } } catch(eLG) {}
+    try {
+        if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
+            var share = false;
+            try { share = (__AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true && PIPELINE_SHOW_VERBOSE_LOG === true); } catch(eSh) { share = false; }
+            __logger = __AE_PIPE__.getLogger('add_layers', { forwardToPipeline: share });
+        }
+    } catch(eLG) {}
 
     function log(msg) {
         // Always write to file when enabled
@@ -129,11 +135,21 @@ function __AddLayers_coreRun(opts) {
         requireAspectRatioMatch: false
     };
     // Options overrides
+    function __toBool(v, defVal) {
+        if (typeof v === 'boolean') return v;
+        if (typeof v === 'string') {
+            var s = v.toLowerCase();
+            if (s==='true' || s==='1' || s==='yes' || s==='on') return true;
+            if (s==='false' || s==='0' || s==='no' || s==='off') return false;
+        }
+        if (v === null || v === undefined) return (defVal===undefined?false:defVal);
+        return !!v;
+    }
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
-            if (o.ENABLE_JSON_TIMING_FOR_DISCLAIMER !== undefined) ENABLE_JSON_TIMING_FOR_DISCLAIMER = !!o.ENABLE_JSON_TIMING_FOR_DISCLAIMER;
-            if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = !!o.ENABLE_AUTOCENTER_ON_AR_MISMATCH;
+            if (o.ENABLE_JSON_TIMING_FOR_DISCLAIMER !== undefined) ENABLE_JSON_TIMING_FOR_DISCLAIMER = __toBool(o.ENABLE_JSON_TIMING_FOR_DISCLAIMER, false);
+            if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = __toBool(o.ENABLE_AUTOCENTER_ON_AR_MISMATCH, true);
             if (o.TEMPLATE_MATCH_CONFIG) {
                 if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
                 if (typeof o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch = o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch;
@@ -141,9 +157,9 @@ function __AddLayers_coreRun(opts) {
             if (o.SKIP_COPY_CONFIG) {
                 try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
             }
-            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
-            if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = !!o.PIPELINE_SHOW_CONCISE_LOG;
-            if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = !!o.PIPELINE_SHOW_VERBOSE_LOG;
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = __toBool(o.ENABLE_FILE_LOG, true);
+            if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = __toBool(o.PIPELINE_SHOW_CONCISE_LOG, true);
+            if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
         }
     } catch(eOpt){}
 
