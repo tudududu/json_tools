@@ -28,11 +28,20 @@
         try { return new File(String(fileOrPath)); } catch(e2){ return null; }
     }
 
+    function shouldShowTags(){
+        try {
+            if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.optionsEffective) {
+                return (AE_PIPE.optionsEffective.PIPELINE_SHOW_PHASE_TAGS !== false);
+            }
+        } catch(e){}
+        return true;
+    }
     function buildLine(level, tag, msg, withTs){
         var parts = [];
         if (withTs) parts.push("["+timestampStr()+"]");
         if (level) parts.push(level.toUpperCase());
-        if (tag) parts.push("{"+String(tag)+"}");
+        var showTag = shouldShowTags();
+        if (showTag && tag) parts.push("{"+String(tag)+"}");
         parts.push(String(msg));
         return parts.join(' ');
     }
