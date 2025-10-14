@@ -312,9 +312,24 @@
             try {
                 var alOpts = OPTS.addLayers || {};
                 if (alOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
+                    // Emit concise lines with an add_layers tag for consistency with phase-tagged logs
+                    var __alLogger = null;
+                    try {
+                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                            // Route through pipeline's base logger without re-forwarding to avoid duplication
+                            __alLogger = AE_PIPE.getLogger('add_layers', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
+                        }
+                    } catch(eGetL) { __alLogger = null; }
+                    function logAL(s) {
+                        if (__alLogger) {
+                            try { __alLogger.info(s); return; } catch(eAL1) {}
+                        }
+                        // Fallback: manually prefix tag
+                        try { log("INFO {add_layers} " + s); } catch(eAL2) { log(String(s)); }
+                    }
                     var lines = res3 && res3.pipelineConcise ? res3.pipelineConcise : [];
-                    for (var ci=0; ci<lines.length; ci++) log(lines[ci]);
-                    if (res3 && res3.pipelineSummary) log(res3.pipelineSummary);
+                    for (var ci=0; ci<lines.length; ci++) logAL(lines[ci]);
+                    if (res3 && res3.pipelineSummary) logAL(res3.pipelineSummary);
                 }
                 if (alOpts.PIPELINE_SHOW_VERBOSE_LOG === true) {
                     // No-op here: verbose already logged by the phase script; leaving switch for future routing
