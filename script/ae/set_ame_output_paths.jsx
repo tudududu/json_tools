@@ -375,6 +375,7 @@ function __AME_coreRun(opts) {
                 log("DateParentFolderName=" + DATE_PARENT_FOLDER_NAME);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
+                var __ameEnvHeaderLogged = true;
             }
             // Optional debug tree dump
             dumpProjectTree();
@@ -383,6 +384,22 @@ function __AME_coreRun(opts) {
     if (!__fileLog) {
         // Still allow debug tree dump to console if logging not active
         dumpProjectTree();
+        // Fallback: emit ENV HEADER to pipeline log even when file logging disabled
+        if (LOG_ENV_HEADER) {
+            log("==== RUN DELIMITER ==== " + __tsHuman());
+            log("--- ENV HEADER BEGIN ---");
+            try {
+                var pjPath2 = (app.project && app.project.file) ? app.project.file.fsName : "(unsaved)";
+                log("ProjectPath: " + pjPath2);
+                log("ProjectName: " + ((app.project && app.project.file) ? app.project.file.name : "(unsaved)"));
+            } catch(ePH2) { log("ProjectPath: (error)" ); }
+            log("RunTimestamp: " + __tsHuman());
+            log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
+            log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
+            log("DateParentFolderName=" + DATE_PARENT_FOLDER_NAME);
+            log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
+            log("--- ENV HEADER END ---");
+        }
     }
     var baseDateName = todayYYMMDD();
     var dateFolderName = baseDateName;
