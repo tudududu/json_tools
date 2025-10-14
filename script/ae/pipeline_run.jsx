@@ -131,21 +131,9 @@
             }
         }
     } catch(ePrune) {}
-    function __stripPhaseTagIfNeeded(s) {
-        try {
-            if (PIPELINE_SHOW_PHASE_TAGS === false) {
-                // Pattern: optional [timestamp] then LEVEL then {tag}
-                var re = /^(\[[^\]]+\]\s*)?([A-Za-z]+)\s+\{[^}]+\}\s*(.*)$/;
-                var m = String(s).match(re);
-                if (m) return (m[1]||"") + m[2].toUpperCase() + " " + (m[3]||"");
-            }
-        } catch(eST) {}
-        return s;
-    }
     function log(s) {
-        var out = __stripPhaseTagIfNeeded(s);
-        try { $.writeln(out); } catch (e) {}
-        if (ENABLE_FILE_LOG) fileLogLine(out);
+        try { $.writeln(s); } catch (e) {}
+        if (ENABLE_FILE_LOG) fileLogLine(s);
     }
 
     // Shared bus
