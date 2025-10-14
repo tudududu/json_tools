@@ -79,6 +79,7 @@ function __InsertRelink_coreRun(opts) {
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
             if (o.ENABLE_ALIGN_AUDIO_TO_MARKERS !== undefined) ENABLE_ALIGN_AUDIO_TO_MARKERS = !!o.ENABLE_ALIGN_AUDIO_TO_MARKERS;
             if (o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS;
             if (o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_MUTE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS;

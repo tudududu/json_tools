@@ -31,6 +31,7 @@ function __CreateComps_coreRun(opts) {
 	var DEFAULT_STILL_DURATION = 5; // seconds
 	var ENABLE_MARKER_TRIM = false;  // Global toggle: set to false to disable marker-based trimming
 	var SKIP_IF_COMP_EXISTS = true;   // When true, do not recreate a comp if one with the same name already exists in the target folder
+	var ENABLE_FILE_LOG = true;       // Per-phase file log (reserved; no file writer currently)
 	// New: automatic footage scan mode (project panel path)
 	var AUTO_FROM_PROJECT_FOOTAGE = false;
 	var FOOTAGE_PROJECT_PATH = ["project","in","footage"]; // Folder chain in AE Project panel
@@ -43,6 +44,7 @@ function __CreateComps_coreRun(opts) {
 			if (o.DEFAULT_STILL_DURATION !== undefined) DEFAULT_STILL_DURATION = o.DEFAULT_STILL_DURATION;
 			if (o.ENABLE_MARKER_TRIM !== undefined) ENABLE_MARKER_TRIM = !!o.ENABLE_MARKER_TRIM;
 			if (o.SKIP_IF_COMP_EXISTS !== undefined) SKIP_IF_COMP_EXISTS = !!o.SKIP_IF_COMP_EXISTS;
+			if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
 			if (o.AUTO_FROM_PROJECT_FOOTAGE !== undefined) AUTO_FROM_PROJECT_FOOTAGE = !!o.AUTO_FROM_PROJECT_FOOTAGE;
 			if (o.FOOTAGE_PROJECT_PATH && o.FOOTAGE_PROJECT_PATH.length) FOOTAGE_PROJECT_PATH = o.FOOTAGE_PROJECT_PATH;
 			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);

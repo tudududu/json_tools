@@ -87,6 +87,7 @@ function __AME_coreRun(opts) {
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
             if (o.PROCESS_SELECTION !== undefined) PROCESS_SELECTION = !!o.PROCESS_SELECTION;
             if (o.PROCESS_EXISTING_RQ !== undefined) PROCESS_EXISTING_RQ = !!o.PROCESS_EXISTING_RQ;
             if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;

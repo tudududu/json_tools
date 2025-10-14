@@ -41,6 +41,7 @@
 
         // Phase-specific namespaces
         createComps: {
+            ENABLE_FILE_LOG: true,
             DEFAULT_STILL_DURATION: 5,
             ENABLE_MARKER_TRIM: false,
             SKIP_IF_COMP_EXISTS: true,
@@ -51,6 +52,7 @@
             INCLUDE_SUBFOLDERS: true
         },
         insertRelink: {
+            ENABLE_FILE_LOG: true,
             ENABLE_ALIGN_AUDIO_TO_MARKERS: false,
             ENABLE_REMOVE_EXISTING_AUDIO_LAYERS: true,
             ENABLE_MUTE_EXISTING_AUDIO_LAYERS: true,
@@ -71,6 +73,7 @@
             PIPELINE_SHOW_VERBOSE_LOG: false
         },
         pack: {
+            ENABLE_FILE_LOG: true,
             DRY_RUN_MODE: false,
             ENABLE_SUMMARY_LOG: true,
             ENABLE_DETAILED_FILE_LOG: false,
@@ -82,6 +85,7 @@
             PIPELINE_SHOW_VERBOSE_LOG: false
         },
         ame: {
+            ENABLE_FILE_LOG: true,
             PROCESS_SELECTION: true,
             PROCESS_EXISTING_RQ: true,
             AUTO_QUEUE_IN_AME: true,

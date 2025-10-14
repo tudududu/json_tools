@@ -26,6 +26,7 @@ function __Pack_coreRun(opts) {
 
     // Logging configuration (detailed + summary + suppression + timestamped filenames)
     var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
+    var ENABLE_FILE_LOG = true;                    // Per-phase master switch for any file logs
     var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
     var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
     var ENABLE_SUMMARY_LOG = true;                // Produce a summary-only log (names list)
@@ -69,6 +70,7 @@ function __Pack_coreRun(opts) {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
             if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
             if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
             if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
             if (o.ENABLE_SUFFIX_APPEND !== undefined) ENABLE_SUFFIX_APPEND = !!o.ENABLE_SUFFIX_APPEND;
@@ -83,9 +85,9 @@ function __Pack_coreRun(opts) {
     var __summaryLogFile = null;
 
     // Determine effective enabling considering suppression setting
-    var __detailedEnabled = ENABLE_DETAILED_FILE_LOG && (DRY_RUN_MODE || !SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN);
+    var __detailedEnabled = ENABLE_FILE_LOG && ENABLE_DETAILED_FILE_LOG && (DRY_RUN_MODE || !SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN);
 
-    if (__logBaseFolder) {
+    if (__logBaseFolder && ENABLE_FILE_LOG) {
         if (__detailedEnabled) {
             try { __detailedLogFile = new File(__logBaseFolder.fsName + "/pack_output_comps_debug_" + __timestamp + ".log"); } catch(eDF) {}
         }
@@ -146,7 +148,7 @@ function __Pack_coreRun(opts) {
         __skipCategories[tag].push(fullReason); // always record for counts/categories
     }
     function flushSummary(createdCount, skippedArr) {
-        if (!ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
+    if (!ENABLE_FILE_LOG || !ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
         var lines = [];
         lines.push("Summary:");
         lines.push("Created " + createdCount + " composition(s)." + (DRY_RUN_MODE ? " (dry-run: not actually created)" : ""));
