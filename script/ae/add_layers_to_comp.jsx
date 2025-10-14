@@ -95,24 +95,22 @@ function __AddLayers_coreRun(opts) {
 
     function __writeFileLine(line){ if(!__logFile) return; try { if(__logFile.open('a')) { __logFile.write(line + '\n'); __logFile.close(); } } catch(eWF) { try { __logFile.close(); } catch(eC) {} } }
 
-    // Tagged logger (forwarding gated by both global share toggle and local verbose toggle)
+    // Tagged logger (lazily initialized so it can see parsed options)
     var __logger = null;
-    try {
-        if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
-            var share = false;
-            try { share = (__AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true && PIPELINE_SHOW_VERBOSE_LOG === true); } catch(eSh) { share = false; }
-            __logger = __AE_PIPE__.getLogger('add_layers', { forwardToPipeline: share });
-        }
-    } catch(eLG) {}
 
     function log(msg) {
         // Always write to file when enabled
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
         // Prefer shared tagged logger but respect verbose gating for pipeline forwarding
-        if (__logger) {
-            try { __logger.info(msg); } catch(e) {}
-            return;
-        }
+        try {
+            if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
+                var share = false;
+                try { share = (__AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true && PIPELINE_SHOW_VERBOSE_LOG === true); } catch(eSh) { share = false; }
+                var lg = __AE_PIPE__.getLogger('add_layers', { forwardToPipeline: share });
+                try { lg.info(msg); } catch(eL) {}
+                return;
+            }
+        } catch(eLG2) {}
         if (!SUPPRESS_CONSOLE_LOG) { try { $.writeln(msg); } catch(eC2) {} }
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
