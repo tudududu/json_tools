@@ -99,9 +99,21 @@ function __Pack_coreRun(opts) {
         try { if (f.open('a')) { f.write(line + "\n"); f.close(); } } catch (eW) {}
     }
 
-    // Tagged logger
+    // Tagged logger with gated forwarding of verbose lines into pipeline
     var __logger = null;
-    try { if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') { __logger = __AE_PIPE__.getLogger('pack'); } } catch(eLG) {}
+    function __bool(v, d){ try{ if(typeof v==='boolean') return v; if(typeof v==='string'){ var s=v.toLowerCase(); if(s==='true'||s==='1'||s==='yes'||s==='on') return true; if(s==='false'||s==='0'||s==='no'||s==='off') return false; } }catch(e){} return d; }
+    function __shouldForwardVerbose(){
+        try {
+            var share = __AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASES_SHARE_PIPELINE_LOG === true;
+            var p = (opts && opts.options && opts.options.PIPELINE_SHOW_VERBOSE_LOG !== undefined) ? __bool(opts.options.PIPELINE_SHOW_VERBOSE_LOG, false) : (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.pack ? __bool(__AE_PIPE__.optionsEffective.pack.PIPELINE_SHOW_VERBOSE_LOG, false) : false);
+            return !!(share && p);
+        } catch(e){ return false; }
+    }
+    try {
+        if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
+            __logger = __AE_PIPE__.getLogger('pack', { forwardToPipeline: __shouldForwardVerbose(), withTimestamps: false });
+        }
+    } catch(eLG) {}
 
     function log(msg) {
         // Write detailed file log if enabled
@@ -109,6 +121,10 @@ function __Pack_coreRun(opts) {
         if (__logger) { try { __logger.info(msg); } catch(e) {} return; }
         try { $.writeln(msg); } catch (e1) {}
     }
+
+    // Collect concise lines for pipeline
+    var __conciseLines = [];
+    function logConcise(msg){ try { __conciseLines.push(String(msg)); } catch(e){} }
 
     var __createdNames = [];      // for summary
     var __skippedNames = [];      // raw skipped entries
@@ -593,7 +609,7 @@ function __Pack_coreRun(opts) {
         if(!expectedBaseName){
             expectedBaseName = baseOutputName(item.name); // fallback to original behavior
         }
-    log("   -> Proposed output name: " + expectedBaseName);
+        log("   -> Proposed output name: " + expectedBaseName);
 
         log("Considering: '" + item.name + "' -> dest path segments: " + (relSegs.length ? relSegs.join("/") : "(root)") + ", expected output name: " + expectedBaseName);
 
@@ -642,9 +658,9 @@ function __Pack_coreRun(opts) {
         // Assign destination folder (already ensured)
         try { exportComp.parentFolder = destFolder; } catch (ePF) {}
 
-    created++;
-    __createdNames.push(exportComp.name);
-    log("Created export comp '" + exportComp.name + "' -> " + destFolder.name + (relSegs.length ? (" (" + relSegs.join("/") + ")") : ""));
+        created++;
+        __createdNames.push(exportComp.name);
+        log("Created export comp '" + exportComp.name + "' -> " + destFolder.name + (relSegs.length ? (" (" + relSegs.join("/") + ")") : ""));
     }
 
     var summary = "Created " + created + " export comp(s).";
@@ -669,7 +685,35 @@ function __Pack_coreRun(opts) {
         }
         collectUnder(outputRoot);
     } catch(eCol) {}
-    return { outputComps: outComps };
+    // Prepare concise lines for pipeline log (optional gating handled by orchestrator)
+    var concise = [];
+    try {
+        // Summary block similar to file summary log
+        concise.push("Summary:");
+        var head = "Created " + created + " composition(s).";
+        concise.push(head);
+        if (__createdNames.length) {
+            concise.push("Names:");
+            for (var ci=0; ci<__createdNames.length; ci++) concise.push(__createdNames[ci]);
+        }
+        if (INCLUDE_TIMING_METRICS) {
+            var end2 = new Date();
+            var ms2 = end2.getTime() - __scriptStartTime.getTime();
+            var sec2 = Math.round(ms2/10)/100;
+            var avgCreated2 = created ? Math.round((ms2/created)/10)/100 : null;
+            var totalSel2 = sel ? sel.length : 0;
+            var avgSel2 = totalSel2 ? Math.round((ms2/totalSel2)/10)/100 : null;
+            function __isoLike2(d){ if(!d) return ''; function p(n){ return (n<10?'0':'')+n;} return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
+            concise.push("Timing:");
+            concise.push(" start=" + __isoLike2(__scriptStartTime));
+            concise.push(" end=" + __isoLike2(end2));
+            concise.push(" elapsedSeconds=" + sec2);
+            if (avgCreated2 !== null) concise.push(" avgPerCreatedSeconds=" + avgCreated2);
+            if (avgSel2 !== null) concise.push(" avgPerSelectedSeconds=" + avgSel2);
+        }
+    } catch(eCL) {}
+
+    return { outputComps: outComps, pipelineConcise: concise, pipelineSummary: ("Created " + created + " export comp(s).") };
 }
 
 AE_Pack.run = function(opts){ return __Pack_coreRun(opts || {}); };

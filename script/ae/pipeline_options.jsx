@@ -76,7 +76,10 @@
             ENABLE_DETAILED_FILE_LOG: false,
             ENABLE_SUFFIX_APPEND: false,
             SKIP_IF_OUTPUT_ALREADY_EXISTS: true,
-            ENSURE_UNIQUE_NAME: true
+            ENSURE_UNIQUE_NAME: true,
+            // Pipeline log controls for Step 4
+            PIPELINE_SHOW_CONCISE_LOG: true,
+            PIPELINE_SHOW_VERBOSE_LOG: false
         },
         ame: {
             PROCESS_SELECTION: true,

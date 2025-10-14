@@ -365,6 +365,22 @@
         if (typeof AE_Pack !== "undefined" && AE_Pack && typeof AE_Pack.run === "function") {
             var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log, options: (OPTS.pack || {}) });
             if (res4 && res4.outputComps) AE_PIPE.results.pack = res4.outputComps;
+            // Concise logging for Step 4 (pack): show short summary in pipeline log
+            try {
+                var pkOpts = OPTS.pack || {};
+                if (pkOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
+                    var __pkLogger = null;
+                    try {
+                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                            __pkLogger = AE_PIPE.getLogger('pack', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
+                        }
+                    } catch(eGetPk) { __pkLogger = null; }
+                    function logPK(s){ if(__pkLogger){ try{ __pkLogger.info(s); return; }catch(eLpk){} } try { log("INFO {pack} " + s); } catch(eLPK2) { log(String(s)); } }
+                    var lines4 = res4 && res4.pipelineConcise ? res4.pipelineConcise : [];
+                    for (var pi=0; pi<lines4.length; pi++) logPK(lines4[pi]);
+                    if (res4 && res4.pipelineSummary) logPK(res4.pipelineSummary);
+                }
+            } catch(ePkLog) {}
             step4UsedAPI = true;
         }
     } catch (e4) {
