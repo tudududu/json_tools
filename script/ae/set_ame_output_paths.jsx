@@ -322,7 +322,8 @@ function __AME_coreRun(opts) {
     }
 
     // -------- File logging (POST/WORK/log) --------
-    var ENABLE_FILE_LOG = true;             // Master toggle for file log
+    // Respect options override parsed above; default to true only if not explicitly set to false
+    if (ENABLE_FILE_LOG !== false) { var ENABLE_FILE_LOG = true; }             // Master toggle for file log
     var FILE_LOG_SUBFOLDER = "log";        // Subfolder under POST/WORK
     var __fileLog = null;                   // File handle
     function __ts() {
