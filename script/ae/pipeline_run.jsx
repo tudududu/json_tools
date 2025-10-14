@@ -69,6 +69,9 @@
     // When true (default), Step 5 will queue items to AME after setting output paths.
     // When false, only output paths are set (no AME queue).
     var PIPELINE_QUEUE_TO_AME = (typeof AE_OPTS_UTILS !== 'undefined') ? AE_OPTS_UTILS.optBool(OPTS, 'PIPELINE_QUEUE_TO_AME', true) : (OPTS.PIPELINE_QUEUE_TO_AME !== false);
+    // Content style: phase tag visibility (controls INFO {phase} prefixes)
+    var PIPELINE_SHOW_PHASE_TAGS = true;
+    try { if (OPTS && typeof OPTS.PIPELINE_SHOW_PHASE_TAGS !== 'undefined') PIPELINE_SHOW_PHASE_TAGS = (OPTS.PIPELINE_SHOW_PHASE_TAGS !== false); } catch(ePT) {}
     // Master switch controlling all phase independent file logs
     var PHASE_FILE_LOGS_MASTER_ENABLE = true;
     try {
@@ -99,9 +102,13 @@
         if (typeof OPTS !== 'undefined') { try { ENABLE_FILE_LOG = (OPTS.ENABLE_FILE_LOG !== false); } catch(eEL){} }
         if (!ENABLE_FILE_LOG) return null;
         var folder = findOrCreateLogFolder();
-        try { return new File(folder.fsName + "/" + LOG_PREFIX + "_" + RUN_ID + ".log"); } catch (e) { return null; }
+        var appendMode = false; try { appendMode = !!(OPTS && OPTS.PIPELINE_FILE_LOG_APPEND_MODE); } catch(eAM) {}
+        var fname = appendMode ? (LOG_PREFIX + ".log") : (LOG_PREFIX + "_" + RUN_ID + ".log");
+        try { return new File(folder.fsName + "/" + fname); } catch (e) { return null; }
     }
     __logFile = openLogFile();
+    // Announce file logging path in header region
+    try { if (__logFile && __logFile.fsName) { log("[log] File logging started: " + __logFile.fsName); } } catch(eAnn) {}
 
     function fileLogLine(s) {
         if (!__logFile) return;
@@ -327,18 +334,19 @@
                 if (alOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
                     // Emit concise lines with an add_layers tag for consistency with phase-tagged logs
                     var __alLogger = null;
+                    var __useTags = !!PIPELINE_SHOW_PHASE_TAGS;
                     try {
-                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                        if (__useTags && typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
                             // Route through pipeline's base logger without re-forwarding to avoid duplication
                             __alLogger = AE_PIPE.getLogger('add_layers', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
                         }
                     } catch(eGetL) { __alLogger = null; }
                     function logAL(s) {
-                        if (__alLogger) {
+                        if (__useTags && __alLogger) {
                             try { __alLogger.info(s); return; } catch(eAL1) {}
                         }
-                        // Fallback: manually prefix tag
-                        try { log("INFO {add_layers} " + s); } catch(eAL2) { log(String(s)); }
+                        // No tags mode or unavailable logger: write plain line
+                        try { log(String(s)); } catch(eAL2) { /* ignore */ }
                     }
                     var lines = res3 && res3.pipelineConcise ? res3.pipelineConcise : [];
                     for (var ci=0; ci<lines.length; ci++) logAL(lines[ci]);
@@ -385,12 +393,16 @@
                 var pkOpts = OPTS.pack || {};
                 if (pkOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
                     var __pkLogger = null;
+                    var __useTagsPK = !!PIPELINE_SHOW_PHASE_TAGS;
                     try {
-                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                        if (__useTagsPK && typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
                             __pkLogger = AE_PIPE.getLogger('pack', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
                         }
                     } catch(eGetPk) { __pkLogger = null; }
-                    function logPK(s){ if(__pkLogger){ try{ __pkLogger.info(s); return; }catch(eLpk){} } try { log("INFO {pack} " + s); } catch(eLPK2) { log(String(s)); } }
+                    function logPK(s){
+                        if(__useTagsPK && __pkLogger){ try{ __pkLogger.info(s); return; }catch(eLpk){} }
+                        try { log(String(s)); } catch(eLPK2) { /* ignore */ }
+                    }
                     var lines4 = res4 && res4.pipelineConcise ? res4.pipelineConcise : [];
                     for (var pi=0; pi<lines4.length; pi++) logPK(lines4[pi]);
                     if (res4 && res4.pipelineSummary) logPK(res4.pipelineSummary);
