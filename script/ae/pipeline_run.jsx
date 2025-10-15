@@ -289,7 +289,7 @@ try {
         log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
         t1e = nowMs();
 
-    // Step 1 fallback: if no comps were created, allow manual selection of comps to act as inputs
+    // Step 1 fallback: if no comps were created, allow manual selection or active comp to act as inputs
     try {
         if (!AE_PIPE.results.createComps || AE_PIPE.results.createComps.length === 0) {
             var __selComps = [];
@@ -300,6 +300,15 @@ try {
                     if (sitem instanceof CompItem) __selComps.push(sitem);
                 }
             } catch(eSel1){}
+            // If nothing selected in Project panel, consider the active timeline/viewer comp
+            try {
+                if (__selComps.length === 0) {
+                    var __active = app && app.project ? app.project.activeItem : null;
+                    if (__active && (__active instanceof CompItem)) {
+                        __selComps.push(__active);
+                    }
+                }
+            } catch(eAct){}
             if (__selComps.length > 0) {
                 AE_PIPE.results.createComps = __selComps;
                 log("Step 1: No comps created; using manual selection as input (" + __selComps.length + ")");
