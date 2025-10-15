@@ -83,9 +83,7 @@
         return;
     }
     try { $.evalFile(pipelinePath); } catch(eRun) {
-        var msg = "Preset Loader: pipeline_run.jsx threw error: " + (eRun && eRun.message ? eRun.message : eRun);
-        try { if (eRun && typeof eRun.line === 'number') { msg += " (line " + eRun.line + ")"; } } catch(eLN) {}
-        alert(msg);
+        alert("Preset Loader: pipeline_run.jsx threw error: " + (eRun && eRun.message ? eRun.message : eRun));
     }
 
     // 5) Clear user options unless explicitly sticky
