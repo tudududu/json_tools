@@ -62,7 +62,7 @@ function __AME_coreRun(opts) {
     var REQUIRE_VALID_ISO = false;                 // If true, use fallback when extracted not 3 letters; if false, silently skip suffix
     var DATE_FOLDER_ISO_UPPERCASE = true;          // Force uppercase
     var LOG_ISO_EXTRACTION = true;                 // Extra logging about ISO extraction
-    var DATE_PARENT_FOLDER_NAME = "PREVIEWS";        // Parent folder under OUT where date folder tree is created (configurable)
+    var DATE_PARENT_FOLDER_NAME = "PREVIEWS";        // Legacy default parent under OUT (kept for standalone default)
     var DATA_JSON_PROJECT_PATH = ["project","in","data"]; // Path in AE project panel where data.json expected
     var DATA_JSON_ITEM_NAME = "data.json";         // Footage item name
     // (Removed legacy JSON country key path; ISO now derived only from file name or disk scan)
@@ -98,6 +98,8 @@ function __AME_coreRun(opts) {
             if (o.FILE_LOG_PRUNE_ENABLED !== undefined) FILE_LOG_PRUNE_ENABLED = !!o.FILE_LOG_PRUNE_ENABLED;
             if (o.DEBUG_VERBOSE_ISO_STEPS !== undefined) DEBUG_VERBOSE_ISO_STEPS = !!o.DEBUG_VERBOSE_ISO_STEPS;
             if (o.ISO_SCAN_DATA_FOLDER_FALLBACK !== undefined) ISO_SCAN_DATA_FOLDER_FALLBACK = !!o.ISO_SCAN_DATA_FOLDER_FALLBACK;
+            // Capture export subpath if provided (string or array). Root 'POST' is implicit and not included here.
+            var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -300,7 +302,7 @@ function __AME_coreRun(opts) {
         } catch(ePT) { log("PROJECT TREE DUMP ERROR: " + ePT); }
     }
 
-    // ————— Resolve POST and OUT/MASTER/YYMMDD —————
+    // ————— Resolve POST and export base —————
     var postFolder = null;
     if (app.project && app.project.file && app.project.file.parent && app.project.file.parent.parent) {
         postFolder = app.project.file.parent.parent; // .../POST
@@ -315,9 +317,33 @@ function __AME_coreRun(opts) {
         }
     }
 
-    var outMaster = new Folder(joinPath(postFolder.fsName, joinPath("OUT", DATE_PARENT_FOLDER_NAME)));
-    if (!ensureFolderExists(outMaster)) {
-        alertOnce("Cannot create OUT/MASTER under: " + postFolder.fsName);
+    // Determine export base under POST using configured subpath (default OUT/PREVIEWS)
+    function toSegments(p){
+        try {
+            if (!p) return null;
+            if (p instanceof Array) return p;
+            var s = String(p);
+            if (!s.length) return null;
+            var parts = s.split(/[\\\/]+/);
+            var segs = [];
+            for (var i=0;i<parts.length;i++){ var seg = parts[i]; if(seg && seg.length) segs.push(seg); }
+            return segs;
+        } catch(e) { return null; }
+    }
+    var __exportSegs = null;
+    try {
+        if (typeof __EXPORT_SUBPATH_OPT !== 'undefined' && __EXPORT_SUBPATH_OPT !== null) {
+            __exportSegs = toSegments(__EXPORT_SUBPATH_OPT);
+        } else if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.ame && __AE_PIPE__.optionsEffective.ame.EXPORT_SUBPATH !== undefined) {
+            __exportSegs = toSegments(__AE_PIPE__.optionsEffective.ame.EXPORT_SUBPATH);
+        }
+    } catch(eES) { __exportSegs = null; }
+    if (!__exportSegs || !__exportSegs.length) { __exportSegs = ["OUT", DATE_PARENT_FOLDER_NAME]; }
+    var exportBasePath = postFolder.fsName;
+    for (var es=0; es<__exportSegs.length; es++) { exportBasePath = joinPath(exportBasePath, __exportSegs[es]); }
+    var exportBase = new Folder(exportBasePath);
+    if (!ensureFolderExists(exportBase)) {
+        alertOnce("Cannot create export base under POST: " + exportBase.fsName);
         app.endUndoGroup();
         return;
     }
@@ -373,7 +399,7 @@ function __AME_coreRun(opts) {
                 log("RunTimestamp: " + __tsHuman());
                 log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
-                log("DateParentFolderName=" + DATE_PARENT_FOLDER_NAME);
+                log("ExportSubpath=" + __exportSegs.join("/"));
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
                 var __ameEnvHeaderLogged = true;
@@ -397,7 +423,7 @@ function __AME_coreRun(opts) {
             log("RunTimestamp: " + __tsHuman());
             log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
-            log("DateParentFolderName=" + DATE_PARENT_FOLDER_NAME);
+            log("ExportSubpath=" + __exportSegs.join("/"));
             log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
             log("--- ENV HEADER END ---");
         }
@@ -423,7 +449,7 @@ function __AME_coreRun(opts) {
             }
         }
     } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
-    var dateFolder = new Folder(joinPath(outMaster.fsName, dateFolderName));
+    var dateFolder = new Folder(joinPath(exportBase.fsName, dateFolderName));
     // Track folders touched/ensured this run for summary output (AR and duration leaves), de-duplicated
     var __touchedFolders = [];
     var __touchedMap = {};

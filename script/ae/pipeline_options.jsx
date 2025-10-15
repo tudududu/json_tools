@@ -97,7 +97,9 @@
             AUTO_QUEUE_IN_AME: true,
             AME_MAX_QUEUE_ATTEMPTS: 3,
             AME_RETRY_DELAY_MS: 650,
-            FILE_LOG_APPEND_MODE: true
+            FILE_LOG_APPEND_MODE: true,
+            // Base export path relative to POST/ (segments or string). Default: POST/OUT/PREVIEWS
+            EXPORT_SUBPATH: ["OUT","PREVIEWS"]
         }
     };
 
