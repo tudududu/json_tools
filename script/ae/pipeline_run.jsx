@@ -326,6 +326,7 @@ try {
 
         t2e = nowMs();
     }
+    }
 
     // Step 3: Add layers from template to the processed comps
     maybeSleep("Step 3");
@@ -384,6 +385,7 @@ try {
         log("Step 3: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
         t3e = nowMs();
     }
+    }
 
     // Step 4: Pack output comps
     maybeSleep("Step 4");
@@ -435,6 +437,7 @@ try {
         AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
         log("Step 4: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
         t4e = nowMs();
+    }
     }
 
     // Step 5: Set AME output paths
