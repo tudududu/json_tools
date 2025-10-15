@@ -289,6 +289,24 @@ try {
         log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
         t1e = nowMs();
 
+    // Step 1 fallback: if no comps were created, allow manual selection of comps to act as inputs
+    try {
+        if (!AE_PIPE.results.createComps || AE_PIPE.results.createComps.length === 0) {
+            var __selComps = [];
+            try {
+                var __sel = app.project && app.project.selection ? app.project.selection : [];
+                for (var si=0; si<__sel.length; si++) {
+                    var sitem = __sel[si];
+                    if (sitem instanceof CompItem) __selComps.push(sitem);
+                }
+            } catch(eSel1){}
+            if (__selComps.length > 0) {
+                AE_PIPE.results.createComps = __selComps;
+                log("Step 1: No comps created; using manual selection as input (" + __selComps.length + ")");
+            }
+        }
+    } catch(eS1fb) {}
+
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
         alert("No compositions created in Step 1. Aborting.");
         return;
