@@ -2,6 +2,7 @@
 // 1) create_compositions -> 2) insert_and_relink_footage -> 3) add_layers_to_comp -> 4) pack_output_comps -> 5) set_ame_output_paths
 
 (function runPipelineAll() {
+try {
 
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
@@ -487,4 +488,12 @@
             AE_PIPE.options = {};
         }
     } catch(eClear) {}
+    
+} catch(eTOP) {
+    // Top-level catch: report any uncaught runtime error with line number
+    var __msg = "PIPELINE FATAL: " + (eTOP && eTOP.message ? eTOP.message : eTOP);
+    try { if (eTOP && typeof eTOP.line === 'number') { __msg += " (line " + eTOP.line + ")"; } } catch(eLN) {}
+    try { $.writeln(__msg); } catch(eW) {}
+    try { alert(__msg); } catch(eA) {}
+}
 })();
