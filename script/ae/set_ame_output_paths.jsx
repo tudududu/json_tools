@@ -424,17 +424,19 @@ function __AME_coreRun(opts) {
         }
     } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
     var dateFolder = new Folder(joinPath(outMaster.fsName, dateFolderName));
-    // Track created folders for summary output
-    var __createdFolders = [];
-    var __createdMap = {};
-    function __markCreated(pathStr){ try{ if(!pathStr) return; if(!__createdMap[pathStr]){ __createdMap[pathStr] = true; __createdFolders.push(pathStr); } }catch(eMC){} }
+    // Track folders touched/ensured this run for summary output (AR and duration leaves), de-duplicated
+    var __touchedFolders = [];
+    var __touchedMap = {};
+    function __normWithSlash(p){ try{ if(!p) return p; return (/\/$/.test(p) || /\\$/.test(p)) ? p : (p + "/"); }catch(eN){ return p; } }
+    function __markTouched(pathStr){ try{ if(!pathStr) return; var key = __normWithSlash(pathStr); if(!__touchedMap[key]){ __touchedMap[key] = true; __touchedFolders.push(key); } }catch(eMC){} }
     var __dateExisted = dateFolder.exists;
     if (!ensureFolderExists(dateFolder)) {
         alertOnce("Cannot create date folder: " + dateFolder.fsName);
         app.endUndoGroup();
         return;
     }
-    if (!__dateExisted && dateFolder.exists) { __markCreated(dateFolder.fsName); }
+    // Always list the date folder as base (with trailing slash)
+    __markTouched(dateFolder.fsName);
 
     // ————— Gather / Create Render Queue Items —————
     var rq = app.project.renderQueue;
@@ -592,16 +594,16 @@ function __AME_coreRun(opts) {
         if (tokens.ar && tokens.duration) {
             var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
             var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
-            var arExisted = arFolder.exists; var durExisted = durFolder.exists;
             ensureFolderExists(durFolder);
-            if (!arExisted && arFolder.exists) { __markCreated(arFolder.fsName); }
-            if (!durExisted && durFolder.exists) { __markCreated(durFolder.fsName); }
+            // Record AR and duration folders as touched (regardless of pre-existence)
+            __markTouched(arFolder.fsName);
+            __markTouched(durFolder.fsName);
             destParent = durFolder;
         } else {
             var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
-            var unsortedExisted = unsortedFolder.exists;
             ensureFolderExists(unsortedFolder);
-            if (!unsortedExisted && unsortedFolder.exists) { __markCreated(unsortedFolder.fsName); }
+            // Record unsorted when used
+            __markTouched(unsortedFolder.fsName);
             destParent = unsortedFolder;
             unsorted++;
         }
@@ -709,10 +711,13 @@ function __AME_coreRun(opts) {
     if (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued) summaryLines.push("Hint: Launch Media Encoder once or raise retry delay.");
     summaryLines.push("" ); // blank line before path
     summaryLines.push("DateFolder: " + dateFolder.fsName);
-    // Append the list of actually created folders (absolute paths)
-    if (__createdFolders && __createdFolders.length) {
-        for (var cf=0; cf<__createdFolders.length; cf++) {
-            summaryLines.push("CreatedFolder: " + __createdFolders[cf]);
+    // Append the list of touched/ensured folders (absolute paths, with trailing slash)
+    if (__touchedFolders && __touchedFolders.length) {
+        // Skip the date folder itself in this repeated list to avoid duplication, as DateFolder is already printed above
+        for (var cf=0; cf<__touchedFolders.length; cf++) {
+            var fp = __touchedFolders[cf];
+            if (fp === __normWithSlash(dateFolder.fsName)) continue;
+            summaryLines.push("CreatedFolder: " + fp);
         }
     }
     var summaryMsg = summaryLines.join("\n");
