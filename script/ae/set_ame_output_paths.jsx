@@ -721,13 +721,13 @@ function __AME_coreRun(opts) {
         }
     }
     var summaryMsg = summaryLines.join("\n");
-    log(summaryMsg);
     if (LOG_SUMMARY_SECTION) {
         log("--- SUMMARY BEGIN ---");
         for (var sl=0; sl<summaryLines.length; sl++) { if (summaryLines[sl].length) log(summaryLines[sl]); }
         log("--- SUMMARY END ---");
     }
-    alertOnce(summaryMsg);
+    // Show alert only in standalone mode (avoid duplicate logs in pipeline)
+    if (!__AE_PIPE__) { try { alert(summaryMsg); } catch(eAL) {} }
     // Return comps that have RQ items
     var configured = [];
     try { var rq2 = app.project.renderQueue; for (var i2=1;i2<=rq2.numItems;i2++){ var rqi2=rq2.item(i2); if (rqi2 && rqi2.comp) configured.push(rqi2.comp); } } catch(eRQ) {}
