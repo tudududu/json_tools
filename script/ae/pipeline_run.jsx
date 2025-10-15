@@ -172,6 +172,15 @@
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
 
+    // Timing helpers and runtime utilities
+    function nowMs(){ try { return (new Date()).getTime(); } catch(e){ return +new Date(); } }
+    function sec(ms){ try { return (ms/1000).toFixed(2); } catch(e){ return ms; } }
+    function maybeSleep(label){ try { var ms = (OPTS && typeof OPTS.sleepBetweenPhasesMs === 'number') ? OPTS.sleepBetweenPhasesMs : 0; if (ms > 0) { log("Sleeping before " + label + " (" + ms + " ms)"); $.sleep(ms); } } catch(e){} }
+    // Timing trackers
+    var t0All = nowMs(), t1s = 0, t1e = 0, t2s = 0, t2e = 0, t3s = 0, t3e = 0, t4s = 0, t4e = 0, t5s = 0, t5e = 0;
+    // Project alias for convenience where 'proj' is used
+    var proj = app.project;
+
     // Early diagnostics block right after header
     try {
         var __printedVerbose = false, __printedFullDump = false;
@@ -261,6 +270,9 @@
         var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
         log("Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO_MANUAL=" + __isoEff);
     } catch(eDiag) {}
+    // Step 1 timing start
+    maybeSleep("Step 1");
+    t1s = nowMs();
         try { $.evalFile(CREATE_COMPS_PATH); } catch (e1b) { log("create_compositions threw: " + e1b); }
         // Discover results by runId tag in comment
         var created = [];

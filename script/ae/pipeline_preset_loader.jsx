@@ -83,7 +83,9 @@
         return;
     }
     try { $.evalFile(pipelinePath); } catch(eRun) {
-        alert("Preset Loader: pipeline_run.jsx threw error: " + (eRun && eRun.message ? eRun.message : eRun));
+        var msg = "Preset Loader: pipeline_run.jsx threw error: " + (eRun && eRun.message ? eRun.message : eRun);
+        try { if (eRun && typeof eRun.line === 'number') { msg += " (line " + eRun.line + ")"; } } catch(eLN) {}
+        alert(msg);
     }
 
     // 5) Clear user options unless explicitly sticky
