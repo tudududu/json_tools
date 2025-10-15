@@ -43,6 +43,7 @@
         PIPELINE_FILE_LOG_MAX_FILES: 24,
         // Pipeline log content controls
         PIPELINE_SHOW_PHASE_TAGS: true,
+        PIPELINE_SHOW_LEVELS: true,
 
         // Phase-specific namespaces
         createComps: {

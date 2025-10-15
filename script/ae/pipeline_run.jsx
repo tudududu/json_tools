@@ -333,20 +333,16 @@
             try {
                 var alOpts = OPTS.addLayers || {};
                 if (alOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
-                    // Emit concise lines with an add_layers tag for consistency with phase-tagged logs
+                    // Emit concise lines via shared logger; tag/level visibility controlled globally by options
                     var __alLogger = null;
-                    var __useTags = !!PIPELINE_SHOW_PHASE_TAGS;
                     try {
-                        if (__useTags && typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
                             // Route through pipeline's base logger without re-forwarding to avoid duplication
                             __alLogger = AE_PIPE.getLogger('add_layers', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
                         }
                     } catch(eGetL) { __alLogger = null; }
                     function logAL(s) {
-                        if (__useTags && __alLogger) {
-                            try { __alLogger.info(s); return; } catch(eAL1) {}
-                        }
-                        // No tags mode or unavailable logger: write plain line
+                        if (__alLogger) { try { __alLogger.info(s); return; } catch(eAL1) {} }
                         try { log(String(s)); } catch(eAL2) { /* ignore */ }
                     }
                     var lines = res3 && res3.pipelineConcise ? res3.pipelineConcise : [];
@@ -394,14 +390,13 @@
                 var pkOpts = OPTS.pack || {};
                 if (pkOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
                     var __pkLogger = null;
-                    var __useTagsPK = !!PIPELINE_SHOW_PHASE_TAGS;
                     try {
-                        if (__useTagsPK && typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
+                        if (typeof AE_PIPE !== 'undefined' && AE_PIPE && typeof AE_PIPE.getLogger === 'function') {
                             __pkLogger = AE_PIPE.getLogger('pack', { baseLogFn: log, forwardToPipeline: false, withTimestamps: false });
                         }
                     } catch(eGetPk) { __pkLogger = null; }
                     function logPK(s){
-                        if(__useTagsPK && __pkLogger){ try{ __pkLogger.info(s); return; }catch(eLpk){} }
+                        if(__pkLogger){ try{ __pkLogger.info(s); return; }catch(eLpk){} }
                         try { log(String(s)); } catch(eLPK2) { /* ignore */ }
                     }
                     var lines4 = res4 && res4.pipelineConcise ? res4.pipelineConcise : [];
