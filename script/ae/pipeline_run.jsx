@@ -273,10 +273,8 @@
             }
         }
         AE_PIPE.results.createComps = created;
-    }
         log("Step 1: Created comps: " + AE_PIPE.results.createComps.length);
         t1e = nowMs();
-    }
 
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
         alert("No compositions created in Step 1. Aborting.");
@@ -312,7 +310,6 @@
         try { $.evalFile(INSERT_RELINK_PATH); } catch (e2b) { log("insert_and_relink_footage threw: " + e2b); }
         // Assume success on the selected comps for summary
         AE_PIPE.results.insertRelink = AE_PIPE.results.createComps.slice(0);
-    }
 
         t2e = nowMs();
     }
@@ -371,7 +368,6 @@
         try { app.project.selection = AE_PIPE.results.insertRelink; } catch (eSel3) {}
         try { $.evalFile(ADD_LAYERS_PATH); } catch (e3b) { log("add_layers_to_comp threw: " + e3b); }
         AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
-    }
         log("Step 3: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
         t3e = nowMs();
     }
@@ -424,7 +420,6 @@
         try { $.evalFile(PACK_OUTPUT_PATH); } catch (e4b) { log("pack_output_comps threw: " + e4b); }
         // Assume 1:1 packed or internally resolved; keep same count for summary if unknown
         AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
-    }
         log("Step 4: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
         t4e = nowMs();
     }
