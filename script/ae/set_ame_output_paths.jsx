@@ -424,11 +424,17 @@ function __AME_coreRun(opts) {
         }
     } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
     var dateFolder = new Folder(joinPath(outMaster.fsName, dateFolderName));
+    // Track created folders for summary output
+    var __createdFolders = [];
+    var __createdMap = {};
+    function __markCreated(pathStr){ try{ if(!pathStr) return; if(!__createdMap[pathStr]){ __createdMap[pathStr] = true; __createdFolders.push(pathStr); } }catch(eMC){} }
+    var __dateExisted = dateFolder.exists;
     if (!ensureFolderExists(dateFolder)) {
         alertOnce("Cannot create date folder: " + dateFolder.fsName);
         app.endUndoGroup();
         return;
     }
+    if (!__dateExisted && dateFolder.exists) { __markCreated(dateFolder.fsName); }
 
     // ————— Gather / Create Render Queue Items —————
     var rq = app.project.renderQueue;
@@ -584,12 +590,21 @@ function __AME_coreRun(opts) {
         }
         var destParent = dateFolder;
         if (tokens.ar && tokens.duration) {
-            destParent = new Folder(joinPath(joinPath(dateFolder.fsName, tokens.ar), tokens.duration));
+            var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
+            var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
+            var arExisted = arFolder.exists; var durExisted = durFolder.exists;
+            ensureFolderExists(durFolder);
+            if (!arExisted && arFolder.exists) { __markCreated(arFolder.fsName); }
+            if (!durExisted && durFolder.exists) { __markCreated(durFolder.fsName); }
+            destParent = durFolder;
         } else {
-            destParent = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+            var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+            var unsortedExisted = unsortedFolder.exists;
+            ensureFolderExists(unsortedFolder);
+            if (!unsortedExisted && unsortedFolder.exists) { __markCreated(unsortedFolder.fsName); }
+            destParent = unsortedFolder;
             unsorted++;
         }
-        ensureFolderExists(destParent);
         var destPath = joinPath(destParent.fsName, baseName + ext);
         var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
         if (INJECT_PRESET_TOKEN_IN_FILENAME && dynTemplateUsed) {
@@ -694,6 +709,12 @@ function __AME_coreRun(opts) {
     if (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued) summaryLines.push("Hint: Launch Media Encoder once or raise retry delay.");
     summaryLines.push("" ); // blank line before path
     summaryLines.push("DateFolder: " + dateFolder.fsName);
+    // Append the list of actually created folders (absolute paths)
+    if (__createdFolders && __createdFolders.length) {
+        for (var cf=0; cf<__createdFolders.length; cf++) {
+            summaryLines.push("CreatedFolder: " + __createdFolders[cf]);
+        }
+    }
     var summaryMsg = summaryLines.join("\n");
     log(summaryMsg);
     if (LOG_SUMMARY_SECTION) {
