@@ -172,86 +172,95 @@
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
 
-    // Helpers - selection management
-    var proj = app.project;
-    if (!proj) { alert("No project open."); return; }
-
-    function selectedFootageItems() {
-        var out = [];
-        var sel = proj.selection;
-        if (sel && sel.length) {
-            for (var i = 0; i < sel.length; i++) {
-                var it = sel[i];
-                if (it instanceof FootageItem) out.push(it);
-            }
-        }
-        return out;
-    }
-
-    // Timing helpers
-    function nowMs(){ return (new Date()).getTime(); }
-    function sec(ms){ return Math.round(ms/10)/100; }
-    function maybeSleep(label){
-        try {
-            var ms = (OPTS && typeof OPTS.sleepBetweenPhasesMs === 'number') ? OPTS.sleepBetweenPhasesMs : 0;
-            if (ms && ms > 0) { log("Stabilize: sleeping " + ms + "ms before " + label + "..."); $.sleep(ms); }
-        } catch(eS) {}
-    }
-    var t0All = nowMs();
-    var t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
-
-    // Step 1: Create compositions from selected footage
-    t1s = nowMs();
-    if (OPTS.RUN_create_compositions === false) {
-        log("Step 1 (create_compositions.jsx): SKIPPED by toggle.");
-        t1e = nowMs();
-    } else {
-        var footageSel = selectedFootageItems();
-        // Allow empty selection when AUTO_FROM_PROJECT_FOOTAGE is enabled (top-level or under createComps)
-        var __autoCreate = false;
-        try {
-            __autoCreate = (OPTS && ((OPTS.createComps && OPTS.createComps.AUTO_FROM_PROJECT_FOOTAGE === true) || (OPTS.AUTO_FROM_PROJECT_FOOTAGE === true)));
-        } catch(eAC) {}
-        if (!footageSel.length && !__autoCreate) {
-            alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
-            return;
-        }
-        if (__autoCreate && !footageSel.length) {
-            log("Step 1: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
-        } else {
-            log("Step 1: Creating comps from " + footageSel.length + " selected footage item(s).");
-        }
-
-    // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
-    var step1UsedAPI = false;
+    // Early diagnostics block right after header
     try {
-        // Hot-reload phase singleton then load; script may expose AE_CreateComps
-        try { if (typeof AE_CreateComps !== 'undefined') { AE_CreateComps = undefined; } } catch(eCLR1) {}
-        $.evalFile(CREATE_COMPS_PATH);
-        if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
-            // Normalize options for Step 1: allow top-level synonyms to override createComps defaults
-            var __opts1 = (OPTS.createComps || {});
+        var __printedVerbose = false, __printedFullDump = false;
+        if (OPTS && OPTS.VERBOSE) {
             try {
-                function __assignTop(k){ if (OPTS.hasOwnProperty(k)) __opts1[k] = OPTS[k]; }
-                __assignTop('AUTO_FROM_PROJECT_FOOTAGE');
-                __assignTop('FOOTAGE_PROJECT_PATH');
-                __assignTop('FOOTAGE_DATE_YYMMDD');
-                __assignTop('INCLUDE_SUBFOLDERS');
-            } catch(eNrm) {}
-            var selArg = (__autoCreate && !footageSel.length) ? [] : footageSel;
-            if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts1.ENABLE_FILE_LOG = false; } catch(eMS1) {} }
-            var res1 = AE_CreateComps.run({ selection: selArg, runId: RUN_ID, log: log, options: __opts1 });
-            if (res1 && res1.created && res1.created.length) {
-                AE_PIPE.results.createComps = res1.created;
-                step1UsedAPI = true;
-            }
+                var v = [];
+                v.push("Verbose flags:");
+                // Top
+                v.push("  ENABLE_FILE_LOG=" + (OPTS.ENABLE_FILE_LOG !== false));
+                v.push("  DRY_RUN=" + (OPTS.DRY_RUN === true));
+                // createComps
+                if (OPTS.createComps) {
+                    v.push("  createComps.DEFAULT_STILL_DURATION=" + OPTS.createComps.DEFAULT_STILL_DURATION);
+                    v.push("  createComps.ENABLE_MARKER_TRIM=" + (OPTS.createComps.ENABLE_MARKER_TRIM === true));
+                    v.push("  createComps.SKIP_IF_COMP_EXISTS=" + (OPTS.createComps.SKIP_IF_COMP_EXISTS !== false));
+                }
+                // insertRelink
+                if (OPTS.insertRelink) {
+                    v.push("  insertRelink.ENABLE_RELINK_DATA_JSON=" + (OPTS.insertRelink.ENABLE_RELINK_DATA_JSON !== false));
+                    v.push("  insertRelink.DATA_JSON_ISO_MODE=" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||""));
+                    v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
+                }
+                // addLayers
+                if (OPTS.addLayers) {
+                    v.push("  addLayers.ENABLE_FILE_LOG=" + (OPTS.addLayers.ENABLE_FILE_LOG !== false));
+                    v.push("  addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER=" + (OPTS.addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER === true));
+                    var tmc = OPTS.addLayers.TEMPLATE_MATCH_CONFIG || {};
+                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.arTolerance=" + (tmc.arTolerance!==undefined?tmc.arTolerance:"") );
+                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch=" + (tmc.requireAspectRatioMatch===true));
+                }
+                // pack
+                if (OPTS.pack) {
+                    v.push("  pack.DRY_RUN_MODE=" + (OPTS.pack.DRY_RUN_MODE === true));
+                    v.push("  pack.SKIP_IF_OUTPUT_ALREADY_EXISTS=" + (OPTS.pack.SKIP_IF_OUTPUT_ALREADY_EXISTS !== false));
+                }
+                // ame
+                if (OPTS.ame) {
+                    v.push("  ame.PROCESS_SELECTION=" + (OPTS.ame.PROCESS_SELECTION !== false));
+                    v.push("  ame.AUTO_QUEUE_IN_AME=" + (OPTS.ame.AUTO_QUEUE_IN_AME !== false));
+                }
+                // integrator
+                v.push("  sleepBetweenPhasesMs=" + (OPTS.sleepBetweenPhasesMs || 0));
+                for (var iV=0;iV<v.length;iV++) log(v[iV]);
+                __printedVerbose = true;
+            } catch(eV) {}
         }
-    } catch (e1) {
-        log("Step 1 API path failed, falling back to side-effect mode. Error: " + (e1 && e1.message ? e1.message : e1));
-    }
-    if (!step1UsedAPI) {
-        // Fallback: rely on the script’s default behavior (uses current selection)
-        // The script should tag new comps with runId in their comment, or move them to a known folder.
+        if (OPTS && OPTS.DEBUG_DUMP_EFFECTIVE_OPTIONS) {
+            // Delimiter between sections when both present
+            if (__printedVerbose) { try { log("=========================="); } catch(eSep) {} }
+            try {
+                var __stringify = function(obj, indent) {
+                    indent = indent || "";
+                    if (obj === null) return "null";
+                    var t = typeof obj;
+                    if (t === 'undefined') return 'undefined';
+                    if (t === 'string' || t === 'number' || t === 'boolean') return String(obj);
+                    if (obj instanceof Array) {
+                        var outA = ['['];
+                        for (var i=0;i<obj.length;i++) outA.push(indent+'  '+__stringify(obj[i], indent+'  '));
+                        outA.push(indent+']');
+                        return outA.join('\n');
+                    }
+                    // plain object
+                    var out = ['{'];
+                    for (var k in obj) if (obj.hasOwnProperty(k)) {
+                        var v2 = obj[k];
+                        out.push(indent + '  ' + k + ': ' + __stringify(v2, indent + '  '));
+                    }
+                    out.push(indent+'}');
+                    return out.join('\n');
+                };
+                log('--- EFFECTIVE OPTIONS (FULL) BEGIN ---');
+                var snapshot = OPTS; // already a plain object tree
+                var dump = __stringify(snapshot, '');
+                var lines = dump.split('\n');
+                for (var di=0; di<lines.length; di++) log(lines[di]);
+                log('--- EFFECTIVE OPTIONS (FULL) END ---');
+                __printedFullDump = true;
+            } catch(eFD) {}
+        }
+        // Final delimiter after these diagnostics if any printed
+        if (__printedVerbose || __printedFullDump) { try { log("=========================="); } catch(eEndSep) {} }
+    } catch(eDiagEarly) {}
+
+    // Diagnostics for effective options (keep headline here, move details to header area)
+    try {
+        var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
+        log("Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO_MANUAL=" + __isoEff);
+    } catch(eDiag) {}
         try { $.evalFile(CREATE_COMPS_PATH); } catch (e1b) { log("create_compositions threw: " + e1b); }
         // Discover results by runId tag in comment
         var created = [];
