@@ -171,6 +171,91 @@
         }
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
+    
+    // Diagnostics (moved near header): Verbose flags and full options dump
+    try {
+        // Verbose flags summary
+        if (OPTS && OPTS.VERBOSE) {
+            try {
+                var v = [];
+                v.push("Verbose flags:");
+                // Top
+                v.push("  ENABLE_FILE_LOG=" + (OPTS.ENABLE_FILE_LOG !== false));
+                v.push("  DRY_RUN=" + (OPTS.DRY_RUN === true));
+                // createComps
+                if (OPTS.createComps) {
+                    v.push("  createComps.DEFAULT_STILL_DURATION=" + OPTS.createComps.DEFAULT_STILL_DURATION);
+                    v.push("  createComps.ENABLE_MARKER_TRIM=" + (OPTS.createComps.ENABLE_MARKER_TRIM === true));
+                    v.push("  createComps.SKIP_IF_COMP_EXISTS=" + (OPTS.createComps.SKIP_IF_COMP_EXISTS !== false));
+                }
+                // insertRelink
+                if (OPTS.insertRelink) {
+                    v.push("  insertRelink.ENABLE_RELINK_DATA_JSON=" + (OPTS.insertRelink.ENABLE_RELINK_DATA_JSON !== false));
+                    v.push("  insertRelink.DATA_JSON_ISO_MODE=" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||""));
+                    v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
+                }
+                // addLayers
+                if (OPTS.addLayers) {
+                    v.push("  addLayers.ENABLE_FILE_LOG=" + (OPTS.addLayers.ENABLE_FILE_LOG !== false));
+                    v.push("  addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER=" + (OPTS.addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER === true));
+                    var tmc = OPTS.addLayers.TEMPLATE_MATCH_CONFIG || {};
+                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.arTolerance=" + (tmc.arTolerance!==undefined?tmc.arTolerance:"") );
+                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch=" + (tmc.requireAspectRatioMatch===true));
+                }
+                // pack
+                if (OPTS.pack) {
+                    v.push("  pack.DRY_RUN_MODE=" + (OPTS.pack.DRY_RUN_MODE === true));
+                    v.push("  pack.SKIP_IF_OUTPUT_ALREADY_EXISTS=" + (OPTS.pack.SKIP_IF_OUTPUT_ALREADY_EXISTS !== false));
+                }
+                // ame
+                if (OPTS.ame) {
+                    v.push("  ame.PROCESS_SELECTION=" + (OPTS.ame.PROCESS_SELECTION !== false));
+                    v.push("  ame.AUTO_QUEUE_IN_AME=" + (OPTS.ame.AUTO_QUEUE_IN_AME !== false));
+                }
+                // integrator
+                v.push("  sleepBetweenPhasesMs=" + (OPTS.sleepBetweenPhasesMs || 0));
+                for (var i=0;i<v.length;i++) log(v[i]);
+            } catch(eV) {}
+        }
+        // Delimiter between sections when both are enabled
+        if ((OPTS && OPTS.VERBOSE) && (OPTS && OPTS.DEBUG_DUMP_EFFECTIVE_OPTIONS)) {
+            try { log("--------------------------"); } catch(eSep1) {}
+        }
+        // Full dump: stringify all effective options
+        if (OPTS && OPTS.DEBUG_DUMP_EFFECTIVE_OPTIONS) {
+            try {
+                var __stringify = function(obj, indent) {
+                    indent = indent || "";
+                    if (obj === null) return "null";
+                    var t = typeof obj;
+                    if (t === 'undefined') return 'undefined';
+                    if (t === 'string' || t === 'number' || t === 'boolean') return String(obj);
+                    if (obj instanceof Array) {
+                        var outA = ['['];
+                        for (var iA=0;iA<obj.length;iA++) outA.push(indent+'  '+__stringify(obj[iA], indent+'  '));
+                        outA.push(indent+']');
+                        return outA.join('\n');
+                    }
+                    // plain object
+                    var out = ['{'];
+                    for (var k in obj) if (obj.hasOwnProperty(k)) {
+                        var v2 = obj[k];
+                        out.push(indent + '  ' + k + ': ' + __stringify(v2, indent + '  '));
+                    }
+                    out.push(indent+'}');
+                    return out.join('\n');
+                };
+                log('--- EFFECTIVE OPTIONS (FULL) BEGIN ---');
+                var snapshot = OPTS; // already a plain object tree
+                var dump = __stringify(snapshot, '');
+                var lines = dump.split('\n');
+                for (var di=0; di<lines.length; di++) log(lines[di]);
+                log('--- EFFECTIVE OPTIONS (FULL) END ---');
+            } catch(eFD) {}
+        }
+    } catch(eDiagTop) {}
+    // Trailing delimiter after diagnostics
+    try { log("--------------------------"); } catch(eHdr3) {}
 
     // Helpers - selection management
     var proj = app.project;
@@ -428,85 +513,10 @@
         t5e = nowMs();
     } else {
         log("Step 5: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
-    // Diagnostics for effective options
+    // Diagnostics for effective options (kept concise here)
     try {
         var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
         log("Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO_MANUAL=" + __isoEff);
-        // Verbose dump: show key per-phase flags
-        if (OPTS && OPTS.VERBOSE) {
-            try {
-                var v = [];
-                v.push("Verbose flags:");
-                // Top
-                v.push("  ENABLE_FILE_LOG=" + (OPTS.ENABLE_FILE_LOG !== false));
-                v.push("  DRY_RUN=" + (OPTS.DRY_RUN === true));
-                // createComps
-                if (OPTS.createComps) {
-                    v.push("  createComps.DEFAULT_STILL_DURATION=" + OPTS.createComps.DEFAULT_STILL_DURATION);
-                    v.push("  createComps.ENABLE_MARKER_TRIM=" + (OPTS.createComps.ENABLE_MARKER_TRIM === true));
-                    v.push("  createComps.SKIP_IF_COMP_EXISTS=" + (OPTS.createComps.SKIP_IF_COMP_EXISTS !== false));
-                }
-                // insertRelink
-                if (OPTS.insertRelink) {
-                    v.push("  insertRelink.ENABLE_RELINK_DATA_JSON=" + (OPTS.insertRelink.ENABLE_RELINK_DATA_JSON !== false));
-                    v.push("  insertRelink.DATA_JSON_ISO_MODE=" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||""));
-                    v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
-                }
-                // addLayers
-                if (OPTS.addLayers) {
-                    v.push("  addLayers.ENABLE_FILE_LOG=" + (OPTS.addLayers.ENABLE_FILE_LOG !== false));
-                    v.push("  addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER=" + (OPTS.addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER === true));
-                    var tmc = OPTS.addLayers.TEMPLATE_MATCH_CONFIG || {};
-                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.arTolerance=" + (tmc.arTolerance!==undefined?tmc.arTolerance:"") );
-                    v.push("  addLayers.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch=" + (tmc.requireAspectRatioMatch===true));
-                }
-                // pack
-                if (OPTS.pack) {
-                    v.push("  pack.DRY_RUN_MODE=" + (OPTS.pack.DRY_RUN_MODE === true));
-                    v.push("  pack.SKIP_IF_OUTPUT_ALREADY_EXISTS=" + (OPTS.pack.SKIP_IF_OUTPUT_ALREADY_EXISTS !== false));
-                }
-                // ame
-                if (OPTS.ame) {
-                    v.push("  ame.PROCESS_SELECTION=" + (OPTS.ame.PROCESS_SELECTION !== false));
-                    v.push("  ame.AUTO_QUEUE_IN_AME=" + (OPTS.ame.AUTO_QUEUE_IN_AME !== false));
-                }
-                // integrator
-                v.push("  sleepBetweenPhasesMs=" + (OPTS.sleepBetweenPhasesMs || 0));
-                for (var i=0;i<v.length;i++) log(v[i]);
-            } catch(eV) {}
-        }
-        // Full dump: stringify all effective options
-        if (OPTS && OPTS.DEBUG_DUMP_EFFECTIVE_OPTIONS) {
-            try {
-                function __stringify(obj, indent) {
-                    indent = indent || "";
-                    if (obj === null) return "null";
-                    var t = typeof obj;
-                    if (t === 'undefined') return 'undefined';
-                    if (t === 'string' || t === 'number' || t === 'boolean') return String(obj);
-                    if (obj instanceof Array) {
-                        var outA = ['['];
-                        for (var i=0;i<obj.length;i++) outA.push(indent+'  '+__stringify(obj[i], indent+'  '));
-                        outA.push(indent+']');
-                        return outA.join('\n');
-                    }
-                    // plain object
-                    var out = ['{'];
-                    for (var k in obj) if (obj.hasOwnProperty(k)) {
-                        var v2 = obj[k];
-                        out.push(indent + '  ' + k + ': ' + __stringify(v2, indent + '  '));
-                    }
-                    out.push(indent+'}');
-                    return out.join('\n');
-                }
-                log('--- EFFECTIVE OPTIONS (FULL) BEGIN ---');
-                var snapshot = OPTS; // already a plain object tree
-                var dump = __stringify(snapshot, '');
-                var lines = dump.split('\n');
-                for (var di=0; di<lines.length; di++) log(lines[di]);
-                log('--- EFFECTIVE OPTIONS (FULL) END ---');
-            } catch(eFD) {}
-        }
     } catch(eDiag) {}
     var step5UsedAPI = false;
     try {
