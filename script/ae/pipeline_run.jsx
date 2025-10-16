@@ -296,8 +296,8 @@
             try { if (typeof AE_LinkData !== 'undefined') { AE_LinkData = undefined; } } catch(eLDClr) {}
             $.evalFile(LINK_DATA_PATH);
             if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
-                // Pass phase slice options
-                var __optsL = (OPTS.insertRelink || {}); // reuse insertRelink namespace for JSON settings
+                // Pass phase slice options (prefer dedicated linkData namespace)
+                var __optsL = (OPTS.linkData || {});
                 var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
                 try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
             } else {
