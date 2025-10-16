@@ -33,6 +33,7 @@
         RUN_add_layers_to_comp: true,
         RUN_pack_output_comps: true,
         RUN_set_ame_output_paths: true,
+        RUN_link_data: true,
 
         // When true, phases may forward selected messages into the unified pipeline log
         PHASES_SHARE_PIPELINE_LOG: false,
@@ -46,6 +47,19 @@
         PIPELINE_SHOW_LEVELS: true,
 
         // Phase-specific namespaces
+        linkData: {
+            ENABLE_RELINK_DATA_JSON: true,
+            DATA_JSON_ISO_MODE: "manual",             // "auto" | "manual"
+            DATA_JSON_ISO_CODE_MANUAL: "SAU",
+            DATA_JSON_PROJECT_FOLDER: ["project","in","data"],
+            DATA_JSON_PROJECT_ITEM_NAME: "data.json",
+            DATA_JSON_FS_SUBPATH: ["IN","data"],
+            DATA_JSON_FILE_PREFIX: "data_",
+            DATA_JSON_FILE_SUFFIX: ".json",
+            DATA_JSON_IMPORT_IF_MISSING: true,
+            DATA_JSON_RENAME_IMPORTED_TO_CANONICAL: true,
+            DATA_JSON_LOG_VERBOSE: true
+        },
         createComps: {
             ENABLE_FILE_LOG: true,
             DEFAULT_STILL_DURATION: 5,
