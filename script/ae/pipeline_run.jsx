@@ -284,8 +284,7 @@
         } catch(eS) {}
     }
     var t0All = nowMs();
-    var t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
-    var tLs=0,tLe=0; // Step 1: link data timing
+    var tLs=0,tLe=0,t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
@@ -297,17 +296,25 @@
             try { if (typeof AE_LinkData !== 'undefined') { AE_LinkData = undefined; } } catch(eLDClr) {}
             $.evalFile(LINK_DATA_PATH);
             if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
+                // Pass phase slice options
                 var __optsL = (OPTS.insertRelink || {}); // reuse insertRelink namespace for JSON settings
-                var resL = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
-                try { AE_PIPE.results.linkData = resL || {}; } catch(eSt) {}
+                var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
+                try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
             } else {
                 log("Step 1: link_data API not available; script evaluated without run().");
             }
         }
-    } catch(eL){ log("Step 1 (link_data) error: " + (eL && eL.message ? eL.message : eL)); }
+    } catch(eL) { 
+        log("Step 1 (link_data) error: " + (eL && eL.message ? eL.message : eL)); 
+        }
+    if (resL1 && resL1.ok) {
+    var isoLine = "ISO=" + (resL1.iso||"?") + " (" + (resL1.origin||"?") + "), relinked=" + (!!resL1.relinked) + ", imported=" + (!!resL1.imported);
+    log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {link_data} " : "") + "Step 1: Link result: " + isoLine);
+    }
     tLe = nowMs();
 
     // Step 2: Create compositions from selected footage
+    maybeSleep("Step 2");
     t1s = nowMs();
     if (OPTS.RUN_create_compositions === false) {
         log("Step 2 (create_compositions.jsx): SKIPPED by toggle.");
