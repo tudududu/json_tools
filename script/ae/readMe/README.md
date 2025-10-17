@@ -1,0 +1,35 @@
+# AE Pipeline options: quick guide
+
+This repo uses a single options bundle merged from Defaults + your preset (pipeline.preset.json).
+
+Merge rules
+- Objects are merged recursively.
+- Arrays are replaced as a whole (no concatenation/union).
+- Primitives (string/number/boolean/null) replace defaults.
+
+Reserved keys
+- Keys starting with `__` (e.g., `__presetMeta`, `__sticky`) are reserved for the loader and
+  are not part of the effective options.
+
+Phase toggles and logging
+- `RUN_*` booleans (e.g., `RUN_link_data`) gate whether a phase executes. Default: true.
+- `PHASE_FILE_LOGS_MASTER_ENABLE=false` forces each phase to disable its own file log for that run.
+- `PIPELINE_SHOW_PHASE_TAGS`/`PIPELINE_SHOW_LEVELS` influence INFO {phase} tagging in the unified pipeline log.
+- `sleepBetweenPhasesMs` lets the orchestrator pause before each step to stabilize AE.
+
+Link-data vs insert-relink (data.json)
+- Step 1 (link_data) owns data.json relinking.
+  - Use `linkData.ENABLE_RELINK_DATA_JSON=true` to enable here.
+  - `linkData.DATA_JSON_ISO_MODE`: `manual` | `auto`. Manual uses `DATA_JSON_ISO_CODE_MANUAL`; auto tries to
+    derive ISO from the folder above `POST`, then falls back to manual.
+  - Path segments like `linkData.DATA_JSON_FS_SUBPATH` and `linkData.DATA_JSON_PROJECT_FOLDER` are arrays; they
+    replace defaults entirely when provided in a preset.
+- To avoid duplication, `insertRelink.ENABLE_RELINK_DATA_JSON` defaults to false. Only turn it on intentionally (e.g., migration/testing).
+
+AME export base
+- `ame.EXPORT_SUBPATH` can be a string or array of segments; it’s appended under `POST` to build the export base.
+  Example: `["OUT","PREVIEWS"]` => `POST/OUT/PREVIEWS/...`.
+
+Tips
+- Keep phase settings under their namespace (linkData, createComps, insertRelink, addLayers, pack, ame).
+- When in doubt, check `script/ae/pipeline_options.jsx` for defaults and comments.
