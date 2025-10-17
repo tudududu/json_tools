@@ -11,11 +11,25 @@
             optBool: function(o,k,d){ try{ var v=o&&o[k]; if(typeof v==='boolean') return v; if(typeof v==='string'){var s=v.toLowerCase(); if(s==='true'||s==='1'||s==='yes'||s==='on') return true; if(s==='false'||s==='0'||s==='no'||s==='off') return false;} }catch(e){} return d; },
             optNum: function(o,k,d){ try{ var v=o&&o[k]; if(typeof v==='number'&&!isNaN(v)) return v; if(typeof v==='string'){var n=parseFloat(v); if(!isNaN(n)) return n;} }catch(e){} return d; },
             optStr: function(o,k,d){ try{ var v=o&&o[k]; if(typeof v==='string') return v; if(v===null||v===undefined) return d; return String(v);}catch(e){} return d; },
+            // deepMerge semantics:
+            // - Plain objects are merged recursively (left = defaults, right = user overrides).
+            // - Arrays and non-objects are REPLACED (not concatenated/merged). This is intentional to avoid
+            //   surprising partial merges of ordered lists. If a preset provides an array, it fully overrides
+            //   the default array at that key.
             deepMerge: function(a,b){ if(!b) return a; if(!a) return b; var o={}; function isObj(x){return x&&typeof x==='object'&&!(x instanceof Array);} for(var k in a) if(a.hasOwnProperty(k)) o[k]=a[k]; for(var k2 in b) if(b.hasOwnProperty(k2)){ var av=o[k2], bv=b[k2]; if(isObj(av)&&isObj(bv)) o[k2]=AE_OPTS_UTILS.deepMerge(av,bv); else o[k2]=bv; } return o; }
         };
     }
 
     var Defaults = {
+        //
+        // Merge/override rules (applied by AE_PIPELINE_OPTIONS.build using deepMerge):
+        // - The user (preset) object is merged over Defaults.
+        // - Plain objects are merged recursively.
+        // - Arrays are replaced as a whole (no concatenation/union).
+        //   Example: Defaults.linkData.DATA_JSON_FS_SUBPATH = ["IN","data"].
+        //            If preset sets ["IN","meta"], the result is exactly ["IN","meta"].
+        // - Primitive values (string/number/boolean/null) replace Defaults.
+        //
         // Common toggles to consider
         ENABLE_FILE_LOG: true,
         // Master switch: when false, all per-phase ENABLE_FILE_LOG toggles are forcibly disabled regardless of per-phase setting.
@@ -120,7 +134,8 @@
     AE_PIPELINE_OPTIONS = {
         defaults: Defaults,
         build: function(user) {
-            // Deep merge user options over defaults
+            // Deep merge user options over defaults.
+            // Array semantics: arrays from "user" REPLACE arrays in Defaults (no deep merge of arrays).
             var merged = AE_OPTS_UTILS.deepMerge(Defaults, user || {});
             return merged;
         }
