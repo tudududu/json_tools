@@ -12,6 +12,7 @@
 
     // Adjust these relative paths to match your repo layout
     var LINK_DATA_PATH     = join(base, "phase/link_data.jsx");
+    var SAVE_AS_ISO_PATH   = join(base, "phase/save_as_with_iso.jsx");
     var CREATE_COMPS_PATH  = join(base, "create_compositions.jsx");
     var INSERT_RELINK_PATH = join(base, "insert_and_relink_footage.jsx");
     var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
@@ -284,7 +285,7 @@
         } catch(eS) {}
     }
     var t0All = nowMs();
-    var tLs=0,tLe=0,t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
+    var tLs=0,tLe=0,tS2s=0,tS2e=0,t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
@@ -320,11 +321,38 @@
     }
     tLe = nowMs();
 
-    // Step 2: Create compositions from selected footage
+    // Step 2: Save project as new file with ISO suffix
     maybeSleep("Step 2");
+    tS2s = nowMs();
+    try {
+        if (OPTS.RUN_save_as_iso === false) {
+            log("Step 2 (save_as_with_iso.jsx): SKIPPED by toggle.");
+        } else {
+            log("Step 2: Save project with ISO suffix...");
+            try { if (typeof AE_SaveAsISO !== 'undefined') { AE_SaveAsISO = undefined; } } catch(eClrS2) {}
+            $.evalFile(SAVE_AS_ISO_PATH);
+            if (typeof AE_SaveAsISO !== 'undefined' && AE_SaveAsISO && typeof AE_SaveAsISO.run === 'function') {
+                var __optsS2 = (OPTS.saveAsISO || {});
+                var resS2 = AE_SaveAsISO.run({ runId: RUN_ID, log: log, options: __optsS2 });
+                try { AE_PIPE.results.saveAsISO = resS2 || {}; } catch(eS2st) {}
+                if (resS2 && resS2.ok) {
+                    var isoMsg = "Saved as (ISO=" + (resS2.iso||'?') + "): " + (resS2.savedPath||'(unknown)');
+                    log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {save_as_iso} " : "") + isoMsg);
+                }
+            } else {
+                log("Step 2: save_as_with_iso API not available; script evaluated without run().");
+            }
+        }
+    } catch(eS2) {
+        log("Step 2 (save_as_with_iso) error: " + (eS2 && eS2.message ? eS2.message : eS2));
+    }
+    tS2e = nowMs();
+
+    // Step 3: Create compositions from selected footage
+    maybeSleep("Step 3");
     t1s = nowMs();
     if (OPTS.RUN_create_compositions === false) {
-        log("Step 2 (create_compositions.jsx): SKIPPED by toggle.");
+        log("Step 3 (create_compositions.jsx): SKIPPED by toggle.");
         t1e = nowMs();
     } else {
         var footageSel = selectedFootageItems();
@@ -334,13 +362,13 @@
             __autoCreate = (OPTS && ((OPTS.createComps && OPTS.createComps.AUTO_FROM_PROJECT_FOOTAGE === true) || (OPTS.AUTO_FROM_PROJECT_FOOTAGE === true)));
         } catch(eAC) {}
         if (!footageSel.length && !__autoCreate) {
-            alert("Select one or more footage items in the Project panel for Step 1 (create_compositions).");
+            alert("Select one or more footage items in the Project panel for Step 3 (create_compositions).");
             return;
         }
         if (__autoCreate && !footageSel.length) {
-            log("Step 2: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
+            log("Step 3: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
         } else {
-            log("Step 2: Creating comps from " + footageSel.length + " selected footage item(s).");
+            log("Step 3: Creating comps from " + footageSel.length + " selected footage item(s).");
         }
 
     // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
@@ -350,7 +378,7 @@
         try { if (typeof AE_CreateComps !== 'undefined') { AE_CreateComps = undefined; } } catch(eCLR1) {}
         $.evalFile(CREATE_COMPS_PATH);
         if (typeof AE_CreateComps !== "undefined" && AE_CreateComps && typeof AE_CreateComps.run === "function") {
-            // Normalize options for Step 1: allow top-level synonyms to override createComps defaults
+            // Normalize options for Step 3: allow top-level synonyms to override createComps defaults
             var __opts1 = (OPTS.createComps || {});
             try {
                 function __assignTop(k){ if (OPTS.hasOwnProperty(k)) __opts1[k] = OPTS[k]; }
@@ -368,7 +396,7 @@
             }
         }
     } catch (e1) {
-        log("Step 2 API path failed, falling back to side-effect mode. Error: " + (e1 && e1.message ? e1.message : e1));
+        log("Step 3 API path failed, falling back to side-effect mode. Error: " + (e1 && e1.message ? e1.message : e1));
     }
     if (!step1UsedAPI) {
         // Fallback: rely on the script’s default behavior (uses current selection)
@@ -386,24 +414,24 @@
         }
         AE_PIPE.results.createComps = created;
     }
-        log("Step 2: Created comps: " + AE_PIPE.results.createComps.length);
+    log("Step 3: Created comps: " + AE_PIPE.results.createComps.length);
         t1e = nowMs();
     }
 
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
-        alert("No compositions created in Step 2. Aborting.");
+        alert("No compositions created in Step 3. Aborting.");
         return;
     }
 
-    // Step 3: Insert & relink into those comps
-    maybeSleep("Step 3");
+    // Step 4: Insert & relink into those comps
+    maybeSleep("Step 4");
     t2s = nowMs();
     if (OPTS.RUN_insert_and_relink_footage === false) {
-        log("Step 3 (insert_and_relink_footage.jsx): SKIPPED by toggle.");
+        log("Step 4 (insert_and_relink_footage.jsx): SKIPPED by toggle.");
         AE_PIPE.results.insertRelink = AE_PIPE.results.createComps.slice(0);
         t2e = nowMs();
     } else {
-        log("Step 3: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
+        log("Step 4: Insert & relink into " + AE_PIPE.results.createComps.length + " comps.");
     var step2UsedAPI = false;
     try {
         try { if (typeof AE_InsertRelink !== 'undefined') { AE_InsertRelink = undefined; } } catch(eCLR2) {}
@@ -416,7 +444,7 @@
             step2UsedAPI = true;
         }
     } catch (e2) {
-        log("Step 3 API path failed, falling back to selection. Error: " + (e2 && e2.message ? e2.message : e2));
+        log("Step 4 API path failed, falling back to selection. Error: " + (e2 && e2.message ? e2.message : e2));
     }
     if (!step2UsedAPI) {
         // Fallback: set current selection to created comps and eval the script as-is
@@ -429,15 +457,15 @@
         t2e = nowMs();
     }
 
-    // Step 4: Add layers from template to the processed comps
-    maybeSleep("Step 4");
+    // Step 5: Add layers from template to the processed comps
+    maybeSleep("Step 5");
     t3s = nowMs();
     if (OPTS.RUN_add_layers_to_comp === false) {
-        log("Step 4 (add_layers_to_comp.jsx): SKIPPED by toggle.");
+        log("Step 5 (add_layers_to_comp.jsx): SKIPPED by toggle.");
         AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
         t3e = nowMs();
     } else {
-        log("Step 4: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
+        log("Step 5: Add layers to " + AE_PIPE.results.insertRelink.length + " comps.");
     var step3UsedAPI = false;
     try {
         try { if (typeof AE_AddLayers !== 'undefined') { AE_AddLayers = undefined; } } catch(eCLR3) {}
@@ -477,26 +505,26 @@
             step3UsedAPI = true;
         }
     } catch (e3) {
-        log("Step 4 API path failed, falling back to selection. Error: " + (e3 && e3.message ? e3.message : e3));
+        log("Step 5 API path failed, falling back to selection. Error: " + (e3 && e3.message ? e3.message : e3));
     }
     if (!step3UsedAPI) {
         try { app.project.selection = AE_PIPE.results.insertRelink; } catch (eSel3) {}
         try { $.evalFile(ADD_LAYERS_PATH); } catch (e3b) { log("add_layers_to_comp threw: " + e3b); }
         AE_PIPE.results.addLayers = AE_PIPE.results.insertRelink.slice(0);
     }
-        log("Step 4: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
+    log("Step 5: Add-layers processed comps: " + AE_PIPE.results.addLayers.length);
         t3e = nowMs();
     }
 
-    // Step 5: Pack output comps
-    maybeSleep("Step 5");
+    // Step 6: Pack output comps
+    maybeSleep("Step 6");
     t4s = nowMs();
     if (OPTS.RUN_pack_output_comps === false) {
-        log("Step 5 (pack_output_comps.jsx): SKIPPED by toggle.");
+        log("Step 6 (pack_output_comps.jsx): SKIPPED by toggle.");
         AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
         t4e = nowMs();
     } else {
-        log("Step 5: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
+        log("Step 6: Pack output comps for " + AE_PIPE.results.addLayers.length + " comps.");
     var step4UsedAPI = false;
     try {
         try { if (typeof AE_Pack !== 'undefined') { AE_Pack = undefined; } } catch(eCLR4) {}
@@ -506,7 +534,7 @@
             if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts4.ENABLE_FILE_LOG = false; } catch(eMS4) {} }
             var res4 = AE_Pack.run({ comps: AE_PIPE.results.addLayers, runId: RUN_ID, log: log, options: __opts4 });
             if (res4 && res4.outputComps) AE_PIPE.results.pack = res4.outputComps;
-            // Concise logging for Step 5 (pack): show short summary in pipeline log
+            // Concise logging for Step 6 (pack): show short summary in pipeline log
             try {
                 var pkOpts = OPTS.pack || {};
                 if (pkOpts.PIPELINE_SHOW_CONCISE_LOG !== false) {
@@ -528,7 +556,7 @@
             step4UsedAPI = true;
         }
     } catch (e4) {
-        log("Step 5 API path failed, falling back to default behavior. Error: " + (e4 && e4.message ? e4.message : e4));
+        log("Step 6 API path failed, falling back to default behavior. Error: " + (e4 && e4.message ? e4.message : e4));
     }
     if (!step4UsedAPI) {
         // Fallback: many packing scripts detect and process comps internally; provide selection for best effort
@@ -537,18 +565,18 @@
         // Assume 1:1 packed or internally resolved; keep same count for summary if unknown
         AE_PIPE.results.pack = AE_PIPE.results.addLayers.slice(0);
     }
-        log("Step 5: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
+    log("Step 6: Packed outputs (count proxy): " + AE_PIPE.results.pack.length);
         t4e = nowMs();
     }
 
-    // Step 6: Set AME output paths
-    maybeSleep("Step 6");
+    // Step 7: Set AME output paths
+    maybeSleep("Step 7");
     t5s = nowMs();
     if (OPTS.RUN_set_ame_output_paths === false) {
-        log("Step 6 (set_ame_output_paths.jsx): SKIPPED by toggle.");
+        log("Step 7 (set_ame_output_paths.jsx): SKIPPED by toggle.");
         t5e = nowMs();
     } else {
-        log("Step 6: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
+        log("Step 7: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
     // Diagnostics for effective options (kept concise here)
     try {
         var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
@@ -560,7 +588,7 @@
         $.evalFile(SET_AME_PATH);
         if (typeof AE_AME !== "undefined" && AE_AME && typeof AE_AME.run === "function") {
             // Pass comps directly; control queueing via top-level toggle
-            log("Step 6: Queue to AME = " + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF"));
+            log("Step 7: Queue to AME = " + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF"));
             var __opts5 = (OPTS.ame || {});
             if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts5.ENABLE_FILE_LOG = false; } catch(eMS5) {} }
             var res5 = AE_AME.run({ comps: AE_PIPE.results.pack, runId: RUN_ID, log: log, noQueue: !PIPELINE_QUEUE_TO_AME, options: __opts5 });
@@ -568,10 +596,10 @@
             step5UsedAPI = true;
         }
     } catch (e5) {
-        log("Step 6 API path failed, falling back to default behavior. Error: " + (e5 && e5.message ? e5.message : e5));
+        log("Step 7 API path failed, falling back to default behavior. Error: " + (e5 && e5.message ? e5.message : e5));
     }
         // No fallback: avoid double execution and potential undo/queue conflicts
-        log("Step 6: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
+    log("Step 7: AME paths set (count proxy): " + AE_PIPE.results.ame.length);
         t5e = nowMs();
     }
 
@@ -581,7 +609,7 @@
     summary.push("Pipeline complete.");
     var layersAddedTotal = 0; try { layersAddedTotal = (AE_PIPE.results.meta && AE_PIPE.results.meta.addLayersAddedTotal) ? AE_PIPE.results.meta.addLayersAddedTotal : 0; } catch(eMT) {}
     summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length + ", layersAddedTotal=" + layersAddedTotal);
-    summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
+    summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
     var finalMsg = summary.join("\n");
     log(finalMsg);
     try { log("=== PIPELINE RUN END ==="); } catch(eFtr) {}
