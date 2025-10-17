@@ -196,6 +196,11 @@
                     v.push("  insertRelink.DATA_JSON_ISO_MODE=" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||""));
                     v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
                 }
+                // saveAsISO
+                if (OPTS.saveAsISO) {
+                    v.push("  saveAsISO.OVERWRITE=" + (OPTS.saveAsISO.OVERWRITE === true));
+                    v.push("  saveAsISO.iso=" + (OPTS.saveAsISO.iso||""));
+                }
                 // addLayers
                 if (OPTS.addLayers) {
                     v.push("  addLayers.ENABLE_FILE_LOG=" + (OPTS.addLayers.ENABLE_FILE_LOG !== false));

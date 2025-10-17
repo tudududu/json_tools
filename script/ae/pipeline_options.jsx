@@ -47,7 +47,8 @@
         RUN_add_layers_to_comp: true,
         RUN_pack_output_comps: true,
         RUN_set_ame_output_paths: true,
-        RUN_link_data: true,
+    RUN_link_data: true,
+    RUN_save_as_iso: true,
 
         // When true, phases may forward selected messages into the unified pipeline log
         PHASES_SHARE_PIPELINE_LOG: false,
@@ -73,6 +74,11 @@
             DATA_JSON_IMPORT_IF_MISSING: true,
             DATA_JSON_RENAME_IMPORTED_TO_CANONICAL: true,
             DATA_JSON_LOG_VERBOSE: true
+        },
+        // New phase: Save As (include ISO)
+        saveAsISO: {
+            OVERWRITE: false,     // If true, overwrite existing <name>_<ISO>.aep; otherwise append _<runId>
+            iso: ""              // Optional explicit ISO override when Step 1 result is unavailable
         },
         createComps: {
             ENABLE_FILE_LOG: true,
