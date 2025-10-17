@@ -42,13 +42,13 @@
         ENABLE_FINAL_ALERT: true,
 
         // Phase run toggles (default ON). Names mirror script files for recognisability.
+        RUN_link_data: true,
+        RUN_save_as_iso: true,
         RUN_create_compositions: true,
         RUN_insert_and_relink_footage: true,
         RUN_add_layers_to_comp: true,
         RUN_pack_output_comps: true,
         RUN_set_ame_output_paths: true,
-    RUN_link_data: true,
-    RUN_save_as_iso: true,
 
         // When true, phases may forward selected messages into the unified pipeline log
         PHASES_SHARE_PIPELINE_LOG: false,

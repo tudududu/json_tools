@@ -8,12 +8,13 @@
 "sleepBetweenPhasesMs": 250,
 "ENABLE_FINAL_ALERT": false,
 
+"RUN_link_data": true,
+"RUN_save_as_iso": true,
 "RUN_create_compositions": true,
 "RUN_insert_and_relink_footage": true,
 "RUN_add_layers_to_comp": true,
 "RUN_pack_output_comps": true,
 "RUN_set_ame_output_paths": true,
-"RUN_link_data": true,
 
 "PHASES_SHARE_PIPELINE_LOG": true,
 "LOG_WITH_TIMESTAMPS": false,
@@ -35,6 +36,10 @@
     "DATA_JSON_IMPORT_IF_MISSING": true,
     "DATA_JSON_RENAME_IMPORTED_TO_CANONICAL": true,
     "DATA_JSON_LOG_VERBOSE": true
+},
+"saveAsISO": {
+    "OVERWRITE": false,
+    "iso": ""
 },
 "createComps": {
     "ENABLE_FILE_LOG": true,

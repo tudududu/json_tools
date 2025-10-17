@@ -33,3 +33,11 @@ AME export base
 Tips
 - Keep phase settings under their namespace (linkData, createComps, insertRelink, addLayers, pack, ame).
 - When in doubt, check `script/ae/pipeline_options.jsx` for defaults and comments.
+
+Save As (include ISO)
+- Step 2 saves the current project next to the original `.aep` as `<name>_<ISO>.aep`.
+- ISO is taken from Step 1 (link_data) when available; you can override using `saveAsISO.iso`.
+- Options:
+  - `RUN_save_as_iso` (boolean): enable/disable Step 2. Default: true.
+  - `saveAsISO.OVERWRITE` (boolean): when true, overwrite `<name>_<ISO>.aep` if it exists; when false (default), use `<name>_<ISO>_<runId>.aep` to avoid collision.
+  - `saveAsISO.iso` (string): manual ISO override used if Step 1 did not provide one.

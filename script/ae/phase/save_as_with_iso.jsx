@@ -75,7 +75,7 @@ if (typeof AE_SaveAsISO === 'undefined') { AE_SaveAsISO = {}; }
             return { ok: false, iso: null, origin: isoInfo.origin, savedPath: null, existed: false, overwritten: false };
         }
         var res = __saveAsWithISO(isoInfo.iso, runId, log, options);
-        L.info(((typeof AE_PIPE!=='undefined' && AE_PIPE && AE_PIPE.optionsEffective && AE_PIPE.optionsEffective.PIPELINE_SHOW_PHASE_TAGS)? 'INFO {save_as_iso} ' : '') + 'Saved project as: ' + res.savedPath);
+        L.info(((typeof AE_PIPE!=='undefined' && AE_PIPE && AE_PIPE.optionsEffective && AE_PIPE.optionsEffective.PIPELINE_SHOW_PHASE_TAGS)? /*'INFO {save_as_iso} '*/ '' : '') + 'Saved project as: ' + res.savedPath);
         return res;
     };
 })(AE_SaveAsISO);
