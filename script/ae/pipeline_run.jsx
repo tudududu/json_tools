@@ -195,6 +195,8 @@
                     v.push("  insertRelink.ENABLE_RELINK_DATA_JSON=" + (OPTS.insertRelink.ENABLE_RELINK_DATA_JSON !== false));
                     v.push("  insertRelink.DATA_JSON_ISO_MODE=" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||""));
                     v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
+                    v.push("  insertRelink.ENABLE_CHECK_AUDIO_ISO=" + (OPTS.insertRelink.ENABLE_CHECK_AUDIO_ISO === true));
+                    v.push("  insertRelink.CHECK_AUDIO_ISO_STRICT=" + (OPTS.insertRelink.CHECK_AUDIO_ISO_STRICT === true));
                 }
                 // saveAsISO
                 if (OPTS.saveAsISO) {
@@ -445,6 +447,13 @@
             var __opts2 = (OPTS.insertRelink || {});
             if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts2.ENABLE_FILE_LOG = false; } catch(eMS2) {} }
             var res2 = AE_InsertRelink.run({ comps: AE_PIPE.results.createComps, runId: RUN_ID, log: log, options: __opts2 });
+            // If the phase marked a fatal error (e.g., strict ISO mismatch), stop the pipeline early.
+            try {
+                if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__fatal) {
+                    log("FATAL: " + AE_PIPE.__fatal);
+                    return; // terminate pipeline IIFE
+                }
+            } catch(eFatal) {}
             if (res2 && res2.processed) AE_PIPE.results.insertRelink = res2.processed;
             step2UsedAPI = true;
         }

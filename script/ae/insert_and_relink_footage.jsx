@@ -74,6 +74,9 @@ function __InsertRelink_coreRun(opts) {
     var DATA_JSON_IMPORT_IF_MISSING = true;       // Import if project item missing
     var DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = true; // Rename imported item to data.json even if file name differs
     var DATA_JSON_LOG_VERBOSE = true;             // Extra logging for relink process
+    // New: audio filename ISO check options
+    var ENABLE_CHECK_AUDIO_ISO = false;            // Phase 1: toggle checking
+    var CHECK_AUDIO_ISO_STRICT = false;            // Phase 2: strict mode => alert + abort pipeline
 
     // Options overrides
     try {
@@ -92,6 +95,8 @@ function __InsertRelink_coreRun(opts) {
             if (o.DATA_JSON_IMPORT_IF_MISSING !== undefined) DATA_JSON_IMPORT_IF_MISSING = !!o.DATA_JSON_IMPORT_IF_MISSING;
             if (o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL !== undefined) DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = !!o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL;
             if (o.DATA_JSON_LOG_VERBOSE !== undefined) DATA_JSON_LOG_VERBOSE = !!o.DATA_JSON_LOG_VERBOSE;
+            if (o.ENABLE_CHECK_AUDIO_ISO !== undefined) ENABLE_CHECK_AUDIO_ISO = !!o.ENABLE_CHECK_AUDIO_ISO;
+            if (o.CHECK_AUDIO_ISO_STRICT !== undefined) CHECK_AUDIO_ISO_STRICT = !!o.CHECK_AUDIO_ISO_STRICT;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
     } catch (eOpt) {}
@@ -605,6 +610,27 @@ function __InsertRelink_coreRun(opts) {
         collectFootageItemsRecursiveFolderItem(importedFolderItem, allFootage);
     }
     var inserted = 0, missed = [];
+    function __extractISOFromAudioName(name){
+        // Expect token3 to be the ISO: Title_Dur_ISO_... e.g. AlBalad_06s_ENG_v02_...
+        try {
+            var base = String(name||"");
+            var parts = base.split(/[_\s]+/);
+            if (parts.length >= 3) {
+                var t = parts[2];
+                // Normalize to upper three letters; ignore trailing punctuation
+                var m = String(t).match(/^([A-Za-z]{3})/);
+                if (m && m[1]) return m[1].toUpperCase();
+            }
+        } catch(eNI) {}
+        return null;
+    }
+    function __getProjectISO(){
+        // Prefer Step 1 result
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) return String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(e1){}
+        try { if (DATA_JSON_ISO_CODE) return String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(e2){}
+        return null;
+    }
+
     for (var ci = 0; ci < comps.length; ci++) {
         var comp = comps[ci];
         var tokenPair = getTokenPairFromCompName(comp.name);
@@ -616,6 +642,23 @@ function __InsertRelink_coreRun(opts) {
         if (!match) {
             missed.push(comp.name + " (no audio for '" + tokenPair + "')");
             continue;
+        }
+        // Optional: validate ISO token in audio filename
+        if (ENABLE_CHECK_AUDIO_ISO) {
+            var audioISO = __extractISOFromAudioName(match.name);
+            var projectISO = __getProjectISO();
+            if (projectISO && audioISO && audioISO !== projectISO) {
+                var msg = "Audio ISO mismatch: audio='" + audioISO + "' vs project='" + projectISO + "' (comp='" + comp.name + "', file='" + match.name + "')";
+                if (CHECK_AUDIO_ISO_STRICT) {
+                    // Mark fatal for pipeline orchestrator and show alert in non-pipeline
+                    try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = msg; } } catch(eF) {}
+                    alertOnce(msg);
+                    app.endUndoGroup();
+                    return { processed: [] };
+                } else {
+                    log("[warn] " + msg);
+                }
+            }
         }
         // Insert audio
         try {
