@@ -53,7 +53,7 @@ jobs:
           pytest --cov=python --cov-branch --cov-config=.coveragerc \
             --cov-report=term-missing \
             --cov-report=xml:python/tests/coverage/coverage.xml \
-            --cov-fail-under=${{ env.COVERAGE_FAIL_UNDER }}
+            --cov-fail-under=${COVERAGE_FAIL_UNDER}
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
