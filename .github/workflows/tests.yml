@@ -3,13 +3,28 @@ name: tests
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'python/**'
+      - '.github/workflows/tests.yml'
+      - 'requirements-test.txt'
+      - '.coveragerc'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'python/**'
+      - '.github/workflows/tests.yml'
+      - 'requirements-test.txt'
+      - '.coveragerc'
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.10', '3.11', '3.12' ]
+    env:
+      COVERAGE_FAIL_UNDER: '70'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: |
             requirements-test.txt
@@ -37,7 +52,8 @@ jobs:
           mkdir -p python/tests/coverage
           pytest --cov=python --cov-branch --cov-config=.coveragerc \
             --cov-report=term-missing \
-            --cov-report=xml:python/tests/coverage/coverage.xml
+            --cov-report=xml:python/tests/coverage/coverage.xml \
+            --cov-fail-under=${{ env.COVERAGE_FAIL_UNDER }}
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
