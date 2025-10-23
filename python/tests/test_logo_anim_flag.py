@@ -3,6 +3,8 @@ import json, subprocess, os, sys, tempfile, shutil, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 PROJECT = os.path.dirname(ROOT)
+# Note: Avoid relying on external input files that may be .gitignored in CI.
+# Tests below create their own minimal CSV fixtures in temp directories.
 CSV_REL = 'in/data_in_251006_v19.csv'
 CSV_PATH = os.path.join(PROJECT, CSV_REL)
 CONVERTER = os.path.join(PROJECT, 'python', 'csv_to_subtitles_json.py')
@@ -24,8 +26,24 @@ class LogoAnimFlagTests(unittest.TestCase):
     def test_overview_present_and_per_video_injection(self):
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_')
         try:
+            # Create a minimal CSV with mapping and one 120s video
+            csv_path = os.path.join(tmpdir, 'sample.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU;SAU;SAU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;30;Y;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;120;N;;;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_120s;;;;duration;N;ALL;120;;;;;;\n'
+                'meta_local;WTA_120s;;;;title;N;ALL;WTA;;;;;;\n'
+                'sub;WTA_120s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
             out_pattern = os.path.join(tmpdir, 'out_{country}.json')
-            run([sys.executable, CONVERTER, CSV_PATH, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
             deu_path = out_pattern.replace('{country}', 'DEU')
             self.assertTrue(os.path.isfile(deu_path), 'DEU output missing')
             data = load_json(deu_path)
@@ -49,8 +67,23 @@ class LogoAnimFlagTests(unittest.TestCase):
     def test_overview_removed_with_flag(self):
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_off_')
         try:
+            # Minimal CSV as above
+            csv_path = os.path.join(tmpdir, 'sample.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU;SAU;SAU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;120;N;;;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_120s;;;;duration;N;ALL;120;;;;;;\n'
+                'meta_local;WTA_120s;;;;title;N;ALL;WTA;;;;;;\n'
+                'sub;WTA_120s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
             out_pattern = os.path.join(tmpdir, 'out_{country}.json')
-            run([sys.executable, CONVERTER, CSV_PATH, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern, '--no-logo-anim-overview'])
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern, '--no-logo-anim-overview'])
             deu_path = out_pattern.replace('{country}', 'DEU')
             data = load_json(deu_path)
             mg = data.get('metadataGlobal', {})
@@ -66,8 +99,24 @@ class LogoAnimFlagTests(unittest.TestCase):
     def test_trimmed_overview_no_nested_objects(self):
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_trim_')
         try:
+            # Create a CSV with two durations to populate overview
+            csv_path = os.path.join(tmpdir, 'sample.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU;SAU;SAU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;30;Y;;;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;120;N;;;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_120s;;;;duration;N;ALL;120;;;;;;\n'
+                'meta_local;WTA_120s;;;;title;N;ALL;WTA;;;;;;\n'
+                'sub;WTA_120s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
             out_pattern = os.path.join(tmpdir, 'out_{country}.json')
-            run([sys.executable, CONVERTER, CSV_PATH, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
             deu_path = out_pattern.replace('{country}', 'DEU')
             data = load_json(deu_path)
             mapping = data.get('metadataGlobal', {}).get('logo_anim_flag', {})
