@@ -9,5 +9,14 @@
       ".github/workflows/*.yaml"
     ]
   },
-  "makefile.configureOnOpen": false
+  "makefile.configureOnOpen": false,
+  "python.testing.unittestEnabled": true,
+  "python.testing.pytestEnabled": false,
+  "python.testing.unittestArgs": [
+    "-v",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_*.py"
+  ]
 }
