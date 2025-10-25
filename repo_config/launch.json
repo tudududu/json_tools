@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Unittest (discover all)",
+      "type": "python",
+      "request": "launch",
+      "module": "unittest",
+      "args": [
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Debug: Unittest (single test)",
+      "type": "python",
+      "request": "launch",
+      "module": "unittest",
+      "args": [
+        "-v",
+        "${input:unittestTestSpecifier}"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "unittestTestSpecifier",
+      "type": "promptString",
+      "description": "Unittest test specifier (file path or dotted name). Examples: python/tests/test_logo_anim_flag.py or python.tests.test_logo_anim_flag.LogoAnimFlagTests.test_overview_present_and_per_video_injection",
+      "default": "python/tests/test_logo_anim_flag.py"
+    }
+  ]
+}
