@@ -8,5 +8,6 @@
       ".github/workflows/*.yml",
       ".github/workflows/*.yaml"
     ]
-  }
+  },
+  "makefile.configureOnOpen": false
 }
