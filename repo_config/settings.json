@@ -1,0 +1,12 @@
+{
+  "files.associations": {
+    "**/.github/workflows/*.yml": "github-actions-workflow",
+    "**/.github/workflows/*.yaml": "github-actions-workflow"
+  },
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": [
+      ".github/workflows/*.yml",
+      ".github/workflows/*.yaml"
+    ]
+  }
+}
