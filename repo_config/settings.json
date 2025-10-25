@@ -28,8 +28,8 @@
       "path": "zsh",
       "args": ["-i"],
       "env": {
-        "VIRTUAL_ENV": "${workspaceFolder}/.venv",
-        "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
+        "ZDOTDIR": "${workspaceFolder}/.vscode/zsh",
+        "WORKSPACE_FOLDER": "${workspaceFolder}"
       }
     }
   },
