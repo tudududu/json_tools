@@ -25,7 +25,13 @@
   "terminal.integrated.profiles.osx": {
     "Venv (json_tools)": {
       "path": "zsh",
-  "args": ["-i", "-c", "export VIRTUAL_ENV='${workspaceFolder}/.venv'; export PATH='${workspaceFolder}/.venv/bin:'$PATH; exec zsh -i"]
+      "args": ["-i"],
+      "env": {
+        "ZDOTDIR": "${workspaceFolder}/.vscode/zsh",
+        "WORKSPACE_FOLDER": "${workspaceFolder}",
+        "VIRTUAL_ENV": "${workspaceFolder}/.venv",
+        "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
+      }
     }
   },
   "terminal.integrated.defaultProfile.osx": "Venv (json_tools)"
