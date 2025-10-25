@@ -48,6 +48,22 @@
         },
         "console": "internalConsole",
         "justMyCode": true
+      },
+      {
+        "name": "Debug: Unittest (single specific test example)",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "unittest",
+        "cwd": "${workspaceFolder}",
+        "args": [
+          "-v",
+          "python.tests.test_logo_anim_flag.LogoAnimFlagTests.test_overview_present_and_per_video_injection"
+        ],
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        },
+        "console": "internalConsole",
+        "justMyCode": true
       }
   ],
   "inputs": [
