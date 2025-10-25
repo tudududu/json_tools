@@ -3,30 +3,38 @@
   "configurations": [
     {
       "name": "Debug: Unittest (discover all)",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "unittest",
+      "cwd": "${workspaceFolder}",
       "args": [
         "discover",
         "-s",
-        "python/tests",
+        "${workspaceFolder}/python/tests",
         "-p",
         "test_*.py",
         "-v"
       ],
-      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "internalConsole",
       "justMyCode": true
     },
     {
       "name": "Debug: Unittest (single test)",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "unittest",
+      "cwd": "${workspaceFolder}",
       "args": [
         "-v",
         "${input:unittestTestSpecifier}"
       ],
-      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "internalConsole",
       "justMyCode": true
     }
   ],

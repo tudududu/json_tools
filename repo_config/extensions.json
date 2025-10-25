@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.makefile-tools"
+  ]
+}
