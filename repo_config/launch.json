@@ -36,7 +36,19 @@
       },
       "console": "internalConsole",
       "justMyCode": true
-    }
+    },
+    {
+        "name": "Debug: Custom runner (run_tests.py)",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/python/run_tests.py",
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        },
+        "console": "internalConsole",
+        "justMyCode": true
+      }
   ],
   "inputs": [
     {
