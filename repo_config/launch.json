@@ -64,7 +64,23 @@
         },
         "console": "internalConsole",
         "justMyCode": true
-      }
+        },
+        {
+          "name": "Debug: Unittest (single file example)",
+          "type": "debugpy",
+          "request": "launch",
+          "module": "unittest",
+          "cwd": "${workspaceFolder}",
+          "args": [
+            "-v",
+            "${workspaceFolder}/python/tests/test_logo_anim_flag.py"
+          ],
+          "env": {
+            "PYTHONPATH": "${workspaceFolder}"
+          },
+          "console": "internalConsole",
+          "justMyCode": true
+        }
   ],
   "inputs": [
     {
