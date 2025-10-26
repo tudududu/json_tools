@@ -386,6 +386,41 @@ class FlagsAndMergingTests(unittest.TestCase):
             self.assertEqual(v['metadata']['subtitle_flag'], 'S_FRA_OVR')
             self.assertEqual(v['metadata']['disclaimer_flag'], 'D_FRA_OVR')
 
+    def test_per_video_logo_anim_flag_overrides_supersede_overview(self):
+        # Build overview (duration 45) and per-video per-country overrides; ensure overrides win
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            # Overview for duration 45: default DEF45, GBL landscape L_GBL, FRA landscape L_FRA
+            'meta_global;;;;;logo_anim_flag;Y;45;DEF45;L_GBL;L_FRA;;\n'
+            # Video A duration 45 with per-country overrides in meta_local
+            'meta_local;VIDA;;;;duration;N;ALL;45;;;;\n'
+            'meta_local;VIDA;;;;title;N;ALL;TA;;;;\n'
+            'meta_local;VIDA;;;;logo_anim_flag;N;ALL;;OVR_GBL;OVR_FRA;;\n'
+            'sub;VIDA;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            # Video B duration 45 without overrides → should use overview per-country values
+            'meta_local;VIDB;;;;duration;N;ALL;45;;;;\n'
+            'meta_local;VIDB;;;;title;N;ALL;TB;;;;\n'
+            'sub;VIDB;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+        node = out['byCountry']
+        # VIDA per-country overrides win
+        for v in [vv for vv in node['GBL']['videos'] if vv['videoId'].startswith('VIDA_')]:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'OVR_GBL')
+        for v in [vv for vv in node['FRA']['videos'] if vv['videoId'].startswith('VIDA_')]:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'OVR_FRA')
+        # VIDB uses overview mapping (no portrait set, so landscape values L_GBL/L_FRA)
+        for v in [vv for vv in node['GBL']['videos'] if vv['videoId'].startswith('VIDB_')]:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'L_GBL')
+        for v in [vv for vv in node['FRA']['videos'] if vv['videoId'].startswith('VIDB_')]:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'L_FRA')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
