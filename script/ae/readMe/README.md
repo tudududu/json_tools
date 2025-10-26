@@ -43,7 +43,7 @@ Save As (include ISO)
   - `saveAsISO.iso` (string): manual ISO override used if Step 1 did not provide one.
 
 Audio ISO filename check (Insert & Relink)
-- When enabled, Step 4 checks the audio filename’s token 3 as a 3‑letter ISO (e.g., `AlBalad_06s_ENG_v02_...` -> `ENG`) against the project ISO.
+- When enabled, Step 4 parses a 3‑letter ISO token from the audio filename (preferring the token immediately after the duration like `06s`; e.g., `AlBalad_NEW_06s_ENG_v02_...` → `ENG`) and compares it against the project ISO.
 - Project ISO source: prefers Step 1 result (`linkData.iso`), fallback to `insertRelink.DATA_JSON_ISO_CODE` (auto/manual).
 - Options:
   - `insertRelink.ENABLE_CHECK_AUDIO_ISO` (boolean): enable the check. Default: false.

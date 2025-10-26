@@ -640,15 +640,42 @@ function __InsertRelink_coreRun(opts) {
     }
     var inserted = 0, missed = [];
     function __extractISOFromAudioName(name){
-        // Expect token3 to be the ISO: Title_Dur_ISO_... e.g. AlBalad_06s_ENG_v02_...
+        // Robustly extract a 3-letter ISO token from common filename patterns.
+        // Handles both: Title_06s_ENG_... and Title_NEW_06s_ENG_...
         try {
             var base = String(name||"");
             var parts = base.split(/[_\s]+/);
-            if (parts.length >= 3) {
-                var t = parts[2];
-                // Normalize to upper three letters; ignore trailing punctuation
-                var m = String(t).match(/^([A-Za-z]{3})/);
-                if (m && m[1]) return m[1].toUpperCase();
+            if (!parts || !parts.length) return null;
+            // Helper: clean token (strip extension) and upper
+            function cleanTok(tok){
+                var t = String(tok||"");
+                // drop extension if present
+                t = t.replace(/\.[^.]+$/, "");
+                return t.toUpperCase();
+            }
+            // Find index of first duration token like NN..Ns
+            var durIdx = -1;
+            for (var i=0; i<parts.length; i++) {
+                var p = cleanTok(parts[i]);
+                if (/^\d{1,4}S$/.test(p)) { durIdx = i; break; }
+            }
+            // Candidates to ignore as non-ISO 3-letter tokens
+            var IGNORE = { "NEW": true };
+            // Prefer the first 3-letter token after duration
+            if (durIdx >= 0) {
+                for (var j = durIdx + 1; j < parts.length; j++) {
+                    var pj = cleanTok(parts[j]);
+                    if (/^[A-Z]{3}$/.test(pj) && !IGNORE[pj]) {
+                        return pj;
+                    }
+                }
+            }
+            // Fallback: any standalone 3-letter token in the name (skip ignored and obvious non-ISO patterns)
+            for (var k=0; k<parts.length; k++) {
+                var pk = cleanTok(parts[k]);
+                if (/^[A-Z]{3}$/.test(pk) && !IGNORE[pk]) {
+                    return pk;
+                }
             }
         } catch(eNI) {}
         return null;
