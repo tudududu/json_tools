@@ -119,6 +119,97 @@ class FlagsAndMergingTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             mod.detect_columns(headers2, text_override='Nonexistent')
 
+    def test_orientation_mirroring_and_overrides(self):
+        # Duplicate GBL columns => second is portrait
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            # Global claims: row1 only landscape; row2 both orientations
+            'claim;;1;00:00:01:00;00:00:02:00;;;;;C1_land;\n'
+            'claim;;2;00:00:03:00;00:00:04:00;;;;;C2_land;C2_port\n'
+            # Logo one line landscape only
+            'logo;;1;00:00:05:00;00:00:06:00;;;;;L1;\n'
+            # One video with one subtitle; portrait text provided
+            'meta_local;VID_OVR;;;;title;N;ALL;T;\n'
+            'sub;VID_OVR;1;00:00:00:00;00:00:01:00;;;;;helloL;helloP\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        # Claim orientation arrays: portrait collects only explicit slots, then extends with remaining landscape entries
+        # For row1 (no portrait), nothing added; row2 adds C2_port; then extended with landscape[1] ('C2_land')
+        self.assertEqual(node['claim']['landscape'], ['C1_land', 'C2_land'])
+        self.assertEqual(node['claim']['portrait'], ['C2_port', 'C2_land'])
+        # Logo mirrors to portrait
+        self.assertEqual(node['logo']['portrait'], node['logo']['landscape'])
+        # Subtitles: portrait video should use portrait text when supplied
+        vids = node['videos']
+        v_land = next(v for v in vids if v['videoId'].endswith('_landscape'))
+        v_port = next(v for v in vids if v['videoId'].endswith('_portrait'))
+        self.assertEqual(v_land['subtitles'][0]['text'], 'helloL')
+        self.assertEqual(v_port['subtitles'][0]['text'], 'helloP')
+
+    def test_join_claim_edge_cases_none_timings(self):
+        # Multiple global claim rows without timings should join into one entry
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            'claim;;1;;;;;;;A;\n'
+            'claim;;2;;;;;;;B;\n'
+            # include a video to keep structure consistent
+            'meta_local;V;;;;title;N;ALL;T;\n'
+            'sub;V;1;00:00:00:00;00:00:01:00;;;;;x;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, join_claim=True)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        claims_land = node['claim']['landscape']
+        self.assertEqual(len(claims_land), 1)
+        self.assertIn('\n', claims_land[0])
+
+    def test_casting_edge_cases(self):
+        # Verify int/float/negative/spaced casting and non-numeric remains string
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            'meta_global;;;;;int1;Y;ALL;03;\n'
+            'meta_global;;;;;float1;Y;ALL;3.14;\n'
+            'meta_global;;;;;neg;Y;ALL;-7;\n'
+            'meta_global;;;;;spaced;Y;ALL; 8 ;\n'
+            'meta_global;;;;;floatint;Y;ALL;3.0;\n'
+            'meta_global;;;;;name;Y;ALL;v1;\n'
+            # one video and sub
+            'meta_local;V;;;;title;N;ALL;T;\n'
+            'sub;V;1;00:00:00:00;00:00:01:00;;;;;x;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, cast_metadata=True)
+        finally:
+            os.remove(path)
+
+        mg = out['byCountry']['GBL']['metadataGlobal']
+        self.assertIsInstance(mg['int1'], int)
+        self.assertEqual(mg['int1'], 3)
+        self.assertIsInstance(mg['float1'], float)
+        self.assertAlmostEqual(mg['float1'], 3.14, places=2)
+        self.assertEqual(mg['neg'], -7)
+        self.assertEqual(mg['spaced'], 8)
+        self.assertIsInstance(mg['floatint'], float)
+        self.assertEqual(mg['floatint'], 3.0)
+        self.assertIsInstance(mg['name'], str)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
