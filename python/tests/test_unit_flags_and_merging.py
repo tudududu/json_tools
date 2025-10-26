@@ -342,6 +342,50 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(v_land['claim'][0]['text'], 'G1')  # timing match
         self.assertEqual(v_land['claim'][1]['text'], 'G2')  # index fallback
 
+    def test_global_flags_propagation_vs_local_overrides(self):
+        # Two countries; meta_global provides defaults; meta_local overrides per-country for one video
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            # Global defaults: subtitle_flag and disclaimer_flag
+            'meta_global;;;;;subtitle_flag;Y;;S_DEF;S_GBL;;;\n'
+            'meta_global;;;;;disclaimer_flag;Y;;D_DEF;D_GBL;;;\n'
+            # Video 1: no overrides
+            'meta_local;VID1;;;;title;N;ALL;T1;;;;\n'
+            'sub;VID1;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            # Video 2: FRA overrides; GBL inherits global
+            'meta_local;VID2;;;;title;N;ALL;T2;;;;\n'
+            # Override both countries explicitly on one row (landscape columns)
+            'meta_local;VID2;;;;subtitle_flag;N;ALL;;S_GBL_OVR;S_FRA_OVR;;\n'
+            'meta_local;VID2;;;;disclaimer_flag;N;ALL;;D_GBL_OVR;D_FRA_OVR;;\n'
+            'sub;VID2;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+        # VID1 expectations: GBL from S_GBL/D_GBL, FRA from defaults S_DEF/D_DEF
+        node = out['byCountry']
+        v1_gbl = [v for v in node['GBL']['videos'] if v['videoId'].startswith('VID1_')]
+        v1_fra = [v for v in node['FRA']['videos'] if v['videoId'].startswith('VID1_')]
+        for v in v1_gbl:
+            self.assertEqual(v['metadata']['subtitle_flag'], 'S_GBL')
+            self.assertEqual(v['metadata']['disclaimer_flag'], 'D_GBL')
+        for v in v1_fra:
+            self.assertEqual(v['metadata']['subtitle_flag'], 'S_DEF')
+            self.assertEqual(v['metadata']['disclaimer_flag'], 'D_DEF')
+        # VID2 expectations: both countries pick their explicit overrides
+        v2_gbl = [v for v in node['GBL']['videos'] if v['videoId'].startswith('VID2_')]
+        v2_fra = [v for v in node['FRA']['videos'] if v['videoId'].startswith('VID2_')]
+        for v in v2_gbl:
+            self.assertEqual(v['metadata']['subtitle_flag'], 'S_GBL_OVR')
+            self.assertEqual(v['metadata']['disclaimer_flag'], 'D_GBL_OVR')
+        for v in v2_fra:
+            self.assertEqual(v['metadata']['subtitle_flag'], 'S_FRA_OVR')
+            self.assertEqual(v['metadata']['disclaimer_flag'], 'D_FRA_OVR')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

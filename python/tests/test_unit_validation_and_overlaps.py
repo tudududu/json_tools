@@ -106,6 +106,30 @@ class ValidationAndOverlapTests(unittest.TestCase):
         finally:
             os.remove(path)
 
+    def test_no_orientation_validation_path(self):
+        # Unified schema; validate-only with --no-orientation exercises alternate validator branch
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            'meta_local;VNO;;;;title;N;ALL;Title;\n'
+            'sub;VNO;1;00:00:00:00;00:00:01:00;;;;;Hello;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            # CLI validation path
+            rc = mod.main([path, os.path.join(os.path.dirname(path), 'unused.json'), '--validate-only', '--no-orientation'])
+            self.assertEqual(rc, 0)
+            # Convert shape check
+            data = mod.convert_csv_to_json(path, fps=25, no_orientation=True)
+            self.assertTrue(data.get('_multi'))
+            node = data['byCountry']['GBL']
+            self.assertIsInstance(node.get('claim'), list)
+            self.assertIsInstance(node.get('disclaimer'), list)
+            self.assertIsInstance(node.get('logo'), list)
+        finally:
+            os.remove(path)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
