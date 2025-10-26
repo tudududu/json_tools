@@ -1,3 +1,16 @@
+.PHONY: test test-cov-term test-cov-xml
+
+PY ?= .venv/bin/python3
+
+test:
+	$(PY) -m pytest -q
+
+test-cov-term:
+	$(PY) -m pytest --cov=python --cov-branch --cov-report=term --cov-config=.coveragerc
+
+# Useful for CI-like local runs to refresh coverage.xml
+test-cov-xml:
+	$(PY) -m pytest --cov=python --cov-branch --cov-report=xml:python/tests/coverage/coverage.xml --cov-config=.coveragerc
 # Simple Makefile for tests and coverage
 
 .PHONY: test coverage pytest-cov clean
