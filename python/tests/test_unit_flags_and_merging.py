@@ -210,6 +210,89 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(mg['floatint'], 3.0)
         self.assertIsInstance(mg['name'], str)
 
+    def test_jobnumber_per_country_precedence(self):
+        # Two countries with duplicate columns (portrait present) to verify precedence
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            # jobNumber: metadata fallback provided, plus GBL landscape and FRA portrait; avoid ALL to prevent propagation
+            'meta_global;;;;;jobNumber;Y;;FALLBACK;GBL_SPEC;;;FRA_PORT;\n'
+            # one video and one subtitle
+            'meta_local;VID_J;;;;title;N;ALL;T;;;;\n'
+            'sub;VID_J;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+        gbl = out['byCountry']['GBL']['metadataGlobal']
+        fra = out['byCountry']['FRA']['metadataGlobal']
+        self.assertEqual(gbl['jobNumber'], 'GBL_SPEC')
+        self.assertEqual(fra['jobNumber'], 'FRA_PORT')
+
+    def test_logo_anim_flag_precedence_and_injection(self):
+        # Two countries with portrait/landscape/default for duration 45; default only for 60
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            # duration 45: default DEF45, GBL portrait P_GBL (should win), FRA landscape L_FRA
+            'meta_global;;;;;logo_anim_flag;Y;45;DEF45;L_GBL;L_FRA;P_GBL;\n'
+            # duration 60: default only
+            'meta_global;;;;;logo_anim_flag;Y;60;DEF60;;;;\n'
+            # videos VID1 (45) and VID2 (60)
+            'meta_local;VID1;;;;duration;N;ALL;45;;;;\n'
+            'meta_local;VID1;;;;title;N;ALL;T1;;;;\n'
+            'sub;VID1;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            'meta_local;VID2;;;;duration;N;ALL;60;;;;\n'
+            'meta_local;VID2;;;;title;N;ALL;T2;;;;\n'
+            'sub;VID2;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+        vids_gbl = [v for v in out['byCountry']['GBL']['videos'] if v['videoId'].startswith('VID1_')]
+        vids_fra = [v for v in out['byCountry']['FRA']['videos'] if v['videoId'].startswith('VID1_')]
+        for v in vids_gbl:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'P_GBL')
+        for v in vids_fra:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'L_FRA')
+        # Default-only duration 60 should inject DEF60 for both countries
+        vids_gbl_60 = [v for v in out['byCountry']['GBL']['videos'] if v['videoId'].startswith('VID2_')]
+        vids_fra_60 = [v for v in out['byCountry']['FRA']['videos'] if v['videoId'].startswith('VID2_')]
+        for v in vids_gbl_60 + vids_fra_60:
+            self.assertEqual(v['metadata']['logo_anim_flag'], 'DEF60')
+
+    def test_per_video_claim_join_and_synthetic_second(self):
+        # Global two claim strings (different timings) + per-video duplicate-timing rows
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            # global claim texts at two timings
+            'claim;;1;00:00:05:00;00:00:07:00;;;;;G1;\n'
+            'claim;;2;00:00:08:00;00:00:09:00;;;;;G2;\n'
+            # per-video claims at same timing as first global; will be joined
+            'meta_local;VJ;;;;title;N;ALL;T;\n'
+            'claim;VJ;1;00:00:05:00;00:00:07:00;;;;;X;\n'
+            'claim;VJ;2;00:00:05:00;00:00:07:00;;;;;Y;\n'
+            'sub;VJ;1;00:00:00:00;00:00:01:00;;;;;s;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, join_claim=True)
+        finally:
+            os.remove(path)
+        v_land = next(v for v in out['byCountry']['GBL']['videos'] if v['videoId'].endswith('_landscape'))
+        self.assertIn('claim', v_land)
+        self.assertEqual(len(v_land['claim']), 2)
+        self.assertEqual(v_land['claim'][0]['text'], 'G1')  # timing match
+        self.assertEqual(v_land['claim'][1]['text'], 'G2')  # index fallback
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
