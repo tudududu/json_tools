@@ -53,12 +53,16 @@ jobs:
       - name: Run tests (pytest-cov)
         env:
           PYTHONPATH: "${{ github.workspace }}:${{ github.workspace }}/python"
+          COVERAGE_SUBPROCESS: '1'
         run: |
           mkdir -p python/tests/coverage
           pytest --cov=python --cov-branch --cov-config=.coveragerc \
             --cov-report=term-missing \
             --cov-report=xml:python/tests/coverage/coverage.xml \
             --cov-fail-under=${COVERAGE_FAIL_UNDER}
+          # Also combine any parallel data produced by wrapped subprocesses and regenerate XML
+          python -m coverage combine || true
+          python -m coverage xml -o python/tests/coverage/coverage.xml || true
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

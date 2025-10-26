@@ -27,6 +27,8 @@ if __name__ == '__main__':
             os.environ['PYTHONPATH'] = os.pathsep.join(py_paths + [existing])
         else:
             os.environ['PYTHONPATH'] = os.pathsep.join(py_paths)
+        # Signal tests to wrap their subprocess CLI calls under coverage
+        os.environ['COVERAGE_SUBPROCESS'] = '1'
         # Run tests under coverage
         cov_cmd = [sys.executable, '-m', 'coverage', 'run', '--branch', '--source', 'python', '-m', 'unittest', 'discover', TEST_DIR, 'test_*.py']
         proc = subprocess.run(cov_cmd)

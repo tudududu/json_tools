@@ -11,6 +11,15 @@ CONVERTER = os.path.join(PROJECT, 'python', 'csv_to_subtitles_json.py')
 
 
 def run(cmd):
+    # If requested, wrap subprocess execution under coverage so CLI code is measured.
+    if os.getenv('COVERAGE_SUBPROCESS') == '1':
+        # Expect cmd like [sys.executable, CONVERTER, args...]
+        if cmd and cmd[0] == sys.executable:
+            cov_cmd = [
+                sys.executable, '-m', 'coverage', 'run', '-p', '--branch', '--source', 'python',
+                cmd[1]
+            ] + cmd[2:]
+            cmd = cov_cmd
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd)}\nSTDERR:\n{res.stderr}")
