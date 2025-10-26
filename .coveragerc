@@ -7,6 +7,13 @@ concurrency = multiprocessing
 omit =
     python/tests/*
     python/tools/*
+    python/sitecustomize.py
+    sitecustomize.py
+    usercustomize.py
+    python/run_tests.py
+disable_warnings =
+    no-data-collected
+    already-imported
 
 [report]
 show_missing = True
