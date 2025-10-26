@@ -143,6 +143,8 @@
     AE_PIPE.MODE = "pipeline";
     AE_PIPE.RUN_ID = RUN_ID;
     AE_PIPE.results = { createComps: [], insertRelink: [], addLayers: [], pack: [], ame: [] };
+    // Clear any stale fatal flag from a previous run to prevent unintended aborts
+    try { AE_PIPE.__fatal = null; } catch(eClrF) {}
     // Preserve user overrides (if provided) and expose effective options for consumers separately
     if (__userOpts && typeof __userOpts === 'object') { AE_PIPE.userOptions = __userOpts; }
     AE_PIPE.optionsEffective = OPTS;
