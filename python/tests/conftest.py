@@ -50,7 +50,15 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[override]
     try:
         # Combine in the workspace root; ignore failures and suppress noise.
         subprocess.run([sys.executable, '-m', 'coverage', 'combine'], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # Show a detailed report for visibility.
-        subprocess.run([sys.executable, '-m', 'coverage', 'report', '-m'], check=False)
+        # If pytest-cov is active, let it handle terminal reporting to avoid duplicate tables.
+        pm = getattr(session.config, 'pluginmanager', None)
+        opt = getattr(session.config, 'option', None)
+        using_pytest_cov = False
+        try:
+            using_pytest_cov = bool(pm and pm.hasplugin('pytest_cov') and getattr(opt, 'cov', None))
+        except Exception:
+            using_pytest_cov = False
+        if not using_pytest_cov:
+            subprocess.run([sys.executable, '-m', 'coverage', 'report', '-m'], check=False)
     except Exception:
         pass

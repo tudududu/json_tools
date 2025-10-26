@@ -16,7 +16,7 @@ disable_warnings =
     already-imported
 
 [report]
-show_missing = True
+show_missing = False
 skip_covered = False
 exclude_lines =
     pragma: no cover
