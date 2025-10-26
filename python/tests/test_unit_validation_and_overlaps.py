@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+import json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))
@@ -54,6 +55,56 @@ class ValidationAndOverlapTests(unittest.TestCase):
         finally:
             os.remove(path)
         self.assertEqual(rc, 1)
+
+    def test_unified_validation_report_missing_keys_warn(self):
+        # Unified schema with missing extra required key; should warn (not error) and write report
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            'meta_local;V;;;;title;N;ALL;Title;\n'
+            'sub;V;1;00:00:00:00;00:00:01:00;;;;;Hello;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, 'unused.json')
+                report_path = os.path.join(td, 'report.json')
+                rc = mod.main([
+                    path,
+                    out_json,
+                    '--validate-only',
+                    '--missing-keys-warn',
+                    '--required-global-keys', 'briefVersion,fps,extraReq',
+                    '--validation-report', report_path,
+                ])
+                self.assertEqual(rc, 0)
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    rep = json.load(f)
+                self.assertIn('countries', rep)
+                self.assertIn('summary', rep)
+                # Ensure warnings mention the missing key
+                countries_rep = rep.get('countries', [])
+                self.assertTrue(any('extraReq' in ' '.join(c.get('warnings', [])) for c in countries_rep))
+        finally:
+            os.remove(path)
+
+    def test_unified_per_video_subtitle_overlap_fails(self):
+        # Unified schema: per-video subtitles with overlapping times should trigger validation error
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;\n'
+            'meta_global;;;;;fps;Y;ALL;25;\n'
+            'meta_local;VID;;;;title;N;ALL;T;\n'
+            'sub;VID;1;00:00:00:00;00:00:02:00;;;;;A;\n'
+            'sub;VID;2;00:00:01:00;00:00:03:00;;;;;B;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            rc = mod.main([path, os.path.join(os.path.dirname(path), 'unused.json'), '--validate-only'])
+            self.assertEqual(rc, 1)
+        finally:
+            os.remove(path)
 
 
 if __name__ == '__main__':
