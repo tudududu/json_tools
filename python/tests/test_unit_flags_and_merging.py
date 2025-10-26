@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import tempfile
 import unittest
@@ -266,6 +267,54 @@ class FlagsAndMergingTests(unittest.TestCase):
         vids_fra_60 = [v for v in out['byCountry']['FRA']['videos'] if v['videoId'].startswith('VID2_')]
         for v in vids_gbl_60 + vids_fra_60:
             self.assertEqual(v['metadata']['logo_anim_flag'], 'DEF60')
+
+    def test_logo_anim_flag_overview_nested_and_trim_on_split(self):
+        # Build overview with per-country nesting for duration 45 and verify trimming on split export
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            # duration 45: default=DEF45, GBL portrait=P_OVR, FRA landscape=F_LAND
+            'meta_global;;;;;logo_anim_flag;Y;45;DEF45;G_LAND;F_LAND;P_OVR;\n'
+            # One video with duration 45 ensures country presence
+            'meta_local;VIDO;;;;duration;N;ALL;45;;;;\n'
+            'meta_local;VIDO;;;;title;N;ALL;T;;;;\n'
+            'sub;VIDO;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+        # Combined structure contains nested overview
+        overview = out['byCountry']['GBL']['metadataGlobal']['logo_anim_flag']
+        self.assertIsInstance(overview, dict)
+        self.assertIn('45', overview)
+        entry = overview['45']
+        self.assertIsInstance(entry, dict)
+        self.assertIn('_default', entry)
+        self.assertIn('GBL', entry)
+        self.assertIn('FRA', entry)
+        # Now run CLI split to test trimming per country
+        csv_path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_pattern = os.path.join(td, 'out_{country}.json')
+                # Call CLI main to trigger trimming
+                mod.main([csv_path, out_pattern, '--split-by-country'])
+                # Read both outputs
+                with open(os.path.join(td, 'out_GBL.json'), 'r', encoding='utf-8') as f:
+                    gbl = json.load(f)
+                with open(os.path.join(td, 'out_FRA.json'), 'r', encoding='utf-8') as f:
+                    fra = json.load(f)
+                # After trimming, values are scalars per country
+                self.assertIsInstance(gbl['metadataGlobal']['logo_anim_flag']['45'], str)
+                self.assertIsInstance(fra['metadataGlobal']['logo_anim_flag']['45'], str)
+                # Specific values: GBL picks portrait override P_OVR; FRA picks landscape F_LAND
+                self.assertEqual(gbl['metadataGlobal']['logo_anim_flag']['45'], 'P_OVR')
+                self.assertEqual(fra['metadataGlobal']['logo_anim_flag']['45'], 'F_LAND')
+        finally:
+            os.remove(csv_path)
 
     def test_per_video_claim_join_and_synthetic_second(self):
         # Global two claim strings (different timings) + per-video duplicate-timing rows
