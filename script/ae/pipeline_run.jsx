@@ -447,10 +447,21 @@
             var __opts2 = (OPTS.insertRelink || {});
             if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts2.ENABLE_FILE_LOG = false; } catch(eMS2) {} }
             var res2 = AE_InsertRelink.run({ comps: AE_PIPE.results.createComps, runId: RUN_ID, log: log, options: __opts2 });
-            // If the phase marked a fatal error (e.g., strict ISO mismatch), stop the pipeline early.
+            // If the phase marked a fatal error (e.g., strict ISO mismatch), emit a concise summary and stop early.
             try {
                 if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__fatal) {
-                    log("FATAL: " + AE_PIPE.__fatal);
+                    // Capture timing for this step before aborting
+                    try { t2e = nowMs(); } catch(eTe) {}
+                    var totalMsAbort = 0; try { totalMsAbort = nowMs() - t0All; } catch(eTm) {}
+                    var summary = [];
+                    summary.push("FATAL: Aborting: " + AE_PIPE.__fatal);
+                    summary.push("Pipeline aborted.");
+                    var layersAddedTotalAbort = 0; try { layersAddedTotalAbort = (AE_PIPE.results.meta && AE_PIPE.results.meta.addLayersAddedTotal) ? AE_PIPE.results.meta.addLayersAddedTotal : 0; } catch(eLTA) {}
+                    summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length + ", layersAddedTotal=" + layersAddedTotalAbort);
+                    summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMsAbort));
+                    var finalMsgAbort = summary.join("\n");
+                    log(finalMsgAbort);
+                    try { log("=== PIPELINE RUN END ==="); } catch(eEnd) {}
                     return; // terminate pipeline IIFE
                 }
             } catch(eFatal) {}
