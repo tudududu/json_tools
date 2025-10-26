@@ -34,6 +34,9 @@ function __InsertRelink_coreRun(opts) {
         if (__AE_PIPE__) { log(msg); return; }
         try { alert(msg); } catch (e) {}
     }
+    function alertAlways(msg) {
+        try { alert(msg); } catch (e) {}
+    }
 
     var proj = app.project;
     if (!proj) {
@@ -650,9 +653,11 @@ function __InsertRelink_coreRun(opts) {
             if (projectISO && audioISO && audioISO !== projectISO) {
                 var msg = "Audio ISO mismatch: audio='" + audioISO + "' vs project='" + projectISO + "' (comp='" + comp.name + "', file='" + match.name + "')";
                 if (CHECK_AUDIO_ISO_STRICT) {
-                    // Mark fatal for pipeline orchestrator and show alert in non-pipeline
+                    // Log as warning as well for consistent tagging
+                    log("[warn] " + msg);
+                    // Mark fatal for pipeline orchestrator and force a visible alert even in pipeline mode
                     try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = msg; } } catch(eF) {}
-                    alertOnce(msg);
+                    alertAlways(msg);
                     app.endUndoGroup();
                     return { processed: [] };
                 } else {

@@ -41,3 +41,10 @@ Save As (include ISO)
   - `RUN_save_as_iso` (boolean): enable/disable Step 2. Default: true.
   - `saveAsISO.OVERWRITE` (boolean): when true, overwrite `<name>_<ISO>.aep` if it exists; when false (default), use `<name>_<ISO>_<runId>.aep` to avoid collision.
   - `saveAsISO.iso` (string): manual ISO override used if Step 1 did not provide one.
+
+Audio ISO filename check (Insert & Relink)
+- When enabled, Step 4 checks the audio filename’s token 3 as a 3‑letter ISO (e.g., `AlBalad_06s_ENG_v02_...` -> `ENG`) against the project ISO.
+- Project ISO source: prefers Step 1 result (`linkData.iso`), fallback to `insertRelink.DATA_JSON_ISO_CODE` (auto/manual).
+- Options:
+  - `insertRelink.ENABLE_CHECK_AUDIO_ISO` (boolean): enable the check. Default: false.
+  - `insertRelink.CHECK_AUDIO_ISO_STRICT` (boolean): when true, a mismatch triggers an alert and aborts the pipeline; when false, a `[warn]` is logged and processing continues. Default: false.
