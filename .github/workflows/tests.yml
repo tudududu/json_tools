@@ -44,10 +44,15 @@ jobs:
           pip install pytest-cov
 
       - name: Run tests (unittest runner)
+        env:
+          COVERAGE: '1'
+          PYTHONPATH: "${{ github.workspace }}:${{ github.workspace }}/python"
         run: |
           python3 python/run_tests.py
 
       - name: Run tests (pytest-cov)
+        env:
+          PYTHONPATH: "${{ github.workspace }}:${{ github.workspace }}/python"
         run: |
           mkdir -p python/tests/coverage
           pytest --cov=python --cov-branch --cov-config=.coveragerc \

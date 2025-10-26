@@ -4,7 +4,6 @@ requires = []
 [tool.pytest.ini_options]
 addopts = "-q --maxfail=1"
 python_files = ["test_*.py"]
-python_paths = ["python"]
 
 [tool.coverage.run]
 branch = true

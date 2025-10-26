@@ -2,6 +2,8 @@
 branch = True
 source =
     python
+parallel = True
+concurrency = multiprocessing
 omit =
     python/tests/*
     python/tools/*
