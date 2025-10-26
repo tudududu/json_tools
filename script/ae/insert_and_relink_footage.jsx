@@ -64,6 +64,8 @@ function __InsertRelink_coreRun(opts) {
     var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // When true, remove all pre-existing audio-only layers (FootageItem with audio, no video) after inserting the new one
     var ENABLE_MUTE_EXISTING_AUDIO_LAYERS = true; // When true (and removal is false), mute (audioEnabled=false) on any other audio-capable layers
     var CLEAR_EXISTING_PROJECT_SOUND_FOLDER = true; // When true, BEFORE importing, clear AE Project panel folder project/in/sound/ (its contents only)
+    // When true, import from ISO-named subfolder under SOUND/<YYMMDD>/ matching the project ISO
+    var SOUND_USE_ISO_SUBFOLDER = false;
     // New: JSON data relink settings
     var ENABLE_RELINK_DATA_JSON = true;            // Master switch for data.json relink/import
     var DATA_JSON_ISO_CODE_MANUAL = "SAU";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
@@ -100,6 +102,7 @@ function __InsertRelink_coreRun(opts) {
             if (o.DATA_JSON_LOG_VERBOSE !== undefined) DATA_JSON_LOG_VERBOSE = !!o.DATA_JSON_LOG_VERBOSE;
             if (o.ENABLE_CHECK_AUDIO_ISO !== undefined) ENABLE_CHECK_AUDIO_ISO = !!o.ENABLE_CHECK_AUDIO_ISO;
             if (o.CHECK_AUDIO_ISO_STRICT !== undefined) CHECK_AUDIO_ISO_STRICT = !!o.CHECK_AUDIO_ISO_STRICT;
+            if (o.SOUND_USE_ISO_SUBFOLDER !== undefined) SOUND_USE_ISO_SUBFOLDER = !!o.SOUND_USE_ISO_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
     } catch (eOpt) {}
@@ -458,7 +461,30 @@ function __InsertRelink_coreRun(opts) {
         return;
     }
 
-    log("Importing SOUND folder: " + dateFolder.fsName);
+    // Determine actual folder to import (optionally pick ISO subfolder)
+    var soundImportFolder = dateFolder;
+    if (SOUND_USE_ISO_SUBFOLDER) {
+        var __projISO = null;
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI) {}
+        if (!__projISO) { try { if (DATA_JSON_ISO_CODE) __projISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF) {} }
+        if (__projISO) {
+            var subs = dateFolder.getFiles(function(f){ return f instanceof Folder; });
+            var matched = null;
+            for (var s=0; s<subs.length; s++) {
+                var nm = String(subs[s].name||"").toUpperCase();
+                if (nm === __projISO) { matched = subs[s]; break; }
+            }
+            if (matched) {
+                soundImportFolder = matched;
+            } else {
+                log("[warn] ISO subfolder '" + __projISO + "' not found under " + dateFolder.fsName + "; importing from date folder.");
+            }
+        } else {
+            log("[warn] Project ISO unavailable; cannot select ISO subfolder. Importing from date folder.");
+        }
+    }
+
+    log("Importing SOUND folder: " + soundImportFolder.fsName);
 
     // Optional Step 0: Clear existing AE project folder project/in/sound/ before new import
     if (CLEAR_EXISTING_PROJECT_SOUND_FOLDER) {
@@ -477,7 +503,7 @@ function __InsertRelink_coreRun(opts) {
     var importError = null;
     try {
         var io = new ImportOptions();
-        io.file = new Folder(dateFolder.fsName);
+    io.file = new Folder(soundImportFolder.fsName);
         if (typeof ImportAsType !== "undefined") {
             io.importAs = ImportAsType.FOLDER;
         }
@@ -488,16 +514,16 @@ function __InsertRelink_coreRun(opts) {
 
     // If direct import failed, perform recursive fallback by creating AE folder and importing contents
     if (!importedFolderItem) {
-        var destForFallback = ensureProjectPath(["project", "in", "sound"]);
-        var container = createChildFolder(destForFallback, dateFolder.name);
-        importFolderRecursive(dateFolder, container);
+    var destForFallback = ensureProjectPath(["project", "in", "sound"]);
+    var container = createChildFolder(destForFallback, soundImportFolder.name);
+    importFolderRecursive(soundImportFolder, container);
         // If at least one item was imported under container, treat it as success
         if (container && container.numItems > 0) {
             importedFolderItem = container;
             log("Imported via fallback into project/in/sound/" + container.name);
         } else {
             var emsg = "Import failed" + (importError ? (": " + (importError.message || importError)) : ".") +
-                       " Path: " + dateFolder.fsName;
+                       " Path: " + soundImportFolder.fsName;
             alertOnce(emsg);
             log(emsg);
             app.endUndoGroup();
@@ -510,7 +536,7 @@ function __InsertRelink_coreRun(opts) {
         var fallback = null;
         for (var k = proj.numItems; k >= 1; k--) {
             var it = proj.items[k];
-            if (it && it instanceof FolderItem && it.name === dateFolder.name) { fallback = it; break; }
+            if (it && it instanceof FolderItem && it.name === (soundImportFolder ? soundImportFolder.name : dateFolder.name)) { fallback = it; break; }
         }
         importedFolderItem = fallback || importedFolderItem;
     }

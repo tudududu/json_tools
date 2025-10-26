@@ -197,6 +197,7 @@
                     v.push("  insertRelink.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL||""));
                     v.push("  insertRelink.ENABLE_CHECK_AUDIO_ISO=" + (OPTS.insertRelink.ENABLE_CHECK_AUDIO_ISO === true));
                     v.push("  insertRelink.CHECK_AUDIO_ISO_STRICT=" + (OPTS.insertRelink.CHECK_AUDIO_ISO_STRICT === true));
+                    v.push("  insertRelink.SOUND_USE_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_USE_ISO_SUBFOLDER === true));
                 }
                 // saveAsISO
                 if (OPTS.saveAsISO) {

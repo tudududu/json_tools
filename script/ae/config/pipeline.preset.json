@@ -63,7 +63,8 @@
     "DATA_JSON_ISO_CODE": null,
     "DATA_JSON_ISO_MODE": "manual",
     "ENABLE_CHECK_AUDIO_ISO": true,
-    "CHECK_AUDIO_ISO_STRICT": true
+    "CHECK_AUDIO_ISO_STRICT": false,
+    "SOUND_USE_ISO_SUBFOLDER": true
     },
 "addLayers": {
     "ENABLE_FILE_LOG": false,
