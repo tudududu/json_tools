@@ -363,6 +363,7 @@
     } catch(eL) { 
         log("Step 1 (link_data) error: " + (eL && eL.message ? eL.message : eL)); 
         }
+    var resL1 = (typeof resL1 === 'undefined') ? null : resL1; // normalize in case of hoist differences
     if (resL1 && resL1.ok) {
     var isoLine = "ISO=" + (resL1.iso||"?") + " (" + (resL1.origin||"?") + "), relinked=" + (!!resL1.relinked) + ", imported=" + (!!resL1.imported);
     log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {link_data} " : "") + "Step 1: Link result: " + isoLine);

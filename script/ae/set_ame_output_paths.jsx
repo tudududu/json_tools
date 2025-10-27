@@ -509,58 +509,75 @@ function __AME_coreRun(opts) {
 
     var itemsToProcess = []; // Array of { rqi: RenderQueueItem, newlyAdded: bool }
     var addedCount = 0;
+    // Safe type render helper to avoid poking at host Error objects
+    function __safeTypeStr(x){
+        try {
+            if (x && x.constructor && x.constructor.name) return String(x.constructor.name);
+        } catch(e1) {}
+        try {
+            if (x && typeof x.toString === 'function') return String(x.toString());
+        } catch(e2) {}
+        try { return typeof x; } catch(e3) { return "(unknown)"; }
+    }
 
     // A) Process selection: add selected comps to RQ
     try { if (LOG_ENV_HEADER) log("Checkpoint: begin selection/RQ add phase (providedComps=" + ((opts && opts.comps && opts.comps.length)||0) + ")"); } catch(eDbgA) {}
     var providedComps = (opts && opts.comps && opts.comps.length) ? opts.comps : null;
     if (PROCESS_SELECTION || providedComps) {
-        var sel = providedComps || app.project.selection;
-        if (sel && sel.length) {
-            for (var s = 0; s < sel.length; s++) {
-                var it = sel[s];
-                if (!(it instanceof CompItem)) continue;
-                if (!ALLOW_DUPLICATE_RQ_ITEMS && compAlreadyInRQ(it)) {
-                    detailLines.push("Skip add (exists) " + it.name);
-                    continue;
-                }
-                var newRQI = null;
-                try { newRQI = rq.items.add(it); } catch (eAdd) { detailLines.push("Failed add " + it.name + ": " + eAdd); }
-                // Validate the returned object is actually a RenderQueueItem (AE sometimes can yield an Error object in rare cases)
-                var isValidRQI = false;
-                if (newRQI) {
+        try {
+            var sel = providedComps || app.project.selection;
+            if (sel && sel.length) {
+                for (var s = 0; s < sel.length; s++) {
+                    var it = null; try { it = sel[s]; } catch(eSel) { it = null; }
+                    if (!(it instanceof CompItem)) continue;
                     try {
-                        // Heuristic: must have a 'comp' property referencing the same comp and an 'outputModule' function
-                        if (newRQI.comp === it && typeof newRQI.outputModule === 'function') {
-                            isValidRQI = true;
+                        if (!ALLOW_DUPLICATE_RQ_ITEMS && compAlreadyInRQ(it)) {
+                            detailLines.push("Skip add (exists) " + it.name);
+                            continue;
                         }
-                    } catch (eVal) { isValidRQI = false; }
-                }
-                if (newRQI && !isValidRQI) {
-                    detailLines.push("Add returned non-RQ item (skipped) " + it.name + " type=" + (newRQI.constructor ? newRQI.constructor.name : typeof newRQI));
-                    newRQI = null;
-                }
-                if (newRQI) {
-                    // Apply templates if configured
-                    if (RENDER_SETTINGS_TEMPLATE) {
-                        try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { detailLines.push("Render settings template fail " + it.name + ": " + eRS); }
+                    } catch(eDup){ /* ignore duplicate check failure */ }
+                    var newRQI = null;
+                    try { newRQI = rq.items.add(it); } catch (eAdd) { detailLines.push("Failed add " + it.name + ": " + eAdd); newRQI = null; }
+                    // Validate the returned object is actually a RenderQueueItem (AE sometimes can yield an Error object in rare cases)
+                    var isValidRQI = false;
+                    if (newRQI) {
+                        try {
+                            // Heuristic: must have a 'comp' property referencing the same comp and an 'outputModule' function
+                            if (newRQI.comp === it && typeof newRQI.outputModule === 'function') {
+                                isValidRQI = true;
+                            }
+                        } catch (eVal) { isValidRQI = false; }
                     }
-                    var omNew = null;
-                    try { omNew = newRQI.outputModule(1); } catch (eOMn) {}
-                    if (omNew && OUTPUT_MODULE_TEMPLATE) {
-                        try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
+                    if (newRQI && !isValidRQI) {
+                        var tstr = __safeTypeStr(newRQI);
+                        try { detailLines.push("Add returned non-RQ item (skipped) " + it.name + " type=" + tstr); } catch(eDL) {}
+                        newRQI = null;
                     }
-                    var chosenDynTemplate = null;
-                    if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
-                        var toks = parseTokensFromName(it.name);
-                        var dynTemplate = pickOutputModuleTemplate(toks);
-                        if (dynTemplate && dynTemplate.length) {
-                            try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); chosenDynTemplate = dynTemplate; } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
+                    if (newRQI) {
+                        // Apply templates if configured
+                        if (RENDER_SETTINGS_TEMPLATE) {
+                            try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { detailLines.push("Render settings template fail " + it.name + ": " + eRS); }
                         }
+                        var omNew = null;
+                        try { omNew = newRQI.outputModule(1); } catch (eOMn) { omNew = null; }
+                        if (omNew && OUTPUT_MODULE_TEMPLATE) {
+                            try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
+                        }
+                        var chosenDynTemplate = null;
+                        if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+                            var toks = parseTokensFromName(it.name);
+                            var dynTemplate = pickOutputModuleTemplate(toks);
+                            if (dynTemplate && dynTemplate.length) {
+                                try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); chosenDynTemplate = dynTemplate; } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
+                            }
+                        }
+                        itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
+                        addedCount++;
                     }
-                    itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
-                    addedCount++;
                 }
             }
+        } catch(eSelPhase) {
+            log("Selection phase error: " + eSelPhase);
         }
     }
 
@@ -597,6 +614,7 @@ function __AME_coreRun(opts) {
 
     // ————— Assign Output Paths —————
     var processed = 0, skipped = 0, unsorted = 0, changedCount = 0;
+    try {
     for (var idx = 0; idx < itemsToProcess.length; idx++) {
         var entry = itemsToProcess[idx];
         var rqi = entry.rqi;
@@ -608,7 +626,8 @@ function __AME_coreRun(opts) {
         try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
         if (!om) { skipped++; detailLines.push("No OM " + rqi.comp.name); continue; }
 
-        var compName = rqi.comp.name;
+    var compName = "(unnamed)";
+    try { if (rqi && rqi.comp && rqi.comp.name) compName = rqi.comp.name; } catch(eCN) { compName = "(unnamed)"; }
         // Some AE versions can throw when accessing om.file (e.g., uninitialized state); guard it
         var curFile = null;
         try { curFile = om.file; }
@@ -672,6 +691,9 @@ function __AME_coreRun(opts) {
             skipped++;
             detailLines.push("FAIL set " + compName + ": " + eSet2);
         }
+    }
+    } catch(eAssignPhase) {
+        try { log("Assign paths phase error: " + eAssignPhase); } catch(eLogAP) {}
     }
 
     // --- End of preparation phase: close undo group early (only if we opened one) ---
