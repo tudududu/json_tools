@@ -55,3 +55,4 @@ Sound import from ISO subfolders (Insert & Relink)
 - If the ISO subfolder is missing or ISO is unavailable, the script falls back to importing the whole date folder and logs a `[warn]` line.
 - Option:
   - `insertRelink.SOUND_USE_ISO_SUBFOLDER` (boolean): enable ISO folder selection. Default: false.
+  - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported. Any subfolders inside `YYMMDD` are skipped entirely.

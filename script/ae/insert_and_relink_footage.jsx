@@ -498,36 +498,70 @@ function __InsertRelink_coreRun(opts) {
         log("Cleared project/in/sound/ contents (" + removedCount + " item(s) removed)");
     }
 
-    // Import the folder (as a folder). If direct import fails, do a recursive manual import fallback.
+    // Import strategy:
+    // - When SOUND_USE_ISO_SUBFOLDER=false, import ONLY top-level files from the YYMMDD folder (skip all subfolders).
+    // - Otherwise (true), import the folder recursively (existing behavior).
     var importedFolderItem = null;
-    var importError = null;
-    try {
-        var io = new ImportOptions();
-    io.file = new Folder(soundImportFolder.fsName);
-        if (typeof ImportAsType !== "undefined") {
-            io.importAs = ImportAsType.FOLDER;
+    if (!SOUND_USE_ISO_SUBFOLDER) {
+        // Flat import (no subfolders)
+        var destFlat = ensureProjectPath(["project", "in", "sound"]);
+        var flatContainer = createChildFolder(destFlat, soundImportFolder.name);
+        var entries = [];
+        try { entries = soundImportFolder.getFiles(function(f){ return f instanceof File; }); } catch(eGF) { entries = []; }
+        var importedCount = 0;
+        for (var ei = 0; ei < entries.length; ei++) {
+            var f = entries[ei];
+            try {
+                var ioFile = new ImportOptions(f);
+                var imported = proj.importFile(ioFile);
+                if (imported) { imported.parentFolder = flatContainer; importedCount++; }
+            } catch (eImpFile) {
+                log("Skip file '" + f.fsName + "' (" + (eImpFile && eImpFile.message ? eImpFile.message : eImpFile) + ")");
+            }
         }
-        importedFolderItem = proj.importFile(io);
-    } catch (e) {
-        importError = e;
-    }
-
-    // If direct import failed, perform recursive fallback by creating AE folder and importing contents
-    if (!importedFolderItem) {
-    var destForFallback = ensureProjectPath(["project", "in", "sound"]);
-    var container = createChildFolder(destForFallback, soundImportFolder.name);
-    importFolderRecursive(soundImportFolder, container);
-        // If at least one item was imported under container, treat it as success
-        if (container && container.numItems > 0) {
-            importedFolderItem = container;
-            log("Imported via fallback into project/in/sound/" + container.name);
+        if (importedCount > 0) {
+            importedFolderItem = flatContainer;
+            log("Imported flat (no subfolders) into project/in/sound/" + flatContainer.name);
         } else {
-            var emsg = "Import failed" + (importError ? (": " + (importError.message || importError)) : ".") +
-                       " Path: " + soundImportFolder.fsName;
-            alertOnce(emsg);
-            log(emsg);
+            // Nothing imported at top-level, clean up and abort early
+            try { flatContainer.remove(); } catch(eRm) {}
+            var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
+            alertOnce(emsgFlat + "\nIf your audio is organized by ISO subfolders, set insertRelink.SOUND_USE_ISO_SUBFOLDER=true.");
+            log(emsgFlat);
             app.endUndoGroup();
             return;
+        }
+    } else {
+        // Recursive import (original behavior)
+        var importError = null;
+        try {
+            var io = new ImportOptions();
+            io.file = new Folder(soundImportFolder.fsName);
+            if (typeof ImportAsType !== "undefined") {
+                io.importAs = ImportAsType.FOLDER;
+            }
+            importedFolderItem = proj.importFile(io);
+        } catch (e) {
+            importError = e;
+        }
+
+        // If direct import failed, perform recursive fallback by creating AE folder and importing contents
+        if (!importedFolderItem) {
+            var destForFallback = ensureProjectPath(["project", "in", "sound"]);
+            var container = createChildFolder(destForFallback, soundImportFolder.name);
+            importFolderRecursive(soundImportFolder, container);
+            // If at least one item was imported under container, treat it as success
+            if (container && container.numItems > 0) {
+                importedFolderItem = container;
+                log("Imported via fallback into project/in/sound/" + container.name);
+            } else {
+                var emsg = "Import failed" + (importError ? (": " + (importError.message || importError)) : ".") +
+                           " Path: " + soundImportFolder.fsName;
+                alertOnce(emsg);
+                log(emsg);
+                app.endUndoGroup();
+                return;
+            }
         }
     }
 
