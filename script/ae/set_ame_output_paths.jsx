@@ -462,9 +462,24 @@ function __AME_coreRun(opts) {
     try {
         if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
             var isoVal = null;
-            // Prefer disk scan first (more robust than project tree), then project-panel derive
-            try { if (ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder); } catch(eScanFirst) { if (LOG_ISO_EXTRACTION) log("ISO(SCAN): early error: " + eScanFirst); }
+            // 1) Prefer ISO determined in Step 1 (link_data phase)
+            try {
+                if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) {
+                    var __iso1 = String(__AE_PIPE__.results.linkData.iso);
+                    if (/^[A-Za-z]{3}$/.test(__iso1)) {
+                        isoVal = DATE_FOLDER_ISO_UPPERCASE ? __iso1.toUpperCase() : __iso1;
+                        if (LOG_ISO_EXTRACTION) {
+                            var __origin = null; try { __origin = String(__AE_PIPE__.results.linkData.origin||"link_data"); } catch(eOr) {}
+                            log("ISO(LINK_DATA): using '" + isoVal + "' from Step 1" + (__origin?(" ("+__origin+")") : ""));
+                        }
+                    }
+                }
+            } catch(eLD) { if (LOG_ISO_EXTRACTION) log("ISO(LINK_DATA): early error: " + eLD); }
+            // 2) Fallback to project-panel derive from the currently linked data.json
             try { if (!isoVal) isoVal = deriveISOFromDataFileName(); } catch(eDerive) { if (LOG_ISO_EXTRACTION) log("ISO(FN): early error: " + eDerive); }
+            // 3) Last resort: scan disk for any data_XXX.json (may pick a different ISO if multiple exist)
+            try { if (!isoVal && ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder); } catch(eScan) { if (LOG_ISO_EXTRACTION) log("ISO(SCAN): early error: " + eScan); }
+            // 4) Optional strict fallback
             if (!isoVal) {
                 if (REQUIRE_VALID_ISO) {
                     isoVal = DATE_FOLDER_ISO_FALLBACK;
