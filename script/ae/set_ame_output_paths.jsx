@@ -635,12 +635,13 @@ function __AME_coreRun(opts) {
         // Re-skip status DONE / RENDERING safeguard
         try { if (rqi.status === RQItemStatus.DONE || rqi.status === RQItemStatus.RENDERING) { skipped++; continue; } } catch (eS2) {}
 
-    var om = null;
-    try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
-    if (!om) { skipped++; try { detailLines.push("No OM " + (rqi && rqi.comp && rqi.comp.name ? rqi.comp.name : "(unnamed)")); } catch(eNoOM) { detailLines.push("No OM (unnamed)"); } continue; }
+        var om = null;
+        try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
+        if (!om) { skipped++; try { detailLines.push("No OM " + (rqi && rqi.comp && rqi.comp.name ? rqi.comp.name : "(unnamed)")); } catch(eNoOM) { detailLines.push("No OM (unnamed)"); } continue; }
 
     var compName = "(unnamed)";
     try { if (rqi && rqi.comp && rqi.comp.name) compName = rqi.comp.name; } catch(eCN) { compName = "(unnamed)"; }
+        if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("ASSIGN start -> " + compName); } catch(eA0) {} }
         // Some AE versions can throw when accessing om.file (e.g., uninitialized state); guard it
         var curFile = null;
         try { curFile = om.file; }
@@ -657,12 +658,15 @@ function __AME_coreRun(opts) {
         }
 
         var tokens = parseTokensFromName(compName);
+        if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("TOKENS -> ar=" + (tokens.ar||"-") + ", dur=" + (tokens.duration||"-") ); } catch(eT) {} }
         var dynTemplateUsed = entry.dynTemplate || null;
         if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
             var dynT = pickOutputModuleTemplate(tokens);
             if (dynT && dynT.length) {
                 try { om.applyTemplate(dynT); dynTemplateUsed = dynT; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
                 catch (eTpl) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl); }
+            } else {
+                if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("TEMPLATE SKIP (no map) -> " + compName); } catch(eTS) {} }
             }
         }
         var destParent = dateFolder;
@@ -683,12 +687,14 @@ function __AME_coreRun(opts) {
             unsorted++;
         }
         var destPath = joinPath(destParent.fsName, baseName + ext);
+        if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST -> " + destPath); } catch(eDP) {} }
         var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
         if (INJECT_PRESET_TOKEN_IN_FILENAME && dynTemplateUsed) {
             var token = dynTemplateUsed;
             if (FILENAME_TEMPLATE_SANITIZE) token = token.replace(/[^A-Za-z0-9_\-]+/g, "_");
             var injectedBase = baseName + "__" + token;
             destPath = joinPath(destParent.fsName, injectedBase + ext);
+            if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST(inject) -> " + destPath); } catch(eDPI) {} }
         }
         try {
             om.file = new File(destPath);
