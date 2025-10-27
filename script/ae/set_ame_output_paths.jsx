@@ -502,7 +502,9 @@ function __AME_coreRun(opts) {
             var n = __safeRQCount(rq);
             for (var i = 1; i <= n; i++) {
                 var rqi = null; try { rqi = rq.item(i); } catch(eIt) { rqi = null; }
-                if (rqi && rqi.comp === comp) {
+                var same = false;
+                try { same = (!!rqi && rqi.comp === comp); } catch(eCmpAcc) { same = false; }
+                if (same) {
                     // Skip only if item is not DONE (we can reuse to change output path)
                     try { if (rqi.status !== RQItemStatus.DONE) return true; } catch (e) { return true; }
                 }
@@ -534,14 +536,16 @@ function __AME_coreRun(opts) {
                 for (var s = 0; s < sel.length; s++) {
                     var it = null; try { it = sel[s]; } catch(eSel) { it = null; }
                     if (!(it instanceof CompItem)) continue;
-                    try {
-                        if (!ALLOW_DUPLICATE_RQ_ITEMS && compAlreadyInRQ(it)) {
-                            detailLines.push("Skip add (exists) " + it.name);
-                            continue;
-                        }
-                    } catch(eDup){ /* ignore duplicate check failure */ }
+                    // Trace comp under consideration
+                    try { log("Sel-> considering " + it.name); } catch(eLogC) {}
+                    var isDup = false;
+                    try { isDup = (!ALLOW_DUPLICATE_RQ_ITEMS && compAlreadyInRQ(it)); } catch(eDup){ isDup = false; }
+                    if (isDup) {
+                        try { detailLines.push("Skip add (exists) " + it.name); log("Sel-> skip (exists) " + it.name); } catch(eDL1) {}
+                        continue;
+                    }
                     var newRQI = null;
-                    try { newRQI = rq.items.add(it); } catch (eAdd) { detailLines.push("Failed add " + it.name + ": " + eAdd); newRQI = null; }
+                    try { newRQI = rq.items.add(it); } catch (eAdd) { try { detailLines.push("Failed add " + it.name + ": " + eAdd); log("Sel-> failed add " + it.name + ": " + eAdd); } catch(eDL2) {} newRQI = null; }
                     // Validate the returned object is actually a RenderQueueItem (AE sometimes can yield an Error object in rare cases)
                     var isValidRQI = false;
                     if (newRQI) {
@@ -554,26 +558,26 @@ function __AME_coreRun(opts) {
                     }
                     if (newRQI && !isValidRQI) {
                         var tstr = __safeTypeStr(newRQI);
-                        try { detailLines.push("Add returned non-RQ item (skipped) " + it.name + " type=" + tstr); } catch(eDL) {}
+                        try { detailLines.push("Add returned non-RQ item (skipped) " + it.name + " type=" + tstr); log("Sel-> invalid RQI type for " + it.name + ": " + tstr); } catch(eDL) {}
                         newRQI = null;
                     }
                     if (newRQI) {
-                        try { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("RQ add -> " + it.name); } catch(eAddLine) {}
+                        try { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("RQ add -> " + it.name); log("Sel-> added RQ -> " + it.name); } catch(eAddLine) {}
                         // Apply templates if configured
                         if (RENDER_SETTINGS_TEMPLATE) {
-                            try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { detailLines.push("Render settings template fail " + it.name + ": " + eRS); }
+                            try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { try { detailLines.push("Render settings template fail " + it.name + ": " + eRS); } catch(_) {} }
                         }
                         var omNew = null;
                         try { omNew = newRQI.outputModule(1); } catch (eOMn) { omNew = null; }
                         if (omNew && OUTPUT_MODULE_TEMPLATE) {
-                            try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { detailLines.push("OM template fail " + it.name + ": " + eOMt); }
+                            try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { try { detailLines.push("OM template fail " + it.name + ": " + eOMt); } catch(_) {} }
                         }
                         var chosenDynTemplate = null;
                         if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
                             var toks = parseTokensFromName(it.name);
                             var dynTemplate = pickOutputModuleTemplate(toks);
                             if (dynTemplate && dynTemplate.length) {
-                                try { omNew.applyTemplate(dynTemplate); detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); chosenDynTemplate = dynTemplate; } catch (eDyn) { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); }
+                                try { omNew.applyTemplate(dynTemplate); try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {} chosenDynTemplate = dynTemplate; } catch (eDyn) { try { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); } catch(_) {} }
                             }
                         }
                         itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
