@@ -238,11 +238,14 @@ function __AME_coreRun(opts) {
     }
     function findItemInFolderByName(folderItem, name) {
         if (!folderItem) return null;
-        for (var i=1;i<=folderItem.numItems;i++) {
-            var it = null;
-            try { it = folderItem.item(i); } catch(innerErr) { it = null; }
-            if (it && it.name === name) return it;
-        }
+        try {
+            var n = 0; try { n = folderItem.numItems; } catch(eN) { n = 0; }
+            for (var i=1;i<=n;i++) {
+                var it = null;
+                try { it = folderItem.item(i); } catch(innerErr) { it = null; }
+                try { if (it && it.name === name) return it; } catch(eNm) {}
+            }
+        } catch(eFF) {}
         return null;
     }
 
@@ -255,10 +258,12 @@ function __AME_coreRun(opts) {
             var folder = findProjectFolderPath(DATA_JSON_PROJECT_PATH);
             if (!folder) { if (LOG_ISO_EXTRACTION) log("ISO(FN): data folder path missing"); return null; }
             var item = findItemInFolderByName(folder, DATA_JSON_ITEM_NAME);
-            if (!item || !(item instanceof FootageItem)) { if (LOG_ISO_EXTRACTION) log("ISO(FN): data.json item not found"); return null; }
-            var srcFile = null; try { srcFile = item.mainSource ? item.mainSource.file : null; } catch(eMS) {}
+            if (!item) { if (LOG_ISO_EXTRACTION) log("ISO(FN): data.json item not found"); return null; }
+            var srcFile = null;
+            try { if (item.mainSource && item.mainSource.file) srcFile = item.mainSource.file; } catch(eMS) { srcFile = null; }
             if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO(FN): underlying file missing"); return null; }
-            var fname = srcFile.name || ""; // e.g. data_GBL.json
+            var fname = "";
+            try { fname = srcFile.name || ""; } catch(eNm) { fname = ""; }
             var m = fname.match(/^data_([A-Za-z]{3})\.json$/);
             if (!m) { if (LOG_ISO_EXTRACTION) log("ISO(FN): filename pattern mismatch '"+fname+"'"); return null; }
             var iso = m[1];
@@ -457,9 +462,9 @@ function __AME_coreRun(opts) {
     try {
         if (ENABLE_DATE_FOLDER_ISO_SUFFIX) {
             var isoVal = null;
-            // Filename-based only
-            isoVal = deriveISOFromDataFileName();
-            if (!isoVal && ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder);
+            // Prefer disk scan first (more robust than project tree), then project-panel derive
+            try { if (ISO_SCAN_DATA_FOLDER_FALLBACK) isoVal = scanISOFromDataDirectory(postFolder); } catch(eScanFirst) { if (LOG_ISO_EXTRACTION) log("ISO(SCAN): early error: " + eScanFirst); }
+            try { if (!isoVal) isoVal = deriveISOFromDataFileName(); } catch(eDerive) { if (LOG_ISO_EXTRACTION) log("ISO(FN): early error: " + eDerive); }
             if (!isoVal) {
                 if (REQUIRE_VALID_ISO) {
                     isoVal = DATE_FOLDER_ISO_FALLBACK;

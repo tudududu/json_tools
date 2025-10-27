@@ -20,9 +20,9 @@
 "RUN_save_as_iso": true,
 "RUN_create_compositions": true,
 "RUN_insert_and_relink_footage": true,
-"RUN_add_layers_to_comp": false,
-"RUN_pack_output_comps": false,
-"RUN_set_ame_output_paths": false,
+"RUN_add_layers_to_comp": true,
+"RUN_pack_output_comps": true,
+"RUN_set_ame_output_paths": true,
 
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
