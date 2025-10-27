@@ -681,6 +681,44 @@ function __AME_coreRun(opts) {
 
             var tokens = parseTokensFromName(compName);
             if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("TOKENS -> ar=" + (tokens.ar||"-") + ", dur=" + (tokens.duration||"-") ); } catch(eT) {} }
+
+            // 1) Create folders and set output path FIRST (independent of templates)
+            var destParent = dateFolder;
+            if (tokens.ar && tokens.duration) {
+                var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
+                var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
+                try { ensureFolderExists(durFolder); } catch(eFD) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FOLDER CREATE FAIL -> " + durFolder.fsName + ": " + eFD); }
+                // Record AR and duration folders as touched (regardless of pre-existence)
+                __markTouched(arFolder.fsName);
+                __markTouched(durFolder.fsName);
+                destParent = durFolder;
+            } else {
+                var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                try { ensureFolderExists(unsortedFolder); } catch(eFU) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FOLDER CREATE FAIL -> " + unsortedFolder.fsName + ": " + eFU); }
+                // Record unsorted when used
+                __markTouched(unsortedFolder.fsName);
+                destParent = unsortedFolder;
+                unsorted++;
+            }
+            var destPath = joinPath(destParent.fsName, baseName + ext);
+            if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST -> " + destPath); } catch(eDP) {} }
+            var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
+            try {
+                om.file = new File(destPath);
+                processed++;
+                var changed = false;
+                if (!entry.newlyAdded && originalPath) {
+                    // Compare normalized lower-case paths for change detection
+                    try { if (originalPath.toLowerCase() !== destPath.toLowerCase()) { changed = true; changedCount++; } } catch (eCmp) {}
+                }
+                var tag = entry.newlyAdded ? "ADD" : (changed ? "CHG" : "SET");
+                if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag + " -> " + compName + " => " + destPath);
+            } catch (eSet2) {
+                skipped++;
+                detailLines.push("FAIL set " + compName + ": " + eSet2);
+            }
+
+            // 2) Apply templates AFTER setting path, so path is independent of preset availability
             var dynTemplateUsed = entry.dynTemplate || null;
             if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
                 var dynT = pickOutputModuleTemplate(tokens);
@@ -710,46 +748,20 @@ function __AME_coreRun(opts) {
             }
             if (!dynTemplateUsed && detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE -> " + compName + " (proceeding)");
 
-            var destParent = dateFolder;
-            if (tokens.ar && tokens.duration) {
-                var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
-                var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
-                try { ensureFolderExists(durFolder); } catch(eFD) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FOLDER CREATE FAIL -> " + durFolder.fsName + ": " + eFD); }
-                // Record AR and duration folders as touched (regardless of pre-existence)
-                __markTouched(arFolder.fsName);
-                __markTouched(durFolder.fsName);
-                destParent = durFolder;
-            } else {
-                var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
-                try { ensureFolderExists(unsortedFolder); } catch(eFU) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FOLDER CREATE FAIL -> " + unsortedFolder.fsName + ": " + eFU); }
-                // Record unsorted when used
-                __markTouched(unsortedFolder.fsName);
-                destParent = unsortedFolder;
-                unsorted++;
-            }
-            var destPath = joinPath(destParent.fsName, baseName + ext);
-            if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST -> " + destPath); } catch(eDP) {} }
-            var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
+            // 3) Optional filename injection happens last; if enabled, update path again
             if (INJECT_PRESET_TOKEN_IN_FILENAME && dynTemplateUsed) {
                 var token = dynTemplateUsed;
                 if (FILENAME_TEMPLATE_SANITIZE) token = token.replace(/[^A-Za-z0-9_\-]+/g, "_");
                 var injectedBase = baseName + "__" + token;
-                destPath = joinPath(destParent.fsName, injectedBase + ext);
-                if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST(inject) -> " + destPath); } catch(eDPI) {} }
-            }
-            try {
-                om.file = new File(destPath);
-                processed++;
-                var changed = false;
-                if (!entry.newlyAdded && originalPath) {
-                    // Compare normalized lower-case paths for change detection
-                    try { if (originalPath.toLowerCase() !== destPath.toLowerCase()) { changed = true; changedCount++; } } catch (eCmp) {}
+                var injectedPath = joinPath(destParent.fsName, injectedBase + ext);
+                if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("DEST(inject) -> " + injectedPath); } catch(eDPI) {} }
+                try {
+                    om.file = new File(injectedPath);
+                    var tag2 = entry.newlyAdded ? "SET" : "CHG"; // second set considered change
+                    if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag2 + " -> " + compName + " => " + injectedPath);
+                } catch(eReSet) {
+                    if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FAIL set (inject) " + compName + ": " + eReSet);
                 }
-                var tag = entry.newlyAdded ? "ADD" : (changed ? "CHG" : "SET");
-                if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag + " -> " + compName + " => " + destPath);
-            } catch (eSet2) {
-                skipped++;
-                detailLines.push("FAIL set " + compName + ": " + eSet2);
             }
         } catch (eItemAssign) {
             skipped++;
