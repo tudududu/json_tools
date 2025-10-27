@@ -125,10 +125,25 @@
     try {
         if (OPTS && OPTS.PIPELINE_FILE_LOG_PRUNE_ENABLED) {
             var folder = __logFile ? __logFile.parent : findOrCreateLogFolder();
+            // Consider only pipeline_run logs created in non-append mode (pipeline_run_YYYYMMDD_HHMMSS.log)
             var files = folder.getFiles(function(f){ return f instanceof File && /^pipeline_run_.*\.log$/i.test(String(f.name||"")); });
             var maxKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
             if (files && files.length > maxKeep) {
-                files.sort(function(a,b){ try { return a.modified - b.modified; } catch(eS){ return 0; } });
+                // Primary deterministic sort by timestamp encoded in filename; fallback to modified time
+                function nameStamp(file){
+                    try {
+                        var n = String(file.name||"");
+                        var m = n.match(/^pipeline_run_(\d{8}_\d{6})\.log$/i);
+                        return m ? m[1] : null;
+                    } catch(eNS){ return null; }
+                }
+                files.sort(function(a,b){
+                    var sa = nameStamp(a), sb = nameStamp(b);
+                    if (sa && sb) {
+                        if (sa < sb) return -1; if (sa > sb) return 1; return 0;
+                    }
+                    try { return a.modified - b.modified; } catch(eS){ return 0; }
+                });
                 for (var i=0; i<files.length-maxKeep; i++) { try { files[i].remove(); } catch(eRm) {} }
             }
         }
