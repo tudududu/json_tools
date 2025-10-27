@@ -143,7 +143,23 @@
             AME_RETRY_DELAY_MS: 650,
             FILE_LOG_APPEND_MODE: true,
             // Base export path relative to POST/ (segments or string). Default: POST/OUT/PREVIEWS
-            EXPORT_SUBPATH: ["OUT","PREVIEWS"]
+            EXPORT_SUBPATH: ["OUT","PREVIEWS"],
+            // Step 7 (AME) template controls
+            // Master switch: apply any Output Module templates; when false, script only sets output paths and skips template operations
+            APPLY_TEMPLATES: true,
+            // Dynamic Output Module selection by AR and/or AR|duration
+            ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION: true,
+            // Reapply the chosen template right before queueing to AME (helps inheritance). Can be noisy on missing presets.
+            DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES: true,
+            // If any mapped/default preset is missing, auto-disable the reapply pass to reduce log noise.
+            AUTO_DISABLE_REAPPLY_ON_MISSING: true,
+            // Default Output Module template name (string). Leave empty to use AE's current default.
+            OUTPUT_MODULE_TEMPLATE: "",
+            // Template mapping by Aspect Ratio (keys like "1x1", "16x9", "9x16").
+            // Example: { "1x1": "25Mbs", "16x9": "YouTube_1080p" }
+            OUTPUT_MODULE_TEMPLATE_BY_AR: {},
+            // Optional template mapping by "AR|duration"; overrides AR-only when present. Keys like "1x1|06s"
+            OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION: {}
         }
     };
 
