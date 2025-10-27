@@ -646,8 +646,16 @@
         log("Step 7: Set AME output paths for " + AE_PIPE.results.pack.length + " comps.");
     // Diagnostics for effective options (kept concise here)
     try {
-        var __isoEff = (OPTS && OPTS.insertRelink) ? (OPTS.insertRelink.DATA_JSON_ISO_CODE_MANUAL + " [" + (OPTS.insertRelink.DATA_JSON_ISO_MODE||"auto") + "]") : "n/a";
-        log("Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO_MANUAL=" + __isoEff);
+        var __isoStep1 = null, __isoOrigin = null;
+        try {
+            if (AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData && AE_PIPE.results.linkData.iso) {
+                __isoStep1 = String(AE_PIPE.results.linkData.iso).toUpperCase();
+                __isoOrigin = String(AE_PIPE.results.linkData.origin || 'link_data');
+            }
+        } catch(eIsoLD) {}
+        var effMsg = "Effective options: PIPELINE_QUEUE_TO_AME=" + (PIPELINE_QUEUE_TO_AME ? "ON" : "OFF") + "; ISO(Step1)=" + (__isoStep1 || "n/a");
+        if (__isoOrigin && __isoStep1) effMsg += " [" + __isoOrigin + "]";
+        log(effMsg);
     } catch(eDiag) {}
     var step5UsedAPI = false;
     try {
