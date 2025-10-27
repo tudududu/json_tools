@@ -145,18 +145,21 @@
                 } catch(eF) {}
             }
             // Determine per-family keep counts (with fallbacks)
-            var K = (OPTS && OPTS.LOG_PRUNE_COUNTS) ? OPTS.LOG_PRUNE_COUNTS : {};
-            var unifiedKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
-            var keepPipeline = (typeof K.pipeline_run === 'number') ? K.pipeline_run : unifiedKeep;
-            pruneByPattern(/^pipeline_run_\d{8}_\d{6}\.log$/i, keepPipeline);
+            // Unified controller: prefer LOG_MAX_FILES, fallback to legacy PIPELINE_FILE_LOG_MAX_FILES, else 24
+            var unifiedKeep = 24;
+            try {
+                if (typeof OPTS.LOG_MAX_FILES === 'number' && OPTS.LOG_MAX_FILES > 0) unifiedKeep = OPTS.LOG_MAX_FILES;
+                else if (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) unifiedKeep = OPTS.PIPELINE_FILE_LOG_MAX_FILES; // backwards compat
+            } catch(eKM) {}
+            pruneByPattern(/^pipeline_run_\d{8}_\d{6}\.log$/i, unifiedKeep);
             // Phase families
-            pruneByPattern(/^insert_and_relink_footage_\d{8}_\d{6}\.log$/i, (typeof K.insert_and_relink_footage==='number'?K.insert_and_relink_footage:unifiedKeep));
-            pruneByPattern(/^create_compositions_\d{8}_\d{6}\.log$/i, (typeof K.create_compositions==='number'?K.create_compositions:unifiedKeep));
-            pruneByPattern(/^add_layers_to_comp_\d{8}_\d{6}\.log$/i, (typeof K.add_layers_to_comp==='number'?K.add_layers_to_comp:unifiedKeep));
-            pruneByPattern(/^pack_output_comps_debug_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_debug==='number'?K.pack_output_comps_debug:unifiedKeep));
-            pruneByPattern(/^pack_output_comps_summary_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_summary==='number'?K.pack_output_comps_summary:unifiedKeep));
+            pruneByPattern(/^insert_and_relink_footage_\d{8}_\d{6}\.log$/i, unifiedKeep);
+            pruneByPattern(/^create_compositions_\d{8}_\d{6}\.log$/i, unifiedKeep);
+            pruneByPattern(/^add_layers_to_comp_\d{8}_\d{6}\.log$/i, unifiedKeep);
+            pruneByPattern(/^pack_output_comps_debug_\d{8}_\d{6}\.log$/i, unifiedKeep);
+            pruneByPattern(/^pack_output_comps_summary_\d{8}_\d{6}\.log$/i, unifiedKeep);
             // AME phase may also write its own logs; include here in case its internal prune is disabled
-            pruneByPattern(/^set_ame_output_paths_\d{8}_\d{6}\.log$/i, (typeof K.set_ame_output_paths==='number'?K.set_ame_output_paths:unifiedKeep));
+            pruneByPattern(/^set_ame_output_paths_\d{8}_\d{6}\.log$/i, unifiedKeep);
         }
     } catch(ePrune) {}
     function log(s) {
@@ -229,18 +232,12 @@
                     v.push("  insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER === true));
                     v.push("  insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER === true));
                 }
-                // log prune counts (summary)
+                // unified log prune count (applies to all families); legacy PIPELINE_FILE_LOG_MAX_FILES respected if set
                 try {
-                    var K = OPTS.LOG_PRUNE_COUNTS || {};
-                    var unifiedKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
-                    function fmt(v){ return (typeof v==='number')?v:("(unified="+unifiedKeep+")"); }
-                    v.push("  LOG_PRUNE_COUNTS.pipeline_run=" + fmt(K.pipeline_run));
-                    v.push("  LOG_PRUNE_COUNTS.insert_and_relink_footage=" + fmt(K.insert_and_relink_footage));
-                    v.push("  LOG_PRUNE_COUNTS.create_compositions=" + fmt(K.create_compositions));
-                    v.push("  LOG_PRUNE_COUNTS.add_layers_to_comp=" + fmt(K.add_layers_to_comp));
-                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_debug=" + fmt(K.pack_output_comps_debug));
-                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_summary=" + fmt(K.pack_output_comps_summary));
-                    v.push("  LOG_PRUNE_COUNTS.set_ame_output_paths=" + fmt(K.set_ame_output_paths));
+                    var __keepUnified = 24;
+                    if (typeof OPTS.LOG_MAX_FILES === 'number' && OPTS.LOG_MAX_FILES > 0) __keepUnified = OPTS.LOG_MAX_FILES;
+                    else if (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) __keepUnified = OPTS.PIPELINE_FILE_LOG_MAX_FILES;
+                    v.push("  LOG_MAX_FILES=" + __keepUnified);
                 } catch(eLC) {}
                 // saveAsISO
                 if (OPTS.saveAsISO) {
