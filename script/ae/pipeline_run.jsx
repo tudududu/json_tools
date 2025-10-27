@@ -125,27 +125,37 @@
     try {
         if (OPTS && OPTS.PIPELINE_FILE_LOG_PRUNE_ENABLED) {
             var folder = __logFile ? __logFile.parent : findOrCreateLogFolder();
-            // Consider only pipeline_run logs created in non-append mode (pipeline_run_YYYYMMDD_HHMMSS.log)
-            var files = folder.getFiles(function(f){ return f instanceof File && /^pipeline_run_.*\.log$/i.test(String(f.name||"")); });
-            var maxKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
-            if (files && files.length > maxKeep) {
-                // Primary deterministic sort by timestamp encoded in filename; fallback to modified time
-                function nameStamp(file){
-                    try {
-                        var n = String(file.name||"");
-                        var m = n.match(/^pipeline_run_(\d{8}_\d{6})\.log$/i);
-                        return m ? m[1] : null;
-                    } catch(eNS){ return null; }
-                }
-                files.sort(function(a,b){
-                    var sa = nameStamp(a), sb = nameStamp(b);
-                    if (sa && sb) {
-                        if (sa < sb) return -1; if (sa > sb) return 1; return 0;
+            function pruneByPattern(regex, maxKeep) {
+                try {
+                    var files = folder.getFiles(function(f){ return f instanceof File && regex.test(String(f.name||"")); });
+                    if (!files || files.length <= maxKeep) return;
+                    function stampFromName(file){
+                        try {
+                            var n = String(file.name||"");
+                            var mm = n.match(/_(\d{8}_\d{6})\.log$/i);
+                            return mm ? mm[1] : null;
+                        } catch(eSt){ return null; }
                     }
-                    try { return a.modified - b.modified; } catch(eS){ return 0; }
-                });
-                for (var i=0; i<files.length-maxKeep; i++) { try { files[i].remove(); } catch(eRm) {} }
+                    files.sort(function(a,b){
+                        var sa = stampFromName(a), sb = stampFromName(b);
+                        if (sa && sb) { if (sa < sb) return -1; if (sa > sb) return 1; return 0; }
+                        try { return a.modified - b.modified; } catch(eS){ return 0; }
+                    });
+                    for (var i=0; i<files.length-maxKeep; i++) { try { files[i].remove(); } catch(eRm) {} }
+                } catch(eF) {}
             }
+            // Determine per-family keep counts (with fallbacks)
+            var K = (OPTS && OPTS.LOG_PRUNE_COUNTS) ? OPTS.LOG_PRUNE_COUNTS : {};
+            var keepPipeline = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : (typeof K.pipeline_run==='number'?K.pipeline_run:24);
+            pruneByPattern(/^pipeline_run_\d{8}_\d{6}\.log$/i, keepPipeline);
+            // Phase families
+            pruneByPattern(/^insert_and_relink_footage_\d{8}_\d{6}\.log$/i, (typeof K.insert_and_relink_footage==='number'?K.insert_and_relink_footage:24));
+            pruneByPattern(/^create_compositions_\d{8}_\d{6}\.log$/i, (typeof K.create_compositions==='number'?K.create_compositions:24));
+            pruneByPattern(/^add_layers_to_comp_\d{8}_\d{6}\.log$/i, (typeof K.add_layers_to_comp==='number'?K.add_layers_to_comp:24));
+            pruneByPattern(/^pack_output_comps_debug_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_debug==='number'?K.pack_output_comps_debug:12));
+            pruneByPattern(/^pack_output_comps_summary_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_summary==='number'?K.pack_output_comps_summary:24));
+            // AME phase may also write its own logs; include here in case its internal prune is disabled
+            pruneByPattern(/^set_ame_output_paths_\d{8}_\d{6}\.log$/i, (typeof K.set_ame_output_paths==='number'?K.set_ame_output_paths:24));
         }
     } catch(ePrune) {}
     function log(s) {
@@ -218,6 +228,17 @@
                     v.push("  insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER === true));
                     v.push("  insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER === true));
                 }
+                // log prune counts (summary)
+                try {
+                    var K = OPTS.LOG_PRUNE_COUNTS || {};
+                    v.push("  LOG_PRUNE_COUNTS.pipeline_run=" + (K.pipeline_run!==undefined?K.pipeline_run:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.insert_and_relink_footage=" + (K.insert_and_relink_footage!==undefined?K.insert_and_relink_footage:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.create_compositions=" + (K.create_compositions!==undefined?K.create_compositions:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.add_layers_to_comp=" + (K.add_layers_to_comp!==undefined?K.add_layers_to_comp:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_debug=" + (K.pack_output_comps_debug!==undefined?K.pack_output_comps_debug:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_summary=" + (K.pack_output_comps_summary!==undefined?K.pack_output_comps_summary:"(def)"));
+                    v.push("  LOG_PRUNE_COUNTS.set_ame_output_paths=" + (K.set_ame_output_paths!==undefined?K.set_ame_output_paths:"(def)"));
+                } catch(eLC) {}
                 // saveAsISO
                 if (OPTS.saveAsISO) {
                     v.push("  saveAsISO.OVERWRITE=" + (OPTS.saveAsISO.OVERWRITE === true));

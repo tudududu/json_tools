@@ -57,6 +57,16 @@
         PIPELINE_FILE_LOG_APPEND_MODE: false,
         PIPELINE_FILE_LOG_PRUNE_ENABLED: true,
         PIPELINE_FILE_LOG_MAX_FILES: 24,
+        // Per-family phase log prune counts (in POST/WORK/log). Individual phases may also prune internally.
+        LOG_PRUNE_COUNTS: {
+            pipeline_run: 24,
+            insert_and_relink_footage: 24,
+            create_compositions: 24,
+            add_layers_to_comp: 24,
+            pack_output_comps_debug: 12,
+            pack_output_comps_summary: 24,
+            set_ame_output_paths: 24
+        },
         // Pipeline log content controls
         PIPELINE_SHOW_PHASE_TAGS: true,
         PIPELINE_SHOW_LEVELS: true,
