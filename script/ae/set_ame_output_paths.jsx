@@ -495,15 +495,19 @@ function __AME_coreRun(opts) {
         return "?";
     }
 
+    function __safeRQCount(rqObj){ try { var n = rqObj ? rqObj.numItems : 0; return (typeof n === 'number' && n >= 0) ? n : 0; } catch(e){ try{ log("RQ numItems error: "+e); }catch(_){} return 0; } }
     function compAlreadyInRQ(comp) {
         if (!comp) return false;
-        for (var i = 1; i <= rq.numItems; i++) {
-            var rqi = rq.item(i);
-            if (rqi && rqi.comp === comp) {
-                // Skip only if item is not DONE (we can reuse to change output path)
-                try { if (rqi.status !== RQItemStatus.DONE) return true; } catch (e) { return true; }
+        try {
+            var n = __safeRQCount(rq);
+            for (var i = 1; i <= n; i++) {
+                var rqi = null; try { rqi = rq.item(i); } catch(eIt) { rqi = null; }
+                if (rqi && rqi.comp === comp) {
+                    // Skip only if item is not DONE (we can reuse to change output path)
+                    try { if (rqi.status !== RQItemStatus.DONE) return true; } catch (e) { return true; }
+                }
             }
-        }
+        } catch(eCRQ) { try { log("compAlreadyInRQ error: "+eCRQ); } catch(_){} }
         return false;
     }
 
@@ -554,6 +558,7 @@ function __AME_coreRun(opts) {
                         newRQI = null;
                     }
                     if (newRQI) {
+                        try { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("RQ add -> " + it.name); } catch(eAddLine) {}
                         // Apply templates if configured
                         if (RENDER_SETTINGS_TEMPLATE) {
                             try { newRQI.setRenderSettings(RENDER_SETTINGS_TEMPLATE); } catch (eRS) { detailLines.push("Render settings template fail " + it.name + ": " + eRS); }
@@ -583,27 +588,30 @@ function __AME_coreRun(opts) {
 
     // B) Include existing RQ items
     if (PROCESS_EXISTING_RQ) {
-        for (var iExist = 1; iExist <= rq.numItems; iExist++) {
-            var existingRQI = null;
-            try { existingRQI = rq.item(iExist); } catch(eIdx) { existingRQI = null; }
-            // Validate existing item shape
-            try {
-                if (existingRQI && (typeof existingRQI.outputModule !== 'function' || !existingRQI.comp)) {
-                    detailLines.push("Skip non-standard RQ entry index=" + iExist);
-                    continue;
+        try {
+            var total = __safeRQCount(rq);
+            for (var iExist = 1; iExist <= total; iExist++) {
+                var existingRQI = null;
+                try { existingRQI = rq.item(iExist); } catch(eIdx) { existingRQI = null; }
+                // Validate existing item shape
+                try {
+                    if (existingRQI && (typeof existingRQI.outputModule !== 'function' || !existingRQI.comp)) {
+                        detailLines.push("Skip non-standard RQ entry index=" + iExist);
+                        continue;
+                    }
+                } catch(eValExist) { continue; }
+                if (!existingRQI || !existingRQI.comp) continue;
+                // Avoid duplicates: if we already added this rqi instance, skip
+                var already = false;
+                for (var c = 0; c < itemsToProcess.length; c++) {
+                    if (itemsToProcess[c].rqi === existingRQI) { already = true; break; }
                 }
-            } catch(eValExist) { continue; }
-            if (!existingRQI || !existingRQI.comp) continue;
-            // Avoid duplicates: if we already added this rqi instance, skip
-            var already = false;
-            for (var c = 0; c < itemsToProcess.length; c++) {
-                if (itemsToProcess[c].rqi === existingRQI) { already = true; break; }
+                if (already) continue;
+                // Skip DONE or RENDERING
+                try { if (existingRQI.status === RQItemStatus.DONE || existingRQI.status === RQItemStatus.RENDERING) continue; } catch (eSt) {}
+                itemsToProcess.push({ rqi: existingRQI, newlyAdded: false });
             }
-            if (already) continue;
-            // Skip DONE or RENDERING
-            try { if (existingRQI.status === RQItemStatus.DONE || existingRQI.status === RQItemStatus.RENDERING) continue; } catch (eSt) {}
-            itemsToProcess.push({ rqi: existingRQI, newlyAdded: false });
-        }
+        } catch(ePRQ) { try { log("PROCESS_EXISTING_RQ error: " + ePRQ); } catch(_){} }
     }
 
     if (!itemsToProcess.length) {
@@ -614,6 +622,7 @@ function __AME_coreRun(opts) {
 
     // ————— Assign Output Paths —————
     var processed = 0, skipped = 0, unsorted = 0, changedCount = 0;
+    try { log("RQ summary before assign: added=" + addedCount + ", itemsToProcess=" + itemsToProcess.length + ", rqCount=" + __safeRQCount(rq)); } catch(eSum1) {}
     try {
     for (var idx = 0; idx < itemsToProcess.length; idx++) {
         var entry = itemsToProcess[idx];
@@ -622,9 +631,9 @@ function __AME_coreRun(opts) {
         // Re-skip status DONE / RENDERING safeguard
         try { if (rqi.status === RQItemStatus.DONE || rqi.status === RQItemStatus.RENDERING) { skipped++; continue; } } catch (eS2) {}
 
-        var om = null;
-        try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
-        if (!om) { skipped++; detailLines.push("No OM " + rqi.comp.name); continue; }
+    var om = null;
+    try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
+    if (!om) { skipped++; try { detailLines.push("No OM " + (rqi && rqi.comp && rqi.comp.name ? rqi.comp.name : "(unnamed)")); } catch(eNoOM) { detailLines.push("No OM (unnamed)"); } continue; }
 
     var compName = "(unnamed)";
     try { if (rqi && rqi.comp && rqi.comp.name) compName = rqi.comp.name; } catch(eCN) { compName = "(unnamed)"; }
@@ -767,6 +776,17 @@ function __AME_coreRun(opts) {
     if (addedCount > 0 && verifiedAdded === 0) {
         mismatchNote = "\nWARNING: No Render Queue items verified after addition. Re-run script or disable undo grouping.";
     }
+
+    // Optionally emit detail lines for diagnostics (clipped to MAX_DETAIL_LINES)
+    try {
+        if (detailLines && detailLines.length) {
+            log("--- DETAIL BEGIN ---");
+            var cap = MAX_DETAIL_LINES;
+            for (var dl=0; dl<detailLines.length && dl<cap; dl++) { log(detailLines[dl]); }
+            if (detailLines.length > cap) log("... (" + (detailLines.length - cap) + " more) ...");
+            log("--- DETAIL END ---");
+        }
+    } catch(eDet) {}
 
     // Build concise summary (alert should only show summary now)
     var summaryLines = [];
