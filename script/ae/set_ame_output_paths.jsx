@@ -124,6 +124,16 @@ function __AME_coreRun(opts) {
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 
+    // Robust error-to-string to avoid AE host Error object issues during concatenation
+    function safeErrStr(err) {
+        try {
+            if (!err) return "(error)";
+            // ExtendScript Error often has toString and message; prefer message
+            try { if (err.message) return String(err.message); } catch (_) {}
+            try { return String(err); } catch (e2) { return "(error stringify failed)"; }
+        } catch (e3) { return "(error)"; }
+    }
+
     function joinPath(a, b) {
         if (!a) return b || "";
         if (!b) return a || "";
@@ -565,7 +575,7 @@ function __AME_coreRun(opts) {
                         continue;
                     }
                     var newRQI = null;
-                    try { newRQI = rq.items.add(it); } catch (eAdd) { try { detailLines.push("Failed add " + it.name + ": " + eAdd); log("Sel-> failed add " + it.name + ": " + eAdd); } catch(eDL2) {} newRQI = null; }
+                    try { newRQI = rq.items.add(it); } catch (eAdd) { try { var _eAdd = safeErrStr(eAdd); detailLines.push("Failed add " + it.name + ": " + _eAdd); log("Sel-> failed add " + it.name + ": " + _eAdd); } catch(eDL2) {} newRQI = null; }
                     // Validate the returned object is actually a RenderQueueItem (AE sometimes can yield an Error object in rare cases)
                     var isValidRQI = false;
                     if (newRQI) {
@@ -590,14 +600,14 @@ function __AME_coreRun(opts) {
                         var omNew = null;
                         try { omNew = newRQI.outputModule(1); } catch (eOMn) { omNew = null; }
                         if (omNew && OUTPUT_MODULE_TEMPLATE) {
-                            try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { try { detailLines.push("OM template fail " + it.name + ": " + eOMt); } catch(_) {} }
+                            try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { try { detailLines.push("OM template fail " + it.name + ": " + safeErrStr(eOMt)); } catch(_) {} }
                         }
                         var chosenDynTemplate = null;
                         if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
                             var toks = parseTokensFromName(it.name);
                             var dynTemplate = pickOutputModuleTemplate(toks);
                             if (dynTemplate && dynTemplate.length) {
-                                try { omNew.applyTemplate(dynTemplate); try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {} chosenDynTemplate = dynTemplate; } catch (eDyn) { try { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); } catch(_) {} }
+                                try { omNew.applyTemplate(dynTemplate); try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {} chosenDynTemplate = dynTemplate; } catch (eDyn) { try { detailLines.push("OM dyn template fail " + it.name + ": " + safeErrStr(eDyn)); } catch(_) {} }
                             }
                         }
                         itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
@@ -606,7 +616,7 @@ function __AME_coreRun(opts) {
                 }
             }
         } catch(eSelPhase) {
-            log("Selection phase error: " + eSelPhase);
+            log("Selection phase error: " + safeErrStr(eSelPhase));
         }
     }
 
@@ -635,7 +645,7 @@ function __AME_coreRun(opts) {
                 try { if (existingRQI.status === RQItemStatus.DONE || existingRQI.status === RQItemStatus.RENDERING) continue; } catch (eSt) {}
                 itemsToProcess.push({ rqi: existingRQI, newlyAdded: false });
             }
-        } catch(ePRQ) { try { log("PROCESS_EXISTING_RQ error: " + ePRQ); } catch(_){} }
+    } catch(ePRQ) { try { log("PROCESS_EXISTING_RQ error: " + safeErrStr(ePRQ)); } catch(_){} }
     }
 
     if (!itemsToProcess.length) {
@@ -657,11 +667,11 @@ function __AME_coreRun(opts) {
 
         var om = null;
         try { om = rqi.outputModule(1); } catch (eOM2) { om = null; }
-        if (!om) { skipped++; try { detailLines.push("No OM " + (rqi && rqi.comp && rqi.comp.name ? rqi.comp.name : "(unnamed)")); } catch(eNoOM) { detailLines.push("No OM (unnamed)"); } continue; }
+    if (!om) { skipped++; try { detailLines.push("No OM " + (rqi && rqi.comp && rqi.comp.name ? rqi.comp.name : "(unnamed)")); } catch(eNoOM) { try { detailLines.push("No OM (unnamed)"); } catch(_) {} } continue; }
 
         var compName = "(unnamed)";
         try { if (rqi && rqi.comp && rqi.comp.name) compName = rqi.comp.name; } catch(eCN) { compName = "(unnamed)"; }
-        if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("ASSIGN start -> " + compName); } catch(eA0) {} }
+    if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("ASSIGN start -> " + compName); } catch(eA0) {} }
 
         try {
             // Some AE versions can throw when accessing om.file (e.g., uninitialized state); guard it
@@ -715,7 +725,7 @@ function __AME_coreRun(opts) {
                 if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag + " -> " + compName + " => " + destPath);
             } catch (eSet2) {
                 skipped++;
-                detailLines.push("FAIL set " + compName + ": " + eSet2);
+                try { detailLines.push("FAIL set " + compName + ": " + safeErrStr(eSet2)); } catch(_) {}
             }
 
             // 2) Apply templates AFTER setting path, so path is independent of preset availability
@@ -726,11 +736,11 @@ function __AME_coreRun(opts) {
                 if (dynT && dynT.length) {
                     try { om.applyTemplate(dynT); dynTemplateUsed = dynT; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
                     catch (eTpl) {
-                        if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl);
+                        if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + safeErrStr(eTpl));
                         // Fallback to default if configured
                         if (fallbackTpl2 && fallbackTpl2.length) {
                             try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK -> " + compName + " => " + fallbackTpl2); }
-                            catch(eFB2) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK FAIL " + compName + ": " + eFB2); }
+                            catch(eFB2) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK FAIL " + compName + ": " + safeErrStr(eFB2)); }
                         } else {
                             if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE (no fallback) -> " + compName);
                         }
@@ -740,7 +750,7 @@ function __AME_coreRun(opts) {
                     // Apply default template if available
                     if (fallbackTpl2 && fallbackTpl2.length) {
                         try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT -> " + compName + " => " + fallbackTpl2); }
-                        catch(eDF) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT FAIL " + compName + ": " + eDF); }
+                        catch(eDF) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT FAIL " + compName + ": " + safeErrStr(eDF)); }
                     } else {
                         if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE (no default) -> " + compName);
                     }
@@ -760,16 +770,16 @@ function __AME_coreRun(opts) {
                     var tag2 = entry.newlyAdded ? "SET" : "CHG"; // second set considered change
                     if (detailLines.length < MAX_DETAIL_LINES) detailLines.push(tag2 + " -> " + compName + " => " + injectedPath);
                 } catch(eReSet) {
-                    if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FAIL set (inject) " + compName + ": " + eReSet);
+                    if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("FAIL set (inject) " + compName + ": " + safeErrStr(eReSet));
                 }
             }
         } catch (eItemAssign) {
             skipped++;
-            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("ASSIGN ERROR -> " + compName + ": " + eItemAssign);
+            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("ASSIGN ERROR -> " + compName + ": " + safeErrStr(eItemAssign));
         }
     }
     } catch(eAssignPhase) {
-        try { log("Assign paths phase error: " + eAssignPhase); } catch(eLogAP) {}
+        try { log("Assign paths phase error: " + safeErrStr(eAssignPhase)); } catch(eLogAP) {}
     }
 
     // --- End of preparation phase: close undo group early (only if we opened one) ---
@@ -801,7 +811,7 @@ function __AME_coreRun(opts) {
                 var rTpl = pickOutputModuleTemplate(rTok);
                 if (rTpl && rTpl.length) {
                     try { omRe.applyTemplate(rTpl); if (VERBOSE_TEMPLATE_DEBUG && detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY -> " + ent.rqi.comp.name + " => " + rTpl); }
-                    catch (eRA) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY FAIL " + ent.rqi.comp.name + ": " + eRA); }
+                    catch (eRA) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY FAIL " + ent.rqi.comp.name + ": " + safeErrStr(eRA)); }
                 }
             } catch (eOuter) {}
         }
@@ -818,7 +828,7 @@ function __AME_coreRun(opts) {
             }
             return true;
         } catch (eQ) {
-            log("QueueInAME failed: " + eQ);
+            log("QueueInAME failed: " + safeErrStr(eQ));
             return false;
         }
     }
