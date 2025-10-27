@@ -449,6 +449,8 @@ function __AME_coreRun(opts) {
             }
         }
     } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
+    // Defensive: ensure export base is valid before composing date folder
+    try { if (!exportBase || !(exportBase instanceof Folder)) { throw new Error("Export base invalid"); } } catch(eEB) { log("Export base sanity check failed: " + eEB); }
     var dateFolder = new Folder(joinPath(exportBase.fsName, dateFolderName));
     // Track folders touched/ensured this run for summary output (AR and duration leaves), de-duplicated
     var __touchedFolders = [];
@@ -471,6 +473,13 @@ function __AME_coreRun(opts) {
         app.endUndoGroup();
         return;
     }
+
+    // Debug checkpoint: base paths established
+    try {
+        if (LOG_ENV_HEADER) {
+            log("DateFolderResolved: " + (dateFolder && dateFolder.fsName ? dateFolder.fsName : "(unknown)"));
+        }
+    } catch(eDbg0) {}
 
     var detailLines = [];
 
@@ -502,6 +511,7 @@ function __AME_coreRun(opts) {
     var addedCount = 0;
 
     // A) Process selection: add selected comps to RQ
+    try { if (LOG_ENV_HEADER) log("Checkpoint: begin selection/RQ add phase (providedComps=" + ((opts && opts.comps && opts.comps.length)||0) + ")"); } catch(eDbgA) {}
     var providedComps = (opts && opts.comps && opts.comps.length) ? opts.comps : null;
     if (PROCESS_SELECTION || providedComps) {
         var sel = providedComps || app.project.selection;
@@ -557,7 +567,8 @@ function __AME_coreRun(opts) {
     // B) Include existing RQ items
     if (PROCESS_EXISTING_RQ) {
         for (var iExist = 1; iExist <= rq.numItems; iExist++) {
-            var existingRQI = rq.item(iExist);
+            var existingRQI = null;
+            try { existingRQI = rq.item(iExist); } catch(eIdx) { existingRQI = null; }
             // Validate existing item shape
             try {
                 if (existingRQI && (typeof existingRQI.outputModule !== 'function' || !existingRQI.comp)) {
@@ -598,7 +609,13 @@ function __AME_coreRun(opts) {
         if (!om) { skipped++; detailLines.push("No OM " + rqi.comp.name); continue; }
 
         var compName = rqi.comp.name;
-        var curFile = om.file;
+        // Some AE versions can throw when accessing om.file (e.g., uninitialized state); guard it
+        var curFile = null;
+        try { curFile = om.file; }
+        catch (eFileGet) {
+            curFile = null;
+            if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("OM has no file (safe to set new): " + compName + " -> " + eFileGet);
+        }
         var ext = DEFAULT_EXTENSION_FALLBACK;
         var baseName = compName;
         if (curFile && curFile.name) {
