@@ -146,16 +146,17 @@
             }
             // Determine per-family keep counts (with fallbacks)
             var K = (OPTS && OPTS.LOG_PRUNE_COUNTS) ? OPTS.LOG_PRUNE_COUNTS : {};
-            var keepPipeline = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : (typeof K.pipeline_run==='number'?K.pipeline_run:24);
+            var unifiedKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
+            var keepPipeline = (typeof K.pipeline_run === 'number') ? K.pipeline_run : unifiedKeep;
             pruneByPattern(/^pipeline_run_\d{8}_\d{6}\.log$/i, keepPipeline);
             // Phase families
-            pruneByPattern(/^insert_and_relink_footage_\d{8}_\d{6}\.log$/i, (typeof K.insert_and_relink_footage==='number'?K.insert_and_relink_footage:24));
-            pruneByPattern(/^create_compositions_\d{8}_\d{6}\.log$/i, (typeof K.create_compositions==='number'?K.create_compositions:24));
-            pruneByPattern(/^add_layers_to_comp_\d{8}_\d{6}\.log$/i, (typeof K.add_layers_to_comp==='number'?K.add_layers_to_comp:24));
-            pruneByPattern(/^pack_output_comps_debug_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_debug==='number'?K.pack_output_comps_debug:12));
-            pruneByPattern(/^pack_output_comps_summary_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_summary==='number'?K.pack_output_comps_summary:24));
+            pruneByPattern(/^insert_and_relink_footage_\d{8}_\d{6}\.log$/i, (typeof K.insert_and_relink_footage==='number'?K.insert_and_relink_footage:unifiedKeep));
+            pruneByPattern(/^create_compositions_\d{8}_\d{6}\.log$/i, (typeof K.create_compositions==='number'?K.create_compositions:unifiedKeep));
+            pruneByPattern(/^add_layers_to_comp_\d{8}_\d{6}\.log$/i, (typeof K.add_layers_to_comp==='number'?K.add_layers_to_comp:unifiedKeep));
+            pruneByPattern(/^pack_output_comps_debug_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_debug==='number'?K.pack_output_comps_debug:unifiedKeep));
+            pruneByPattern(/^pack_output_comps_summary_\d{8}_\d{6}\.log$/i, (typeof K.pack_output_comps_summary==='number'?K.pack_output_comps_summary:unifiedKeep));
             // AME phase may also write its own logs; include here in case its internal prune is disabled
-            pruneByPattern(/^set_ame_output_paths_\d{8}_\d{6}\.log$/i, (typeof K.set_ame_output_paths==='number'?K.set_ame_output_paths:24));
+            pruneByPattern(/^set_ame_output_paths_\d{8}_\d{6}\.log$/i, (typeof K.set_ame_output_paths==='number'?K.set_ame_output_paths:unifiedKeep));
         }
     } catch(ePrune) {}
     function log(s) {
@@ -231,13 +232,15 @@
                 // log prune counts (summary)
                 try {
                     var K = OPTS.LOG_PRUNE_COUNTS || {};
-                    v.push("  LOG_PRUNE_COUNTS.pipeline_run=" + (K.pipeline_run!==undefined?K.pipeline_run:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.insert_and_relink_footage=" + (K.insert_and_relink_footage!==undefined?K.insert_and_relink_footage:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.create_compositions=" + (K.create_compositions!==undefined?K.create_compositions:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.add_layers_to_comp=" + (K.add_layers_to_comp!==undefined?K.add_layers_to_comp:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_debug=" + (K.pack_output_comps_debug!==undefined?K.pack_output_comps_debug:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_summary=" + (K.pack_output_comps_summary!==undefined?K.pack_output_comps_summary:"(def)"));
-                    v.push("  LOG_PRUNE_COUNTS.set_ame_output_paths=" + (K.set_ame_output_paths!==undefined?K.set_ame_output_paths:"(def)"));
+                    var unifiedKeep = (typeof OPTS.PIPELINE_FILE_LOG_MAX_FILES === 'number' && OPTS.PIPELINE_FILE_LOG_MAX_FILES > 0) ? OPTS.PIPELINE_FILE_LOG_MAX_FILES : 24;
+                    function fmt(v){ return (typeof v==='number')?v:("(unified="+unifiedKeep+")"); }
+                    v.push("  LOG_PRUNE_COUNTS.pipeline_run=" + fmt(K.pipeline_run));
+                    v.push("  LOG_PRUNE_COUNTS.insert_and_relink_footage=" + fmt(K.insert_and_relink_footage));
+                    v.push("  LOG_PRUNE_COUNTS.create_compositions=" + fmt(K.create_compositions));
+                    v.push("  LOG_PRUNE_COUNTS.add_layers_to_comp=" + fmt(K.add_layers_to_comp));
+                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_debug=" + fmt(K.pack_output_comps_debug));
+                    v.push("  LOG_PRUNE_COUNTS.pack_output_comps_summary=" + fmt(K.pack_output_comps_summary));
+                    v.push("  LOG_PRUNE_COUNTS.set_ame_output_paths=" + fmt(K.set_ame_output_paths));
                 } catch(eLC) {}
                 // saveAsISO
                 if (OPTS.saveAsISO) {
