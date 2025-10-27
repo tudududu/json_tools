@@ -195,19 +195,43 @@ function __AME_coreRun(opts) {
         for (var i=0;i<pathSegments.length;i++) {
             var seg = pathSegments[i]; if (!seg) continue;
             if (!cur || typeof cur.numItems !== 'number') { if (LOG_ISO_EXTRACTION) log("ISO: findProjectFolderPath abort (no numItems at segment '"+seg+"')"); return null; }
-            var found = null;
-            try {
-                // AE collections are 1-based and accessed via item(index), not items[index]
-                for (var j=1;j<=cur.numItems;j++) {
-                    var it = null;
-                    try { it = cur.item(j); } catch(innerErr) { it = null; }
-                    if (it instanceof FolderItem && it.name === seg) { found = it; break; }
-                }
-            } catch(loopErr) {
-                if (LOG_ISO_EXTRACTION) log("ISO: loop error at segment '"+seg+"' -> " + loopErr);
-                return null;
-            }
-            if (!found) return null; // Must already exist (we only read)
+                    var omNew = null;
+                    try { omNew = newRQI.outputModule(1); } catch (eOMn) { omNew = null; }
+                    var chosenDynTemplate = null;
+                    if (omNew) {
+                        var fallbackTpl = OUTPUT_MODULE_TEMPLATE || "";
+                        if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+                            var toks = parseTokensFromName(it.name);
+                            var dynTemplate = pickOutputModuleTemplate(toks);
+                            if (dynTemplate && dynTemplate.length) {
+                                try {
+                                    omNew.applyTemplate(dynTemplate);
+                                    try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {}
+                                    chosenDynTemplate = dynTemplate;
+                                } catch (eDyn) {
+                                    try { detailLines.push("OM dyn template fail " + it.name + ": " + eDyn); } catch(_) {}
+                                    // Fallback to default template if configured
+                                    if (fallbackTpl && fallbackTpl.length) {
+                                        try { omNew.applyTemplate(fallbackTpl); try { detailLines.push("OM dyn template FALLBACK '" + fallbackTpl + "' -> " + it.name); } catch(_) {} chosenDynTemplate = fallbackTpl; }
+                                        catch(eFB) { try { detailLines.push("OM dyn template FALLBACK FAIL " + it.name + ": " + eFB); } catch(_) {} }
+                                    }
+                                }
+                            } else {
+                                // No dynamic map -> indicate skip and try default template if available
+                                try { detailLines.push("TEMPLATE SKIP (no map) -> " + it.name); } catch(_) {}
+                                if (fallbackTpl && fallbackTpl.length) {
+                                    try { omNew.applyTemplate(fallbackTpl); try { detailLines.push("OM default template '" + fallbackTpl + "' -> " + it.name); } catch(_) {} chosenDynTemplate = fallbackTpl; }
+                                    catch(eOMt2) { try { detailLines.push("OM default template FAIL " + it.name + ": " + eOMt2); } catch(_) {} }
+                                }
+                            }
+                        } else {
+                            // Dynamic disabled -> just apply default if configured
+                            if (fallbackTpl && fallbackTpl.length) {
+                                try { omNew.applyTemplate(fallbackTpl); try { detailLines.push("OM default template '" + fallbackTpl + "' -> " + it.name); } catch(_) {} chosenDynTemplate = fallbackTpl; }
+                                catch(eOMt3) { try { detailLines.push("OM default template FAIL " + it.name + ": " + eOMt3); } catch(_) {} }
+                            }
+                        }
+                    }
             cur = found;
         }
         return cur;
@@ -662,11 +686,24 @@ function __AME_coreRun(opts) {
         var dynTemplateUsed = entry.dynTemplate || null;
         if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
             var dynT = pickOutputModuleTemplate(tokens);
+            var fallbackTpl2 = OUTPUT_MODULE_TEMPLATE || "";
             if (dynT && dynT.length) {
                 try { om.applyTemplate(dynT); dynTemplateUsed = dynT; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
-                catch (eTpl) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl); }
+                catch (eTpl) {
+                    if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + eTpl);
+                    // Fallback to default if configured
+                    if (fallbackTpl2 && fallbackTpl2.length) {
+                        try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK -> " + compName + " => " + fallbackTpl2); }
+                        catch(eFB2) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK FAIL " + compName + ": " + eFB2); }
+                    }
+                }
             } else {
                 if (detailLines.length < MAX_DETAIL_LINES) { try { detailLines.push("TEMPLATE SKIP (no map) -> " + compName); } catch(eTS) {} }
+                // Apply default template if available
+                if (fallbackTpl2 && fallbackTpl2.length) {
+                    try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT -> " + compName + " => " + fallbackTpl2); }
+                    catch(eDF) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT FAIL " + compName + ": " + eDF); }
+                }
             }
         }
         var destParent = dateFolder;
