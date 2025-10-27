@@ -82,6 +82,8 @@ function __InsertRelink_coreRun(opts) {
     // New: audio filename ISO check options
     var ENABLE_CHECK_AUDIO_ISO = false;            // Phase 1: toggle checking
     var CHECK_AUDIO_ISO_STRICT = false;            // Phase 2: strict mode => alert + abort pipeline
+    // Flat-mode fallback: if no top-level files in YYMMDD and enabled, try ISO-named subfolder
+    var SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = false;
 
     // Options overrides
     try {
@@ -103,6 +105,7 @@ function __InsertRelink_coreRun(opts) {
             if (o.ENABLE_CHECK_AUDIO_ISO !== undefined) ENABLE_CHECK_AUDIO_ISO = !!o.ENABLE_CHECK_AUDIO_ISO;
             if (o.CHECK_AUDIO_ISO_STRICT !== undefined) CHECK_AUDIO_ISO_STRICT = !!o.CHECK_AUDIO_ISO_STRICT;
             if (o.SOUND_USE_ISO_SUBFOLDER !== undefined) SOUND_USE_ISO_SUBFOLDER = !!o.SOUND_USE_ISO_SUBFOLDER;
+            if (o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER !== undefined) SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = !!o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
     } catch (eOpt) {}
@@ -523,13 +526,54 @@ function __InsertRelink_coreRun(opts) {
             importedFolderItem = flatContainer;
             log("Imported flat (no subfolders) into project/in/sound/" + flatContainer.name);
         } else {
-            // Nothing imported at top-level, clean up and abort early
-            try { flatContainer.remove(); } catch(eRm) {}
-            var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
-            alertOnce(emsgFlat + "\nIf your audio is organized by ISO subfolders, set insertRelink.SOUND_USE_ISO_SUBFOLDER=true.");
-            log(emsgFlat);
-            app.endUndoGroup();
-            return;
+            // Nothing imported at top-level; optionally fall back to ISO-named subfolder
+            var didFallback = false;
+            if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
+                // Recompute project ISO similar to ISO subfolder selection
+                var __projISO2 = null;
+                try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO2 = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI2) {}
+                if (!__projISO2) { try { if (DATA_JSON_ISO_CODE) __projISO2 = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF2) {} }
+                if (__projISO2) {
+                    var subs2 = dateFolder.getFiles(function(f){ return f instanceof Folder; });
+                    var matched2 = null;
+                    for (var s2=0; s2<subs2.length; s2++) {
+                        var nm2 = String(subs2[s2].name||"").toUpperCase();
+                        if (nm2 === __projISO2) { matched2 = subs2[s2]; break; }
+                    }
+                    if (matched2) {
+                        log("[warn] Flat import empty; falling back to ISO subfolder '" + __projISO2 + "'.");
+                        // Attempt recursive import of the matched subfolder (same as recursive path)
+                        var importErrorFB = null;
+                        try {
+                            var ioFB = new ImportOptions();
+                            ioFB.file = new Folder(matched2.fsName);
+                            if (typeof ImportAsType !== "undefined") { ioFB.importAs = ImportAsType.FOLDER; }
+                            importedFolderItem = proj.importFile(ioFB);
+                        } catch (eFB) { importErrorFB = eFB; }
+                        if (!importedFolderItem) {
+                            var destFB = ensureProjectPath(["project", "in", "sound"]);
+                            var contFB = createChildFolder(destFB, matched2.name);
+                            importFolderRecursive(matched2, contFB);
+                            if (contFB && contFB.numItems > 0) {
+                                importedFolderItem = contFB;
+                                log("Imported via fallback into project/in/sound/" + contFB.name);
+                            }
+                        }
+                        if (importedFolderItem) {
+                            didFallback = true;
+                        }
+                    }
+                }
+            }
+            if (!didFallback) {
+                // Nothing imported at top-level and fallback not used or failed; clean up and abort early
+                try { flatContainer.remove(); } catch(eRm) {}
+                var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
+                alertOnce(emsgFlat + "\nIf your audio is organized by ISO subfolders, set insertRelink.SOUND_USE_ISO_SUBFOLDER=true." + (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER?"\n(Fallback to ISO subfolder attempted but not found.)":""));
+                log(emsgFlat);
+                app.endUndoGroup();
+                return;
+            }
         }
     } else {
         // Recursive import (original behavior)

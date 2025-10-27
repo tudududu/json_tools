@@ -105,7 +105,9 @@
             ENABLE_CHECK_AUDIO_ISO: false,            // Phase 1: when true, check token3 (ISO) in audio filename vs project ISO
             CHECK_AUDIO_ISO_STRICT: false,            // Phase 2: when true and check is enabled, alert+abort on mismatch; when false, log warning only
             // New: import from ISO-named subfolder under SOUND/<YYMMDD>/ when present
-            SOUND_USE_ISO_SUBFOLDER: false
+            SOUND_USE_ISO_SUBFOLDER: false,
+            // Flat-mode soft fallback: if no top-level files in YYMMDD and this is true, use ISO-named subfolder instead
+            SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER: false
         },
         addLayers: {
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
