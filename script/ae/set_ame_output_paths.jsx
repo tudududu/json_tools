@@ -90,8 +90,14 @@ function __AME_coreRun(opts) {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
+            // 1. Source selection mode
             if (o.PROCESS_SELECTION !== undefined) PROCESS_SELECTION = !!o.PROCESS_SELECTION;
             if (o.PROCESS_EXISTING_RQ !== undefined) PROCESS_EXISTING_RQ = !!o.PROCESS_EXISTING_RQ;
+            // 2. Template application
+            if (o.APPLY_TEMPLATES !== undefined) APPLY_TEMPLATES = !!o.APPLY_TEMPLATES;
+            if (o.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION !== undefined) ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION = !!o.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION;
+            if (o.OUTPUT_MODULE_TEMPLATE_BY_AR !== undefined) OUTPUT_MODULE_TEMPLATE_BY_AR = o.OUTPUT_MODULE_TEMPLATE_BY_AR;
+            // 3. AME automation
             if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;
             if (o.AME_MAX_QUEUE_ATTEMPTS !== undefined) AME_MAX_QUEUE_ATTEMPTS = parseInt(o.AME_MAX_QUEUE_ATTEMPTS, 10);
             if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
@@ -108,12 +114,13 @@ function __AME_coreRun(opts) {
 
 
     // 5. Logging verbosity
-    var MAX_DETAIL_LINES = 80;             // Limit detail lines logged
-    var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false; // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
+    var MAX_DETAIL_LINES = 80;              // Limit detail lines logged
+    var VERBOSE_TEMPLATE_DEBUG = false;     // Extra logging for template reapplication
+
+    var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false;   // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
     var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
-    var INJECT_PRESET_TOKEN_IN_FILENAME = false; // Append __TemplateName to filename before extension (lets you see which preset intended)
-    var FILENAME_TEMPLATE_SANITIZE = true; // Sanitize token when injecting
-    var VERBOSE_TEMPLATE_DEBUG = false; // Extra logging for template reapplication
+    var INJECT_PRESET_TOKEN_IN_FILENAME = false;    // Append __TemplateName to filename before extension (lets you see which preset intended)
+    var FILENAME_TEMPLATE_SANITIZE = true;          // Sanitize token when injecting
 
     // ————— Utils —————
     // Tagged logger
