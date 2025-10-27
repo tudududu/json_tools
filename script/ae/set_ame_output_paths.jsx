@@ -33,6 +33,8 @@ function __AME_coreRun(opts) {
     var RENDER_SETTINGS_TEMPLATE = "";     // e.g. "Best Settings" (leave empty for AE default)
     var OUTPUT_MODULE_TEMPLATE = "";       // e.g. "Lossless" or custom template name (leave empty for current default)
     var ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION = true; // If true, choose OM template per comp via mappings below
+    var APPLY_TEMPLATES = true;             // Master toggle: when false, skip applying any Output Module templates
+    var AUTO_DISABLE_REAPPLY_ON_MISSING = true; // If any template is missing, skip the reapply pass to reduce log noise
     // Map by Aspect Ratio token -> Output Module template name (must exist in AE's Output Module Templates)
     var OUTPUT_MODULE_TEMPLATE_BY_AR = {
         // Define your mappings. Example names must match templates you created in AE (Edit > Templates > Output Module)
@@ -287,10 +289,30 @@ function __AME_coreRun(opts) {
     function dumpProjectTree() {
         if (!DEBUG_DUMP_PROJECT_TREE) return;
         try {
+                    if (o.APPLY_TEMPLATES !== undefined) APPLY_TEMPLATES = !!o.APPLY_TEMPLATES;
+                    if (o.AUTO_DISABLE_REAPPLY_ON_MISSING !== undefined) AUTO_DISABLE_REAPPLY_ON_MISSING = !!o.AUTO_DISABLE_REAPPLY_ON_MISSING;
+                    if (o.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION !== undefined) ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION = !!o.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION;
+                    if (o.DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES !== undefined) DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = !!o.DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES;
+                    if (o.OUTPUT_MODULE_TEMPLATE !== undefined) OUTPUT_MODULE_TEMPLATE = String(o.OUTPUT_MODULE_TEMPLATE);
+                    if (o.OUTPUT_MODULE_TEMPLATE_BY_AR !== undefined && typeof o.OUTPUT_MODULE_TEMPLATE_BY_AR === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR = o.OUTPUT_MODULE_TEMPLATE_BY_AR;
+                    if (o.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION !== undefined && typeof o.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION = o.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION;
             log("--- PROJECT TREE DUMP BEGIN ---");
             var root = app.project.rootFolder;
             function nodeKind(it){
                 if (it instanceof CompItem) return "[Comp]";
+                // Pull overrides also from pipeline ame namespace when available
+                try {
+                    var ameOpts = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.ame) ? __AE_PIPE__.optionsEffective.ame : null;
+                    if (ameOpts) {
+                        if (ameOpts.APPLY_TEMPLATES !== undefined) APPLY_TEMPLATES = !!ameOpts.APPLY_TEMPLATES;
+                        if (ameOpts.AUTO_DISABLE_REAPPLY_ON_MISSING !== undefined) AUTO_DISABLE_REAPPLY_ON_MISSING = !!ameOpts.AUTO_DISABLE_REAPPLY_ON_MISSING;
+                        if (ameOpts.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION !== undefined) ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION = !!ameOpts.ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION;
+                        if (ameOpts.DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES !== undefined) DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = !!ameOpts.DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES;
+                        if (ameOpts.OUTPUT_MODULE_TEMPLATE !== undefined) OUTPUT_MODULE_TEMPLATE = String(ameOpts.OUTPUT_MODULE_TEMPLATE);
+                        if (ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR && typeof ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR = ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR;
+                        if (ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION && typeof ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION = ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION;
+                    }
+                } catch(eAMEOpts) {}
                 if (it instanceof FolderItem) return "[Folder]";
                 if (it instanceof FootageItem) return "[Footage]";
                 return "[Item]";
@@ -512,6 +534,10 @@ function __AME_coreRun(opts) {
     } catch(eDbg0) {}
 
     var detailLines = [];
+    // Track template install issues to surface concise summary hints and disable reapply if desired
+    var __templateMissingObserved = false;
+    var __firstMissingPresetName = null;
+    var __reapplySkippedDueToMissing = false;
 
     function rqItemStatusString(st) {
         try {
@@ -599,15 +625,19 @@ function __AME_coreRun(opts) {
                         }
                         var omNew = null;
                         try { omNew = newRQI.outputModule(1); } catch (eOMn) { omNew = null; }
-                        if (omNew && OUTPUT_MODULE_TEMPLATE) {
+                        if (omNew && APPLY_TEMPLATES && OUTPUT_MODULE_TEMPLATE) {
                             try { omNew.applyTemplate(OUTPUT_MODULE_TEMPLATE); } catch (eOMt) { try { detailLines.push("OM template fail " + it.name + ": " + safeErrStr(eOMt)); } catch(_) {} }
                         }
                         var chosenDynTemplate = null;
-                        if (omNew && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+                        if (omNew && APPLY_TEMPLATES && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
                             var toks = parseTokensFromName(it.name);
                             var dynTemplate = pickOutputModuleTemplate(toks);
                             if (dynTemplate && dynTemplate.length) {
-                                try { omNew.applyTemplate(dynTemplate); try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {} chosenDynTemplate = dynTemplate; } catch (eDyn) { try { detailLines.push("OM dyn template fail " + it.name + ": " + safeErrStr(eDyn)); } catch(_) {} }
+                                try { omNew.applyTemplate(dynTemplate); try { detailLines.push("OM dyn template '" + dynTemplate + "' -> " + it.name); } catch(_) {} chosenDynTemplate = dynTemplate; }
+                                catch (eDyn) {
+                                    try { detailLines.push("OM dyn template fail " + it.name + ": " + safeErrStr(eDyn)); } catch(_) {}
+                                    try { if (!__templateMissingObserved) { __templateMissingObserved = true; __firstMissingPresetName = dynTemplate; } } catch(_) {}
+                                }
                             }
                         }
                         itemsToProcess.push({ rqi: newRQI, newlyAdded: true, dynTemplate: chosenDynTemplate });
@@ -730,17 +760,18 @@ function __AME_coreRun(opts) {
 
             // 2) Apply templates AFTER setting path, so path is independent of preset availability
             var dynTemplateUsed = entry.dynTemplate || null;
-            if (ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
+            if (APPLY_TEMPLATES && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION && (entry.newlyAdded || APPLY_TEMPLATE_TO_EXISTING_ITEMS)) {
                 var dynT = pickOutputModuleTemplate(tokens);
                 var fallbackTpl2 = OUTPUT_MODULE_TEMPLATE || "";
                 if (dynT && dynT.length) {
                     try { om.applyTemplate(dynT); dynTemplateUsed = dynT; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE -> " + compName + " => " + dynT); }
                     catch (eTpl) {
                         if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FAIL " + compName + ": " + safeErrStr(eTpl));
+                        try { if (!__templateMissingObserved) { __templateMissingObserved = true; __firstMissingPresetName = dynT; } } catch(_) {}
                         // Fallback to default if configured
                         if (fallbackTpl2 && fallbackTpl2.length) {
                             try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK -> " + compName + " => " + fallbackTpl2); }
-                            catch(eFB2) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK FAIL " + compName + ": " + safeErrStr(eFB2)); }
+                            catch(eFB2) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE FALLBACK FAIL " + compName + ": " + safeErrStr(eFB2)); try { if (!__templateMissingObserved) { __templateMissingObserved = true; __firstMissingPresetName = fallbackTpl2; } } catch(_) {} }
                         } else {
                             if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE (no fallback) -> " + compName);
                         }
@@ -750,13 +781,15 @@ function __AME_coreRun(opts) {
                     // Apply default template if available
                     if (fallbackTpl2 && fallbackTpl2.length) {
                         try { om.applyTemplate(fallbackTpl2); dynTemplateUsed = fallbackTpl2; if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT -> " + compName + " => " + fallbackTpl2); }
-                        catch(eDF) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT FAIL " + compName + ": " + safeErrStr(eDF)); }
+                        catch(eDF) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE DEFAULT FAIL " + compName + ": " + safeErrStr(eDF)); try { if (!__templateMissingObserved) { __templateMissingObserved = true; __firstMissingPresetName = fallbackTpl2; } } catch(_) {} }
                     } else {
                         if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE (no default) -> " + compName);
                     }
                 }
+            } else if (!APPLY_TEMPLATES) {
+                if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE SKIP (disabled by config) -> " + compName);
             }
-            if (!dynTemplateUsed && detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE -> " + compName + " (proceeding)");
+            if (!dynTemplateUsed && APPLY_TEMPLATES && detailLines.length < MAX_DETAIL_LINES) detailLines.push("TEMPLATE NONE -> " + compName + " (proceeding)");
 
             // 3) Optional filename injection happens last; if enabled, update path again
             if (INJECT_PRESET_TOKEN_IN_FILENAME && dynTemplateUsed) {
@@ -800,7 +833,10 @@ function __AME_coreRun(opts) {
     // Queue to AME with retry logic (in case Dynamic Link server not yet ready)
     var ameQueued = false;
     // Optional second-pass: reapply templates right before queueing (helps AME pick up correct format)
-    if (DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+    if (DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES && APPLY_TEMPLATES && ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION) {
+        if (AUTO_DISABLE_REAPPLY_ON_MISSING && __templateMissingObserved) {
+            __reapplySkippedDueToMissing = true;
+        } else {
         for (var ra = 0; ra < itemsToProcess.length; ra++) {
             var ent = itemsToProcess[ra];
             if (!ent || !ent.rqi) continue;
@@ -814,6 +850,7 @@ function __AME_coreRun(opts) {
                     catch (eRA) { if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("REAPPLY FAIL " + ent.rqi.comp.name + ": " + safeErrStr(eRA)); }
                 }
             } catch (eOuter) {}
+        }
         }
     }
     function sleep(ms) { try { $.sleep(ms); } catch (e) {} }
@@ -871,6 +908,14 @@ function __AME_coreRun(opts) {
     if (AUTO_QUEUE_IN_AME) summaryLines.push("AMEQueued:" + (shouldQueue ? (ameQueued?"yes":"fail") : (QUEUE_ONLY_WHEN_NEW_OR_CHANGED?"skipped-no-change":"skipped")) );
     if (mismatchNote) summaryLines.push(mismatchNote.replace(/^\n/,''));
     if (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued) summaryLines.push("Hint: Launch Media Encoder once or raise retry delay.");
+    // Concise hints about templates/presets
+    if (__templateMissingObserved) {
+        var hintName = __firstMissingPresetName ? (" (e.g., '" + __firstMissingPresetName + "')") : "";
+        summaryLines.push("Hint: Preset not found" + hintName + ". Configure ame.OUTPUT_MODULE_TEMPLATE* in preset or set ame.APPLY_TEMPLATES=false.");
+    }
+    if (__reapplySkippedDueToMissing) {
+        summaryLines.push("Note: Reapply skipped due to missing preset(s).");
+    }
     summaryLines.push("" ); // blank line before path
     summaryLines.push("DateFolder: " + dateFolder.fsName);
     // Append the list of touched/ensured folders (absolute paths, with trailing slash)
