@@ -57,3 +57,4 @@ Sound import from ISO subfolders (Insert & Relink)
   - `insertRelink.SOUND_USE_ISO_SUBFOLDER` (boolean): enable ISO folder selection. Default: false.
   - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported. Any subfolders inside `YYMMDD` are skipped entirely.
   - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import the ISO-named subfolder instead (using the project ISO from Step 1, with manual/auto fallback). A `[warn]` is logged when fallback is used.
+  - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and no top-level files exist and the ISO subfolder is not available, the pipeline aborts with a fatal summary (instead of a graceful exit).

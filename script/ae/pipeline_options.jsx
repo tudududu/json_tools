@@ -107,7 +107,9 @@
             // New: import from ISO-named subfolder under SOUND/<YYMMDD>/ when present
             SOUND_USE_ISO_SUBFOLDER: false,
             // Flat-mode soft fallback: if no top-level files in YYMMDD and this is true, use ISO-named subfolder instead
-            SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER: false
+            SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER: false,
+            // Flat-mode strict behavior: when no top-level files and ISO subfolder is not available, abort pipeline (set fatal)
+            SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false
         },
         addLayers: {
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,

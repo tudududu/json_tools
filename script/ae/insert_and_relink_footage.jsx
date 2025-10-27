@@ -84,6 +84,8 @@ function __InsertRelink_coreRun(opts) {
     var CHECK_AUDIO_ISO_STRICT = false;            // Phase 2: strict mode => alert + abort pipeline
     // Flat-mode fallback: if no top-level files in YYMMDD and enabled, try ISO-named subfolder
     var SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = false;
+    // Flat-mode strict: if no top-level files and ISO subfolder is not available, abort pipeline
+    var SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER = false;
 
     // Options overrides
     try {
@@ -106,6 +108,7 @@ function __InsertRelink_coreRun(opts) {
             if (o.CHECK_AUDIO_ISO_STRICT !== undefined) CHECK_AUDIO_ISO_STRICT = !!o.CHECK_AUDIO_ISO_STRICT;
             if (o.SOUND_USE_ISO_SUBFOLDER !== undefined) SOUND_USE_ISO_SUBFOLDER = !!o.SOUND_USE_ISO_SUBFOLDER;
             if (o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER !== undefined) SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = !!o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER;
+            if (o.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER !== undefined) SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER = !!o.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
     } catch (eOpt) {}
@@ -566,13 +569,28 @@ function __InsertRelink_coreRun(opts) {
                 }
             }
             if (!didFallback) {
-                // Nothing imported at top-level and fallback not used or failed; clean up and abort early
+                // Nothing imported at top-level and fallback not used or failed
                 try { flatContainer.remove(); } catch(eRm) {}
+                var wantedISO = null;
+                try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) wantedISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(eW1) {}
+                if (!wantedISO) { try { if (DATA_JSON_ISO_CODE) wantedISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(eW2) {} }
                 var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
-                alertOnce(emsgFlat + "\nIf your audio is organized by ISO subfolders, set insertRelink.SOUND_USE_ISO_SUBFOLDER=true." + (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER?"\n(Fallback to ISO subfolder attempted but not found.)":""));
-                log(emsgFlat);
-                app.endUndoGroup();
-                return;
+                if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
+                    emsgFlat += " ISO subfolder " + (wantedISO?("'"+wantedISO+"'"):"(unknown)") + " not found.";
+                }
+                if (SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER) {
+                    var fatalMsg = emsgFlat + " Aborting (flat-mode strict).";
+                    log("[warn] " + fatalMsg);
+                    try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = fatalMsg; } } catch(eSetF) {}
+                    alertAlways(fatalMsg);
+                    app.endUndoGroup();
+                    return;
+                } else {
+                    alertOnce(emsgFlat + "\nIf your audio is organized by ISO subfolders, set insertRelink.SOUND_USE_ISO_SUBFOLDER=true.");
+                    log(emsgFlat);
+                    app.endUndoGroup();
+                    return;
+                }
             }
         }
     } else {
