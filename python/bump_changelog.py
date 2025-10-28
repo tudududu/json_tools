@@ -31,7 +31,7 @@ Usage examples:
     python3 python/bump_changelog.py --part patch --commit --tag
 
 Notes:
-  * The script assumes CHANGELOG.md is located at repository root (one directory up from this file's parent).
+    * The script now assumes the Python-specific CHANGELOG.md is located under ./python/readMe/ (alongside README.md).
   * It will refuse to overwrite an existing tag unless --force-tag is provided.
   * Generated heading format: '# <version> - <YYYY-MM-DD>'
   * Placeholder sections 'Added:' will be included if no migrated unreleased bullets are found.
@@ -46,8 +46,13 @@ import subprocess
 import sys
 from typing import List, Tuple, Optional
 
+# Repository root (one directory up from this file's parent)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHANGELOG_PATH = os.path.join(ROOT, 'CHANGELOG.md')
+# Python package directory (this file's directory)
+PY_DIR = os.path.dirname(os.path.abspath(__file__))
+# New location for Python-specific docs
+READ_ME_DIR = os.path.join(PY_DIR, 'readMe')
+CHANGELOG_PATH = os.path.join(READ_ME_DIR, 'CHANGELOG.md')
 
 SEMVER_RE = re.compile(r'^(?:\[)?v?(?P<ver>[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)(?:\])?')
 
@@ -202,8 +207,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Git operations (only if not dry-run)
     if (args.commit or args.tag) and not args.dry_run:
-        # Stage CHANGELOG
-        code, out = git_run(['git','add','CHANGELOG.md'])
+        # Stage CHANGELOG at its new relative path under python/readMe
+        rel_path = os.path.relpath(CHANGELOG_PATH, ROOT)
+        code, out = git_run(['git','add', rel_path])
         if code != 0:
             print(f"WARN: git add failed: {out}")
         # Commit
