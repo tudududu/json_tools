@@ -438,6 +438,25 @@ What’s covered by tests (CSV to JSON 62–105 highlights):
 - CLI outputs: `--split-by-country` with `--auto-output` naming and `--output-pattern {country}` paths
 - Optional shapes: `claims_as_objects` (claim_XX objects per video)
 
+### Try it
+
+- Generate coverage with the unittest runner and view artifacts:
+  ```sh
+  COVERAGE=1 python3 python/run_tests.py
+  ```
+  Outputs:
+  - Badge: [coverage.svg](../tests/coverage/coverage.svg)
+  - XML: [coverage.xml](../tests/coverage/coverage.xml)
+  - HTML: [index.html](../tests/coverage/html/index.html)
+
+- Or with pytest-cov:
+  ```sh
+  make pytest-cov
+  ```
+  Outputs:
+  - XML: [coverage.xml](../tests/coverage/coverage.xml)
+  - HTML: [index.html](../tests/coverage/html/index.html)
+
 ## Troubleshooting
 * Delimiter guess wrong? Use `--delimiter semicolon` (or `comma`, `tab`, `|`).
 * Timecode parse error: confirm format and `--fps` for frame-based codes.
