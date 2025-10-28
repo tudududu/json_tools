@@ -1386,24 +1386,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         if env_val and env_val.strip():
             return env_val.strip()
         # 2) CHANGELOG first heading (semantic-ish token at start of line after '#')
-        changelog_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "CHANGELOG.md")
+        #    Prefer repo root CHANGELOG.md, then fallback to ./python/readMe/CHANGELOG.md
         try:
-            if os.path.isfile(changelog_path):
-                with open(changelog_path, "r", encoding="utf-8") as chf:
-                    for line in chf:
-                        l = line.strip()
-                        if l.startswith('#'):
-                            # Extract first token after '#'
-                            heading = l.lstrip('#').strip()
-                            # Common forms: "1.3.1 - 2025-09-29" or "[1.3.1]" etc.
-                            m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
-                            if m:
-                                return m.group(1)
-                            # Fallback: take first contiguous non-space chunk
-                            token = heading.split()[0]
-                            if re.match(r"v?[0-9]+\.[0-9]+(\.[0-9]+)?", token):
-                                return token.lstrip('v')
-                            break
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            py_dir = os.path.dirname(os.path.abspath(__file__))
+            changelog_candidates = [
+                os.path.join(repo_root, "CHANGELOG.md"),
+                os.path.join(py_dir, "readMe", "CHANGELOG.md"),
+            ]
+            for changelog_path in changelog_candidates:
+                if os.path.isfile(changelog_path):
+                    with open(changelog_path, "r", encoding="utf-8") as chf:
+                        for line in chf:
+                            l = line.strip()
+                            if l.startswith('#'):
+                                # Extract first token after '#'
+                                heading = l.lstrip('#').strip()
+                                # Common forms: "1.3.1 - 2025-09-29" or "[1.3.1]" etc.
+                                m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
+                                if m:
+                                    return m.group(1)
+                                # Fallback: take first contiguous non-space chunk
+                                token = heading.split()[0]
+                                if re.match(r"v?[0-9]+\.[0-9]+(\.[0-9]+)?", token):
+                                    return token.lstrip('v')
+                                break
         except Exception:
             pass
         # 3) Latest git tag
@@ -1520,18 +1527,26 @@ def main(argv: Optional[List[str]] = None) -> int:
         platform_str = platform.platform()
         # Parse CHANGELOG.md for last change id (first markdown heading or first line containing a version/commit)
         last_change_id: Optional[str] = None
-        changelog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'CHANGELOG.md')
+        # Look for CHANGELOG near this script (python/) or in readMe fallback
         try:
-            if os.path.isfile(changelog_path):
-                with open(changelog_path, 'r', encoding='utf-8') as chf:
-                    for line in chf:
-                        l = line.strip()
-                        if l.startswith('#'):
-                            # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
-                            last_change_id = l.lstrip('#').strip()
-                            break
-                        if l and ('202' in l or '20' in l) and any(c.isdigit() for c in l):
-                            last_change_id = l
+            py_dir = os.path.dirname(os.path.abspath(__file__))
+            changelog_candidates = [
+                os.path.join(py_dir, 'CHANGELOG.md'),
+                os.path.join(py_dir, 'readMe', 'CHANGELOG.md'),
+            ]
+            for changelog_path in changelog_candidates:
+                if os.path.isfile(changelog_path):
+                    with open(changelog_path, 'r', encoding='utf-8') as chf:
+                        for line in chf:
+                            l = line.strip()
+                            if l.startswith('#'):
+                                # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
+                                last_change_id = l.lstrip('#').strip()
+                                break
+                            if l and ('202' in l or '20' in l) and any(c.isdigit() for c in l):
+                                last_change_id = l
+                                break
+                        if last_change_id:
                             break
         except Exception:
             last_change_id = None
