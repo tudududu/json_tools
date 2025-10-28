@@ -56,3 +56,7 @@ doku/                          # Notes and process docs
 See component‑specific READMEs for recent changes:
 - AE: `script/ae/readMe/README.md` (integration notes)
 - Python: `python/README.md` (schema and CLI updates)
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE` for details.
