@@ -1,17 +1,31 @@
 # 1.4.10 - 2025-10-28
 
 Added:
-- (placeholder)
-
-# 1.4.9 - 2025-10-28
-
-Added:
 - Unit test to assert the converter derives `metadataGlobal.converterVersion` from the first heading in `python/readMe/CHANGELOG.md` (CSV to JSON 108).
 
 Changed:
 - Repository docs reorg: Python-specific docs now live under `python/readMe/` (README.md and CHANGELOG.md) (CSV to JSON 106).
 - `python/bump_changelog.py` now reads/writes `python/readMe/CHANGELOG.md` and stages that path for git commit/tag (CSV to JSON 106).
 - `python/csv_to_subtitles_json.py` version resolution (`--converter-version auto`) falls back to `python/readMe/CHANGELOG.md` when the repo-root `CHANGELOG.md` is absent; `lastChangeId` metadata uses the same fallback (CSV to JSON 107).
+
+# 1.4.9 - 2025-10-28
+
+Backfilled summary: CSV to JSON 62–105 (concise)
+
+Added tests (highlights):
+- Unified schema behaviors: multi-country parsing, orientation mirroring, and per-video duplication with correct `orientation` metadata.
+- Flags and overrides: `logo_anim_flag` overview aggregation and per-video overrides; `subtitle_flag` and `disclaimer_flag` meta_local per‑country propagation vs per-video overrides; `--no-logo-anim-overview` trimming.
+- Job numbers: per-country `jobNumber` precedence and global fallback; default sentinel `"noJobNumber"` when absent.
+- Claims/disclaimers: `--join-claim` grouping by identical timing; `prefer_local_claim_disclaimer`; disclaimer multi-line merges.
+- Structure modes: validation-only path for sectioned and unified inputs; `--no-orientation` legacy shape emission.
+- Negative cases: per-video subtitle overlap detection; detect_columns and delimiter edge branches.
+- CLI output behaviors: `--split-by-country` with `--auto-output` naming and `--output-pattern {country}` custom paths.
+- Output shapes: `claims_as_objects` per-video claim_XX object emission.
+
+Testing options/configuration:
+- Unittest runner: `python python/run_tests.py` (normal) or `COVERAGE=1 python python/run_tests.py` (collects branch + subprocess coverage, emits XML/JSON and `python/tests/coverage/coverage.svg`).
+- Pytest support: `make pytest-cov` for term, XML, and HTML coverage reports (uses `.coveragerc`).
+- Makefile shortcuts: `make test`, `make coverage`, `make pytest-cov`.
 
 # 1.4.8 - 2025-10-09
 

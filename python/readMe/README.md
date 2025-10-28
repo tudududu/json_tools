@@ -405,6 +405,39 @@ Output:
 }
 ```
 
+## Testing
+
+You can run the suite in either unittest or pytest styles.
+
+- Unittest (fast default):
+  - Full run
+    ```sh
+    python3 python/run_tests.py
+    ```
+  - With coverage (branch + subprocess; emits XML/JSON and a badge at `python/tests/coverage/coverage.svg`)
+    ```sh
+    COVERAGE=1 python3 python/run_tests.py
+    ```
+- Pytest with coverage (requires pytest-cov):
+  ```sh
+  make pytest-cov
+  ```
+  This uses `.coveragerc` and outputs term, XML (`python/tests/coverage/coverage.xml`) and HTML (`python/tests/coverage/html`).
+
+Shortcuts:
+- `make test` → runs the unittest suite
+- `make coverage` → runs unittest suite with coverage enabled
+
+What’s covered by tests (CSV to JSON 62–105 highlights):
+- Unified multi-country/orientation parsing, video duplication and orientation metadata
+- `logo_anim_flag` overview aggregation, per-video overrides and split trimming; `--no-logo-anim-overview`
+- `jobNumber` precedence and default sentinel `"noJobNumber"`
+- `subtitle_flag` / `disclaimer_flag` per‑country meta_local propagation vs per-video overrides
+- `--join-claim`, `prefer_local_claim_disclaimer`, disclaimer multi-line merges
+- Validation-only paths (sectioned/unified), `--no-orientation` legacy shape, negative overlap checks
+- CLI outputs: `--split-by-country` with `--auto-output` naming and `--output-pattern {country}` paths
+- Optional shapes: `claims_as_objects` (claim_XX objects per video)
+
 ## Troubleshooting
 * Delimiter guess wrong? Use `--delimiter semicolon` (or `comma`, `tab`, `|`).
 * Timecode parse error: confirm format and `--fps` for frame-based codes.
