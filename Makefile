@@ -23,6 +23,9 @@ test:
 
 # Run unittest suite with coverage and produce reports/badge
 coverage:
+	# Ensure coverage directory exists and remove stale badge to avoid overwrite errors
+	mkdir -p python/tests/coverage
+	rm -f python/tests/coverage/coverage.svg
 	COVERAGE=1 $(TEST_CMD)
 
 # Run pytest with pytest-cov (requires pytest-cov installed)
