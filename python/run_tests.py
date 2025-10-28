@@ -39,8 +39,18 @@ if __name__ == '__main__':
         subprocess.run([sys.executable, '-m', 'coverage', 'xml', '-o', os.path.join(cov_dir, 'coverage.xml')], check=False)
         # coverage json (available in recent versions) may not exist; ignore if unsupported
         subprocess.run([sys.executable, '-m', 'coverage', 'json', '-o', os.path.join(cov_dir, 'coverage.json')], check=False)
+        # Generate/update badge (overwrite if it exists)
         try:
-            subprocess.run([sys.executable, '-m', 'coverage_badge', '-o', os.path.join(cov_dir, 'coverage.svg')], check=False)
+            svg_path = os.path.join(cov_dir, 'coverage.svg')
+            try:
+                if os.path.exists(svg_path):
+                    os.remove(svg_path)
+            except Exception:
+                # Non-fatal: proceed and let coverage_badge try to overwrite
+                pass
+            # Some versions of coverage-badge require -f to overwrite; we proactively delete above
+            # and still pass -o to write into our coverage directory.
+            subprocess.run([sys.executable, '-m', 'coverage_badge', '-o', svg_path], check=False)
         except Exception:
             pass
         # Print summary
