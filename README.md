@@ -7,6 +7,8 @@ This repository contains two main parts:
 
 Use this page as a docs index to navigate the project.
 
+For the GitHub Pages site, see `docs/index.md`.
+
 ## Documentation index
 
 - After Effects pipeline
