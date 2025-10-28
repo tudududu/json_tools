@@ -227,6 +227,8 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   Use `--no-generation-meta` to suppress all of the above for reproducible snapshots.
 
 * A `CHANGELOG.md` file tracks recent changes; `lastChangeId` references its latest heading.
+  In this repository the Python-specific changelog resides at `python/readMe/CHANGELOG.md`.
+  The converter’s `--converter-version auto` first looks for a repo-root `CHANGELOG.md`, then falls back to `python/readMe/CHANGELOG.md`.
 
 ### CHANGELOG Auto-Bump Helper
 
@@ -250,6 +252,12 @@ python3 python/bump_changelog.py --part patch --commit --tag
 ```
 
 Resolution order for `converterVersion` already aligns with this (the new top heading becomes the version when using `--converter-version auto`).
+
+### Repo layout & bump helper (CSV to JSON 106–108)
+
+- Python documentation (README.md and CHANGELOG.md) now lives under `python/readMe/`.
+- The converter’s version auto-detection falls back to `python/readMe/CHANGELOG.md` when a repo-root `CHANGELOG.md` is not present. The `lastChangeId` metadata field uses the same fallback.
+- The bump helper `python/bump_changelog.py` reads/writes `python/readMe/CHANGELOG.md` and stages that path for commit/tag operations.
 
 ### Migration (schemaVersion / country relocation & briefVersion key)
 
