@@ -1,6 +1,6 @@
 # CSV → JSON Subtitle Converter (Python CLI)
 
-![Coverage](python/tests/coverage/coverage.svg "Test Coverage")
+![Coverage](../tests/coverage/coverage.svg "Test Coverage")
 
 This Python CLI converts several related CSV formats into structured JSON suitable for automation / templating pipelines. It supports:
 
