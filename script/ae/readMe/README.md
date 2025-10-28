@@ -58,3 +58,69 @@ Sound import from ISO subfolders (Insert & Relink)
   - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported. Any subfolders inside `YYMMDD` are skipped entirely.
   - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import the ISO-named subfolder instead (using the project ISO from Step 1, with manual/auto fallback). A `[warn]` is logged when fallback is used.
   - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and no top-level files exist and the ISO subfolder is not available, the pipeline aborts with a fatal summary (instead of a graceful exit).
+
+Queue to AME (Step 7)
+- Purpose: set deterministic output paths for each Render Queue item and optionally queue to Adobe Media Encoder.
+- Behavior:
+  - Output path assignment is independent of presets. Folders and `om.file` are set first; template application (if any) happens afterwards.
+  - Date folder suffix prefers ISO from Step 1 (`linkData.iso`), then falls back to project data.json filename, then disk scan of `POST/IN/data`.
+  - When a mapped/default preset is missing, the script proceeds with path assignment and logs clear template diagnostics.
+- Options (ame namespace):
+  - Pathing and queueing
+    - `EXPORT_SUBPATH`: string or array under `POST/` (default `["OUT","PREVIEWS"]`).
+    - `AUTO_QUEUE_IN_AME`: boolean. Queue to AME after configuring paths.
+    - `AME_MAX_QUEUE_ATTEMPTS` / `AME_RETRY_DELAY_MS`: retry when Dynamic Link isn’t ready.
+  - Template application
+    - `APPLY_TEMPLATES` (boolean): master switch. When false, no templates are applied (only paths are set).
+    - `ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION` (boolean): enable mapping by AR and AR|duration.
+    - `DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES` (boolean): reapply chosen preset just before queue (helps inheritance when present).
+    - `AUTO_DISABLE_REAPPLY_ON_MISSING` (boolean): if any preset is missing, skip the reapply pass to reduce log noise.
+    - `OUTPUT_MODULE_TEMPLATE` (string): default template name.
+    - `OUTPUT_MODULE_TEMPLATE_BY_AR` (object): map AR to template (e.g., `{ "1x1": "25Mbs" }`).
+    - `OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION` (object): map `AR|duration` to template, overrides AR-only when present.
+  - Logging
+    - `VERBOSE_DEBUG` (boolean): gates selection/RQ add logging and the multi-line DETAIL block.
+    - `COMPACT_ITEM_DETAIL` (boolean): when true, emit one compact line per item (ASSIGN+DEST [+tpl]) inside DETAIL; works even if `VERBOSE_DEBUG=false`.
+    - Internally, the DETAIL section caps at 80 lines; when capped, a reliable `... (X more) ...` footer is printed.
+
+Preset snippet (paste into your `pipeline.preset.json`)
+```json
+{
+  "ame": {
+    "EXPORT_SUBPATH": ["OUT", "DELIVERIES"],
+    "AUTO_QUEUE_IN_AME": true,
+
+    "APPLY_TEMPLATES": false,
+    "ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION": true,
+    "DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES": false,
+    "AUTO_DISABLE_REAPPLY_ON_MISSING": true,
+    "OUTPUT_MODULE_TEMPLATE": "",
+    "OUTPUT_MODULE_TEMPLATE_BY_AR": {
+      "1x1": "25Mbs",
+      "16x9": "YouTube_1080p",
+      "9x16": "TikTok_1080x1920"
+    },
+    "OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION": {
+      "1x1|06s": "Short_1x1",
+      "1x1|15s": "Short_1x1_15"
+    },
+
+    "VERBOSE_DEBUG": false,
+    "COMPACT_ITEM_DETAIL": true
+  }
+}
+```
+
+Notes
+- When presets are not installed on the machine, prefer `APPLY_TEMPLATES=false` to avoid errors; output paths will still be set correctly.
+- AME does not inherit AE Output Module templates when queueing; presets must exist in AME, or you can render in AE RQ instead.
+
+Changelog since “Integration 70 - logging - rotation”
+- Path/template decoupling: output path is set regardless of preset availability.
+- ISO preference: Step 7 now prefers ISO from Step 1 (link_data), then filename, then disk scan.
+- Header clarity: Step 7 header shows `ISO(Step1)=...` with origin.
+- Template diagnostics: explicit `TEMPLATE SKIP (no map)`, `TEMPLATE FAIL ...`, `TEMPLATE NONE ...`, `TEMPLATE DEFAULT ...` messages.
+- Robust logging: introduced safe error stringification to prevent AE host Error objects from breaking logs.
+- New AME options: `APPLY_TEMPLATES`, `AUTO_DISABLE_REAPPLY_ON_MISSING`, `OUTPUT_MODULE_TEMPLATE*` mappings, all overridable via preset.
+- Logging controls: `VERBOSE_DEBUG` to gate selection/DETAIL; `COMPACT_ITEM_DETAIL` for a one‑line per‑item summary, independent of verbose mode.
+- Detail capping UX: selection “RQ add ->” moved out of the capped DETAIL block; reliable `... (X more) ...` footer when truncated.
