@@ -85,6 +85,16 @@ function __AME_coreRun(opts) {
     // 4e. ISO extraction simplified: filename-based only (+ optional directory scan fallback)
     var ISO_SCAN_DATA_FOLDER_FALLBACK = true; // If filename lookup fails, scan POST/IN/data for data_XXX.json
 
+    // 5. Logging verbosity
+    var MAX_DETAIL_LINES = 80;              // Limit detail lines logged in the DETAIL section
+    var VERBOSE_TEMPLATE_DEBUG = false;     // Extra logging for template reapplication
+    var VERBOSE_DEBUG = true;               // Gates selection/RQ add phase logs and the DETAIL section output
+    var COMPACT_ITEM_DETAIL = true;        // When true, log one compact per-item line (ASSIGN+DEST [+tpl]) instead of multi-line details
+    var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false;   // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
+    var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
+    var INJECT_PRESET_TOKEN_IN_FILENAME = false;    // Append __TemplateName to filename before extension (lets you see which preset intended)
+    var FILENAME_TEMPLATE_SANITIZE = true;          // Sanitize token when injecting
+
     // Options overrides
     try {
         var o = opts && opts.options ? opts.options : null;
@@ -101,27 +111,25 @@ function __AME_coreRun(opts) {
             if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;
             if (o.AME_MAX_QUEUE_ATTEMPTS !== undefined) AME_MAX_QUEUE_ATTEMPTS = parseInt(o.AME_MAX_QUEUE_ATTEMPTS, 10);
             if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
+            // 4. Naming / extension fallback
+            // 4b. Date folder ISO suffix feature & parent folder customization
+            // 4c. File logging options
             if (o.FILE_LOG_APPEND_MODE !== undefined) FILE_LOG_APPEND_MODE = !!o.FILE_LOG_APPEND_MODE;
             if (o.FILE_LOG_MAX_FILES !== undefined) FILE_LOG_MAX_FILES = parseInt(o.FILE_LOG_MAX_FILES, 10);
             if (o.FILE_LOG_PRUNE_ENABLED !== undefined) FILE_LOG_PRUNE_ENABLED = !!o.FILE_LOG_PRUNE_ENABLED;
+            // 4d. Debug instrumentation
             if (o.DEBUG_VERBOSE_ISO_STEPS !== undefined) DEBUG_VERBOSE_ISO_STEPS = !!o.DEBUG_VERBOSE_ISO_STEPS;
+            // 4e. ISO extraction simplified: filename-based only
             if (o.ISO_SCAN_DATA_FOLDER_FALLBACK !== undefined) ISO_SCAN_DATA_FOLDER_FALLBACK = !!o.ISO_SCAN_DATA_FOLDER_FALLBACK;
+            // 5. Logging verbosity
+            if (o.VERBOSE_DEBUG !== undefined) VERBOSE_DEBUG = !!o.VERBOSE_DEBUG;
+            if (o.COMPACT_ITEM_DETAIL !== undefined) COMPACT_ITEM_DETAIL = !!o.COMPACT_ITEM_DETAIL;
             // Capture export subpath if provided (string or array). Root 'POST' is implicit and not included here.
             var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
 
-
-    // 5. Logging verbosity
-    var MAX_DETAIL_LINES = 80;              // Limit detail lines logged in the DETAIL section
-    var VERBOSE_TEMPLATE_DEBUG = false;     // Extra logging for template reapplication
-    var VERBOSE_DEBUG = true;               // Gates selection/RQ add phase logs and the DETAIL section output
-    var COMPACT_ITEM_DETAIL = true;        // When true, log one compact per-item line (ASSIGN+DEST [+tpl]) instead of multi-line details
-    var APPLY_TEMPLATE_TO_EXISTING_ITEMS = false;   // If true, try to apply dynamic template to existing (non-newly-added) RQ items too
-    var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
-    var INJECT_PRESET_TOKEN_IN_FILENAME = false;    // Append __TemplateName to filename before extension (lets you see which preset intended)
-    var FILENAME_TEMPLATE_SANITIZE = true;          // Sanitize token when injecting
 
     // ————— Utils —————
     // Tagged logger
@@ -319,6 +327,8 @@ function __AME_coreRun(opts) {
                         if (ameOpts.OUTPUT_MODULE_TEMPLATE !== undefined) OUTPUT_MODULE_TEMPLATE = String(ameOpts.OUTPUT_MODULE_TEMPLATE);
                         if (ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR && typeof ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR = ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR;
                         if (ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION && typeof ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION === 'object') OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION = ameOpts.OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION;
+                        if (ameOpts.VERBOSE_DEBUG !== undefined) VERBOSE_DEBUG = !!ameOpts.VERBOSE_DEBUG;
+                        if (ameOpts.COMPACT_ITEM_DETAIL !== undefined) COMPACT_ITEM_DETAIL = !!ameOpts.COMPACT_ITEM_DETAIL;
                     }
                 } catch(eAMEOpts) {}
                 if (it instanceof FolderItem) return "[Folder]";
@@ -932,7 +942,7 @@ function __AME_coreRun(opts) {
 
     // Optionally emit detail lines for diagnostics (clipped to MAX_DETAIL_LINES)
     try {
-        if (VERBOSE_DEBUG && detailLines && detailLines.length) {
+        if ((VERBOSE_DEBUG || COMPACT_ITEM_DETAIL) && detailLines && detailLines.length) {
             log("--- DETAIL BEGIN ---");
             var cap = MAX_DETAIL_LINES;
             for (var dl=0; dl<detailLines.length && dl<cap; dl++) { log(detailLines[dl]); }

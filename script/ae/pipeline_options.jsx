@@ -144,6 +144,9 @@
             FILE_LOG_APPEND_MODE: true,
             // Base export path relative to POST/ (segments or string). Default: POST/OUT/PREVIEWS
             EXPORT_SUBPATH: ["OUT","PREVIEWS"],
+            // Logging toggles for Step 7 (AME)
+            VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block
+            COMPACT_ITEM_DETAIL: false,      // When true, log one compact per-item line (ASSIGN+DEST [+tpl]) inside DETAIL (independent of VERBOSE_DEBUG)
             // Step 7 (AME) template controls
             // Master switch: apply any Output Module templates; when false, script only sets output paths and skips template operations
             APPLY_TEMPLATES: true,
