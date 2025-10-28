@@ -1,0 +1,9 @@
+title: json_tools
+description: Adobe After Effects scripting + CSV→JSON tools
+# Use a simple built-in GitHub Pages theme
+theme: jekyll-theme-cayman
+
+# Keep config minimal; rely on relative links within docs/
+# Do not set url/baseurl to avoid confusion across environments
+markdown: kramdown
+plugins: []
