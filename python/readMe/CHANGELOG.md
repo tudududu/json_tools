@@ -1,3 +1,14 @@
+# 1.4.11 - 2025-10-29
+
+Added:
+- Unified schema support for a new `record_type` key `endFrame`, parsed into each video's `endFrame` array (CSV to JSON 115):
+	* Shape matches `logo` items: `{ "line": <int>, "text": <string>, "in": <number|null>, "out": <number|null> }`.
+	* Per‑video timed rows populate `endFrame`; optional per‑country text follows the same precedence as `logo` (local orientation, then global orientation, with landscape→portrait mirroring when portrait is empty).
+	* Global `endFrame` rows (without `video_id`) can serve as text fallbacks, analogous to global `logo` text rows.
+
+Tests:
+- Added unit test `test_unit_endframe_rows.py` to verify `endFrame` rows are parsed and emitted like `logo` with correct timings and presence in both landscape and portrait videos.
+
 # 1.4.10 - 2025-10-28
 
 Added:

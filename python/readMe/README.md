@@ -46,6 +46,7 @@ Meaning:
 | claim         | Appended to per‑country `claim[]` (merged if `--join-claim`) |
 | disclaimer    | Appended / merged into per‑country `disclaimer[]` blocks |
 | sub           | Appended to `videos[].subtitles[]` for the given `video_id` |
+| endFrame      | Appended to `videos[].endFrame[]` (timed segments; mirrors logo behavior per video) |
 
 ### Merging Behaviors
 * Subtitle continuation lines (same `line` + same timing OR untimed continuation) concatenate text with newline unless `--no-merge-subtitles`.
@@ -366,6 +367,29 @@ When writing per-country JSON files the overview is filtered/simplified for that
 
 Use a non-split (combined) run if you need the full multi-country matrix with nested objects.
 
+### Per-Video End Frame Markers: `record_type endFrame` (CSV to JSON 115–116)
+
+Some campaigns also include explicit end-of-spot markers per video. These are modeled with `record_type` set to `endFrame` and behave like per‑video logo segments:
+
+- Rows must provide timing (`start`, `end`); text comes from the usual precedence: metadata column fallback, then per‑country landscape cell, then portrait cell.
+- Values are collected per video and emitted as an array at `videos[*].endFrame` with objects shaped like logo entries: `{ "line", "text", "in", "out" }`.
+- Orientation mode duplicates appear in both `<videoId>_landscape` and `<videoId>_portrait`. When portrait text is empty, it mirrors landscape as with subtitles/logo.
+- No top-level `endFrame` aggregate is produced; the data lives only under each video.
+
+Example output excerpt (one video object shown):
+
+```jsonc
+{
+  "videoId": "WTA_30s_landscape",
+  "metadata": { "duration": 30, "orientation": "landscape" },
+  "subtitles": [ { "line": 1, "in": 0.0, "out": 2.4, "text": "Hello" } ],
+  "logo": [ { "line": 1, "in": 29.5, "out": 30.0, "text": "Logo text" } ],
+  "endFrame": [ { "line": 1, "in": 29.5, "out": 30.0, "text": "End frame" } ]
+}
+```
+
+Validation: `in <= out` is enforced for each item. Items are optional; omit `endFrame` entirely if not used.
+
 ### Helper: Inspecting Flags & Job Numbers Safely
 
 To avoid brittle ad-hoc greps (and terminal line-wrap issues), use the helper:
@@ -437,6 +461,7 @@ What’s covered by tests (CSV to JSON 62–105 highlights):
 - Validation-only paths (sectioned/unified), `--no-orientation` legacy shape, negative overlap checks
 - CLI outputs: `--split-by-country` with `--auto-output` naming and `--output-pattern {country}` paths
 - Optional shapes: `claims_as_objects` (claim_XX objects per video)
+- `endFrame` record_type parsing mirrored to per‑video arrays in both landscape and portrait
 
 ### Try it
 
