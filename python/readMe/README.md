@@ -376,6 +376,14 @@ Some campaigns also include explicit end-of-spot markers per video. These are mo
 - Orientation mode duplicates appear in both `<videoId>_landscape` and `<videoId>_portrait`. When portrait text is empty, it mirrors landscape as with subtitles/logo.
 - No top-level `endFrame` aggregate is produced; the data lives only under each video.
 
+Example CSV rows (unified schema):
+
+```
+record_type,video_id,line,start,end,key,is_global,country_scope,metadata,GBR,DEU
+endFrame,WTA_30s,1,00:00:29:12,00:00:30:00,,,,End frame,,
+endFrame,WTA_30s,2,00:00:29:20,00:00:30:00,,,,,GBR end frame,
+```
+
 Example output excerpt (one video object shown):
 
 ```jsonc
