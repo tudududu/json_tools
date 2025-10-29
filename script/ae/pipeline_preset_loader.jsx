@@ -29,7 +29,7 @@
     // 2) Preset location selection
     // Toggle to use a repository-local dev preset instead of the POST/IN path.
     // Edit this flag to true for local development, or create a file 'script/ae/config/.use_dev_preset'.
-    var USE_DEV_PRESET = true;
+    var USE_DEV_PRESET = false;
     var devConfigDir = joinFs(base.fsName, "config");
     var devPresetFs = joinFs(devConfigDir, "pipeline.preset.json");
     try {
