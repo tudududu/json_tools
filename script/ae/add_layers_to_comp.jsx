@@ -127,10 +127,20 @@ function __AddLayers_coreRun(opts) {
     var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
     // Auto-center un-parented layers when aspect ratio differs from template
     var ENABLE_AUTOCENTER_ON_AR_MISMATCH = true;
-    // Template picking config (Solution B)
+    // Template picking config
+    // Solutions:
+    //  A) Single template: point TEMPLATE_FOLDER_PATH to a single comp or keep only one template comp (implicit)
+    //  B) Multiple templates - match AR: enable requireAspectRatioMatch or let the picker prefer closest AR
+    //  C) Multiple templates - match AR & duration: when enableDurationMatch is true, prefer templates whose duration
+    //     is within durationToleranceSeconds of the target comp; you may also require a duration match.
     var TEMPLATE_MATCH_CONFIG = {
-        arTolerance: 0.001,
-        requireAspectRatioMatch: false
+        // Solution B (AR)
+        arTolerance: 0.001,            // acceptable AR delta (abs(w/h - target))
+        requireAspectRatioMatch: false, // when true, candidates are filtered to those within arTolerance
+        // Solution C (AR + duration)
+        enableDurationMatch: false,     // when true, duration is part of the scoring (preferred)
+        requireDurationMatch: false,     // when true, filter candidates to those within durationToleranceSeconds
+        durationToleranceSeconds: 0.50  // tolerance for duration match (seconds)
     };
     // Options overrides
     function __toBool(v, defVal) {
@@ -151,6 +161,9 @@ function __AddLayers_coreRun(opts) {
             if (o.TEMPLATE_MATCH_CONFIG) {
                 if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
                 if (typeof o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch = o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch;
+                if (typeof o.TEMPLATE_MATCH_CONFIG.enableDurationMatch === 'boolean') TEMPLATE_MATCH_CONFIG.enableDurationMatch = o.TEMPLATE_MATCH_CONFIG.enableDurationMatch;
+                if (typeof o.TEMPLATE_MATCH_CONFIG.requireDurationMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireDurationMatch = o.TEMPLATE_MATCH_CONFIG.requireDurationMatch;
+                if (typeof o.TEMPLATE_MATCH_CONFIG.durationToleranceSeconds === 'number') TEMPLATE_MATCH_CONFIG.durationToleranceSeconds = o.TEMPLATE_MATCH_CONFIG.durationToleranceSeconds;
             }
             if (o.SKIP_COPY_CONFIG) {
                 try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
@@ -390,6 +403,11 @@ function __AddLayers_coreRun(opts) {
         var tAR = ar(targetComp.width, targetComp.height);
         var tol = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.arTolerance === 'number') ? TEMPLATE_MATCH_CONFIG.arTolerance : 0.001; // AR tolerance
         var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
+        // Solution C toggles
+        var enableDur = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.enableDurationMatch === true);
+        var requireDur = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireDurationMatch === true);
+        var durTol = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.durationToleranceSeconds === 'number') ? TEMPLATE_MATCH_CONFIG.durationToleranceSeconds : 0.50;
+        var tDur = 0; try { tDur = (typeof targetComp.duration === 'number') ? targetComp.duration : 0; } catch(eDur) { tDur = 0; }
         // Helper to parse date/version for tie-breaks
         function parseDateVer(name) {
             var pat = /^(.+?)_(\d{1,4}s)_template_(\d{6})_v(\d{1,3})$/i;
@@ -409,9 +427,20 @@ function __AddLayers_coreRun(opts) {
             if (!filtered.length) return null;
             working = filtered;
         }
+        // If requireDurationMatch is true (only when enableDur), limit candidates to duration within tolerance
+        if (enableDur && requireDur) {
+            var filteredDur = [];
+            for (var fdi = 0; fdi < working.length; fdi++) {
+                var cd = working[fdi];
+                var cDur = 0; try { cDur = (typeof cd.duration === 'number') ? cd.duration : 0; } catch(eCD) { cDur = 0; }
+                if (Math.abs(cDur - tDur) <= durTol) filteredDur.push(cd);
+            }
+            if (!filteredDur.length) return null;
+            working = filteredDur;
+        }
 
         var best = null;
-        var bestScore = null; // lower is better; structure: { arDiff, resDiff, dateNum, verNum }
+        var bestScore = null; // lower is better; structure: { arDiff, resDiff, durDiff, arInTol, durInTol, dateNum, verNum }
         for (var i = 0; i < working.length; i++) {
             var c = working[i];
             var cAR = ar(c.width, c.height);
@@ -419,34 +448,57 @@ function __AddLayers_coreRun(opts) {
             // resDiff: within AR match, prefer closest resolution; otherwise still compute to break ties
             var resDiff = Math.abs(c.width - targetComp.width) + Math.abs(c.height - targetComp.height);
             var dv = parseDateVer(c.name);
+            var cDur2 = 0; try { cDur2 = (typeof c.duration === 'number') ? c.duration : 0; } catch(eCD2) { cDur2 = 0; }
+            var durDiff = Math.abs(cDur2 - tDur);
             var score = {
                 arDiff: arDiff,
                 resDiff: resDiff,
+                durDiff: durDiff,
+                arInTol: (arDiff <= tol),
+                durInTol: (enableDur ? (durDiff <= durTol) : true),
                 dateNum: dv.dateNum,
                 verNum: dv.verNum
             };
             if (!best) { best = c; bestScore = score; continue; }
             var s = bestScore;
-            // Primary: AR closeness (prefer within tolerance first)
-            var bothWithinTol = (score.arDiff <= tol) && (s.arDiff <= tol);
-            if (bothWithinTol) {
-                // If both match AR, prefer closest resolution
+            // Primary: Prefer AR within tolerance
+            var bothARin = (score.arInTol && s.arInTol);
+            if (bothARin) {
+                // If Solution C is enabled, prefer duration within tolerance
+                if (enableDur) {
+                    if (score.durInTol && !s.durInTol) { best = c; bestScore = score; continue; }
+                    if (!score.durInTol && s.durInTol) { /* keep current best */ } else {
+                        // Both in or both out of duration tol: prefer smaller duration diff
+                        if (score.durDiff < s.durDiff) { best = c; bestScore = score; continue; }
+                        if (score.durDiff > s.durDiff) { /* keep current best */ } else {
+                            // Then prefer closest resolution
+                            if (score.resDiff < s.resDiff) { best = c; bestScore = score; continue; }
+                            if (score.resDiff > s.resDiff) { /* keep */ } else {
+                                // Tie: prefer newer date/version
+                                if (score.dateNum > s.dateNum || (score.dateNum === s.dateNum && score.verNum > s.verNum)) { best = c; bestScore = score; }
+                            }
+                        }
+                    }
+                    continue;
+                }
+                // Solution B only: both AR within tol, prefer closest resolution
                 if (score.resDiff < s.resDiff) { best = c; bestScore = score; continue; }
                 if (score.resDiff > s.resDiff) { continue; }
-                // Tie: prefer newer date/version
                 if (score.dateNum > s.dateNum || (score.dateNum === s.dateNum && score.verNum > s.verNum)) { best = c; bestScore = score; }
                 continue;
             }
-            // If only one is within tolerance, prefer that one
-            if (score.arDiff <= tol && s.arDiff > tol) { best = c; bestScore = score; continue; }
-            if (s.arDiff <= tol && score.arDiff > tol) { continue; }
-            // Otherwise, both outside tol: pick smaller AR diff
+            // If only one is within AR tolerance, prefer that
+            if (score.arInTol && !s.arInTol) { best = c; bestScore = score; continue; }
+            if (!score.arInTol && s.arInTol) { /* keep current best */ continue; }
+            // Both outside AR tolerance: pick smaller AR diff, then duration if enabled, then resolution, then recency
             if (score.arDiff < s.arDiff) { best = c; bestScore = score; continue; }
             if (score.arDiff > s.arDiff) { continue; }
-            // Tie: prefer closer resolution
+            if (enableDur) {
+                if (score.durDiff < s.durDiff) { best = c; bestScore = score; continue; }
+                if (score.durDiff > s.durDiff) { continue; }
+            }
             if (score.resDiff < s.resDiff) { best = c; bestScore = score; continue; }
             if (score.resDiff > s.resDiff) { continue; }
-            // Tie: prefer newer date/version
             if (score.dateNum > s.dateNum || (score.dateNum === s.dateNum && score.verNum > s.verNum)) { best = c; bestScore = score; }
         }
         return best || candidates[0];
