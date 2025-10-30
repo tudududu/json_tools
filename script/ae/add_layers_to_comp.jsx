@@ -114,8 +114,9 @@ function __AddLayers_coreRun(opts) {
         if (!SUPPRESS_CONSOLE_LOG) { try { $.writeln(msg); } catch(eC2) {} }
     }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
-    // One-time alert guard for AR-skip warning
+    // One-time alert guards for skip warnings
     var __AR_SKIP_ALERT_SHOWN = false;
+    var __DUR_SKIP_ALERT_SHOWN = false;
 
     var proj = app.project;
     if (!proj) { alertOnce("No project open."); app.endUndoGroup(); return; }
@@ -1174,6 +1175,7 @@ function __AddLayers_coreRun(opts) {
         var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
         if (!templateComp) {
             var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
+            var durStrict = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.enableDurationMatch === true && TEMPLATE_MATCH_CONFIG.requireDurationMatch === true);
             if (requireAR) {
                 var tolMsg = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.arTolerance === 'number') ? TEMPLATE_MATCH_CONFIG.arTolerance : 0.001;
                 log("No template matches AR within tolerance (±" + tolMsg + ") for '" + comp.name + "'. Skipping.");
@@ -1181,7 +1183,17 @@ function __AddLayers_coreRun(opts) {
                     try { alert("Some selected comps were skipped because no template matched their aspect ratio within tolerance (±" + tolMsg + "). You can adjust TEMPLATE_MATCH_CONFIG.arTolerance or disable TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch."); } catch (eA) {}
                     __AR_SKIP_ALERT_SHOWN = true;
                 }
-                skippedARCount++;
+                skippedARCount++; // counts strict skips
+                continue;
+            }
+            if (durStrict) {
+                var dTol = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.durationToleranceSeconds === 'number') ? TEMPLATE_MATCH_CONFIG.durationToleranceSeconds : 0.5;
+                log("No template matches duration within tolerance (±" + dTol + "s) for '" + comp.name + "'. Skipping.");
+                if (!__DUR_SKIP_ALERT_SHOWN) {
+                    try { alert("Some selected comps were skipped because no template matched their duration within tolerance (±" + dTol + "s). You can adjust TEMPLATE_MATCH_CONFIG.durationToleranceSeconds or disable TEMPLATE_MATCH_CONFIG.requireDurationMatch."); } catch (eAD) {}
+                    __DUR_SKIP_ALERT_SHOWN = true;
+                }
+                skippedARCount++; // reuse counter for processed count; represents strict skips (AR or duration)
                 continue;
             }
             templateComp = pickBestTemplateComp(templateComps);

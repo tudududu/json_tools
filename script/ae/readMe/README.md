@@ -51,10 +51,25 @@ Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
 - Calling logic: alerts, skips, and fallbacks
   - If `requireAspectRatioMatch=true` and no candidate matches AR within tolerance, the comp is skipped; an alert appears once per run with guidance to adjust tolerance/requirement.
   - If `requireAspectRatioMatch=false` and no candidate matches AR within tolerance, selection falls back to the closest AR, then resolution, then date/version.
-  - If `enableDurationMatch=true` and `requireDurationMatch=true` but no candidate matches the duration tolerance, the picker currently falls back to AR-first selection (no skip). This keeps runs robust while still preferring duration matches when available.
+  - If `enableDurationMatch=true` and `requireDurationMatch=true` but no candidate matches the duration tolerance, the comp is skipped; an alert appears once per run with guidance to relax or disable duration strictness.
 - Skip‑copy behavior while inserting layers
   - Controlled by `addLayers.SKIP_COPY_CONFIG` (see options file for all toggles with comments). When a JSON flag (e.g., `disclaimer_flag`, `subtitle_flag`, `logo_anim_flag`) resolves to OFF for a video, matching template layers are not copied into the target.
   - You can also opt into group-based or ad‑hoc token skips to quickly omit certain layers by name.
+
+Preset snippet (enable Solution C: AR + strict duration)
+```json
+{
+  "addLayers": {
+    "TEMPLATE_MATCH_CONFIG": {
+      "arTolerance": 0.001,
+      "requireAspectRatioMatch": false,
+      "enableDurationMatch": true,
+      "requireDurationMatch": true,
+      "durationToleranceSeconds": 0.5
+    }
+  }
+}
+```
 
 Save As (include ISO)
 - Step 2 saves the current project next to the original `.aep` as `<name>_<ISO>.aep`.
