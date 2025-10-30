@@ -73,7 +73,13 @@
     "PIPELINE_SHOW_VERBOSE_LOG": false,
     "ENABLE_AUTOCENTER_ON_AR_MISMATCH": true,
     "ENABLE_JSON_TIMING_FOR_DISCLAIMER": false,
-    "TEMPLATE_MATCH_CONFIG": { "arTolerance": 0.001, "requireAspectRatioMatch": false },
+    "TEMPLATE_MATCH_CONFIG": { 
+        "arTolerance": 0.001, 
+        "requireAspectRatioMatch": false,
+        "enableDurationMatch": true,
+        "requireDurationMatch": false,
+        "durationToleranceSeconds": 0.5
+        },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff":true, 
         "subtitlesOff":true, 

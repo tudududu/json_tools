@@ -34,6 +34,28 @@ Tips
 - Keep phase settings under their namespace (linkData, createComps, insertRelink, addLayers, pack, ame).
 - When in doubt, check `script/ae/pipeline_options.jsx` for defaults and comments.
 
+Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
+- Where templates live: under the project panel path in `add_layers_to_comp.jsx` → `TEMPLATE_FOLDER_PATH` (default `["project","work","template"]`). The script searches this folder recursively (subfolders included).
+- Safety: if you accidentally select template comps, they’re protected and skipped; only non-template comps are processed.
+- Candidate discovery: all comps under the template folder are collected and considered as candidates.
+- Solutions overview
+  - A) Single template: keep exactly one template comp under the folder; it will be used for all targets.
+  - B) Multiple templates — match AR: the picker prefers aspect ratio within tolerance and, when both candidates are within tolerance, the closest resolution wins; tie-breaker: newer date/version in name (`..._template_YYMMDD_vNN`).
+  - C) Multiple templates — match AR & duration: when enabled, duration closeness is considered (and can be required). Order of preference becomes: AR within tolerance → duration within tolerance (if enabled) → smaller duration diff → closer resolution → newer date/version.
+- Toggles (see `addLayers.TEMPLATE_MATCH_CONFIG` in `pipeline_options.jsx`)
+  - `arTolerance` (number): acceptable absolute delta between template AR (w/h) and target AR (default 0.001).
+  - `requireAspectRatioMatch` (boolean): when true, only candidates within `arTolerance` are considered. If none, the target comp is skipped and you’ll get a one-time alert explaining why.
+  - `enableDurationMatch` (boolean): when true, include duration in the scoring/tie-breaking.
+  - `requireDurationMatch` (boolean): when true (and duration matching is enabled), duration must be within `durationToleranceSeconds`.
+  - `durationToleranceSeconds` (number): allowed absolute difference (seconds) between template comp duration and target comp duration (default 0.50s).
+- Calling logic: alerts, skips, and fallbacks
+  - If `requireAspectRatioMatch=true` and no candidate matches AR within tolerance, the comp is skipped; an alert appears once per run with guidance to adjust tolerance/requirement.
+  - If `requireAspectRatioMatch=false` and no candidate matches AR within tolerance, selection falls back to the closest AR, then resolution, then date/version.
+  - If `enableDurationMatch=true` and `requireDurationMatch=true` but no candidate matches the duration tolerance, the picker currently falls back to AR-first selection (no skip). This keeps runs robust while still preferring duration matches when available.
+- Skip‑copy behavior while inserting layers
+  - Controlled by `addLayers.SKIP_COPY_CONFIG` (see options file for all toggles with comments). When a JSON flag (e.g., `disclaimer_flag`, `subtitle_flag`, `logo_anim_flag`) resolves to OFF for a video, matching template layers are not copied into the target.
+  - You can also opt into group-based or ad‑hoc token skips to quickly omit certain layers by name.
+
 Save As (include ISO)
 - Step 2 saves the current project next to the original `.aep` as `<name>_<ISO>.aep`.
 - ISO is taken from Step 1 (link_data) when available; you can override using `saveAsISO.iso`.

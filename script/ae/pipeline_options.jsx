@@ -113,10 +113,52 @@
             SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false
         },
         addLayers: {
+            // Auto-center any un-parented layers when the target AR differs from the template.
+            // When false, no auto-centering is attempted unless explicitly forced by recenterRules (see LAYER_NAME_CONFIG in the script).
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
+            // Disclaimer timing: when true, use JSON disclaimer in/out; when false, set disclaimer layers to full comp duration.
             ENABLE_JSON_TIMING_FOR_DISCLAIMER: false,
-            TEMPLATE_MATCH_CONFIG: { arTolerance: 0.001, requireAspectRatioMatch: false },
-            SKIP_COPY_CONFIG: { disclaimerOff:true, subtitlesOff:true, logoAnimOff:true, groups:{enabled:false,keys:[]}, adHoc:{enabled:false,tokens:[]}, alwaysCopyLogoBaseNames:["Size_Holder_Logo"] },
+            // Template picking configuration (Solutions A/B/C)
+            //  A) Single template: keep a single template comp under TEMPLATE_FOLDER_PATH (implicit)
+            //  B) Multiple templates — match AR: the picker prefers AR within tolerance; optionally require AR match
+            //  C) Multiple templates — match AR & duration: when enabled, duration proximity is considered (and can be required)
+            TEMPLATE_MATCH_CONFIG: {
+                // Solution B (AR)
+                // Acceptable absolute delta between template AR (width/height) and target AR.
+                arTolerance: 0.001,
+                // When true, only candidates within arTolerance are considered; otherwise AR closeness is preferred but not required.
+                requireAspectRatioMatch: false,
+                // Solution C (AR + Duration)
+                // Master toggle to include duration in scoring/selection.
+                enableDurationMatch: false,
+                // When true (and enableDurationMatch is true), only candidates within durationToleranceSeconds are considered.
+                requireDurationMatch: false,
+                // Allowed absolute difference (in seconds) between template comp duration and target comp duration.
+                durationToleranceSeconds: 0.50
+            },
+            // Skip-copy behavior for template layers. When a flag resolves to OFF for a target, the matching template layers
+            // are not copied into the target. Also supports group-based and ad-hoc token-based skips.
+            SKIP_COPY_CONFIG: {
+                // When true, disclaimer-related layers will be skipped if the JSON flag resolves to OFF for the video.
+                disclaimerOff: true,
+                // When true, subtitle-related layers will be skipped if the JSON flag resolves to OFF for the video.
+                subtitlesOff: true,
+                // When true, animated-logo variant layers (logo_anim) will be skipped if JSON logo_anim_flag resolves to OFF.
+                logoAnimOff: true,
+                // Base logo layers that must always be copied regardless of flags (case-insensitive exact names).
+                alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
+                // Group-based skip using LAYER_NAME_CONFIG keys. When enabled, any layers matching these groups are skipped.
+                groups: {
+                    enabled: false,
+                    keys: [] // e.g., ["info", "claim"]
+                },
+                // Ad-hoc skip list using name tokens (case-insensitive contains match). Useful for quick one-offs.
+                adHoc: {
+                    enabled: false,
+                    tokens: [] // e.g., ["template_aspect", "debug"]
+                }
+            },
+            // Per-phase file logging
             ENABLE_FILE_LOG: true,
             // Pipeline log controls for Step 3
             PIPELINE_SHOW_CONCISE_LOG: true,
