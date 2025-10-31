@@ -136,6 +136,28 @@
                 // Allowed absolute difference (in seconds) between template comp duration and target comp duration.
                 durationToleranceSeconds: 0.50
             },
+            // Extra template outputs (e.g., special layout for TikTok on 9x16)
+            // When enabled, the script duplicates eligible target comps and applies layers from an "extra" template variant
+            // identified by TAG_TOKENS in the template comp name. The duplicate's name gets OUTPUT_NAME_SUFFIX and will flow
+            // through subsequent steps (pack/AME) like any other comp.
+            EXTRA_TEMPLATES: {
+                // Master enable for creating extra outputs.
+                ENABLE_EXTRA_TEMPLATES: false,
+                // Restrict extras to specific AR keys. Empty array => allow all. Keys typically: "1x1","4x5","9x16","16x9".
+                ALLOWED_AR: ["9x16"],
+                // Case-insensitive tokens that mark a template comp as an "extra" variant (any token match qualifies).
+                // Example: ["EXTRA","TIKTOK"] will classify comps whose names contain those tokens as extra templates.
+                TAG_TOKENS: ["EXTRA"],
+                // Suffix appended to duplicated comp names for the extra output (also used implicitly for routing/matching).
+                OUTPUT_NAME_SUFFIX: "_extra",
+                // Duration strictness for extras (overrides TEMPLATE_MATCH_CONFIG when set).
+                // When true, an extra is created only if a template within DURATION_TOLERANCE_SECONDS exists; otherwise skip.
+                REQUIRE_DURATION_MATCH: null,           // null => inherit TEMPLATE_MATCH_CONFIG.requireDurationMatch
+                DURATION_TOLERANCE_SECONDS: null,       // null => inherit TEMPLATE_MATCH_CONFIG.durationToleranceSeconds
+                // Behavior when no extra template is present or strict duration matching fails.
+                // true => silently skip creating extra (default); false => still skip but can be used to enforce different logging later.
+                FALLBACK_WHEN_NO_EXTRA: true
+            },
             // Skip-copy behavior for template layers. When a flag resolves to OFF for a target, the matching template layers
             // are not copied into the target. Also supports group-based and ad-hoc token-based skips.
             SKIP_COPY_CONFIG: {

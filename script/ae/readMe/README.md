@@ -71,6 +71,36 @@ Preset snippet (enable Solution C: AR + strict duration)
 }
 ```
 
+Extras (Step 3) — Duplicate with an extra template
+- Purpose: create an additional output variant (e.g., TikTok layout) for selected aspect ratios by duplicating the target comp and applying layers from an "extra" template.
+- How it works
+  - Mark extra template comps by name tokens (case-insensitive), e.g., "EXTRA" or "TIKTOK". Place them under the same template folder.
+  - When enabled, and a target comp’s AR is allowed, the script duplicates the comp, appends a suffix (default `_extra`), finds the best-matching extra template by AR (and optionally duration), and copies its layers into the duplicate.
+  - The duplicate is included in the returned `processed` list, so subsequent steps (pack/AME) will pick it up automatically.
+- Options: `addLayers.EXTRA_TEMPLATES` (see comments in `pipeline_options.jsx`)
+  - `ENABLE_EXTRA_TEMPLATES` (boolean): master switch. Default: false.
+  - `ALLOWED_AR` (array): AR keys allowed for extras (e.g., `["9x16"]`). Empty → allow all.
+  - `TAG_TOKENS` (array): tokens to detect extra templates (e.g., `["EXTRA","TIKTOK"]`).
+  - `OUTPUT_NAME_SUFFIX` (string): name suffix for the duplicate (default `_extra`).
+  - `REQUIRE_DURATION_MATCH` (boolean|null): when boolean, overrides `TEMPLATE_MATCH_CONFIG.requireDurationMatch` for extra selection; null inherits.
+  - `DURATION_TOLERANCE_SECONDS` (number|null): when number, overrides `TEMPLATE_MATCH_CONFIG.durationToleranceSeconds` for extra selection; null inherits.
+  - `FALLBACK_WHEN_NO_EXTRA` (boolean): currently informational; extras are simply skipped when not available.
+- Minimal preset snippet
+```json
+{
+  "addLayers": {
+    "EXTRA_TEMPLATES": {
+      "ENABLE_EXTRA_TEMPLATES": true,
+      "ALLOWED_AR": ["9x16"],
+      "TAG_TOKENS": ["EXTRA", "TIKTOK"],
+      "OUTPUT_NAME_SUFFIX": "_tiktok",
+      "REQUIRE_DURATION_MATCH": true,
+      "DURATION_TOLERANCE_SECONDS": 0.5
+    }
+  }
+}
+```
+
 Save As (include ISO)
 - Step 2 saves the current project next to the original `.aep` as `<name>_<ISO>.aep`.
 - ISO is taken from Step 1 (link_data) when available; you can override using `saveAsISO.iso`.

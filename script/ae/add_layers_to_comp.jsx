@@ -169,6 +169,34 @@ function __AddLayers_coreRun(opts) {
             if (o.SKIP_COPY_CONFIG) {
                 try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
             }
+            // EXTRA_TEMPLATES (optional) — read into local effective variables
+            var __EXTRA_ENABLE = false;
+            var __EXTRA_ALLOWED_AR = [];
+            var __EXTRA_TAG_TOKENS = [];
+            var __EXTRA_SUFFIX = "_extra";
+            var __EXTRA_REQUIRE_DUR = null;      // null => inherit TEMPLATE_MATCH_CONFIG
+            var __EXTRA_DUR_TOL = null;          // null => inherit TEMPLATE_MATCH_CONFIG
+            var __EXTRA_FALLBACK = true;
+            try {
+                if (o.EXTRA_TEMPLATES && typeof o.EXTRA_TEMPLATES === 'object') {
+                    var E = o.EXTRA_TEMPLATES;
+                    if (typeof E.ENABLE_EXTRA_TEMPLATES !== 'undefined') __EXTRA_ENABLE = __toBool(E.ENABLE_EXTRA_TEMPLATES, false);
+                    if (E.ALLOWED_AR instanceof Array) __EXTRA_ALLOWED_AR = E.ALLOWED_AR;
+                    if (E.TAG_TOKENS instanceof Array) __EXTRA_TAG_TOKENS = E.TAG_TOKENS;
+                    if (typeof E.OUTPUT_NAME_SUFFIX === 'string' && E.OUTPUT_NAME_SUFFIX) __EXTRA_SUFFIX = E.OUTPUT_NAME_SUFFIX;
+                    if (typeof E.REQUIRE_DURATION_MATCH === 'boolean') __EXTRA_REQUIRE_DUR = E.REQUIRE_DURATION_MATCH;
+                    if (typeof E.DURATION_TOLERANCE_SECONDS === 'number') __EXTRA_DUR_TOL = E.DURATION_TOLERANCE_SECONDS;
+                    if (typeof E.FALLBACK_WHEN_NO_EXTRA !== 'undefined') __EXTRA_FALLBACK = __toBool(E.FALLBACK_WHEN_NO_EXTRA, true);
+                }
+            } catch(eExtra){ /* optional */ }
+            // Expose as locals for later use
+            var EXTRA_ENABLE = __EXTRA_ENABLE;
+            var EXTRA_ALLOWED_AR = __EXTRA_ALLOWED_AR;
+            var EXTRA_TAG_TOKENS = __EXTRA_TAG_TOKENS;
+            var EXTRA_OUTPUT_SUFFIX = __EXTRA_SUFFIX;
+            var EXTRA_REQUIRE_DURATION = __EXTRA_REQUIRE_DUR;
+            var EXTRA_DURATION_TOL = __EXTRA_DUR_TOL;
+            var EXTRA_FALLBACK = __EXTRA_FALLBACK;
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = __toBool(o.ENABLE_FILE_LOG, true);
             if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = __toBool(o.PIPELINE_SHOW_CONCISE_LOG, true);
             if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
@@ -537,6 +565,14 @@ function __AddLayers_coreRun(opts) {
         var rA = ar(compA.width, compA.height);
         var rB = ar(compB.width, compB.height);
         return Math.abs(rA - rB) > 0.001; // tolerance
+    }
+
+    // Reduce WxH to simplified AR key like "16x9" or "9x16"
+    function __gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a % b; a=t; } return a||1; }
+    function getARKeyFromComp(c){ try{ var w=c.width|0, h=c.height|0; if(!w||!h) return ""; var g=__gcd(w,h); return (Math.round(w/g)+"x"+Math.round(h/g)); }catch(e){ return ""; } }
+    function isExtraAllowedForComp(c, allowedList){ try{ if(!allowedList || !allowedList.length) return true; var key=getARKeyFromComp(c); for(var i=0;i<allowedList.length;i++){ if(String(allowedList[i])===key) return true; } }catch(e){} return false; }
+    function projectHasItemNamed(name){ try{ var p=app.project; if(!p) return false; var n=p.numItems|0; for(var i=1;i<=n;i++){ var it=p.item(i); try{ if(it && it.name===name) return true; }catch(eN){} } }catch(eP){} return false; }
+    function pickUniqueName(base){ var nm=String(base||""); if(!projectHasItemNamed(nm)) return nm; var idx=2; while(true){ var tryN = nm + "_" + idx; if(!projectHasItemNamed(tryN)) return tryN; idx++; if(idx>9999) return nm + "_" + (new Date().getTime()); }
     }
 
     function nameInListCaseInsensitive(name, list) {
@@ -1126,6 +1162,20 @@ function __AddLayers_coreRun(opts) {
         app.endUndoGroup();
         return;
     }
+    // Partition templates into base vs extra by token match (case-insensitive contains)
+    var __extraTokens = (typeof EXTRA_TAG_TOKENS !== 'undefined') ? EXTRA_TAG_TOKENS : [];
+    var baseTemplateComps = [];
+    var extraTemplateComps = [];
+    if (__extraTokens && __extraTokens.length) {
+        for (var tc=0; tc<templateComps.length; tc++) {
+            var tComp = templateComps[tc];
+            var isExtra = false; try { isExtra = nameMatchesAnyTokenContains(tComp.name, __extraTokens); } catch(eNT) { isExtra = false; }
+            if (isExtra) extraTemplateComps.push(tComp); else baseTemplateComps.push(tComp);
+        }
+    } else {
+        baseTemplateComps = templateComps.slice(0);
+        extraTemplateComps = [];
+    }
 
     var rawTargets = (opts && opts.comps && opts.comps.length) ? opts.comps : getSelectedComps();
     if (!rawTargets.length) {
@@ -1170,9 +1220,145 @@ function __AddLayers_coreRun(opts) {
     var skippedARCount = 0;
     var skippedCopyTotal = 0; // total layers skipped due to skip-copy rules across all comps
     var __concise = [];
+    // Track any extra duplicates created so downstream steps can include them
+    var extraCreatedComps = [];
     for (var t = 0; t < targets.length; t++) {
         var comp = targets[t];
-        var templateComp = pickBestTemplateCompForTarget(templateComps, comp);
+
+        // Helper to execute the copy for a given template/target pair and update aggregate counters
+        function __doCopy(templateComp, compTarget){
+            if (!templateComp || !compTarget) return;
+            var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
+            var __header = "Using template: " + templateComp.name + " -> target: " + compTarget.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
+            log("\n" + __header);
+            try { __concise.push(__header); } catch(eHC) {}
+            var added = 0;
+            var skipCopyCount = 0; // per-comp count
+            var lastInserted = null;
+            var mapNewLayers = [];
+
+            // Resolve flags for this comp ahead of copying to allow skip-copy behavior
+            var ids = buildOrientedVideoId(compTarget);
+            var vRec = null; if (ids.oriented) vRec = findVideoById(jsonData, ids.oriented); if (!vRec) vRec = findVideoById(jsonData, ids.base);
+            function _extractFlagLocal(vobj, key) {
+                if (!vobj || !key) return null;
+                try {
+                    if (vobj.hasOwnProperty(key) && vobj[key] !== undefined && vobj[key] !== null && vobj[key] !== '') return String(vobj[key]).toLowerCase();
+                    if (vobj.metadata && vobj.metadata.hasOwnProperty(key) && vobj.metadata[key] !== undefined && vobj.metadata[key] !== null && vobj.metadata[key] !== '') return String(vobj.metadata[key]).toLowerCase();
+                } catch (eF) {}
+                return null;
+            }
+            function _interpret(raw, cfg) {
+                if (!raw) return null; var val = String(raw).toLowerCase();
+                function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++) if(val===String(list[i]).toLowerCase()) return true; return false; }
+                if (inList(DISCLAIMER_FLAG_VALUES.ON) && cfg===DISCLAIMER_FLAG_VALUES) return 'on';
+                if (inList(SUBTITLES_FLAG_VALUES.ON) && cfg===SUBTITLES_FLAG_VALUES) return 'on';
+                if (inList(LOGO_ANIM_FLAG_VALUES.ON) && cfg===LOGO_ANIM_FLAG_VALUES) return 'on';
+                if (inList(DISCLAIMER_FLAG_VALUES.OFF) && cfg===DISCLAIMER_FLAG_VALUES) return 'off';
+                if (inList(SUBTITLES_FLAG_VALUES.OFF) && cfg===SUBTITLES_FLAG_VALUES) return 'off';
+                if (inList(LOGO_ANIM_FLAG_VALUES.OFF) && cfg===LOGO_ANIM_FLAG_VALUES) return 'off';
+                return null;
+            }
+            var _discMode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
+            if (vRec) {
+                var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
+                var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
+                var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
+                var dm = _interpret(dfRaw, DISCLAIMER_FLAG_VALUES);
+                var sm = _interpret(sfRaw, SUBTITLES_FLAG_VALUES);
+                var lm = _interpret(lafRaw, LOGO_ANIM_FLAG_VALUES);
+                _discMode = dm || 'off';
+                _subtMode = sm || 'off';
+                _logoAnimMode = lm || 'off';
+            }
+
+            // Iterate top -> bottom to mirror order precisely
+            for (var li = 1; li <= templateComp.numLayers; li++) {
+                if (li === excludeIdx) continue;
+                var srcLayer = templateComp.layer(li);
+                try {
+                    var lname = String(srcLayer.name || "");
+                    var isLogoAnim = nameMatchesGroup(lname, 'logoAnim');
+                    var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim;
+                    var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
+                    var isSubtitles = nameMatchesGroup(lname, 'subtitles');
+                    var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
+                    if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
+                        if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)" ); skipCopyCount++; continue; }
+                        if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)" ); skipCopyCount++; continue; }
+                    }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimerOff && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
+                        var groupSkipped = false;
+                        for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
+                            var key = SKIP_COPY_CONFIG.groups.keys[gk]; if (!key) continue;
+                            if (alwaysCopyBaseLogo && (key === 'logo' || key === 'logoAnim')) continue;
+                            if (nameMatchesGroup(lname, key)) { log("Skip copy: '"+lname+"' (group skip: " + key + ")"); groupSkipped = true; break; }
+                        }
+                        if (groupSkipped) { skipCopyCount++; continue; }
+                    }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.tokens && SKIP_COPY_CONFIG.adHoc.tokens.length) {
+                        if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.tokens)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
+                    }
+
+                    var origParent = null; var hadParent = false; var parentIdx = null;
+                    try { if (srcLayer.parent) { origParent = srcLayer.parent; hadParent = true; parentIdx = origParent.index; srcLayer.parent = null; } } catch (ePar) {}
+
+                    var newLayer = srcLayer.copyToComp(compTarget);
+                    if (!newLayer) { try { newLayer = compTarget.layer(1); } catch (eNL) {} }
+                    try { if (hadParent) srcLayer.parent = origParent; } catch (eParR) {}
+                    if (newLayer && lastInserted && newLayer !== lastInserted) {
+                        var newWasLocked = false, lastWasLocked = false;
+                        try { newWasLocked = (newLayer.locked === true); } catch (eNLk) {}
+                        try { lastWasLocked = (lastInserted.locked === true); } catch (eLLk) {}
+                        try { if (newWasLocked) newLayer.locked = false; } catch (eNul) {}
+                        try { if (lastWasLocked) lastInserted.locked = false; } catch (eLul) {}
+                        try { newLayer.moveAfter(lastInserted); } catch (eMove) {}
+                        try { if (lastWasLocked) lastInserted.locked = true; } catch (eLrl) {}
+                        try { if (newWasLocked) newLayer.locked = true; } catch (eNrl) {}
+                    }
+                    if (newLayer) lastInserted = newLayer;
+                    mapNewLayers[li] = { newLayer: newLayer, parentIdx: parentIdx };
+                    added++;
+                } catch (eCopy) {
+                    log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
+                }
+            }
+            try {
+                for (var li2 = 1; li2 <= templateComp.numLayers; li2++) {
+                    if (li2 === excludeIdx) continue;
+                    var entry = mapNewLayers[li2];
+                    if (!entry || !entry.newLayer) continue;
+                    var pIdx = entry.parentIdx;
+                    if (pIdx === null || pIdx === undefined || pIdx === excludeIdx) continue;
+                    var pEntry = mapNewLayers[pIdx];
+                    if (!pEntry || !pEntry.newLayer) continue;
+                    try {
+                        var child = entry.newLayer;
+                        var parent = pEntry.newLayer;
+                        var childWasLocked = false;
+                        try { childWasLocked = (child.locked === true); } catch (eCl) {}
+                        try { if (childWasLocked) child.locked = false; } catch (eCu) {}
+                        child.parent = parent;
+                        try { if (childWasLocked) child.locked = true; } catch (eCr) {}
+                    } catch (eSetP) {}
+                }
+            } catch (eMap) {}
+            if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, compTarget)) {
+                try { recenterUnparentedLayers(compTarget); } catch (eRC) { log("Auto-center failed for '" + compTarget.name + "': " + eRC); }
+            }
+            addedTotal += added;
+            skippedCopyTotal += skipCopyCount;
+            log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + compTarget.name + "'.");
+            log("Inserted " + added + " layer(s) into '" + compTarget.name + "'.");
+            if (jsonData) { applyJSONTimingToComp(compTarget, jsonData); }
+        }
+
+        // Prepare base template set (avoid picking an extra for the base run)
+        var baseCandidates = baseTemplateComps && baseTemplateComps.length ? baseTemplateComps : templateComps;
+        var templateComp = pickBestTemplateCompForTarget(baseCandidates, comp);
         if (!templateComp) {
             var requireAR = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === true);
             var durStrict = (TEMPLATE_MATCH_CONFIG && TEMPLATE_MATCH_CONFIG.enableDurationMatch === true && TEMPLATE_MATCH_CONFIG.requireDurationMatch === true);
@@ -1196,158 +1382,61 @@ function __AddLayers_coreRun(opts) {
                 skippedARCount++; // reuse counter for processed count; represents strict skips (AR or duration)
                 continue;
             }
-            templateComp = pickBestTemplateComp(templateComps);
+            templateComp = pickBestTemplateComp(baseCandidates);
         }
-    var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
-    var __header = "Using template: " + templateComp.name + " -> target: " + comp.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
-    log("\n" + __header);
-    try { __concise.push(__header); } catch(eHC) {}
-    var added = 0;
-    var skipCopyCount = 0; // per-comp count of layers skipped due to skip-copy rules
-        var lastInserted = null; // track stacking chain for moveAfter
-        // Track mapping from template layer index -> { newLayer, parentIdx }
-        var mapNewLayers = [];
-
-        // Resolve flags for this comp ahead of copying to allow skip-copy behavior
-        var ids = buildOrientedVideoId(comp);
-        var vRec = null; if (ids.oriented) vRec = findVideoById(jsonData, ids.oriented); if (!vRec) vRec = findVideoById(jsonData, ids.base);
-        function _extractFlagLocal(vobj, key) {
-            if (!vobj || !key) return null;
+        // Optionally create and process EXTRA duplicate first to avoid inheriting base layers
+        var createdExtra = false;
+        var extraEligible = (typeof EXTRA_ENABLE !== 'undefined' && EXTRA_ENABLE === true) && isExtraAllowedForComp(comp, (typeof EXTRA_ALLOWED_AR !== 'undefined') ? EXTRA_ALLOWED_AR : []);
+        if (extraEligible && extraTemplateComps && extraTemplateComps.length) {
             try {
-                if (vobj.hasOwnProperty(key) && vobj[key] !== undefined && vobj[key] !== null && vobj[key] !== '') return String(vobj[key]).toLowerCase();
-                if (vobj.metadata && vobj.metadata.hasOwnProperty(key) && vobj.metadata[key] !== undefined && vobj.metadata[key] !== null && vobj.metadata[key] !== '') return String(vobj.metadata[key]).toLowerCase();
-            } catch (eF) {}
-            return null;
-        }
-        function _interpret(raw, cfg) {
-            if (!raw) return null; var val = String(raw).toLowerCase();
-            function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++) if(val===String(list[i]).toLowerCase()) return true; return false; }
-            if (inList(cfg.ON)) return 'on'; if (inList(cfg.OFF)) return 'off'; return null;
-        }
-        var _discMode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
-        if (vRec) {
-            var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
-            var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
-            var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
-            var dm = _interpret(dfRaw, DISCLAIMER_FLAG_VALUES);
-            var sm = _interpret(sfRaw, SUBTITLES_FLAG_VALUES);
-            var lm = _interpret(lafRaw, LOGO_ANIM_FLAG_VALUES);
-            _discMode = dm || 'off';
-            _subtMode = sm || 'off';
-            _logoAnimMode = lm || 'off';
-        }
-
-        // Iterate top -> bottom to mirror order precisely
-        for (var li = 1; li <= templateComp.numLayers; li++) {
-            if (li === excludeIdx) continue; // skip underlying video footage layer
-            var srcLayer = templateComp.layer(li);
-            try {
-                // Skip-copy behavior per-flag
-                var lname = String(srcLayer.name || "");
-                var isLogoAnim = nameMatchesGroup(lname, 'logoAnim');
-                var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim; // avoid double-match
-                var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
-                var isSubtitles = nameMatchesGroup(lname, 'subtitles');
-                var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
-                // If a base logo name also matches logoAnim due to config, force it to be treated as generic base logo
-                if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
-                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
-                    if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)" ); skipCopyCount++; continue; }
-                    if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)" ); skipCopyCount++; continue; }
-                }
-                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimerOff && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); skipCopyCount++; continue; }
-                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
-                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
-                    var groupSkipped = false;
-                    for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
-                        var key = SKIP_COPY_CONFIG.groups.keys[gk]; if (!key) continue;
-                        // Do not skip base logo names through this mechanism
-                        if (alwaysCopyBaseLogo && (key === 'logo' || key === 'logoAnim')) continue;
-                        if (nameMatchesGroup(lname, key)) { log("Skip copy: '"+lname+"' (group skip: " + key + ")"); groupSkipped = true; break; }
-                    }
-                    if (groupSkipped) { skipCopyCount++; continue; }
-                }
-                if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.tokens && SKIP_COPY_CONFIG.adHoc.tokens.length) {
-                    if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.tokens)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
-                }
-
-                // Capture and temporarily clear parent to avoid copy failures for linked layers
-                var origParent = null; var hadParent = false; var parentIdx = null;
+                var dup = comp.duplicate();
+                var desiredName = comp.name + (typeof EXTRA_OUTPUT_SUFFIX !== 'undefined' ? EXTRA_OUTPUT_SUFFIX : "_extra");
+                var uniqueName = pickUniqueName(desiredName);
+                try { dup.name = uniqueName; } catch(eRN) {}
+                // Temporarily override duration strictness if extras provided overrides
+                var savedEnableDur = TEMPLATE_MATCH_CONFIG.enableDurationMatch;
+                var savedRequireDur = TEMPLATE_MATCH_CONFIG.requireDurationMatch;
+                var savedDurTol    = TEMPLATE_MATCH_CONFIG.durationToleranceSeconds;
+                var hadOverride = false;
                 try {
-                    if (srcLayer.parent) {
-                        origParent = srcLayer.parent; hadParent = true; parentIdx = origParent.index;
-                        srcLayer.parent = null;
+                    if (EXTRA_REQUIRE_DURATION !== null || EXTRA_DURATION_TOL !== null) {
+                        TEMPLATE_MATCH_CONFIG.enableDurationMatch = true;
+                        if (EXTRA_REQUIRE_DURATION !== null) TEMPLATE_MATCH_CONFIG.requireDurationMatch = !!EXTRA_REQUIRE_DURATION;
+                        if (EXTRA_DURATION_TOL !== null) TEMPLATE_MATCH_CONFIG.durationToleranceSeconds = EXTRA_DURATION_TOL;
+                        hadOverride = true;
                     }
-                } catch (ePar) {}
-
-                var newLayer = srcLayer.copyToComp(comp);
-                // Fallback if API returns undefined: assume the newest is at top
-                if (!newLayer) { try { newLayer = comp.layer(1); } catch (eNL) {} }
-                // Restore template layer parent
-                try { if (hadParent) srcLayer.parent = origParent; } catch (eParR) {}
-                // Reposition to preserve order: place after previously inserted
-                if (newLayer && lastInserted && newLayer !== lastInserted) {
-                    // Temporarily unlock involved layers to avoid ordering issues, then restore states
-                    var newWasLocked = false, lastWasLocked = false;
-                    try { newWasLocked = (newLayer.locked === true); } catch (eNLk) {}
-                    try { lastWasLocked = (lastInserted.locked === true); } catch (eLLk) {}
-                    try { if (newWasLocked) newLayer.locked = false; } catch (eNul) {}
-                    try { if (lastWasLocked) lastInserted.locked = false; } catch (eLul) {}
-                    try { newLayer.moveAfter(lastInserted); } catch (eMove) {}
-                    // Restore locks
-                    try { if (lastWasLocked) lastInserted.locked = true; } catch (eLrl) {}
-                    try { if (newWasLocked) newLayer.locked = true; } catch (eNrl) {}
+                } catch(eOV) {}
+                var extraTpl = pickBestTemplateCompForTarget(extraTemplateComps, dup);
+                // Restore immediately
+                if (hadOverride) {
+                    TEMPLATE_MATCH_CONFIG.enableDurationMatch = savedEnableDur;
+                    TEMPLATE_MATCH_CONFIG.requireDurationMatch = savedRequireDur;
+                    TEMPLATE_MATCH_CONFIG.durationToleranceSeconds = savedDurTol;
                 }
-                if (newLayer) lastInserted = newLayer;
-                // Save mapping
-                mapNewLayers[li] = { newLayer: newLayer, parentIdx: parentIdx };
-                added++;
-            } catch (eCopy) {
-                log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
-            }
-        }
-        // Restore parent relationships in target when possible
-        try {
-            for (var li2 = 1; li2 <= templateComp.numLayers; li2++) {
-                if (li2 === excludeIdx) continue;
-                var entry = mapNewLayers[li2];
-                if (!entry || !entry.newLayer) continue;
-                var pIdx = entry.parentIdx;
-                if (pIdx === null || pIdx === undefined || pIdx === excludeIdx) continue;
-                var pEntry = mapNewLayers[pIdx];
-                if (!pEntry || !pEntry.newLayer) continue;
-                try {
-                    var child = entry.newLayer;
-                    var parent = pEntry.newLayer;
-                    var childWasLocked = false;
-                    try { childWasLocked = (child.locked === true); } catch (eCl) {}
-                    try { if (childWasLocked) child.locked = false; } catch (eCu) {}
-                    child.parent = parent;
-                    try { if (childWasLocked) child.locked = true; } catch (eCr) {}
-                } catch (eSetP) {}
-            }
-        } catch (eMap) {}
-        // Auto-center for aspect ratio mismatch (un-parented layers only)
-        if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, comp)) {
-            try { recenterUnparentedLayers(comp); } catch (eRC) { log("Auto-center failed for '" + comp.name + "': " + eRC); }
+                if (extraTpl) {
+                    __doCopy(extraTpl, dup);
+                    extraCreatedComps.push(dup);
+                    createdExtra = true;
+                } else {
+                    log("No EXTRA template matched for duplicate '" + dup.name + "' (tokens present but no candidate matched). Skipping extra.");
+                    try { dup.remove(); } catch(eRmD) {}
+                }
+            } catch(eDup) { log("Extra duplicate failed for '" + comp.name + "': " + eDup); }
+        } else if (extraEligible && (!extraTemplateComps || !extraTemplateComps.length)) {
+            log("No EXTRA templates available by TAG_TOKENS; skipping extra for '" + comp.name + "'.");
         }
 
-        addedTotal += added;
-        skippedCopyTotal += skipCopyCount;
-    log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + comp.name + "'.");
-    log("Inserted " + added + " layer(s) into '" + comp.name + "'.");
-        // Apply JSON timings (logo/claim) to corresponding layers
-        if (jsonData) {
-            applyJSONTimingToComp(comp, jsonData);
-        }
+        // Now process the base/original comp
+        __doCopy(templateComp, comp);
     }
 
-    var processedCount = targets.length - skippedARCount;
-    var __summaryMsg = "Processed " + processedCount + ", skipped " + skippedARCount + " due to AR mismatch, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ". Total layers skipped (copy): " + skippedCopyTotal + ".";
+    var processedAll = targets.slice(0).concat(extraCreatedComps);
+    var processedCount = processedAll.length - skippedARCount;
+    var __summaryMsg = "Processed " + processedCount + " (including extras:" + extraCreatedComps.length + "), skipped " + skippedARCount + " due to AR/duration strict, skipped " + skippedProtectedCount + " protected template comps. Total layers added: " + addedTotal + ". Total layers skipped (copy): " + skippedCopyTotal + ".";
     log("\n" + __summaryMsg); // add the complete summarising alert at the end to the log as well
     alertOnce(__summaryMsg);
     app.endUndoGroup();
-    return { processed: targets, addedTotal: addedTotal, pipelineConcise: __concise, pipelineSummary: __summaryMsg };
+    return { processed: processedAll, addedTotal: addedTotal, pipelineConcise: __concise, pipelineSummary: __summaryMsg };
 }
 
 AE_AddLayers.run = function(opts){ return __AddLayers_coreRun(opts || {}); };
