@@ -195,8 +195,9 @@
             ENABLE_SUMMARY_LOG: true,   // Produce a summary-only log (names list)
             USE_PROJECT_LOG_FOLDER: true,             // Try to write logs under project ./log/ folder
             PROJECT_LOG_SUBFOLDER: "log",             // Subfolder name
-            DEV_VIDEOID_SELF_TEST: true,             // Dev-only: when true, logs sample name -> videoId mappings
-            
+            DEV_VIDEOID_SELF_TEST: false,             // Dev-only: when true, logs sample name -> videoId mappings
+            DEV_VIDEOID_SELF_TEST_USE_SELECTION: false, // When true, also log mappings for selected/auto-selected comps
+
             OUTPUT_ROOT_PATH: ["project", "out"],   // Base output path
             ANCHOR_SOURCE_FOLDER: "comps",           // Mirror segments AFTER this folder
             APPEND_SUFFIX: "_OUT",                   // Suffix for delivery/export comps

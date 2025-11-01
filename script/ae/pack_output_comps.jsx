@@ -74,6 +74,7 @@ function __Pack_coreRun(opts) {
     var USE_PROJECT_LOG_FOLDER = true;             // Try to write logs under project ./log/ folder
     var PROJECT_LOG_SUBFOLDER = "log";             // Subfolder name
     var DEV_VIDEOID_SELF_TEST = false;             // Dev-only: when true, logs sample name -> videoId mappings
+    var DEV_VIDEOID_SELF_TEST_USE_SELECTION = false; // When true, also log mappings for selected/auto-selected comps
     
 
     // Options overrides
@@ -98,11 +99,13 @@ function __Pack_coreRun(opts) {
             if (o.USE_PROJECT_LOG_FOLDER !== undefined) USE_PROJECT_LOG_FOLDER = !!o.USE_PROJECT_LOG_FOLDER;
             if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
             if (o.DEV_VIDEOID_SELF_TEST !== undefined) DEV_VIDEOID_SELF_TEST = !!o.DEV_VIDEOID_SELF_TEST;
+            if (o.DEV_VIDEOID_SELF_TEST_USE_SELECTION !== undefined) DEV_VIDEOID_SELF_TEST_USE_SELECTION = !!o.DEV_VIDEOID_SELF_TEST_USE_SELECTION;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
                 if (__AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; }
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST === true) { DEV_VIDEOID_SELF_TEST = true; } } catch(ePack) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST_USE_SELECTION === true) { DEV_VIDEOID_SELF_TEST_USE_SELECTION = true; } } catch(ePack2) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -269,9 +272,9 @@ function __Pack_coreRun(opts) {
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
     function alertOnce(msg) { if (__AE_PIPE__) { log(msg); return; } try { alert(msg); } catch (e) {} }
 
-    // Optional dev-only self-test runs early so it doesn't depend on a selection.
+    // Optional dev-only self-test runs early; computes selection internally
     if (DEV_VIDEOID_SELF_TEST) {
-        try { runDevVideoIdSelfTest(); } catch(eST) { try { log('[dev-self-test] error: ' + eST); } catch(eL) {} }
+        try { runDevVideoIdSelfTest(opts); } catch(eST) { try { log('[dev-self-test] error: ' + eST); } catch(eL) {} }
     }
 
     var proj = app.project;
@@ -467,8 +470,8 @@ function __Pack_coreRun(opts) {
         return title + '_' + durToken; // e.g., JBL_BensonBoone_TourPro3_30s
     }
 
-    // Dev helper: log how sample comp names map to base videoIds
-    function runDevVideoIdSelfTest(){
+    // Dev helper: log how sample and (optionally) selected comp names map to base videoIds
+    function runDevVideoIdSelfTest(runOpts){
         try { log('[dev-self-test] videoId mapping (pack): begin'); } catch(eH) {}
         var samples = [
             'Title_30s',
@@ -484,6 +487,26 @@ function __Pack_coreRun(opts) {
             var nm = samples[i];
             var base = buildBaseVideoIdFromCompName(nm);
             try { log('[dev-self-test] ' + nm + ' -> ' + (base ? base : 'null')); } catch(eL) {}
+        }
+        // Optionally include actual selected or auto-selected comps
+        if (DEV_VIDEOID_SELF_TEST_USE_SELECTION) {
+            try {
+                var s = null;
+                try { s = (runOpts && runOpts.comps && runOpts.comps.length) ? runOpts.comps : (app.project ? app.project.selection : null); } catch(eSel) { s = null; }
+                if (s && s.length) {
+                    try { log('[dev-self-test] selection: begin'); } catch(eSH) {}
+                    for (var si = 0; si < s.length; si++) {
+                        var it = s[si];
+                        if (!(it && it instanceof CompItem)) continue;
+                        var nm2 = String(it.name || '');
+                        var base2 = buildBaseVideoIdFromCompName(nm2);
+                        try { log('[dev-self-test] sel ' + nm2 + ' -> ' + (base2 ? base2 : 'null')); } catch(eSL) {}
+                    }
+                    try { log('[dev-self-test] selection: end'); } catch(eSF) {}
+                } else {
+                    try { log('[dev-self-test] selection: none'); } catch(eSN) {}
+                }
+            } catch(eBlock) { try { log('[dev-self-test] selection block error: ' + eBlock); } catch(eBL) {} }
         }
         try { log('[dev-self-test] videoId mapping (pack): end'); } catch(eT) {}
     }
