@@ -70,8 +70,8 @@
 "addLayers": {
     "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": false,
-    "ENABLE_AUTOCENTER_ON_AR_MISMATCH": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": true,
+    "ENABLE_AUTOCENTER_ON_AR_MISMATCH": false,
     "ENABLE_JSON_TIMING_FOR_DISCLAIMER": false,
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
@@ -104,7 +104,7 @@
 
     "ENABLE_FILE_LOG": false,
     "DRY_RUN_MODE": false,
-    "ENABLE_DETAILED_FILE_LOG": true,
+    "ENABLE_DETAILED_FILE_LOG": false,
     "DEV_VIDEOID_SELF_TEST": false,
     "DEV_VIDEOID_SELF_TEST_USE_SELECTION": false,
     "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,

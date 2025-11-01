@@ -75,6 +75,9 @@ function __Pack_coreRun(opts) {
     var PROJECT_LOG_SUBFOLDER = "log";             // Subfolder name
     var DEV_VIDEOID_SELF_TEST = false;             // Dev-only: when true, logs sample name -> videoId mappings
     var DEV_VIDEOID_SELF_TEST_USE_SELECTION = false; // When true, also log mappings for selected/auto-selected comps
+    // Extra outputs naming integration: override MEDIA token for extras (e.g., TikTok)
+    var ENABLE_EXTRA_MEDIA_OVERRIDE = true;        // When true, MEDIA token will be replaced by extra tag for extra outputs
+    var EXTRA_OUTPUT_SUFFIX = "_tiktok";          // Suffix appended to extra duplicate comp names in Step 5 (case-insensitive)
     
 
     // Options overrides
@@ -100,12 +103,19 @@ function __Pack_coreRun(opts) {
             if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
             if (o.DEV_VIDEOID_SELF_TEST !== undefined) DEV_VIDEOID_SELF_TEST = !!o.DEV_VIDEOID_SELF_TEST;
             if (o.DEV_VIDEOID_SELF_TEST_USE_SELECTION !== undefined) DEV_VIDEOID_SELF_TEST_USE_SELECTION = !!o.DEV_VIDEOID_SELF_TEST_USE_SELECTION;
+            if (o.ENABLE_EXTRA_MEDIA_OVERRIDE !== undefined) ENABLE_EXTRA_MEDIA_OVERRIDE = !!o.ENABLE_EXTRA_MEDIA_OVERRIDE;
+            if (o.EXTRA_OUTPUT_SUFFIX !== undefined) EXTRA_OUTPUT_SUFFIX = o.EXTRA_OUTPUT_SUFFIX;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
                 if (__AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; }
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST === true) { DEV_VIDEOID_SELF_TEST = true; } } catch(ePack) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST_USE_SELECTION === true) { DEV_VIDEOID_SELF_TEST_USE_SELECTION = true; } } catch(ePack2) {}
+                // Borrow extras suffix from addLayers options if available
+                try {
+                    var ex = __AE_PIPE__.optionsEffective.addLayers && __AE_PIPE__.optionsEffective.addLayers.EXTRA_TEMPLATES;
+                    if (ex && ex.OUTPUT_NAME_SUFFIX) EXTRA_OUTPUT_SUFFIX = ex.OUTPUT_NAME_SUFFIX;
+                } catch(eEx) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -379,6 +389,30 @@ function __Pack_coreRun(opts) {
         return nm + suffix;
     }
 
+    function __stringEndsWith(str, suf){
+        if(!str || !suf) return false;
+        var s = String(str); var t = String(suf);
+        var sl = s.length; var tl = t.length; if (tl === 0) return false; if (sl < tl) return false;
+        return s.indexOf(t, sl - tl) !== -1;
+    }
+
+    // Detect extras from comp.name using configured suffix; return label (e.g., 'TIKTOK') or null
+    function getExtraMediaLabelForComp(comp){
+        if(!ENABLE_EXTRA_MEDIA_OVERRIDE || !comp) return null;
+        var nm = String(comp.name || '');
+        var suf = EXTRA_OUTPUT_SUFFIX ? String(EXTRA_OUTPUT_SUFFIX) : '';
+        if(!suf) return null;
+        var nmL = nm.toLowerCase();
+        var sufL = suf.toLowerCase();
+        if(__stringEndsWith(nmL, sufL)){
+            // Derive label from suffix by stripping leading separators and uppercasing
+            var raw = suf.replace(/^[_\-\s]+/, '');
+            if(!raw) return null;
+            return raw.toUpperCase();
+        }
+        return null;
+    }
+
     // ------------------ JSON + video metadata helpers ------------------
     function findProjectItemByName(name) {
         for (var i = 1; i <= proj.numItems; i++) {
@@ -551,6 +585,9 @@ function __Pack_coreRun(opts) {
                 var dn = parseInt(d,10); if(isNaN(dn)) return '';
                 return (dn < 10 ? '0'+dn : ''+dn) + 's';
             case 'MEDIA':
+                // Override for extras (e.g., TikTok) based on duplicate suffix
+                var extraLbl = getExtraMediaLabelForComp(comp);
+                if (extraLbl) return extraLbl;
                 return 'OLV'; // default placeholder until wired to data
             case 'ASPECTRATIO':
                 return comp ? aspectRatioString(comp.width, comp.height) : '';
