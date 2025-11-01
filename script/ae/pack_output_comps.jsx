@@ -710,6 +710,29 @@ function __Pack_coreRun(opts) {
             concise.push("Names:");
             for (var ci=0; ci<__createdNames.length; ci++) concise.push(__createdNames[ci]);
         }
+        // Include Skipped section (mirror of phase summary log)
+        if (__skippedNames && __skippedNames.length) {
+            var filteredSkips = [];
+            for (var si = 0; si < __skippedNames.length; si++) {
+                var se = __skippedNames[si];
+                if (!INCLUDE_NOT_COMP_REASON_IN_SUMMARY && se.indexOf('(not comp)') !== -1) continue;
+                filteredSkips.push(se);
+            }
+            concise.push("Skipped (" + filteredSkips.length + "):");
+            for (var fsI = 0; fsI < filteredSkips.length; fsI++) concise.push(filteredSkips[fsI]);
+        }
+        // Include skip categories with counts
+        var __catKeys = [];
+        for (var __k in __skipCategories) if (__skipCategories.hasOwnProperty(__k)) __catKeys.push(__k);
+        if (__catKeys.length) {
+            concise.push("Skip categories (counts):");
+            for (var ckI = 0; ckI < __catKeys.length; ckI++) {
+                var __ck = __catKeys[ckI];
+                var __arr = __skipCategories[__ck];
+                var __count = (__arr && __arr.length) ? __arr.length : 0;
+                concise.push(" - " + (__ck || 'unknown') + ": " + __count);
+            }
+        }
         if (INCLUDE_TIMING_METRICS) {
             var end2 = new Date();
             var ms2 = end2.getTime() - __scriptStartTime.getTime();
