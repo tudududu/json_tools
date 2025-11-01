@@ -5,6 +5,10 @@ Welcome to the json_tools documentation site. This project combines:
 - Adobe After Effects scripting (ExtendScript) for preparing compositions, setting output paths, and queueing to AME
 - A Python CLI for converting campaign CSVs into structured JSON that drives AE
 
+> NEW · Extras for AE pipeline
+>
+> Duplicate comps with an extra template (e.g., TikTok layout) and have them flow through the pipeline automatically. See “Extras (Step 3) — Duplicate with an extra template” in the AE guide: [script/ae/readMe/README.md](../script/ae/readMe/README.md).
+
 ## Get started
 
 1) Convert your CSV to JSON
