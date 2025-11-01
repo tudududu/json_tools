@@ -470,6 +470,7 @@ function __Pack_coreRun(opts) {
     // Dev helper: log how sample comp names map to base videoIds
     function runDevVideoIdSelfTest(){
         try { log('[dev-self-test] videoId mapping (pack): begin'); } catch(eH) {}
+        try { logConcise('[dev-self-test] videoId mapping (pack): begin'); } catch(eHC) {}
         var samples = [
             'Title_30s',
             'token1_token2_Title_30s_v01',
@@ -483,9 +484,12 @@ function __Pack_coreRun(opts) {
         for (var i=0;i<samples.length;i++){
             var nm = samples[i];
             var base = buildBaseVideoIdFromCompName(nm);
-            try { log('[dev-self-test] ' + nm + ' -> ' + (base ? base : 'null')); } catch(eL) {}
+            var line = '[dev-self-test] ' + nm + ' -> ' + (base ? base : 'null');
+            try { log(line); } catch(eL1) {}
+            try { logConcise(line); } catch(eL2) {}
         }
         try { log('[dev-self-test] videoId mapping (pack): end'); } catch(eT) {}
+        try { logConcise('[dev-self-test] videoId mapping (pack): end'); } catch(eTC) {}
     }
     function getCompOrientation(comp){ try { if(comp && comp.width>comp.height) return 'landscape'; } catch(e){} return 'portrait'; }
 
@@ -748,6 +752,11 @@ function __Pack_coreRun(opts) {
     } catch(eCol) {}
     // Prepare concise lines for pipeline log (optional gating handled by orchestrator)
     var concise = [];
+    // Include any dev/self-test lines collected earlier
+    if (__conciseLines && __conciseLines.length) {
+        concise.push("Dev (pack):");
+        for (var dci = 0; dci < __conciseLines.length; dci++) concise.push(__conciseLines[dci]);
+    }
     try {
         // Summary block similar to file summary log
         concise.push("Summary:");
