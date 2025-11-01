@@ -429,18 +429,28 @@ function __Pack_coreRun(opts) {
 
     // Build base videoId ("<title>_<NNs>") by taking the token immediately BEFORE the first duration token.
     // This allows arbitrary leading tokens (e.g., token1_token2_title_30s_...).
+    // Fallback: if no standalone duration token is found, scan from the end for any token containing /\d{1,4}s/ and use that.
     function buildBaseVideoIdFromCompName(name){
         if(!name) return null;
         var parts = String(name).split(/[_\s]+/);
         if(!parts.length) return null;
         var durIdx = -1;
+        var durToken = null;
+        // Pass 1: strict token match
         for(var i=0;i<parts.length;i++){
-            var p = parts[i];
-            if(/^\d{1,4}s$/i.test(p)){ durIdx = i; break; }
+            var p1 = parts[i];
+            if(/^\d{1,4}s$/i.test(p1)){ durIdx = i; durToken = String(p1).toLowerCase(); break; }
+        }
+        // Pass 2 (fallback): find last token containing a duration-like substring (e.g., "06s_v01")
+        if(durIdx === -1){
+            for(var j=parts.length-1; j>=0; j--){
+                var p2 = parts[j];
+                var m = String(p2).match(/(\d{1,4})s/i);
+                if(m){ durIdx = j; durToken = String(m[1]).toLowerCase() + 's'; break; }
+            }
         }
         if(durIdx <= 0) return null; // need a token before duration
         var title = parts[durIdx - 1];
-        var durToken = String(parts[durIdx]).toLowerCase();
         if(!title || !durToken) return null;
         return title + '_' + durToken; // e.g., JBL_BensonBoone_TourPro3_30s
     }
