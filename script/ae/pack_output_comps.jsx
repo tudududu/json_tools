@@ -427,18 +427,22 @@ function __Pack_coreRun(opts) {
     function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=a%b; a=b; b=t;} return a||1; }
     function aspectRatioString(w,h){ if(!w||!h) return ''; var g=gcd(w,h); var aw=w/g; var ah=h/g; return aw + 'x' + ah; }
 
+    // Build base videoId ("<title>_<NNs>") by taking the token immediately BEFORE the first duration token.
+    // This allows arbitrary leading tokens (e.g., token1_token2_title_30s_...).
     function buildBaseVideoIdFromCompName(name){
         if(!name) return null;
         var parts = String(name).split(/[_\s]+/);
         if(!parts.length) return null;
-        var title = parts[0];
-        var durToken = null;
-        for(var i=1;i<parts.length;i++){
+        var durIdx = -1;
+        for(var i=0;i<parts.length;i++){
             var p = parts[i];
-            if(/^\d{1,4}s$/i.test(p)){ durToken = p.toLowerCase(); break; }
+            if(/^\d{1,4}s$/i.test(p)){ durIdx = i; break; }
         }
+        if(durIdx <= 0) return null; // need a token before duration
+        var title = parts[durIdx - 1];
+        var durToken = String(parts[durIdx]).toLowerCase();
         if(!title || !durToken) return null;
-        return title + '_' + durToken; // e.g. WTA_30s
+        return title + '_' + durToken; // e.g., JBL_BensonBoone_TourPro3_30s
     }
     function getCompOrientation(comp){ try { if(comp && comp.width>comp.height) return 'landscape'; } catch(e){} return 'portrait'; }
 

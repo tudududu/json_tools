@@ -102,7 +102,7 @@
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false,
 
-    "ENABLE_FILE_LOG": true,
+    "ENABLE_FILE_LOG": false,
     "DRY_RUN_MODE": false,
     "ENABLE_DETAILED_FILE_LOG": false,
     "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,
