@@ -110,6 +110,7 @@
     "ENABLE_SUMMARY_LOG": true,
     "USE_PROJECT_LOG_FOLDER": true,
     "PROJECT_LOG_SUBFOLDER": "log",
+    "DEV_VIDEOID_SELF_TEST": true,
 
     "OUTPUT_ROOT_PATH": ["project", "out"],
     "ANCHOR_SOURCE_FOLDER": "comps",
