@@ -24,17 +24,6 @@ if (typeof AE_Pack === 'undefined') { var AE_Pack = {}; }
 function __Pack_coreRun(opts) {
     app.beginUndoGroup("Pack Output Comps");
 
-    // Logging configuration (detailed + summary + suppression + timestamped filenames)
-    var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
-    var ENABLE_FILE_LOG = true;                    // Per-phase master switch for any file logs
-    var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
-    var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
-    var ENABLE_SUMMARY_LOG = true;                // Produce a summary-only log (names list)
-    var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true;// If true, disables detailed file log when DRY_RUN_MODE == false
-    var USE_PROJECT_LOG_FOLDER = true;            // Try to write logs under project ./log/ folder
-    var PROJECT_LOG_SUBFOLDER = "log";            // Subfolder name
-    var DATA_JSON_PRIMARY_NAME = 'data.json';      // Primary expected data JSON name (moved here so ordering stays logical)
-
     function buildTimestamp() {
         var d = new Date();
         function p(n){ return (n<10?'0':'')+n; }
@@ -65,20 +54,99 @@ function __Pack_coreRun(opts) {
         return null;
     }
 
+    // Config ------------------------------------------------
+    var OUTPUT_ROOT_PATH = ["project", "out"];     // Base output path
+    var ANCHOR_SOURCE_FOLDER = "comps";            // Mirror segments AFTER this folder
+    var APPEND_SUFFIX = "_OUT";                    // Suffix for delivery/export comps
+    var ENABLE_SUFFIX_APPEND = false;              // Toggle: when false, do NOT append APPEND_SUFFIX even if OUTPUT_NAME_CONFIG.appendSuffix is true
+    var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
+    var SKIP_IF_ALREADY_IN_OUTPUT = true;          // Avoid recursion
+    var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
+    var DATA_JSON_PRIMARY_NAME = 'data.json';      // Primary expected data JSON name (moved here so ordering stays logical)
+
+    // Logging configuration (detailed + summary + suppression + timestamped filenames)
+    var ENABLE_FILE_LOG = true;                    // Per-phase master switch for any file logs
+    var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
+    var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
+    var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true; // If true, disables detailed file log when DRY_RUN_MODE == false
+    var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
+    var ENABLE_SUMMARY_LOG = true;                 // Produce a summary-only log (names list)
+    var USE_PROJECT_LOG_FOLDER = true;             // Try to write logs under project ./log/ folder
+    var PROJECT_LOG_SUBFOLDER = "log";             // Subfolder name
+    
+
     // Options overrides
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
-            if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
-            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
-            if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
-            if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
+            if (o.OUTPUT_ROOT_PATH !== undefined) OUTPUT_ROOT_PATH = o.OUTPUT_ROOT_PATH;
+            if (o.ANCHOR_SOURCE_FOLDER !== undefined) ANCHOR_SOURCE_FOLDER = o.ANCHOR_SOURCE_FOLDER;
+            if (o.SKIP_IF_ALREADY_IN_OUTPUT !== undefined) SKIP_IF_ALREADY_IN_OUTPUT = !!o.SKIP_IF_ALREADY_IN_OUTPUT;
+            if (o.APPEND_SUFFIX !== undefined) APPEND_SUFFIX = !!o.APPEND_SUFFIX;
             if (o.ENABLE_SUFFIX_APPEND !== undefined) ENABLE_SUFFIX_APPEND = !!o.ENABLE_SUFFIX_APPEND;
-            if (o.SKIP_IF_OUTPUT_ALREADY_EXISTS !== undefined) SKIP_IF_OUTPUT_ALREADY_EXISTS = !!o.SKIP_IF_OUTPUT_ALREADY_EXISTS;
             if (o.ENSURE_UNIQUE_NAME !== undefined) ENSURE_UNIQUE_NAME = !!o.ENSURE_UNIQUE_NAME;
+            if (o.SKIP_IF_OUTPUT_ALREADY_EXISTS !== undefined) SKIP_IF_OUTPUT_ALREADY_EXISTS = !!o.SKIP_IF_OUTPUT_ALREADY_EXISTS;
+            if (o.DATA_JSON_PRIMARY_NAME !== undefined) DATA_JSON_PRIMARY_NAME = o.DATA_JSON_PRIMARY_NAME;
+            
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
+            if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
+            if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
+            if (o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN !== undefined) SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = !!o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN;
+            if (o.DEBUG_NAMING !== undefined) DEBUG_NAMING = !!o.DEBUG_NAMING;
+            if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
+            if (o.USE_PROJECT_LOG_FOLDER !== undefined) USE_PROJECT_LOG_FOLDER = !!o.USE_PROJECT_LOG_FOLDER;
+            if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSPK) {}
     } catch(eOpt){}
+
+    // --------------------------------------------------------------
+    // OUTPUT NAME CONFIG (modular token-based name builder)
+    // Order of tokens here defines default ordering. You can enable/disable tokens individually.
+    // Default structure requested:
+    // CLIENT_BRAND_COUNTRY_JOBNUMBER_CAMPAIGN_TITLE_DURATION_MEDIA_ASPECTRATIO_RESOLUTION_FRAMERATE_SUBTITLES_SOUNDLEVEL_DATE_VERSION
+    // MEDIA and SOUNDLEVEL are placeholders for future data sources (currently disabled by default).
+    // DATE: auto-generated, format YYDDMM (Year last 2 digits + Day + Month)
+    // VERSION: briefVersion => vXX (pad to 2 digits)
+    // DURATION: per-video duration => NN s (pad to 2 digits if <10) plus trailing 's'
+    // ASPECTRATIO: simplified ratio (e.g. 16x9)
+    // RESOLUTION: WxH (e.g. 1920x1080)
+    // FRAMERATE: XXfps
+    // SUBTITLES: 'sub' if subtitle_flag == 'Y' (case-insensitive) or inferred from presence of subtitles array; else omitted
+    // TITLE: per-video metadata.title (fallback from comp name)
+    //
+    // You can reorder OUTPUT_NAME_TOKENS, or set enabled:false to omit.
+    // --------------------------------------------------------------
+
+    var OUTPUT_NAME_TOKENS = [
+        { key: 'CLIENT',       enabled: true },
+        { key: 'BRAND',        enabled: true },
+        { key: 'COUNTRY',      enabled: true },
+        { key: 'JOBNUMBER',    enabled: true },
+        { key: 'CAMPAIGN',     enabled: true },
+        { key: 'TITLE',        enabled: true },
+        { key: 'DURATION',     enabled: true },
+        { key: 'MEDIA',        enabled: true }, // now enabled with default placeholder value
+        { key: 'ASPECTRATIO',  enabled: true },
+        { key: 'RESOLUTION',   enabled: true },
+        { key: 'FRAMERATE',    enabled: true },
+        { key: 'SUBTITLES',    enabled: true },
+        { key: 'SOUNDLEVEL',   enabled: true }, // now enabled with default placeholder value
+        { key: 'DATE',         enabled: true },
+        { key: 'VERSION',      enabled: true }
+    ];
+
+    // Auto-disable logic: if the resolved BRAND value equals this string (case-insensitive), disable the BRAND token.
+    // Set to null/empty string to disable this feature.
+    var AUTO_DISABLE_BRAND_IF_VALUE = "noBrand"; // example trigger value
+    // Auto-disable logic for TITLE: if resolved per-comp TITLE equals this, suppress it (per comp) without disabling globally.
+    var AUTO_DISABLE_TITLE_IF_VALUE = "noTitle"; // example trigger value
+
+    var OUTPUT_NAME_CONFIG = {
+        delimiter: '_',
+        skipEmpty: true,        // if a token resolves to empty/null, omit it
+        appendSuffix: true      // append APPEND_SUFFIX to the built name (if not already there)
+    };
 
     var __timestamp = buildTimestamp();
     var __logBaseFolder = resolveLogBaseFolder();
@@ -199,63 +267,6 @@ function __Pack_coreRun(opts) {
 
     var sel = (opts && opts.comps && opts.comps.length) ? opts.comps : proj.selection;
     if (!sel || !sel.length) { alertOnce("Select one or more compositions."); app.endUndoGroup(); return { outputComps: [] }; }
-
-    // Config ------------------------------------------------
-    var OUTPUT_ROOT_PATH = ["project", "out"];   // Base output path
-    var ANCHOR_SOURCE_FOLDER = "comps";           // Mirror segments AFTER this folder
-    var SKIP_IF_ALREADY_IN_OUTPUT = true;          // Avoid recursion
-    var APPEND_SUFFIX = "_OUT";                   // Suffix for delivery/export comps
-    var ENABLE_SUFFIX_APPEND = false;               // Toggle: when false, do NOT append APPEND_SUFFIX even if OUTPUT_NAME_CONFIG.appendSuffix is true
-    var ENSURE_UNIQUE_NAME = true;                 // If a name collision occurs, append numeric counter
-    var SKIP_IF_OUTPUT_ALREADY_EXISTS = true;      // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
-
-    // --------------------------------------------------------------
-    // OUTPUT NAME CONFIG (modular token-based name builder)
-    // Order of tokens here defines default ordering. You can enable/disable tokens individually.
-    // Default structure requested:
-    // CLIENT_BRAND_COUNTRY_JOBNUMBER_CAMPAIGN_TITLE_DURATION_MEDIA_ASPECTRATIO_RESOLUTION_FRAMERATE_SUBTITLES_SOUNDLEVEL_DATE_VERSION
-    // MEDIA and SOUNDLEVEL are placeholders for future data sources (currently disabled by default).
-    // DATE: auto-generated, format YYDDMM (Year last 2 digits + Day + Month)
-    // VERSION: briefVersion => vXX (pad to 2 digits)
-    // DURATION: per-video duration => NN s (pad to 2 digits if <10) plus trailing 's'
-    // ASPECTRATIO: simplified ratio (e.g. 16x9)
-    // RESOLUTION: WxH (e.g. 1920x1080)
-    // FRAMERATE: XXfps
-    // SUBTITLES: 'sub' if subtitle_flag == 'Y' (case-insensitive) or inferred from presence of subtitles array; else omitted
-    // TITLE: per-video metadata.title (fallback from comp name)
-    //
-    // You can reorder OUTPUT_NAME_TOKENS, or set enabled:false to omit.
-    // --------------------------------------------------------------
-
-    var OUTPUT_NAME_TOKENS = [
-        { key: 'CLIENT',       enabled: true },
-        { key: 'BRAND',        enabled: true },
-        { key: 'COUNTRY',      enabled: true },
-        { key: 'JOBNUMBER',    enabled: true },
-        { key: 'CAMPAIGN',     enabled: true },
-        { key: 'TITLE',        enabled: true },
-        { key: 'DURATION',     enabled: true },
-        { key: 'MEDIA',        enabled: true }, // now enabled with default placeholder value
-        { key: 'ASPECTRATIO',  enabled: true },
-        { key: 'RESOLUTION',   enabled: true },
-        { key: 'FRAMERATE',    enabled: true },
-        { key: 'SUBTITLES',    enabled: true },
-        { key: 'SOUNDLEVEL',   enabled: true }, // now enabled with default placeholder value
-        { key: 'DATE',         enabled: true },
-        { key: 'VERSION',      enabled: true }
-    ];
-
-    // Auto-disable logic: if the resolved BRAND value equals this string (case-insensitive), disable the BRAND token.
-    // Set to null/empty string to disable this feature.
-    var AUTO_DISABLE_BRAND_IF_VALUE = "noBrand"; // example trigger value
-    // Auto-disable logic for TITLE: if resolved per-comp TITLE equals this, suppress it (per comp) without disabling globally.
-    var AUTO_DISABLE_TITLE_IF_VALUE = "noTitle"; // example trigger value
-
-    var OUTPUT_NAME_CONFIG = {
-        delimiter: '_',
-        skipEmpty: true,        // if a token resolves to empty/null, omit it
-        appendSuffix: true      // append APPEND_SUFFIX to the built name (if not already there)
-    };
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {

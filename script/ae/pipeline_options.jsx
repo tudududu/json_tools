@@ -187,13 +187,23 @@
             PIPELINE_SHOW_VERBOSE_LOG: false
         },
         pack: {
-            ENABLE_FILE_LOG: true,
-            DRY_RUN_MODE: false,
-            ENABLE_SUMMARY_LOG: true,
-            ENABLE_DETAILED_FILE_LOG: false,
-            ENABLE_SUFFIX_APPEND: false,
-            SKIP_IF_OUTPUT_ALREADY_EXISTS: true,
-            ENSURE_UNIQUE_NAME: true,
+            ENABLE_FILE_LOG: true,  // Per-phase master switch for any file logs
+            DRY_RUN_MODE: false,    // When true: do NOT create folders or comps; only log what would happen
+            ENABLE_DETAILED_FILE_LOG: false,    // Master flag for detailed log
+            SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN: true, // If true, disables detailed file log when DRY_RUN_MODE == false
+            DEBUG_NAMING: false,                      // When true: verbose logging for each token (detailed log only)
+            ENABLE_SUMMARY_LOG: true,   // Produce a summary-only log (names list)
+            USE_PROJECT_LOG_FOLDER: true,             // Try to write logs under project ./log/ folder
+            PROJECT_LOG_SUBFOLDER: "log",             // Subfolder name
+            
+            OUTPUT_ROOT_PATH: ["project", "out"],   // Base output path
+            ANCHOR_SOURCE_FOLDER: "comps",           // Mirror segments AFTER this folder
+            APPEND_SUFFIX: "_OUT",                   // Suffix for delivery/export comps
+            ENABLE_SUFFIX_APPEND: false,        // Toggle: when false, do NOT append APPEND_SUFFIX even if OUTPUT_NAME_CONFIG.appendSuffix is true
+            ENSURE_UNIQUE_NAME: true,           // If a name collision occurs, append numeric counter
+            SKIP_IF_ALREADY_IN_OUTPUT: true,          // Avoid recursion
+            SKIP_IF_OUTPUT_ALREADY_EXISTS: true,    // If an output comp with the expected base name already exists in dest folder, skip instead of creating _01
+            DATA_JSON_PRIMARY_NAME: 'data.json',      // Primary expected data JSON name (moved here so ordering stays logical)
             // Pipeline log controls for Step 4
             PIPELINE_SHOW_CONCISE_LOG: true,
             PIPELINE_SHOW_VERBOSE_LOG: false

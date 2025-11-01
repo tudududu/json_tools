@@ -1,28 +1,28 @@
 {
-"ENABLE_FILE_LOG": true,
-"PHASE_FILE_LOGS_MASTER_ENABLE": false,
-"DRY_RUN": false,
-"PIPELINE_QUEUE_TO_AME": true,
-"VERBOSE": true,
-"DEBUG_DUMP_EFFECTIVE_OPTIONS": false,
-"sleepBetweenPhasesMs": 250,
-"ENABLE_FINAL_ALERT": false,
+    "DRY_RUN": false,
+    "PIPELINE_QUEUE_TO_AME": true,
+    "VERBOSE": true,
+    "sleepBetweenPhasesMs": 250,
+    "ENABLE_FINAL_ALERT": false,
+    
+    "ENABLE_FILE_LOG": true,
+    "PHASE_FILE_LOGS_MASTER_ENABLE": true,
+    "DEBUG_DUMP_EFFECTIVE_OPTIONS": false,
+    "PHASES_SHARE_PIPELINE_LOG": true,
+    "LOG_WITH_TIMESTAMPS": false,
+    "PIPELINE_FILE_LOG_APPEND_MODE": false,
+    "PIPELINE_FILE_LOG_PRUNE_ENABLED": true,
+    "LOG_MAX_FILES": 24,
+    "PIPELINE_SHOW_PHASE_TAGS": true,
+    "PIPELINE_SHOW_LEVELS": true,
 
-"PHASES_SHARE_PIPELINE_LOG": true,
-"LOG_WITH_TIMESTAMPS": false,
-"PIPELINE_FILE_LOG_APPEND_MODE": false,
-"PIPELINE_FILE_LOG_PRUNE_ENABLED": true,
-"LOG_MAX_FILES": 24,
-"PIPELINE_SHOW_PHASE_TAGS": true,
-"PIPELINE_SHOW_LEVELS": true,
-
-"RUN_link_data": true,
-"RUN_save_as_iso": true,
-"RUN_create_compositions": true,
-"RUN_insert_and_relink_footage": true,
-"RUN_add_layers_to_comp": true,
-"RUN_pack_output_comps": true,
-"RUN_set_ame_output_paths": true,
+    "RUN_link_data": true,
+    "RUN_save_as_iso": true,
+    "RUN_create_compositions": true,
+    "RUN_insert_and_relink_footage": true,
+    "RUN_add_layers_to_comp": true,
+    "RUN_pack_output_comps": true,
+    "RUN_set_ame_output_paths": false,
 
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
@@ -42,7 +42,7 @@
     "iso": ""
 },
 "createComps": {
-    "ENABLE_FILE_LOG": true,
+    "ENABLE_FILE_LOG": false,
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
@@ -63,7 +63,7 @@
     "DATA_JSON_ISO_MODE": "manual",
     "ENABLE_CHECK_AUDIO_ISO": true,
     "CHECK_AUDIO_ISO_STRICT": false,
-    "SOUND_USE_ISO_SUBFOLDER": true,
+    "SOUND_USE_ISO_SUBFOLDER": false,
     "SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER": true,
     "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": true
     },
@@ -87,19 +87,38 @@
         "groups":{"enabled":false,"keys":[]}, 
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
-        }
+        },
+    "EXTRA_TEMPLATES": {
+        "ENABLE_EXTRA_TEMPLATES": true,
+        "ALLOWED_AR": ["9x16"],
+        "TAG_TOKENS": ["EXTRA", "TIKTOK"],
+        "OUTPUT_NAME_SUFFIX": "_tiktok",
+        
+        "REQUIRE_DURATION_MATCH": true,
+        "DURATION_TOLERANCE_SECONDS": 0.5
+    }
     },
 "pack": {
-    "ENABLE_FILE_LOG": false,
-    "DRY_RUN_MODE": false,
-    "ENABLE_SUMMARY_LOG": true,
-    "ENABLE_DETAILED_FILE_LOG": false,
-    "ENABLE_SUFFIX_APPEND": false,
-    "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
-    "ENSURE_UNIQUE_NAME": true,
-    
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": false
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
+
+    "ENABLE_FILE_LOG": true,
+    "DRY_RUN_MODE": false,
+    "ENABLE_DETAILED_FILE_LOG": false,
+    "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,
+    "DEBUG_NAMING": false,
+    "ENABLE_SUMMARY_LOG": true,
+    "USE_PROJECT_LOG_FOLDER": true,
+    "PROJECT_LOG_SUBFOLDER": "log",
+
+    "OUTPUT_ROOT_PATH": ["project", "out"],
+    "ANCHOR_SOURCE_FOLDER": "comps",
+    "APPEND_SUFFIX": "_OUT",
+    "ENABLE_SUFFIX_APPEND": false,
+    "ENSURE_UNIQUE_NAME": true,
+    "SKIP_IF_ALREADY_IN_OUTPUT": true,
+    "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
+    "DATA_JSON_PRIMARY_NAME": "data.json"
     },
 "ame": {
     "ENABLE_FILE_LOG": false,
