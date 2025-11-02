@@ -778,17 +778,31 @@ function __AddLayers_coreRun(opts) {
     }
 
     // Base (orientation-agnostic) videoId builder from comp name
+    // Rule: take the token immediately BEFORE the first duration token (NNs), allowing arbitrary leading tokens.
+    // Fallback: if no standalone duration token exists, scan from the end for any token containing /(\d{1,4})s/ and use that.
     function buildVideoIdFromCompName(name) {
-        var base = String(name || "");
-        var parts = base.split(/[_\s]+/);
+        if (!name) return null;
+        var parts = String(name).split(/[_\s]+/);
         if (!parts.length) return null;
-        var title = parts[0];
-        var duration = null;
-        for (var i = 1; i < parts.length; i++) {
-            if (/^\d{1,4}s$/i.test(parts[i])) { duration = parts[i]; break; }
+        var durIdx = -1;
+        var durToken = null;
+        // Pass 1: find first standalone duration token
+        for (var i = 0; i < parts.length; i++) {
+            var p1 = parts[i];
+            if (/^\d{1,4}s$/i.test(p1)) { durIdx = i; durToken = String(p1).toLowerCase(); break; }
         }
-        if (!title || !duration) return null;
-        return title + "_" + duration;
+        // Pass 2: fallback to last token that contains a duration-like substring (e.g., "(30s)", "06s_v02")
+        if (durIdx === -1) {
+            for (var j = parts.length - 1; j >= 0; j--) {
+                var p2 = parts[j];
+                var m = String(p2).match(/(\d{1,4})s/i);
+                if (m) { durIdx = j; durToken = String(m[1]).toLowerCase() + 's'; break; }
+            }
+        }
+        if (durIdx <= 0) return null; // need a title token immediately before duration
+        var title = parts[durIdx - 1];
+        if (!title || !durToken) return null;
+        return title + '_' + durToken;
     }
 
     // Determine orientation of a comp: landscape if width > height; portrait otherwise (square counts as portrait)
