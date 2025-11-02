@@ -186,6 +186,11 @@
             DEBUG_PARENTING_DUMP: false,
             DEBUG_PARENTING_DUMP_ONLY_COMPS: [],
             DEBUG_PARENTING_DUMP_WITH_TRANSFORM: false,
+            // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
+            // when parent has animated transforms. Default: use 0s.
+            PARENTING_ASSIGN_AT_REF_TIME: true,
+            PARENTING_REF_TIME_MODE: 'zero', // 'zero' | 'current' | 'inPoint' | 'custom'
+            PARENTING_REF_TIME_SECONDS: 0.0, // used when mode='custom'
             // Per-phase file logging
             ENABLE_FILE_LOG: true,
             // Pipeline log controls for Step 3

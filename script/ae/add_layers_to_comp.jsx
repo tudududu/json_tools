@@ -149,6 +149,11 @@ function __AddLayers_coreRun(opts) {
     var DEBUG_PARENTING_DUMP = false;
     var DEBUG_PARENTING_DUMP_ONLY_COMPS = [];
     var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
+    // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
+    // when parent has animated transforms. Default: use 0s.
+    var PARENTING_ASSIGN_AT_REF_TIME = true;
+    var PARENTING_REF_TIME_MODE = 'zero'; // 'zero' | 'current' | 'inPoint' | 'custom'
+    var PARENTING_REF_TIME_SECONDS = 0.0; // used when mode='custom'
     // Options overrides
     function __toBool(v, defVal) {
         if (typeof v === 'boolean') return v;
@@ -217,6 +222,9 @@ function __AddLayers_coreRun(opts) {
                 if (ao.DEBUG_PARENTING_DUMP_ONLY_COMPS && ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.length) {
                     DEBUG_PARENTING_DUMP_ONLY_COMPS = ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.slice(0);
                 }
+                if (ao.hasOwnProperty('PARENTING_ASSIGN_AT_REF_TIME')) PARENTING_ASSIGN_AT_REF_TIME = !!ao.PARENTING_ASSIGN_AT_REF_TIME;
+                if (typeof ao.PARENTING_REF_TIME_MODE === 'string' && ao.PARENTING_REF_TIME_MODE) PARENTING_REF_TIME_MODE = ao.PARENTING_REF_TIME_MODE;
+                if (typeof ao.PARENTING_REF_TIME_SECONDS === 'number') PARENTING_REF_TIME_SECONDS = ao.PARENTING_REF_TIME_SECONDS;
             }
         } catch(ePDO) {}
     } catch(eOpt){}
@@ -1401,6 +1409,22 @@ function __AddLayers_coreRun(opts) {
                     }
                 } catch(ePD) { log("[PARENTING DUMP error] " + ePD); }
             }
+            // Optionally assign parenting at a stable reference time to avoid time-dependent offsets
+            var __origTime = null;
+            var __tRef = compTarget.time;
+            function __resolveParentingRefTime(c){
+                try {
+                    if (!PARENTING_ASSIGN_AT_REF_TIME) return c.time;
+                    var mode = String(PARENTING_REF_TIME_MODE||'').toLowerCase();
+                    if (mode === 'zero') return 0.0;
+                    if (mode === 'inpoint') { try { return (typeof c.displayStartTime==='number')? c.displayStartTime : (typeof c.workAreaStart==='number'? c.workAreaStart : 0.0); } catch(e) { return 0.0; } }
+                    if (mode === 'custom') return (typeof PARENTING_REF_TIME_SECONDS==='number') ? PARENTING_REF_TIME_SECONDS : 0.0;
+                    // 'current' or unknown
+                    return c.time;
+                } catch(e) { return c.time; }
+            }
+            try { __origTime = compTarget.time; __tRef = __resolveParentingRefTime(compTarget); if (PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __tRef; } catch(eTime) {}
+
             try {
                 for (var li2 = 1; li2 <= templateComp.numLayers; li2++) {
                     if (li2 === excludeIdx) continue;
@@ -1455,7 +1479,7 @@ function __AddLayers_coreRun(opts) {
                                 try {
                                     child.parent = parent;
                                     if (__shouldDumpParentingFor(compTarget)) {
-                                        log("Parented: '" + (child.name||"?") + "' (#" + child.index + ") -> '" + (parent.name||"?") + "' (#" + parent.index + ") [template idx #" + li2 + " -> parentIdx #" + pIdx + "]");
+                                        log("Parented: '" + (child.name||"?") + "' (#" + child.index + ") -> '" + (parent.name||"?") + "' (#" + parent.index + ") [template idx #" + li2 + " -> parentIdx #" + pIdx + "]" + (PARENTING_ASSIGN_AT_REF_TIME? (" @t=" + __tRef.toFixed(3) + "s") : ""));
                                     }
                                 } catch (eSet) {
                                     try { log("Parenting failed for '" + (child.name||"?") + "' -> '" + (parent.name||"?") + "': " + eSet); } catch (eLog2) {}
@@ -1479,6 +1503,8 @@ function __AddLayers_coreRun(opts) {
                     } catch (eSetP) {}
                 }
             } catch (eMap) {}
+            // Restore comp time
+            try { if (__origTime !== null && PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __origTime; } catch(eRt) {}
             if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, compTarget)) {
                 try { recenterUnparentedLayers(compTarget); } catch (eRC) { log("Auto-center failed for '" + compTarget.name + "': " + eRC); }
             }
