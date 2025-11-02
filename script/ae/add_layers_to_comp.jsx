@@ -1352,11 +1352,41 @@ function __AddLayers_coreRun(opts) {
                     try {
                         var child = entry.newLayer;
                         var parent = pEntry.newLayer;
-                        var childWasLocked = false;
-                        try { childWasLocked = (child.locked === true); } catch (eCl) {}
-                        try { if (childWasLocked) child.locked = false; } catch (eCu) {}
-                        child.parent = parent;
-                        try { if (childWasLocked) child.locked = true; } catch (eCr) {}
+                        if (!child || !parent) { /* nothing to do */ }
+                        else if (child === parent) {
+                            try { log("Skip parenting '" + child.name + "' to itself."); } catch (eLog0) {}
+                        } else {
+                            // Prevent cycles: parent cannot be one of child's descendants
+                            var parentWasLocked = false, childWasLocked = false;
+                            try { parentWasLocked = (parent.locked === true); } catch (ePLk) {}
+                            try { childWasLocked = (child.locked === true); } catch (eCLk) {}
+                            try { if (parentWasLocked) parent.locked = false; } catch (ePu) {}
+                            try { if (childWasLocked) child.locked = false; } catch (eCu) {}
+
+                            var safe = true;
+                            try {
+                                var cur = parent; var hops = 0;
+                                while (cur && hops < 1024) {
+                                    if (cur === child) { safe = false; break; }
+                                    try { cur = cur.parent; } catch (ePP) { break; }
+                                    hops++;
+                                }
+                            } catch (eChk) {}
+
+                            if (!safe) {
+                                try { log("Skip parenting '" + (child.name||"?") + "' to '" + (parent.name||"?") + "' to avoid cyclic parent/child."); } catch (eLog) {}
+                            } else {
+                                try {
+                                    child.parent = parent;
+                                } catch (eSet) {
+                                    try { log("Parenting failed for '" + (child.name||"?") + "' -> '" + (parent.name||"?") + "': " + eSet); } catch (eLog2) {}
+                                }
+                            }
+
+                            // Restore locks
+                            try { if (childWasLocked) child.locked = true; } catch (eCr) {}
+                            try { if (parentWasLocked) parent.locked = true; } catch (ePr) {}
+                        }
                     } catch (eSetP) {}
                 }
             } catch (eMap) {}
