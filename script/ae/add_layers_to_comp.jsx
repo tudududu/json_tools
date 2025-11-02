@@ -1304,6 +1304,9 @@ function __AddLayers_coreRun(opts) {
                 _logoAnimMode = lm || 'off';
             }
 
+            // Helper: collect current layer references to detect the newly inserted one reliably
+            function __collectLayerRefs(c){ var arr=[]; try { for(var ii=1; ii<=c.numLayers; ii++){ arr.push(c.layer(ii)); } } catch(e){} return arr; }
+
             // Iterate top -> bottom to mirror order precisely
             for (var li = 1; li <= templateComp.numLayers; li++) {
                 if (li === excludeIdx) continue;
@@ -1339,7 +1342,23 @@ function __AddLayers_coreRun(opts) {
                     var origParent = null; var hadParent = false; var parentIdx = null;
                     try { if (srcLayer.parent) { origParent = srcLayer.parent; hadParent = true; parentIdx = origParent.index; srcLayer.parent = null; } } catch (ePar) {}
 
-                    var newLayer = srcLayer.copyToComp(compTarget);
+                    // Copy and detect the inserted layer robustly
+                    var beforeRefs = __collectLayerRefs(compTarget);
+                    var ret = null; try { ret = srcLayer.copyToComp(compTarget); } catch (eCp) { ret = null; }
+                    var newLayer = null;
+                    // Prefer API return when it's a valid Layer
+                    try { if (ret && ret instanceof Layer) newLayer = ret; } catch (eRT) {}
+                    if (!newLayer) {
+                        try {
+                            // Find the first layer reference not present before
+                            for (var si=1; si<=compTarget.numLayers; si++){
+                                var cand = compTarget.layer(si);
+                                var found=false;
+                                for (var bj=0; bj<beforeRefs.length; bj++){ if (beforeRefs[bj] === cand) { found=true; break; } }
+                                if (!found) { newLayer = cand; break; }
+                            }
+                        } catch (eFind) { newLayer = null; }
+                    }
                     if (!newLayer) { try { newLayer = compTarget.layer(1); } catch (eNL) {} }
                     try { if (hadParent) srcLayer.parent = origParent; } catch (eParR) {}
                     if (newLayer && lastInserted && newLayer !== lastInserted) {
