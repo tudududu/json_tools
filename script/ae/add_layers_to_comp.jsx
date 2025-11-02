@@ -143,6 +143,12 @@ function __AddLayers_coreRun(opts) {
         requireDurationMatch: false,     // when true, filter candidates to those within durationToleranceSeconds
         durationToleranceSeconds: 0.50  // tolerance for duration match (seconds)
     };
+    // One-off parenting debug gate (OFF by default). When enabled, logs all planned and actual
+    // child->parent assignments for a comp. You can limit to specific target comp names via
+    // DEBUG_PARENTING_DUMP_ONLY_COMPS (exact matches). Optional transform logging is gated too.
+    var DEBUG_PARENTING_DUMP = false;
+    var DEBUG_PARENTING_DUMP_ONLY_COMPS = [];
+    var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
     // Options overrides
     function __toBool(v, defVal) {
         if (typeof v === 'boolean') return v;
@@ -202,6 +208,17 @@ function __AddLayers_coreRun(opts) {
             if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAL) {}
+        // Parenting debug options (optional) from pipeline options
+        try {
+            var ao = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
+            if (ao) {
+                if (ao.hasOwnProperty('DEBUG_PARENTING_DUMP')) DEBUG_PARENTING_DUMP = !!ao.DEBUG_PARENTING_DUMP;
+                if (ao.hasOwnProperty('DEBUG_PARENTING_DUMP_WITH_TRANSFORM')) DEBUG_PARENTING_DUMP_WITH_TRANSFORM = !!ao.DEBUG_PARENTING_DUMP_WITH_TRANSFORM;
+                if (ao.DEBUG_PARENTING_DUMP_ONLY_COMPS && ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.length) {
+                    DEBUG_PARENTING_DUMP_ONLY_COMPS = ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.slice(0);
+                }
+            }
+        } catch(ePDO) {}
     } catch(eOpt){}
 
     // Skip-copy configuration (compact)
@@ -1250,6 +1267,7 @@ function __AddLayers_coreRun(opts) {
             var skipCopyCount = 0; // per-comp count
             var lastInserted = null;
             var mapNewLayers = [];
+            var mapTemplateNames = [];
 
             // Resolve flags for this comp ahead of copying to allow skip-copy behavior
             var ids = buildOrientedVideoId(compTarget);
@@ -1292,6 +1310,7 @@ function __AddLayers_coreRun(opts) {
                 var srcLayer = templateComp.layer(li);
                 try {
                     var lname = String(srcLayer.name || "");
+                    mapTemplateNames[li] = lname;
                     var isLogoAnim = nameMatchesGroup(lname, 'logoAnim');
                     var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim;
                     var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
@@ -1340,6 +1359,29 @@ function __AddLayers_coreRun(opts) {
                     log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
                 }
             }
+            // Optional one-off parenting dump (planned relationships) before assignment
+            function __shouldDumpParentingFor(compX){
+                if (!DEBUG_PARENTING_DUMP) return false;
+                if (!DEBUG_PARENTING_DUMP_ONLY_COMPS || !DEBUG_PARENTING_DUMP_ONLY_COMPS.length) return true;
+                var nm = String((compX && compX.name) || "");
+                for (var i=0;i<DEBUG_PARENTING_DUMP_ONLY_COMPS.length;i++) { if (nm === String(DEBUG_PARENTING_DUMP_ONLY_COMPS[i])) return true; }
+                return false;
+            }
+            if (__shouldDumpParentingFor(compTarget)) {
+                try {
+                    log("\n[PARENTING DUMP planned] template='" + templateComp.name + "' -> target='" + compTarget.name + "'");
+                    for (var di=1; di<=templateComp.numLayers; di++) {
+                        if (di === excludeIdx) continue;
+                        var tName = mapTemplateNames[di] || (templateComp.layer(di) ? templateComp.layer(di).name : "?");
+                        var planned = mapNewLayers[di];
+                        var pIdx0 = planned ? planned.parentIdx : null;
+                        var pName0 = (pIdx0 && mapTemplateNames[pIdx0]) ? mapTemplateNames[pIdx0] : (pIdx0? (templateComp.layer(pIdx0)? templateComp.layer(pIdx0).name : "?") : null);
+                        var childTgt0 = planned ? planned.newLayer : null;
+                        var childIdxTgt0 = childTgt0 ? childTgt0.index : null;
+                        log("  - [#"+di+"] '" + tName + "' parentIdx=" + (pIdx0===null||pIdx0===undefined?"-":("#"+pIdx0+" ('"+(pName0||"?")+"')")) + " -> targetIdx=" + (childIdxTgt0||"-") + " ('" + (childTgt0?childTgt0.name:"?") + "')");
+                    }
+                } catch(ePD) { log("[PARENTING DUMP error] " + ePD); }
+            }
             try {
                 for (var li2 = 1; li2 <= templateComp.numLayers; li2++) {
                     if (li2 === excludeIdx) continue;
@@ -1352,9 +1394,15 @@ function __AddLayers_coreRun(opts) {
                     try {
                         var child = entry.newLayer;
                         var parent = pEntry.newLayer;
+                        var beforePos = null, beforePosSep = null;
                         if (!child || !parent) { /* nothing to do */ }
                         else if (child === parent) {
-                            try { log("Skip parenting '" + child.name + "' to itself."); } catch (eLog0) {}
+                            try {
+                                log("Skip parenting '" + child.name + "' to itself.");
+                                if (__shouldDumpParentingFor(compTarget)) {
+                                    log("  * Reason: template parentIdx=#" + pIdx + " maps to the same target layer.");
+                                }
+                            } catch (eLog0) {}
                         } else {
                             // Prevent cycles: parent cannot be one of child's descendants
                             var parentWasLocked = false, childWasLocked = false;
@@ -1373,11 +1421,23 @@ function __AddLayers_coreRun(opts) {
                                 }
                             } catch (eChk) {}
 
+                            if (DEBUG_PARENTING_DUMP_WITH_TRANSFORM && __shouldDumpParentingFor(compTarget)) {
+                                try {
+                                    var trC = child.property("ADBE Transform Group");
+                                    var posC = trC ? trC.property("ADBE Position") : null;
+                                    if (posC) beforePos = posC.value;
+                                    else if (trC) beforePosSep = [ trC.property("ADBE Position_0") ? trC.property("ADBE Position_0").value : null, trC.property("ADBE Position_1") ? trC.property("ADBE Position_1").value : null ];
+                                } catch (eBP) {}
+                            }
+
                             if (!safe) {
                                 try { log("Skip parenting '" + (child.name||"?") + "' to '" + (parent.name||"?") + "' to avoid cyclic parent/child."); } catch (eLog) {}
                             } else {
                                 try {
                                     child.parent = parent;
+                                    if (__shouldDumpParentingFor(compTarget)) {
+                                        log("Parented: '" + (child.name||"?") + "' (#" + child.index + ") -> '" + (parent.name||"?") + "' (#" + parent.index + ") [template idx #" + li2 + " -> parentIdx #" + pIdx + "]");
+                                    }
                                 } catch (eSet) {
                                     try { log("Parenting failed for '" + (child.name||"?") + "' -> '" + (parent.name||"?") + "': " + eSet); } catch (eLog2) {}
                                 }
@@ -1386,6 +1446,16 @@ function __AddLayers_coreRun(opts) {
                             // Restore locks
                             try { if (childWasLocked) child.locked = true; } catch (eCr) {}
                             try { if (parentWasLocked) parent.locked = true; } catch (ePr) {}
+                            if (DEBUG_PARENTING_DUMP_WITH_TRANSFORM && __shouldDumpParentingFor(compTarget)) {
+                                try {
+                                    var trC2 = child.property("ADBE Transform Group");
+                                    var posC2 = trC2 ? trC2.property("ADBE Position") : null;
+                                    var afterPos = posC2 ? posC2.value : null;
+                                    var beforeStr = beforePos ? ("["+beforePos.join(", ")+"]") : (beforePosSep ? ("["+beforePosSep.join(", ")+"]") : "-");
+                                    var afterStr = afterPos ? ("["+afterPos.join(", ")+"]") : "-";
+                                    log("  * Pos: before=" + beforeStr + ", after=" + afterStr);
+                                } catch (eAP) {}
+                            }
                         }
                     } catch (eSetP) {}
                 }

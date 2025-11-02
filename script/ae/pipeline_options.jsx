@@ -180,6 +180,12 @@
                     tokens: [] // e.g., ["template_aspect", "debug"]
                 }
             },
+            // One-off parenting debug gate (OFF by default). When enabled, logs all planned and actual
+            // child->parent assignments for a comp. You can limit to specific target comp names via
+            // DEBUG_PARENTING_DUMP_ONLY_COMPS (exact matches). Optional transform logging is gated too.
+            DEBUG_PARENTING_DUMP: false,
+            DEBUG_PARENTING_DUMP_ONLY_COMPS: [],
+            DEBUG_PARENTING_DUMP_WITH_TRANSFORM: false,
             // Per-phase file logging
             ENABLE_FILE_LOG: true,
             // Pipeline log controls for Step 3

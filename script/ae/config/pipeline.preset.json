@@ -71,6 +71,14 @@
     "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": true,
+    
+    "DEBUG_PARENTING_DUMP": true,
+    "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
+        "JBL_BensonBoone_TourPro3_06s_9x16", 
+        "JBL_BensonBoone_TourPro3_06s_9x16_tiktok"
+    ],
+    "DEBUG_PARENTING_DUMP_WITH_TRANSFORM": true,
+    
     "ENABLE_AUTOCENTER_ON_AR_MISMATCH": false,
     "ENABLE_JSON_TIMING_FOR_DISCLAIMER": false,
     "TEMPLATE_MATCH_CONFIG": { 
