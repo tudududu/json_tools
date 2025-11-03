@@ -149,6 +149,7 @@ function __AddLayers_coreRun(opts) {
     var DEBUG_PARENTING_DUMP = false;
     var DEBUG_PARENTING_DUMP_ONLY_COMPS = [];
     var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
+    var DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = false; // compare template child local Position vs target after-parenting
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
     var PARENTING_ASSIGN_AT_REF_TIME = true;
@@ -222,6 +223,7 @@ function __AddLayers_coreRun(opts) {
                 if (ao.DEBUG_PARENTING_DUMP_ONLY_COMPS && ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.length) {
                     DEBUG_PARENTING_DUMP_ONLY_COMPS = ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.slice(0);
                 }
+                if (ao.hasOwnProperty('DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET')) DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = !!ao.DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET;
                 if (ao.hasOwnProperty('PARENTING_ASSIGN_AT_REF_TIME')) PARENTING_ASSIGN_AT_REF_TIME = !!ao.PARENTING_ASSIGN_AT_REF_TIME;
                 if (typeof ao.PARENTING_REF_TIME_MODE === 'string' && ao.PARENTING_REF_TIME_MODE) PARENTING_REF_TIME_MODE = ao.PARENTING_REF_TIME_MODE;
                 if (typeof ao.PARENTING_REF_TIME_SECONDS === 'number') PARENTING_REF_TIME_SECONDS = ao.PARENTING_REF_TIME_SECONDS;
@@ -1276,6 +1278,23 @@ function __AddLayers_coreRun(opts) {
             var lastInserted = null;
             var mapNewLayers = [];
             var mapTemplateNames = [];
+            var mapExpectedLocalPos = {}; // template child local Position at ref time (while still parented)
+
+            // Resolve and apply reference time to both comps to make copy/unparent deterministic
+            function __resolveRefTime(c){
+                try {
+                    if (!PARENTING_ASSIGN_AT_REF_TIME) return c.time;
+                    var mode = String(PARENTING_REF_TIME_MODE||'').toLowerCase();
+                    if (mode === 'zero') return 0.0;
+                    if (mode === 'inpoint') { try { return (typeof c.displayStartTime==='number')? c.displayStartTime : (typeof c.workAreaStart==='number'? c.workAreaStart : 0.0); } catch(e) { return 0.0; } }
+                    if (mode === 'custom') return (typeof PARENTING_REF_TIME_SECONDS==='number') ? PARENTING_REF_TIME_SECONDS : 0.0;
+                    return c.time; // 'current'
+                } catch(e){ return c.time; }
+            }
+            var __origTimeTargetCopy = null, __origTimeTplCopy = null, __tRefCopy = compTarget.time;
+            try { __tRefCopy = __resolveRefTime(compTarget); } catch(eTR0) {}
+            try { __origTimeTargetCopy = compTarget.time; if (PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __tRefCopy; } catch(eSetT) {}
+            try { __origTimeTplCopy = templateComp.time; if (PARENTING_ASSIGN_AT_REF_TIME) templateComp.time = __tRefCopy; } catch(eSetTp) {}
 
             // Resolve flags for this comp ahead of copying to allow skip-copy behavior
             var ids = buildOrientedVideoId(compTarget);
@@ -1348,6 +1367,22 @@ function __AddLayers_coreRun(opts) {
                     }
 
                     var origParent = null; var hadParent = false; var parentIdx = null;
+                    // Capture expected local Position at ref time before altering parenting
+                    try {
+                        if (srcLayer.parent) {
+                            var trSL = srcLayer.property("ADBE Transform Group");
+                            var posSL = trSL ? trSL.property("ADBE Position") : null;
+                            var px = null; var py = null; var pz = 0;
+                            if (posSL) {
+                                var v = posSL.value; if (v && v.length>=2) { px=v[0]; py=v[1]; if (v.length>2) pz=v[2]; }
+                            } else if (trSL) {
+                                try { px = trSL.property("ADBE Position_0").value; } catch(ePX) {}
+                                try { py = trSL.property("ADBE Position_1").value; } catch(ePY) {}
+                            }
+                            if (px!==null && py!==null) mapExpectedLocalPos[li] = [px, py, pz];
+                        }
+                    } catch(eExpPos) {}
+                    // Temporarily unparent at ref time so we don't bake animated offsets
                     try { if (srcLayer.parent) { origParent = srcLayer.parent; hadParent = true; parentIdx = origParent.index; srcLayer.parent = null; } } catch (ePar) {}
 
                     // Copy and detect the inserted layer robustly
@@ -1386,6 +1421,9 @@ function __AddLayers_coreRun(opts) {
                     log("Skip layer #" + li + " ('" + srcLayer.name + "') — " + (eCopy && eCopy.message ? eCopy.message : eCopy));
                 }
             }
+            // Restore times after copy phase
+            try { if (__origTimeTplCopy !== null && PARENTING_ASSIGN_AT_REF_TIME) templateComp.time = __origTimeTplCopy; } catch(eRtp) {}
+            try { if (__origTimeTargetCopy !== null && PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __origTimeTargetCopy; } catch(eRtt) {}
             // Optional one-off parenting dump (planned relationships) before assignment
             function __shouldDumpParentingFor(compX){
                 if (!DEBUG_PARENTING_DUMP) return false;
@@ -1497,6 +1535,12 @@ function __AddLayers_coreRun(opts) {
                                     var beforeStr = beforePos ? ("["+beforePos.join(", ")+"]") : (beforePosSep ? ("["+beforePosSep.join(", ")+"]") : "-");
                                     var afterStr = afterPos ? ("["+afterPos.join(", ")+"]") : "-";
                                     log("  * Pos: before=" + beforeStr + ", after=" + afterStr);
+                                    if (DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET) {
+                                        var exp = mapExpectedLocalPos[li2];
+                                        if (exp && afterPos && afterPos.length>=2) {
+                                            log("  • Compare template vs target (local Position @ref): template=["+exp[0]+", "+exp[1]+(exp.length>2? (", "+exp[2]) : "")+"] vs target=["+afterPos[0]+", "+afterPos[1]+(afterPos.length>2? (", "+afterPos[2]) : "")+"]");
+                                        }
+                                    }
                                 } catch (eAP) {}
                             }
                         }
