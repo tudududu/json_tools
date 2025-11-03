@@ -1610,10 +1610,10 @@ function __AddLayers_coreRun(opts) {
                 log("Insert failed for '" + compTarget.name + "'.");
                 return;
             }
-            // Place above bottom-most video footage layer if present, else leaves at top
+            // Place above bottom-most video footage layer if present, else leave at top
             try {
                 var botVidIdx = findBottomVideoFootageLayerIndex(compTarget);
-                if (botVidIdx > 0) { try { newLayer.moveAfter(compTarget.layer(botVidIdx)); } catch(eMv) {} }
+                if (botVidIdx > 0) { try { newLayer.moveBefore(compTarget.layer(botVidIdx)); } catch(eMv) {} }
             } catch (eIdx) {}
             // Optionally mute audio on the inserted precomp layer
             var didMute = false;
