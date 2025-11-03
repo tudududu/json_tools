@@ -187,6 +187,8 @@
             DEBUG_PARENTING_DUMP_ONLY_COMPS: [],
             DEBUG_PARENTING_DUMP_WITH_TRANSFORM: false,
             DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET: false, // compare template child local Position vs target after-parenting
+            // ASCII-safe marker for log bullets to avoid encoding issues in some viewers. Examples: "*", "-", ">".
+            LOG_MARKER: "*",
 
             // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
             // when parent has animated transforms. Default: use 0s.

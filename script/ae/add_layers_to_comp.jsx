@@ -150,6 +150,7 @@ function __AddLayers_coreRun(opts) {
     var DEBUG_PARENTING_DUMP_ONLY_COMPS = [];
     var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
     var DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = false; // compare template child local Position vs target after-parenting
+    var LOG_MARKER = "*"; // ASCII-safe bullet for logs
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
     var PARENTING_ASSIGN_AT_REF_TIME = true;
@@ -224,6 +225,7 @@ function __AddLayers_coreRun(opts) {
                     DEBUG_PARENTING_DUMP_ONLY_COMPS = ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.slice(0);
                 }
                 if (ao.hasOwnProperty('DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET')) DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = !!ao.DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET;
+                if (typeof ao.LOG_MARKER === 'string') LOG_MARKER = ao.LOG_MARKER;
                 if (ao.hasOwnProperty('PARENTING_ASSIGN_AT_REF_TIME')) PARENTING_ASSIGN_AT_REF_TIME = !!ao.PARENTING_ASSIGN_AT_REF_TIME;
                 if (typeof ao.PARENTING_REF_TIME_MODE === 'string' && ao.PARENTING_REF_TIME_MODE) PARENTING_REF_TIME_MODE = ao.PARENTING_REF_TIME_MODE;
                 if (typeof ao.PARENTING_REF_TIME_SECONDS === 'number') PARENTING_REF_TIME_SECONDS = ao.PARENTING_REF_TIME_SECONDS;
@@ -1269,6 +1271,18 @@ function __AddLayers_coreRun(opts) {
         // Helper to execute the copy for a given template/target pair and update aggregate counters
         function __doCopy(templateComp, compTarget){
             if (!templateComp || !compTarget) return;
+            function __asciiOnly(s){
+                try {
+                    if (!s || !s.length) return "*";
+                    var out = "";
+                    for (var i=0; i<s.length; i++) {
+                        var code = s.charCodeAt(i);
+                        if (code >= 32 && code <= 126) out += s.charAt(i); // printable ASCII
+                    }
+                    return out.length ? out : "*";
+                } catch(e){ return "*"; }
+            }
+            var __LOGM = __asciiOnly(LOG_MARKER);
             var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
             var __header = "Using template: " + templateComp.name + " -> target: " + compTarget.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
             log("\n" + __header);
@@ -1534,11 +1548,11 @@ function __AddLayers_coreRun(opts) {
                                     var afterPos = posC2 ? posC2.value : null;
                                     var beforeStr = beforePos ? ("["+beforePos.join(", ")+"]") : (beforePosSep ? ("["+beforePosSep.join(", ")+"]") : "-");
                                     var afterStr = afterPos ? ("["+afterPos.join(", ")+"]") : "-";
-                                    log("  * Pos: before=" + beforeStr + ", after=" + afterStr);
+                                    log("  " + __LOGM + " Pos: before=" + beforeStr + ", after=" + afterStr);
                                     if (DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET) {
                                         var exp = mapExpectedLocalPos[li2];
                                         if (exp && afterPos && afterPos.length>=2) {
-                                            log("  • Compare template vs target (local Position @ref): template=["+exp[0]+", "+exp[1]+(exp.length>2? (", "+exp[2]) : "")+"] vs target=["+afterPos[0]+", "+afterPos[1]+(afterPos.length>2? (", "+afterPos[2]) : "")+"]");
+                                            log("  " + __LOGM + " Compare template vs target (local Position @ref): template=["+exp[0]+", "+exp[1]+(exp.length>2? (", "+exp[2]) : "")+"] vs target=["+afterPos[0]+", "+afterPos[1]+(afterPos.length>2? (", "+afterPos[2]) : "")+"]");
                                         }
                                     }
                                 } catch (eAP) {}
