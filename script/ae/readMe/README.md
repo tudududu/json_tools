@@ -183,6 +183,14 @@ Queue to AME (Step 7)
     - `EXPORT_SUBPATH`: string or array under `POST/` (default `["OUT","PREVIEWS"]`).
     - `AUTO_QUEUE_IN_AME`: boolean. Queue to AME after configuring paths.
     - `AME_MAX_QUEUE_ATTEMPTS` / `AME_RETRY_DELAY_MS`: retry when Dynamic Link isn’t ready.
+    - `EXTRA_EXPORT_SUBFOLDER` (boolean): when true, extras (detected by name tokens; see below) are routed to a sibling folder of the AR, named `<AR>_<extraName>`.
+      - With duration subfolders ON (default): `<date>/<AR>_<extraName>/<duration>/...`
+      - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
+      - Default: false
+    - `ENABLE_DURATION_SUBFOLDER` (boolean): when false, omit the `<duration>` level from the output path.
+      - Normal items: `<date>/<AR>/...`
+      - Extras (with `EXTRA_EXPORT_SUBFOLDER=true`): `<date>/<AR>_<extraName>/...`
+      - Default: true
   - Template application
     - `APPLY_TEMPLATES` (boolean): master switch. When false, no templates are applied (only paths are set).
     - `ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION` (boolean): enable mapping by AR and AR|duration.
@@ -195,6 +203,34 @@ Queue to AME (Step 7)
     - `VERBOSE_DEBUG` (boolean): gates selection/RQ add logging and the multi-line DETAIL block.
     - `COMPACT_ITEM_DETAIL` (boolean): when true, emit one compact line per item (ASSIGN+DEST [+tpl]) inside DETAIL; works even if `VERBOSE_DEBUG=false`.
     - Internally, the DETAIL section caps at 80 lines; when capped, a reliable `... (X more) ...` footer is printed.
+  - Extras detection (name-based; shared intent with addLayers EXTRA_TEMPLATES)
+    - Pulls `addLayers.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX` (e.g., `_tiktok`) and `TAG_TOKENS` (e.g., `["TIKTOK"]`) from effective options when available.
+    - Matching rules (case-insensitive, alphanumeric-normalized):
+      1) If the suffix token (without leading `_`) appears anywhere in the comp name → mark as extra.
+      2) If any `TAG_TOKENS` appears anywhere in the comp name → mark as extra.
+      3) Fallback: strict name endsWith `OUTPUT_NAME_SUFFIX`.
+    - `extraName` is derived from the matched token (e.g., `_tiktok` → `tiktok`), producing the folder `<AR>_<extraName>`.
+
+Preset snippet (extras routing + duration toggle)
+```json
+{
+  "addLayers": {
+    "EXTRA_TEMPLATES": {
+      "ENABLE_EXTRA_TEMPLATES": true,
+      "ALLOWED_AR": ["9x16"],
+      "TAG_TOKENS": ["TIKTOK"],
+      "OUTPUT_NAME_SUFFIX": "_tiktok"
+    }
+  },
+  "ame": {
+    "EXPORT_SUBPATH": ["OUT", "DELIVERIES"],
+    "AUTO_QUEUE_IN_AME": true,
+    "APPLY_TEMPLATES": false,
+    "EXTRA_EXPORT_SUBFOLDER": true,
+    "ENABLE_DURATION_SUBFOLDER": true
+  }
+}
+```
 
 Pack outputs (Step 6) — naming, IDs, and extras
 - VideoId derivation is resilient and consistent with Step 3 (token-before-duration with fallback scan). Works with names like `token1_token2_Title_06s_v01`.
@@ -264,3 +300,15 @@ Changelog since “Integration 100”
   - Concise summary enhanced with skip counts and timing metrics; optional dev self-test for mappings.
 - Logging ergonomics
   - Introduced global `LOG_MARKER` at pipeline level; all steps use an ASCII-safe marker for bullets (sanitized to avoid garbled characters).
+
+Changelog since “Integration 125 - Extra template - EXTRA_EXPORT_SUBFOLDER”
+- Step 7: Extras detection and routing
+  - Improved detection: considers the configured extra suffix token anywhere in the name, `TAG_TOKENS` anywhere, with a strict suffix fallback; normalization is case-insensitive and alphanumeric-only for reliable matching.
+  - Extras routing updated: extras now export into a sibling folder at the AR level — `<date>/<AR>_<extraName>/` — instead of nesting under the AR/duration tree. The `<duration>` level is still applied inside that folder when duration subfolders are enabled.
+- Step 7: Duration subfolder toggle
+  - Added `ame.ENABLE_DURATION_SUBFOLDER` (default `true`). When set to `false`, omit the `<duration>` level entirely.
+  - Structures:
+    - ON (default): `.../<AR>/<duration>/...` and `.../<AR>_<extraName>/<duration>/...`
+    - OFF: `.../<AR>/...` and `.../<AR>_<extraName>/...`
+- Step 7: Logging
+  - ENV header now includes `DurationSubfolders=true|false` for quick verification.
