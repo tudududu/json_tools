@@ -71,9 +71,9 @@
 "addLayers": {
     "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
     
-    "DEBUG_PARENTING_DUMP": true,
+    "DEBUG_PARENTING_DUMP": false,
     "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
         "JBL_BensonBoone_TourPro3_06s_9x16", 
         "JBL_BensonBoone_TourPro3_06s_9x16_tiktok"
@@ -112,7 +112,7 @@
     "EXTRA_TEMPLATES": {
         "ENABLE_EXTRA_TEMPLATES": true,
         "ALLOWED_AR": ["9x16"],
-        "TAG_TOKENS": ["EXTRA", "TIKTOK"],
+        "TAG_TOKENS": ["TIKTOK"],
         "OUTPUT_NAME_SUFFIX": "_tiktok",
         
         "REQUIRE_DURATION_MATCH": true,

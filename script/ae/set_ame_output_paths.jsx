@@ -97,6 +97,7 @@ function __AME_coreRun(opts) {
     // 5b. Extras routing: when true, route extras into a subfolder named "<AR>_<extraName>"
     var EXTRA_EXPORT_SUBFOLDER = false;
     var EXTRA_OUTPUT_SUFFIX = "_extra";            // source of extraName (leading underscore removed)
+    var EXTRA_TAG_TOKENS = [];                      // optional tokens to detect extras in names (e.g., ["TIKTOK"])    
 
     // Options overrides
     try {
@@ -224,18 +225,43 @@ function __AME_coreRun(opts) {
     // Extras helpers — derive configured extra suffix from pipeline options when available
     try {
         var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
-        if (addL && addL.EXTRA_TEMPLATES && typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
-            EXTRA_OUTPUT_SUFFIX = addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX;
+        if (addL && addL.EXTRA_TEMPLATES) {
+            if (typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
+                EXTRA_OUTPUT_SUFFIX = addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX;
+            }
+            if (addL.EXTRA_TEMPLATES.TAG_TOKENS instanceof Array) {
+                EXTRA_TAG_TOKENS = addL.EXTRA_TEMPLATES.TAG_TOKENS.slice(0);
+            }
         }
     } catch(eGetSuffix) {}
+    function __normToken(s){ try { return String(s||"").replace(/[^A-Za-z0-9]+/g, "").toLowerCase(); } catch(e){ return ""; } }
     function detectExtraInfo(compName) {
         try {
             var nm = String(compName||"");
+            var parts = nm.split(/[_\-\s]+/);
+            var tokens = [];
+            for (var i=0;i<parts.length;i++){ var t=__normToken(parts[i]); if(t) tokens.push(t); }
+            // 1) Try suffix token presence anywhere in name
             var suf = String(EXTRA_OUTPUT_SUFFIX||"");
-            if (!suf || !suf.length) return { isExtra:false, name:null };
-            if (nm.length >= suf.length && nm.lastIndexOf(suf) === (nm.length - suf.length)) {
-                var en = suf.charAt(0) === '_' ? suf.substring(1) : suf; // strip leading underscore
-                return { isExtra:true, name: en };
+            if (suf && suf.length) {
+                var sufTok = __normToken(suf.charAt(0)==='_': suf.substring(1) : suf);
+                if (sufTok) {
+                    for (var j=0;j<tokens.length;j++){ if (tokens[j] === sufTok) return { isExtra:true, name: sufTok }; }
+                }
+            }
+            // 2) Try TAG_TOKENS match anywhere
+            if (EXTRA_TAG_TOKENS && EXTRA_TAG_TOKENS.length) {
+                for (var k=0;k<EXTRA_TAG_TOKENS.length;k++){
+                    var cand = __normToken(EXTRA_TAG_TOKENS[k]); if(!cand) continue;
+                    for (var m=0;m<tokens.length;m++){ if (tokens[m] === cand) return { isExtra:true, name: cand }; }
+                }
+            }
+            // 3) Fallback: strict suffix at end of string
+            if (suf && suf.length) {
+                if (nm.length >= suf.length && nm.lastIndexOf(suf) === (nm.length - suf.length)) {
+                    var en = suf.charAt(0) === '_' ? suf.substring(1) : suf; // strip leading underscore
+                    return { isExtra:true, name: __normToken(en) || en };
+                }
             }
         } catch(eX) {}
         return { isExtra:false, name:null };
