@@ -151,6 +151,9 @@ function __AddLayers_coreRun(opts) {
     var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
     var DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = false; // compare template child local Position vs target after-parenting
     var LOG_MARKER = "*"; // ASCII-safe bullet for logs (global default)
+    // Simple mode: insert the entire template comp as a single layer
+    var SIMPLE_INSERT_TEMPLATE_AS_LAYER = false; // when true, skip per-layer copy and insert template as one precomp layer
+    var SIMPLE_MUTE_TEMPLATE_AUDIO = true;       // when true, mute audio on the inserted template layer (default)
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
     var PARENTING_ASSIGN_AT_REF_TIME = true;
@@ -228,6 +231,9 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('PARENTING_ASSIGN_AT_REF_TIME')) PARENTING_ASSIGN_AT_REF_TIME = !!ao.PARENTING_ASSIGN_AT_REF_TIME;
                 if (typeof ao.PARENTING_REF_TIME_MODE === 'string' && ao.PARENTING_REF_TIME_MODE) PARENTING_REF_TIME_MODE = ao.PARENTING_REF_TIME_MODE;
                 if (typeof ao.PARENTING_REF_TIME_SECONDS === 'number') PARENTING_REF_TIME_SECONDS = ao.PARENTING_REF_TIME_SECONDS;
+                // Simple mode toggles (optional)
+                if (ao.hasOwnProperty('SIMPLE_INSERT_TEMPLATE_AS_LAYER')) SIMPLE_INSERT_TEMPLATE_AS_LAYER = !!ao.SIMPLE_INSERT_TEMPLATE_AS_LAYER;
+                if (ao.hasOwnProperty('SIMPLE_MUTE_TEMPLATE_AUDIO')) SIMPLE_MUTE_TEMPLATE_AUDIO = !!ao.SIMPLE_MUTE_TEMPLATE_AUDIO;
             }
             // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
             try {
@@ -1580,6 +1586,46 @@ function __AddLayers_coreRun(opts) {
             if (jsonData) { applyJSONTimingToComp(compTarget, jsonData); }
         }
 
+        // Simple mode: insert the selected template comp as a single layer into the target
+        function __doSimpleInsert(templateComp, compTarget) {
+            if (!templateComp || !compTarget) return;
+            function __asciiOnly(s){
+                try {
+                    if (!s || !s.length) return "*";
+                    var out = "";
+                    for (var i=0; i<s.length; i++) {
+                        var code = s.charCodeAt(i);
+                        if (code >= 32 && code <= 126) out += s.charAt(i); // printable ASCII
+                    }
+                    return out.length ? out : "*";
+                } catch(e){ return "*"; }
+            }
+            var __LOGM = __asciiOnly(LOG_MARKER);
+            var __header = "Simple mode: inserting template as layer: " + templateComp.name + " -> target: " + compTarget.name;
+            log("\n" + __header);
+            try { __concise.push(__header); } catch(eHC2) {}
+            var newLayer = null;
+            try { newLayer = compTarget.layers.add(templateComp); } catch (eAdd) { newLayer = null; }
+            if (!newLayer) {
+                log("Insert failed for '" + compTarget.name + "'.");
+                return;
+            }
+            // Place above bottom-most video footage layer if present, else leaves at top
+            try {
+                var botVidIdx = findBottomVideoFootageLayerIndex(compTarget);
+                if (botVidIdx > 0) { try { newLayer.moveAfter(compTarget.layer(botVidIdx)); } catch(eMv) {} }
+            } catch (eIdx) {}
+            // Optionally mute audio on the inserted precomp layer
+            var didMute = false;
+            if (SIMPLE_MUTE_TEMPLATE_AUDIO === true) {
+                try {
+                    if (typeof newLayer.audioEnabled !== 'undefined') { newLayer.audioEnabled = false; didMute = true; }
+                } catch (eAud) {}
+            }
+            addedTotal += 1;
+            log("Inserted 1 layer into '" + compTarget.name + "'." + (SIMPLE_MUTE_TEMPLATE_AUDIO ? " Audio muted." : " Audio left as-is."));
+        }
+
         // Prepare base template set (avoid picking an extra for the base run)
         var baseCandidates = baseTemplateComps && baseTemplateComps.length ? baseTemplateComps : templateComps;
         var templateComp = pickBestTemplateCompForTarget(baseCandidates, comp);
@@ -1638,7 +1684,8 @@ function __AddLayers_coreRun(opts) {
                     TEMPLATE_MATCH_CONFIG.durationToleranceSeconds = savedDurTol;
                 }
                 if (extraTpl) {
-                    __doCopy(extraTpl, dup);
+                    if (SIMPLE_INSERT_TEMPLATE_AS_LAYER) { __doSimpleInsert(extraTpl, dup); }
+                    else { __doCopy(extraTpl, dup); }
                     extraCreatedComps.push(dup);
                     createdExtra = true;
                 } else {
@@ -1651,7 +1698,8 @@ function __AddLayers_coreRun(opts) {
         }
 
         // Now process the base/original comp
-        __doCopy(templateComp, comp);
+        if (SIMPLE_INSERT_TEMPLATE_AS_LAYER) { __doSimpleInsert(templateComp, comp); }
+        else { __doCopy(templateComp, comp); }
     }
 
     var processedAll = targets.slice(0).concat(extraCreatedComps);

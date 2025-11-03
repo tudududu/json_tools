@@ -61,8 +61,8 @@
         // Pipeline log content controls
         PIPELINE_SHOW_PHASE_TAGS: true,
         PIPELINE_SHOW_LEVELS: true,
-    // ASCII-safe marker for bullets/indented list items across all steps. Examples: "*", "-", ">".
-    LOG_MARKER: "*",
+        // ASCII-safe marker for bullets/indented list items across all steps. Examples: "*", "-", ">".
+        LOG_MARKER: "*",
 
         // Phase-specific namespaces
         linkData: {
@@ -115,6 +115,11 @@
             SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false
         },
         addLayers: {
+            // Simple mode: instead of copying individual layers from the template into targets,
+            // insert the entire template comp as a single (precomp) layer into each target.
+            // When enabled, you can choose to mute audio on the inserted template layer (default: true).
+            SIMPLE_INSERT_TEMPLATE_AS_LAYER: false,
+            SIMPLE_MUTE_TEMPLATE_AUDIO: true,
             // Auto-center any un-parented layers when the target AR differs from the template.
             // When false, no auto-centering is attempted unless explicitly forced by recenterRules (see LAYER_NAME_CONFIG in the script).
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
