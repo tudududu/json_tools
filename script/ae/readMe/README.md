@@ -60,6 +60,34 @@ Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
   - Controlled by `addLayers.SKIP_COPY_CONFIG` (see options file for all toggles with comments). When a JSON flag (e.g., `disclaimer_flag`, `subtitle_flag`, `logo_anim_flag`) resolves to OFF for a video, matching template layers are not copied into the target.
   - You can also opt into group-based or ad‑hoc token skips to quickly omit certain layers by name.
 
+Simple mode (Step 3) — insert template as a single precomp layer
+- Purpose: when your template comp already contains everything, insert it as one precomp layer instead of copying its children into targets.
+- Behavior
+  - The script still selects the best template per target using the same AR/duration rules.
+  - It inserts the chosen template comp as a single layer into the target.
+  - Placement: the inserted layer is positioned directly above the bottom‑most video footage layer (if present); otherwise it remains at the top.
+  - JSON timing and per‑layer skip logic are not applied in simple mode (the precomp remains intact).
+- Toggles (`addLayers` namespace in `pipeline_options.jsx`)
+  - `SIMPLE_INSERT_TEMPLATE_AS_LAYER` (boolean): master switch. Default: false.
+  - `SIMPLE_MUTE_TEMPLATE_AUDIO` (boolean): mute audio on the inserted precomp layer. Default: true.
+  - `SIMPLE_SOLO_INSERTED_LAYER` (boolean): set `solo=true` on the inserted layer. Default: false.
+  - `SIMPLE_PREP_REMOVE_ALL_LAYERS` (boolean): remove all existing layers in the target before inserting (destructive). Default: false.
+  - `SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO` (boolean): before inserting, disable visibility for FootageItem layers in the target. Default: false.
+  - `SIMPLE_PREP_MUTE_FOOTAGE_AUDIO` (boolean): before inserting, mute audio for FootageItem layers in the target. Default: false.
+- Minimal preset example
+```json
+{
+  "addLayers": {
+    "SIMPLE_INSERT_TEMPLATE_AS_LAYER": true,
+    "SIMPLE_MUTE_TEMPLATE_AUDIO": true,
+    "SIMPLE_SOLO_INSERTED_LAYER": true,
+    "SIMPLE_PREP_REMOVE_ALL_LAYERS": false,
+    "SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO": true,
+    "SIMPLE_PREP_MUTE_FOOTAGE_AUDIO": true
+  }
+}
+```
+
 Parenting robustness and debugging (Step 3)
 - Assign parenting at a stable reference time to avoid time-dependent offsets when the parent has animated transforms.
   - `addLayers.PARENTING_ASSIGN_AT_REF_TIME` (default `true`)
