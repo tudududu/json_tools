@@ -120,6 +120,15 @@
             // When enabled, you can choose to mute audio on the inserted template layer (default: true).
             SIMPLE_INSERT_TEMPLATE_AS_LAYER: false,
             SIMPLE_MUTE_TEMPLATE_AUDIO: true,
+            // Simple-mode companion options to adjust the target comp
+            // - SIMPLE_SOLO_INSERTED_LAYER: when true, solo the inserted template layer
+            // - SIMPLE_PREP_REMOVE_ALL_LAYERS: when true, remove all existing layers in the target before insert (destructive)
+            // - SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO: when true, disable visibility for FootageItem layers before insert
+            // - SIMPLE_PREP_MUTE_FOOTAGE_AUDIO: when true, mute audio for FootageItem layers before insert
+            SIMPLE_SOLO_INSERTED_LAYER: false,
+            SIMPLE_PREP_REMOVE_ALL_LAYERS: false,
+            SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO: false,
+            SIMPLE_PREP_MUTE_FOOTAGE_AUDIO: false,
             // Auto-center any un-parented layers when the target AR differs from the template.
             // When false, no auto-centering is attempted unless explicitly forced by recenterRules (see LAYER_NAME_CONFIG in the script).
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,

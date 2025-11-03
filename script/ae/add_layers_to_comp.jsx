@@ -154,6 +154,10 @@ function __AddLayers_coreRun(opts) {
     // Simple mode: insert the entire template comp as a single layer
     var SIMPLE_INSERT_TEMPLATE_AS_LAYER = false; // when true, skip per-layer copy and insert template as one precomp layer
     var SIMPLE_MUTE_TEMPLATE_AUDIO = true;       // when true, mute audio on the inserted template layer (default)
+    var SIMPLE_SOLO_INSERTED_LAYER = false;      // when true, solo the inserted template layer
+    var SIMPLE_PREP_REMOVE_ALL_LAYERS = false;   // when true, remove all existing layers in target before insert
+    var SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = false; // when true, disable visibility for footage layers before insert
+    var SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = false;    // when true, mute audio for footage layers before insert
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
     var PARENTING_ASSIGN_AT_REF_TIME = true;
@@ -234,6 +238,10 @@ function __AddLayers_coreRun(opts) {
                 // Simple mode toggles (optional)
                 if (ao.hasOwnProperty('SIMPLE_INSERT_TEMPLATE_AS_LAYER')) SIMPLE_INSERT_TEMPLATE_AS_LAYER = !!ao.SIMPLE_INSERT_TEMPLATE_AS_LAYER;
                 if (ao.hasOwnProperty('SIMPLE_MUTE_TEMPLATE_AUDIO')) SIMPLE_MUTE_TEMPLATE_AUDIO = !!ao.SIMPLE_MUTE_TEMPLATE_AUDIO;
+                if (ao.hasOwnProperty('SIMPLE_SOLO_INSERTED_LAYER')) SIMPLE_SOLO_INSERTED_LAYER = !!ao.SIMPLE_SOLO_INSERTED_LAYER;
+                if (ao.hasOwnProperty('SIMPLE_PREP_REMOVE_ALL_LAYERS')) SIMPLE_PREP_REMOVE_ALL_LAYERS = !!ao.SIMPLE_PREP_REMOVE_ALL_LAYERS;
+                if (ao.hasOwnProperty('SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO')) SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = !!ao.SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO;
+                if (ao.hasOwnProperty('SIMPLE_PREP_MUTE_FOOTAGE_AUDIO')) SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = !!ao.SIMPLE_PREP_MUTE_FOOTAGE_AUDIO;
             }
             // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
             try {
@@ -1604,6 +1612,35 @@ function __AddLayers_coreRun(opts) {
             var __header = "Simple mode: inserting template as layer: " + templateComp.name + " -> target: " + compTarget.name;
             log("\n" + __header);
             try { __concise.push(__header); } catch(eHC2) {}
+            // Pre-insert adjustments in target comp
+            try {
+                if (SIMPLE_PREP_REMOVE_ALL_LAYERS) {
+                    var removed = 0;
+                    for (var ri = compTarget.numLayers; ri >= 1; ri--) {
+                        try {
+                            var lyR = compTarget.layer(ri);
+                            var wasLocked = false; try { wasLocked = (lyR.locked === true); } catch(eLr) {}
+                            try { if (wasLocked) lyR.locked = false; } catch(eUlR) {}
+                            try { lyR.remove(); removed++; } catch(eRem) {}
+                        } catch(eLoopR) {}
+                    }
+                    log("Simple prep: removed " + removed + " layer(s) in '" + compTarget.name + "'.");
+                } else {
+                    var changedVid = 0, changedAud = 0;
+                    for (var pi = 1; pi <= compTarget.numLayers; pi++) {
+                        var ly = compTarget.layer(pi);
+                        var isFootage = false, hasVid = false, hasAud = false;
+                        try { isFootage = (ly && ly.source && (ly.source instanceof FootageItem)); } catch(eF) { isFootage = false; }
+                        if (!isFootage) continue;
+                        try { hasVid = (ly.source.hasVideo === true); } catch(eV) {}
+                        try { hasAud = (ly.source.hasAudio === true); } catch(eA) {}
+                        if (SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO && hasVid) { try { ly.enabled = false; changedVid++; } catch(eEn) {} }
+                        if (SIMPLE_PREP_MUTE_FOOTAGE_AUDIO && hasAud) { try { ly.audioEnabled = false; changedAud++; } catch(eAu) {} }
+                    }
+                    if (SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO) log("Simple prep: disabled visibility on " + changedVid + " footage layer(s) in '" + compTarget.name + "'.");
+                    if (SIMPLE_PREP_MUTE_FOOTAGE_AUDIO) log("Simple prep: muted audio on " + changedAud + " footage layer(s) in '" + compTarget.name + "'.");
+                }
+            } catch(ePrep) { log("Simple prep error for '" + compTarget.name + "': " + ePrep); }
             var newLayer = null;
             try { newLayer = compTarget.layers.add(templateComp); } catch (eAdd) { newLayer = null; }
             if (!newLayer) {
@@ -1622,8 +1659,12 @@ function __AddLayers_coreRun(opts) {
                     if (typeof newLayer.audioEnabled !== 'undefined') { newLayer.audioEnabled = false; didMute = true; }
                 } catch (eAud) {}
             }
+            // Optionally solo the inserted layer
+            if (SIMPLE_SOLO_INSERTED_LAYER === true) {
+                try { newLayer.solo = true; } catch(eSolo) {}
+            }
             addedTotal += 1;
-            log("Inserted 1 layer into '" + compTarget.name + "'." + (SIMPLE_MUTE_TEMPLATE_AUDIO ? " Audio muted." : " Audio left as-is."));
+            log("Inserted 1 layer into '" + compTarget.name + "'." + (SIMPLE_MUTE_TEMPLATE_AUDIO ? " Audio muted." : " Audio left as-is.") + (SIMPLE_SOLO_INSERTED_LAYER ? " Solo ON." : ""));
         }
 
         // Prepare base template set (avoid picking an extra for the base run)
