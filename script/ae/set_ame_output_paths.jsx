@@ -244,7 +244,7 @@ function __AME_coreRun(opts) {
             // 1) Try suffix token presence anywhere in name
             var suf = String(EXTRA_OUTPUT_SUFFIX||"");
             if (suf && suf.length) {
-                var sufTok = __normToken(suf.charAt(0)==='_': suf.substring(1) : suf);
+                var sufTok = __normToken(suf.charAt(0) === '_' ? suf.substring(1) : suf);
                 if (sufTok) {
                     for (var j=0;j<tokens.length;j++){ if (tokens[j] === sufTok) return { isExtra:true, name: sufTok }; }
                 }
