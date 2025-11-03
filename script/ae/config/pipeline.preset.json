@@ -23,7 +23,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
 
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
@@ -154,6 +154,7 @@
     "AME_RETRY_DELAY_MS": 650,
     "FILE_LOG_APPEND_MODE": true,
     "EXPORT_SUBPATH": ["OUT","DELIVERIES"],
+    "EXTRA_EXPORT_SUBFOLDER": true,
     "APPLY_TEMPLATES": false,
     "AUTO_DISABLE_REAPPLY_ON_MISSING": true,
     "DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES": false,

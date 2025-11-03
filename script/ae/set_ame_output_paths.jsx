@@ -94,6 +94,9 @@ function __AME_coreRun(opts) {
     var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
     var INJECT_PRESET_TOKEN_IN_FILENAME = false;    // Append __TemplateName to filename before extension (lets you see which preset intended)
     var FILENAME_TEMPLATE_SANITIZE = true;          // Sanitize token when injecting
+    // 5b. Extras routing: when true, route extras into a subfolder named "<AR>_<extraName>"
+    var EXTRA_EXPORT_SUBFOLDER = false;
+    var EXTRA_OUTPUT_SUFFIX = "_extra";            // source of extraName (leading underscore removed)
 
     // Options overrides
     try {
@@ -126,6 +129,7 @@ function __AME_coreRun(opts) {
             if (o.COMPACT_ITEM_DETAIL !== undefined) COMPACT_ITEM_DETAIL = !!o.COMPACT_ITEM_DETAIL;
             // Capture export subpath if provided (string or array). Root 'POST' is implicit and not included here.
             var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
+            if (o.EXTRA_EXPORT_SUBFOLDER !== undefined) EXTRA_EXPORT_SUBFOLDER = !!o.EXTRA_EXPORT_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -215,6 +219,26 @@ function __AME_coreRun(opts) {
         }
         if (ar && OUTPUT_MODULE_TEMPLATE_BY_AR[ar]) return OUTPUT_MODULE_TEMPLATE_BY_AR[ar];
         return OUTPUT_MODULE_TEMPLATE || ""; // fallback
+    }
+
+    // Extras helpers — derive configured extra suffix from pipeline options when available
+    try {
+        var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
+        if (addL && addL.EXTRA_TEMPLATES && typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
+            EXTRA_OUTPUT_SUFFIX = addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX;
+        }
+    } catch(eGetSuffix) {}
+    function detectExtraInfo(compName) {
+        try {
+            var nm = String(compName||"");
+            var suf = String(EXTRA_OUTPUT_SUFFIX||"");
+            if (!suf || !suf.length) return { isExtra:false, name:null };
+            if (nm.length >= suf.length && nm.lastIndexOf(suf) === (nm.length - suf.length)) {
+                var en = suf.charAt(0) === '_' ? suf.substring(1) : suf; // strip leading underscore
+                return { isExtra:true, name: en };
+            }
+        } catch(eX) {}
+        return { isExtra:false, name:null };
     }
 
     // ————— data.json ISO extraction helpers —————
@@ -759,6 +783,7 @@ function __AME_coreRun(opts) {
 
             var tokens = parseTokensFromName(compName);
             pushDetail("TOKENS -> ar=" + (tokens.ar||"-") + ", dur=" + (tokens.duration||"-") );
+            var extraInfo = detectExtraInfo(compName);
 
             // 1) Create folders and set output path FIRST (independent of templates)
             var destParent = dateFolder;
@@ -770,6 +795,15 @@ function __AME_coreRun(opts) {
                 __markTouched(arFolder.fsName);
                 __markTouched(durFolder.fsName);
                 destParent = durFolder;
+                // Optional extras subfolder (e.g., 9x16_tiktok)
+                if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
+                    var extraFolderName = tokens.ar + "_" + extraInfo.name;
+                    var extraFolder = new Folder(joinPath(durFolder.fsName, extraFolderName));
+                    try { ensureFolderExists(extraFolder); } catch(eFEx) { pushDetail("FOLDER CREATE FAIL -> " + extraFolder.fsName + ": " + eFEx); }
+                    __markTouched(extraFolder.fsName);
+                    destParent = extraFolder;
+                    pushDetail("EXTRA SUBFOLDER -> " + extraFolder.fsName);
+                }
             } else {
                 var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
                 try { ensureFolderExists(unsortedFolder); } catch(eFU) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolder.fsName + ": " + eFU); }

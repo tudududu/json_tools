@@ -250,6 +250,10 @@
             FILE_LOG_APPEND_MODE: true,
             // Base export path relative to POST/ (segments or string). Default: POST/OUT/PREVIEWS
             EXPORT_SUBPATH: ["OUT","PREVIEWS"],
+            // Extras routing: when true, items created from an extra template are routed into a subfolder named
+            // "<AR>_<extraName>" (e.g., 9x16_tiktok) under the AR/duration path. The extra name is derived from
+            // addLayers.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX (leading underscore removed).
+            EXTRA_EXPORT_SUBFOLDER: false,
             // Logging toggles for Step 7 (AME)
             VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block
             COMPACT_ITEM_DETAIL: false,      // When true, log one compact per-item line (ASSIGN+DEST [+tpl]) inside DETAIL (independent of VERBOSE_DEBUG)
