@@ -61,6 +61,8 @@
         // Pipeline log content controls
         PIPELINE_SHOW_PHASE_TAGS: true,
         PIPELINE_SHOW_LEVELS: true,
+    // ASCII-safe marker for bullets/indented list items across all steps. Examples: "*", "-", ">".
+    LOG_MARKER: "*",
 
         // Phase-specific namespaces
         linkData: {
@@ -187,8 +189,7 @@
             DEBUG_PARENTING_DUMP_ONLY_COMPS: [],
             DEBUG_PARENTING_DUMP_WITH_TRANSFORM: false,
             DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET: false, // compare template child local Position vs target after-parenting
-            // ASCII-safe marker for log bullets to avoid encoding issues in some viewers. Examples: "*", "-", ">".
-            LOG_MARKER: "*",
+            // Note: LOG_MARKER moved to pipeline general level for cross-step consistency
 
             // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
             // when parent has animated transforms. Default: use 0s.

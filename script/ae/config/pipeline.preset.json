@@ -15,6 +15,7 @@
     "LOG_MAX_FILES": 24,
     "PIPELINE_SHOW_PHASE_TAGS": true,
     "PIPELINE_SHOW_LEVELS": true,
+    "LOG_MARKER": "*",
 
     "RUN_link_data": true,
     "RUN_save_as_iso": true,

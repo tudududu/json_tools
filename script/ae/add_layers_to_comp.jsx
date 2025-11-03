@@ -150,7 +150,7 @@ function __AddLayers_coreRun(opts) {
     var DEBUG_PARENTING_DUMP_ONLY_COMPS = [];
     var DEBUG_PARENTING_DUMP_WITH_TRANSFORM = false;
     var DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = false; // compare template child local Position vs target after-parenting
-    var LOG_MARKER = "*"; // ASCII-safe bullet for logs
+    var LOG_MARKER = "*"; // ASCII-safe bullet for logs (global default)
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
     var PARENTING_ASSIGN_AT_REF_TIME = true;
@@ -225,11 +225,18 @@ function __AddLayers_coreRun(opts) {
                     DEBUG_PARENTING_DUMP_ONLY_COMPS = ao.DEBUG_PARENTING_DUMP_ONLY_COMPS.slice(0);
                 }
                 if (ao.hasOwnProperty('DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET')) DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET = !!ao.DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET;
-                if (typeof ao.LOG_MARKER === 'string') LOG_MARKER = ao.LOG_MARKER;
                 if (ao.hasOwnProperty('PARENTING_ASSIGN_AT_REF_TIME')) PARENTING_ASSIGN_AT_REF_TIME = !!ao.PARENTING_ASSIGN_AT_REF_TIME;
                 if (typeof ao.PARENTING_REF_TIME_MODE === 'string' && ao.PARENTING_REF_TIME_MODE) PARENTING_REF_TIME_MODE = ao.PARENTING_REF_TIME_MODE;
                 if (typeof ao.PARENTING_REF_TIME_SECONDS === 'number') PARENTING_REF_TIME_SECONDS = ao.PARENTING_REF_TIME_SECONDS;
             }
+            // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
+            try {
+                if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && typeof __AE_PIPE__.optionsEffective.LOG_MARKER === 'string') {
+                    LOG_MARKER = __AE_PIPE__.optionsEffective.LOG_MARKER;
+                } else if (ao && typeof ao.LOG_MARKER === 'string') {
+                    LOG_MARKER = ao.LOG_MARKER;
+                }
+            } catch(eLM) {}
         } catch(ePDO) {}
     } catch(eOpt){}
 
@@ -1457,7 +1464,7 @@ function __AddLayers_coreRun(opts) {
                         var pName0 = (pIdx0 && mapTemplateNames[pIdx0]) ? mapTemplateNames[pIdx0] : (pIdx0? (templateComp.layer(pIdx0)? templateComp.layer(pIdx0).name : "?") : null);
                         var childTgt0 = planned ? planned.newLayer : null;
                         var childIdxTgt0 = childTgt0 ? childTgt0.index : null;
-                        log("  - [#"+di+"] '" + tName + "' parentIdx=" + (pIdx0===null||pIdx0===undefined?"-":("#"+pIdx0+" ('"+(pName0||"?")+"')")) + " -> targetIdx=" + (childIdxTgt0||"-") + " ('" + (childTgt0?childTgt0.name:"?") + "')");
+                        log("  " + __LOGM + " [#"+di+"] '" + tName + "' parentIdx=" + (pIdx0===null||pIdx0===undefined?"-":("#"+pIdx0+" ('"+(pName0||"?")+"')")) + " -> targetIdx=" + (childIdxTgt0||"-") + " ('" + (childTgt0?childTgt0.name:"?") + "')");
                     }
                 } catch(ePD) { log("[PARENTING DUMP error] " + ePD); }
             }
@@ -1495,7 +1502,7 @@ function __AddLayers_coreRun(opts) {
                             try {
                                 log("Skip parenting '" + child.name + "' to itself.");
                                 if (__shouldDumpParentingFor(compTarget)) {
-                                    log("  * Reason: template parentIdx=#" + pIdx + " maps to the same target layer.");
+                                    log("  " + __LOGM + " Reason: template parentIdx=#" + pIdx + " maps to the same target layer.");
                                 }
                             } catch (eLog0) {}
                         } else {

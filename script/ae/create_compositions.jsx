@@ -137,6 +137,14 @@ function __CreateComps_coreRun(opts) {
 		try { $.writeln(m); } catch (e) {}
 	}
 
+	// Unified log marker (global from pipeline, ASCII-safe)
+	var __LOGM = (function(){
+		function asciiOnly(s){ try{ if(!s||!s.length) return "*"; var out=""; for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); if(c>=32 && c<=126) out+=s.charAt(i);} return out.length?out:"*"; }catch(e){ return "*"; } }
+		try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && typeof __AE_PIPE__.optionsEffective.LOG_MARKER === 'string') return asciiOnly(__AE_PIPE__.optionsEffective.LOG_MARKER); } catch(e){}
+		try { if (opts && opts.options && typeof opts.options.LOG_MARKER === 'string') return asciiOnly(opts.options.LOG_MARKER); } catch(e2){}
+		return "*";
+	})();
+
 	function alertOnce(msg) {
 		if (__AE_PIPE__) { log(msg); return; }
 		try { alert(msg); } catch (e) {}
@@ -253,7 +261,7 @@ function __CreateComps_coreRun(opts) {
 			for (var i = 1; i <= folderItem.numItems && i <= max; i++) {
 				var it = folderItem.items[i];
 				var t = (it instanceof FolderItem) ? 'Folder' : (it instanceof FootageItem ? 'Footage' : (it instanceof CompItem ? 'Comp' : 'Item'));
-				log("  - [" + t + "] " + it.name);
+				log("  " + __LOGM + " [" + t + "] " + it.name);
 			}
 			if (folderItem.numItems > max) log("  ... (" + (folderItem.numItems - max) + " more)");
 		} catch(eD) {}
