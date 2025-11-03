@@ -17,6 +17,10 @@ Phase toggles and logging
 - `PIPELINE_SHOW_PHASE_TAGS`/`PIPELINE_SHOW_LEVELS` influence INFO {phase} tagging in the unified pipeline log.
 - `sleepBetweenPhasesMs` lets the orchestrator pause before each step to stabilize AE.
 
+Global log marker (ASCII-safe)
+- `LOG_MARKER` (top-level option): one place to control the bullet/marker used across all steps' logs.
+- Accepts simple ASCII markers (e.g., `*`, `-`, `>`). Non-ASCII markers are sanitized to `*` to avoid garbled characters in some viewers.
+
 Link-data vs insert-relink (data.json)
 - Step 1 (link_data) owns data.json relinking.
   - Use `linkData.ENABLE_RELINK_DATA_JSON=true` to enable here.
@@ -56,6 +60,19 @@ Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
   - Controlled by `addLayers.SKIP_COPY_CONFIG` (see options file for all toggles with comments). When a JSON flag (e.g., `disclaimer_flag`, `subtitle_flag`, `logo_anim_flag`) resolves to OFF for a video, matching template layers are not copied into the target.
   - You can also opt into group-based or ad‑hoc token skips to quickly omit certain layers by name.
 
+Parenting robustness and debugging (Step 3)
+- Assign parenting at a stable reference time to avoid time-dependent offsets when the parent has animated transforms.
+  - `addLayers.PARENTING_ASSIGN_AT_REF_TIME` (default `true`)
+  - `addLayers.PARENTING_REF_TIME_MODE`: `zero` | `current` | `inPoint` | `custom` (default `zero`)
+  - `addLayers.PARENTING_REF_TIME_SECONDS`: numeric (used when `custom`)
+- Cycle-safe parenting guard: skip assignment if it would create a cycle or parent to itself (logged with reason).
+- Robust new-layer detection: maps template → target using layer-reference diffs before/after copy (prevents mis-parenting like mapping to `DATA_JSON`).
+- One-off debugging gates:
+  - `addLayers.DEBUG_PARENTING_DUMP`: logs planned child→parent and actual assignments.
+  - `addLayers.DEBUG_PARENTING_DUMP_ONLY_COMPS`: restrict dump to specific comp names.
+  - `addLayers.DEBUG_PARENTING_DUMP_WITH_TRANSFORM`: adds before/after Position readbacks at the reference time.
+  - `addLayers.DEBUG_PARENTING_COMPARE_TEMPLATE_TARGET`: compares template child local Position (at ref time, while still parented) vs target child local Position after parenting.
+
 Preset snippet (enable Solution C: AR + strict duration)
 ```json
 {
@@ -85,6 +102,7 @@ Extras (Step 3) — Duplicate with an extra template
   - `REQUIRE_DURATION_MATCH` (boolean|null): when boolean, overrides `TEMPLATE_MATCH_CONFIG.requireDurationMatch` for extra selection; null inherits.
   - `DURATION_TOLERANCE_SECONDS` (number|null): when number, overrides `TEMPLATE_MATCH_CONFIG.durationToleranceSeconds` for extra selection; null inherits.
   - `FALLBACK_WHEN_NO_EXTRA` (boolean): currently informational; extras are simply skipped when not available.
+  - Naming parity with pack: the pack step can override the `MEDIA` token for extras based on the duplicate suffix (e.g., `_tiktok`). This avoids naming collisions and produces consistent names (see pack options below).
 - Minimal preset snippet
 ```json
 {
@@ -150,6 +168,16 @@ Queue to AME (Step 7)
     - `COMPACT_ITEM_DETAIL` (boolean): when true, emit one compact line per item (ASSIGN+DEST [+tpl]) inside DETAIL; works even if `VERBOSE_DEBUG=false`.
     - Internally, the DETAIL section caps at 80 lines; when capped, a reliable `... (X more) ...` footer is printed.
 
+Pack outputs (Step 6) — naming, IDs, and extras
+- VideoId derivation is resilient and consistent with Step 3 (token-before-duration with fallback scan). Works with names like `token1_token2_Title_06s_v01`.
+- Concise summary includes created/skip counts and timing metrics.
+- Dev self-test (optional): log sample name → videoId mappings; optionally include selection.
+  - `pack.DEV_VIDEOID_SELF_TEST` (boolean)
+  - `pack.DEV_VIDEOID_SELF_TEST_USE_SELECTION` (boolean)
+- Extras naming: when enabled, the `MEDIA` token is overridden for extras based on the duplicate suffix (e.g., `_tiktok` → `MEDIA=TIKTOK`).
+  - Controlled by internal logic tied to `addLayers.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX`.
+  - Default `MEDIA` for non-extras is `OLV`.
+
 Preset snippet (paste into your `pipeline.preset.json`)
 ```json
 {
@@ -191,3 +219,20 @@ Changelog since “Integration 70 - logging - rotation”
 - New AME options: `APPLY_TEMPLATES`, `AUTO_DISABLE_REAPPLY_ON_MISSING`, `OUTPUT_MODULE_TEMPLATE*` mappings, all overridable via preset.
 - Logging controls: `VERBOSE_DEBUG` to gate selection/DETAIL; `COMPACT_ITEM_DETAIL` for a one‑line per‑item summary, independent of verbose mode.
 - Detail capping UX: selection “RQ add ->” moved out of the capped DETAIL block; reliable `... (X more) ...` footer when truncated.
+
+Changelog since “Integration 100”
+- Template selection
+  - Implemented Solution C (AR + duration) with strict mode; documented toggles in `TEMPLATE_MATCH_CONFIG`.
+- Add-layers parenting
+  - Fixed parenting crash with cycle-safe guard; skip with reason when self/descendant.
+  - Robust new-layer detection via before/after layer-reference diffing to correctly map template children to copied target layers.
+  - Parenting at a reference time (default 0s) to avoid offsets under animated parents; configurable modes and custom seconds.
+  - Debug gates: planned vs actual parenting dump; optional transform readbacks; optional template-vs-target local Position comparison at ref time.
+- Extras
+  - Added extras pipeline: duplicate eligible comps and apply extra templates (e.g., TikTok); controlled by `addLayers.EXTRA_TEMPLATES`.
+  - Pack integrates extras by overriding `MEDIA` token from the suffix to avoid naming collisions and improve clarity.
+- Pack outputs
+  - Resilient videoId detection (token-before-duration with fallback), shared with Step 3 for parity.
+  - Concise summary enhanced with skip counts and timing metrics; optional dev self-test for mappings.
+- Logging ergonomics
+  - Introduced global `LOG_MARKER` at pipeline level; all steps use an ASCII-safe marker for bullets (sanitized to avoid garbled characters).

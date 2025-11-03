@@ -28,7 +28,7 @@
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "ESP",
+    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
     "DATA_JSON_FS_SUBPATH": ["IN","data"],
