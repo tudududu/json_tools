@@ -98,6 +98,8 @@ function __AME_coreRun(opts) {
     var EXTRA_EXPORT_SUBFOLDER = false;
     var EXTRA_OUTPUT_SUFFIX = "_extra";            // source of extraName (leading underscore removed)
     var EXTRA_TAG_TOKENS = [];                      // optional tokens to detect extras in names (e.g., ["TIKTOK"])    
+    // 5c. Duration-level subfolder toggle
+    var ENABLE_DURATION_SUBFOLDER = true;           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
 
     // Options overrides
     try {
@@ -131,6 +133,7 @@ function __AME_coreRun(opts) {
             // Capture export subpath if provided (string or array). Root 'POST' is implicit and not included here.
             var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
             if (o.EXTRA_EXPORT_SUBFOLDER !== undefined) EXTRA_EXPORT_SUBFOLDER = !!o.EXTRA_EXPORT_SUBFOLDER;
+            if (o.ENABLE_DURATION_SUBFOLDER !== undefined) ENABLE_DURATION_SUBFOLDER = !!o.ENABLE_DURATION_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -505,6 +508,7 @@ function __AME_coreRun(opts) {
                 log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
                 log("ExportSubpath=" + __exportSegs.join("/"));
+                log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
                 var __ameEnvHeaderLogged = true;
@@ -529,6 +533,7 @@ function __AME_coreRun(opts) {
             log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
             log("ExportSubpath=" + __exportSegs.join("/"));
+            log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
             log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
             log("--- ENV HEADER END ---");
         }
@@ -813,34 +818,62 @@ function __AME_coreRun(opts) {
 
             // 1) Create folders and set output path FIRST (independent of templates)
             var destParent = dateFolder;
-            if (tokens.ar && tokens.duration) {
-                if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
-                    // Extras: place at same level as AR folder, with duration under it
-                    var extraRootName = tokens.ar + "_" + extraInfo.name; // e.g., 9x16_tiktok
-                    var extraRootFolder = new Folder(joinPath(dateFolder.fsName, extraRootName));
-                    try { ensureFolderExists(extraRootFolder); } catch(eER) { pushDetail("FOLDER CREATE FAIL -> " + extraRootFolder.fsName + ": " + eER); }
-                    __markTouched(extraRootFolder.fsName);
-                    var extraDurFolder = new Folder(joinPath(extraRootFolder.fsName, tokens.duration));
-                    try { ensureFolderExists(extraDurFolder); } catch(eED) { pushDetail("FOLDER CREATE FAIL -> " + extraDurFolder.fsName + ": " + eED); }
-                    __markTouched(extraDurFolder.fsName);
-                    destParent = extraDurFolder;
-                    pushDetail("EXTRA PATH -> " + extraDurFolder.fsName);
+            if (ENABLE_DURATION_SUBFOLDER) {
+                // Require both AR and duration when nesting by duration
+                if (tokens.ar && tokens.duration) {
+                    if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
+                        // Extras: <date>/<AR>_<extra>/<duration>/
+                        var extraRootName = tokens.ar + "_" + extraInfo.name; // e.g., 9x16_tiktok
+                        var extraRootFolder = new Folder(joinPath(dateFolder.fsName, extraRootName));
+                        try { ensureFolderExists(extraRootFolder); } catch(eER) { pushDetail("FOLDER CREATE FAIL -> " + extraRootFolder.fsName + ": " + eER); }
+                        __markTouched(extraRootFolder.fsName);
+                        var extraDurFolder = new Folder(joinPath(extraRootFolder.fsName, tokens.duration));
+                        try { ensureFolderExists(extraDurFolder); } catch(eED) { pushDetail("FOLDER CREATE FAIL -> " + extraDurFolder.fsName + ": " + eED); }
+                        __markTouched(extraDurFolder.fsName);
+                        destParent = extraDurFolder;
+                        pushDetail("EXTRA PATH -> " + extraDurFolder.fsName);
+                    } else {
+                        // Normal: <date>/<AR>/<duration>/
+                        var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
+                        var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
+                        try { ensureFolderExists(durFolder); } catch(eFD) { pushDetail("FOLDER CREATE FAIL -> " + durFolder.fsName + ": " + eFD); }
+                        __markTouched(arFolder.fsName);
+                        __markTouched(durFolder.fsName);
+                        destParent = durFolder;
+                    }
                 } else {
-                    // Normal AR/duration path
-                    var arFolder = new Folder(joinPath(dateFolder.fsName, tokens.ar));
-                    var durFolder = new Folder(joinPath(arFolder.fsName, tokens.duration));
-                    try { ensureFolderExists(durFolder); } catch(eFD) { pushDetail("FOLDER CREATE FAIL -> " + durFolder.fsName + ": " + eFD); }
-                    __markTouched(arFolder.fsName);
-                    __markTouched(durFolder.fsName);
-                    destParent = durFolder;
+                    // Not enough tokens -> unsorted
+                    var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                    try { ensureFolderExists(unsortedFolder); } catch(eFU) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolder.fsName + ": " + eFU); }
+                    __markTouched(unsortedFolder.fsName);
+                    destParent = unsortedFolder;
+                    unsorted++;
                 }
             } else {
-                var unsortedFolder = new Folder(joinPath(dateFolder.fsName, "unsorted"));
-                try { ensureFolderExists(unsortedFolder); } catch(eFU) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolder.fsName + ": " + eFU); }
-                // Record unsorted when used
-                __markTouched(unsortedFolder.fsName);
-                destParent = unsortedFolder;
-                unsorted++;
+                // Duration disabled: only require AR
+                if (tokens.ar) {
+                    if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
+                        // Extras: <date>/<AR>_<extra>/
+                        var extraRootName2 = tokens.ar + "_" + extraInfo.name;
+                        var extraRootFolder2 = new Folder(joinPath(dateFolder.fsName, extraRootName2));
+                        try { ensureFolderExists(extraRootFolder2); } catch(eER2) { pushDetail("FOLDER CREATE FAIL -> " + extraRootFolder2.fsName + ": " + eER2); }
+                        __markTouched(extraRootFolder2.fsName);
+                        destParent = extraRootFolder2;
+                        pushDetail("EXTRA PATH -> " + extraRootFolder2.fsName);
+                    } else {
+                        // Normal: <date>/<AR>/
+                        var arFolder2 = new Folder(joinPath(dateFolder.fsName, tokens.ar));
+                        try { ensureFolderExists(arFolder2); } catch(eFA2) { pushDetail("FOLDER CREATE FAIL -> " + arFolder2.fsName + ": " + eFA2); }
+                        __markTouched(arFolder2.fsName);
+                        destParent = arFolder2;
+                    }
+                } else {
+                    var unsortedFolder2 = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                    try { ensureFolderExists(unsortedFolder2); } catch(eFU2) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolder2.fsName + ": " + eFU2); }
+                    __markTouched(unsortedFolder2.fsName);
+                    destParent = unsortedFolder2;
+                    unsorted++;
+                }
             }
             var destPath = joinPath(destParent.fsName, baseName + ext);
             pushDetail("DEST -> " + destPath);

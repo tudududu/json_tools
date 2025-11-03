@@ -254,6 +254,9 @@
             // "<AR>_<extraName>" (e.g., 9x16_tiktok) under the AR/duration path. The extra name is derived from
             // addLayers.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX (leading underscore removed).
             EXTRA_EXPORT_SUBFOLDER: false,
+            // 5c. Duration-level subfolder toggle
+            ENABLE_DURATION_SUBFOLDER: true,           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
+
             // Logging toggles for Step 7 (AME)
             VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block
             COMPACT_ITEM_DETAIL: false,      // When true, log one compact per-item line (ASSIGN+DEST [+tpl]) inside DETAIL (independent of VERBOSE_DEBUG)
