@@ -12,12 +12,14 @@
 
     // Adjust these relative paths to match your repo layout
     var LINK_DATA_PATH     = join(base, "phase/link_data.jsx");
+    var OPEN_PROJECT_PATH  = join(base, "phase/open_project.jsx");
     var SAVE_AS_ISO_PATH   = join(base, "phase/save_as_with_iso.jsx");
     var CREATE_COMPS_PATH  = join(base, "create_compositions.jsx");
     var INSERT_RELINK_PATH = join(base, "insert_and_relink_footage.jsx");
     var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
     var PACK_OUTPUT_PATH   = join(base, "pack_output_comps.jsx");
     var SET_AME_PATH       = join(base, "set_ame_output_paths.jsx");
+    var CLOSE_PROJECT_PATH = join(base, "phase/close_project.jsx");
     var OPTS_UTILS_PATH    = join(base, "options_utils.jsx");
     var PIPELINE_OPTS_PATH = join(base, "pipeline_options.jsx");
     var LOGGER_UTILS_PATH  = join(base, "logger_utils.jsx");
@@ -334,6 +336,28 @@
     }
     var t0All = nowMs();
     var tLs=0,tLe=0,tS2s=0,tS2e=0,t1s=0,t1e=0,t2s=0,t2e=0,t3s=0,t3e=0,t4s=0,t4e=0,t5s=0,t5e=0;
+
+    // Step 0: Open project template (optional)
+    try {
+        if (OPTS.RUN_open_project === true) {
+            log("Step 0: Open project template...");
+            try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr0) {}
+            try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOPL){ log("Step 0 load error: " + eOPL); }
+            if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
+                var __opts0 = (OPTS.openProject || {});
+                var res0 = AE_OpenProject.run({ runId: RUN_ID, log: log, options: __opts0 });
+                if (!(res0 && res0.ok)) {
+                    log("Step 0: Open project failed" + (res0 && res0.reason ? (": "+res0.reason) : "."));
+                } else {
+                    try { log((OPTS.PIPELINE_SHOW_PHASE_TAGS ? "INFO {open_project} " : "") + "Opened: " + (res0.path||"(unknown)")); } catch(_) {}
+                }
+            } else {
+                log("Step 0: open_project API not available; script evaluated without run().");
+            }
+        } else {
+            log("Step 0 (open_project.jsx): SKIPPED by toggle.");
+        }
+    } catch(e0) { log("Step 0 (open_project) error: " + (e0 && e0.message ? e0.message : e0)); }
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
@@ -688,6 +712,25 @@
     var finalMsg = summary.join("\n");
     log(finalMsg);
     try { log("=== PIPELINE RUN END ==="); } catch(eFtr) {}
+    // Step 8: Close project (optional)
+    try {
+        if (OPTS.RUN_close_project === true) {
+            log("Step 8: Close project...");
+            try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClr8) {}
+            try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL){ log("Step 8 load error: " + eCPL); }
+            if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
+                var __opts8 = (OPTS.closeProject || {});
+                var res8 = AE_CloseProject.run({ runId: RUN_ID, log: log, options: __opts8 });
+                if (!(res8 && res8.ok)) {
+                    log("Step 8: Close project failed" + (res8 && res8.reason ? (": "+res8.reason) : "."));
+                }
+            } else {
+                log("Step 8: close_project API not available; script evaluated without run().");
+            }
+        } else {
+            log("Step 8 (close_project.jsx): SKIPPED by toggle.");
+        }
+    } catch(e8) { log("Step 8 (close_project) error: " + (e8 && e8.message ? e8.message : e8)); }
     try {
         var __doAlert = true;
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}

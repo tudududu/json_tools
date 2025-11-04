@@ -42,6 +42,7 @@
         ENABLE_FINAL_ALERT: true,
 
         // Phase run toggles (default ON). Names mirror script files for recognisability.
+        RUN_open_project: false,
         RUN_link_data: true,
         RUN_save_as_iso: true,
         RUN_create_compositions: true,
@@ -49,6 +50,7 @@
         RUN_add_layers_to_comp: true,
         RUN_pack_output_comps: true,
         RUN_set_ame_output_paths: true,
+        RUN_close_project: false,
 
         // When true, phases may forward selected messages into the unified pipeline log
         PHASES_SHARE_PIPELINE_LOG: false,
@@ -65,6 +67,16 @@
         LOG_MARKER: "*",
 
         // Phase-specific namespaces
+        openProject: {
+            // Absolute path to the .aep template to open. If empty, and a project is currently open,
+            // the script will attempt to auto-discover the newest .aep under POST/WORK of the current project.
+            PROJECT_TEMPLATE_PATH: "",
+            // Behavior when another project is open at the time of opening the template.
+            //  - abort: do nothing and abort Step 0
+            //  - prompt: let AE prompt to save/discard current project (interactive)
+            //  - force-no-save: close current project without saving, then open template
+            OPEN_IF_DIRTY_BEHAVIOR: "prompt"
+        },
         linkData: {
             ENABLE_RELINK_DATA_JSON: true,
             DATA_JSON_ISO_MODE: "manual",             // "auto" | "manual"
@@ -276,6 +288,14 @@
             OUTPUT_MODULE_TEMPLATE_BY_AR: {},
             // Optional template mapping by "AR|duration"; overrides AR-only when present. Keys like "1x1|06s"
             OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION: {}
+        }
+        ,
+        closeProject: {
+            // How to close the project at the end of the pipeline.
+            //  - prompt: allow AE to prompt user (interactive)
+            //  - force-save: save current project (if possible) then close without further prompts
+            //  - force-no-save: close without saving
+            CLOSE_MODE: "force-no-save"
         }
     };
 

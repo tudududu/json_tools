@@ -17,6 +17,7 @@
     "PIPELINE_SHOW_LEVELS": true,
     "LOG_MARKER": "*",
 
+    "RUN_open_project": true,
     "RUN_link_data": true,
     "RUN_save_as_iso": true,
     "RUN_create_compositions": true,
@@ -24,6 +25,7 @@
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
     "RUN_set_ame_output_paths": true,
+    "RUN_close_project": true,
 
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
@@ -115,7 +117,7 @@
         "TAG_TOKENS": ["TIKTOK"],
         "OUTPUT_NAME_SUFFIX": "_tiktok",
         
-        "REQUIRE_DURATION_MATCH": true,
+        "REQUIRE_DURATION_MATCH": false,
         "DURATION_TOLERANCE_SECONDS": 0.5
     }
     },
