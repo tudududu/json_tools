@@ -38,6 +38,32 @@ Tips
 - Keep phase settings under their namespace (linkData, createComps, insertRelink, addLayers, pack, ame).
 - When in doubt, check `script/ae/pipeline_options.jsx` for defaults and comments.
 
+Project open/close automation (Step 0 and Step 8)
+- Purpose: prepare for unattended/batch runs by opening a template AEP at the start and closing the project at the end.
+- Behavior
+  - Step 0 (open): opens a template .aep before Step 1 runs. If no path is provided, the script auto-discovers the newest .aep under the current project’s `POST/WORK/`.
+  - Step 8 (close): closes the project after Step 7 completes; you can choose prompt/force save/force no-save.
+- Toggles and options
+  - `RUN_open_project` (boolean): enable Step 0. Default: false.
+  - `openProject.PROJECT_TEMPLATE_PATH` (string): absolute path to the template .aep. Optional; if empty, auto-discover newest under `POST/WORK` based on the currently open project.
+  - `openProject.OPEN_IF_DIRTY_BEHAVIOR` (string): `abort` | `prompt` | `force-no-save`. Default: `prompt`.
+  - `RUN_close_project` (boolean): enable Step 8. Default: false.
+  - `closeProject.CLOSE_MODE` (string): `prompt` | `force-save` | `force-no-save`. Default: `force-no-save`.
+- Minimal preset example
+```json
+{
+  "RUN_open_project": true,
+  "RUN_close_project": true,
+  "openProject": {
+    "PROJECT_TEMPLATE_PATH": "/absolute/path/to/POST/WORK/YourTemplate.aep",
+    "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
+  },
+  "closeProject": {
+    "CLOSE_MODE": "force-no-save"
+  }
+}
+```
+
 Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
 - Where templates live: under the project panel path in `add_layers_to_comp.jsx` → `TEMPLATE_FOLDER_PATH` (default `["project","work","template"]`). The script searches this folder recursively (subfolders included).
 - Safety: if you accidentally select template comps, they’re protected and skipped; only non-template comps are processed.
