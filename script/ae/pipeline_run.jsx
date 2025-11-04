@@ -34,6 +34,7 @@
     function consoleLog(s){ try { $.writeln(String(s)); } catch(e){} }
     // Track if we ran Step 0 early (before file logging)
     var __step0RanEarly = false;
+    var __bootstrapOpenedPath = null;
 
     // Optional: write logs to ./project/log under the AE project root folder
     var ENABLE_FILE_LOG = true;
@@ -91,7 +92,7 @@
                     consoleLog("Bootstrap Step 0 failed" + (res0b && res0b.reason ? (": "+res0b.reason) : "."));
                 } else {
                     __step0RanEarly = true;
-                    try { consoleLog("INFO {open_project} Opened: " + (res0b.path||"(unknown)")); } catch(_) {}
+                    try { __bootstrapOpenedPath = (res0b.path||"(unknown)"); consoleLog("INFO {open_project} Opened: " + __bootstrapOpenedPath); } catch(_) {}
                 }
             } else {
                 consoleLog("Bootstrap Step 0: open_project API not available.");
@@ -234,6 +235,19 @@
         }
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
+    // Echo early loader/bootstrap status into the pipeline log (so these appear in file logs)
+    try {
+        var __meta2 = (AE_PIPE.userOptions && AE_PIPE.userOptions.__presetMeta) ? AE_PIPE.userOptions.__presetMeta : null;
+        if (__meta2 && __meta2.devUsed === true) {
+            log("Preset Loader: DEV override active; skipping POST/WORK checks.");
+        }
+        if (__step0RanEarly) {
+            log("Bootstrap: Running Step 0 early (no project open).");
+            if (__bootstrapOpenedPath) {
+                log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {open_project} " : "") + "Opened: " + __bootstrapOpenedPath);
+            }
+        }
+    } catch(eEcho) {}
     
     // Diagnostics (moved near header): Verbose flags and full options dump
     try {

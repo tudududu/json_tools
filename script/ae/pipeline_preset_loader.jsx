@@ -27,12 +27,14 @@
     } catch(eFlag){}
 
     var presetFile = null;
+    var __DEV_OVERRIDE_USED = false;
     if (USE_DEV_PRESET) {
         var devPresetFile = new File(devPresetFs);
         if (devPresetFile.exists) {
             presetFile = devPresetFile;
             log("Preset Loader: Using DEV preset -> " + devPresetFile.fsName);
             log("Preset Loader: DEV override active; skipping POST/WORK checks.");
+            __DEV_OVERRIDE_USED = true;
         } else {
             log("Preset Loader: DEV preset toggle is on but file not found -> " + devPresetFs);
         }
@@ -95,7 +97,8 @@
         var d = new Date(); function p(n){return (n<10?"0":"")+n;}
         AE_PIPE.userOptions.__presetMeta = {
             path: presetFile.fsName,
-            loadedAt: (d.getFullYear()+""+p(d.getMonth()+1)+""+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()))
+            loadedAt: (d.getFullYear()+""+p(d.getMonth()+1)+""+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())),
+            devUsed: (__DEV_OVERRIDE_USED === true)
         };
     } catch(eMD){}
 
