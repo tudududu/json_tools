@@ -15,18 +15,7 @@
 
     function joinFs(a,b){ if(!a) return b||""; if(!b) return a||""; var sep = (/\\$/.test(a)||/\/$/.test(a))?"":"/"; return a+sep+b; }
 
-    // 1) Verify project and resolve POST folder
-    var proj = app.project;
-    if (!proj || !proj.file) {
-        alert("Preset Loader: Save the project under POST/WORK before running.\nExpected: POST/WORK/<project>.aep and POST/IN/data/config/<preset>.json");
-        return;
-    }
-    var workFolder = null; try { workFolder = proj.file.parent; } catch(eW) {}
-    if (!workFolder) { alert("Preset Loader: Cannot resolve POST/WORK folder from project."); return; }
-    var postFolder = null; try { postFolder = workFolder.parent; } catch(eP) {}
-    if (!postFolder || !postFolder.exists) { alert("Preset Loader: Cannot resolve POST folder (parent of WORK)."); return; }
-
-    // 2) Preset location selection
+    // 1) Preset location selection (dev override first)
     // Toggle to use a repository-local dev preset instead of the POST/IN path.
     // Edit this flag to true for local development, or create a file 'script/ae/config/.use_dev_preset'.
     var USE_DEV_PRESET = false;
@@ -37,29 +26,39 @@
         if (devFlag.exists) { USE_DEV_PRESET = true; }
     } catch(eFlag){}
 
-    var defaultPresetFs = joinFs(postFolder.fsName, "IN/data/config/pipeline.preset.json");
     var presetFile = null;
-
     if (USE_DEV_PRESET) {
         var devPresetFile = new File(devPresetFs);
         if (devPresetFile.exists) {
             presetFile = devPresetFile;
             log("Preset Loader: Using DEV preset -> " + devPresetFile.fsName);
         } else {
-            log("Preset Loader: DEV preset toggle is on but file not found. Falling back to default: " + devPresetFs);
+            log("Preset Loader: DEV preset toggle is on but file not found -> " + devPresetFs);
         }
     }
 
+    // 2) If not using DEV preset, verify project and resolve POST folder to locate default preset
     if (!presetFile) {
-        presetFile = new File(defaultPresetFs);
-    }
+        var proj = app.project;
+        if (!proj || !proj.file) {
+            alert("Preset Loader: Save the project under POST/WORK before running.\nExpected: POST/WORK/<project>.aep and POST/IN/data/config/<preset>.json");
+            return;
+        }
+        var workFolder = null; try { workFolder = proj.file.parent; } catch(eW) {}
+        if (!workFolder) { alert("Preset Loader: Cannot resolve POST/WORK folder from project."); return; }
+        var postFolder = null; try { postFolder = workFolder.parent; } catch(eP) {}
+        if (!postFolder || !postFolder.exists) { alert("Preset Loader: Cannot resolve POST folder (parent of WORK)."); return; }
 
-    // If missing, let user pick a JSON file (prefer POST/IN/data/config, otherwise any JSON)
-    if (!presetFile.exists) {
-        var cfgFolder = new Folder(joinFs(postFolder.fsName, "IN/data/config"));
-        var picked = cfgFolder.exists ? cfgFolder.openDlg("Select a preset JSON", "JSON:*.json") : File.openDialog("Select a preset JSON", "JSON:*.json");
-        if (!picked) { alert("Preset Loader: No preset selected."); return; }
-        presetFile = picked;
+        var defaultPresetFs = joinFs(postFolder.fsName, "IN/data/config/pipeline.preset.json");
+        presetFile = new File(defaultPresetFs);
+
+        // If missing, let user pick a JSON file (prefer POST/IN/data/config, otherwise any JSON)
+        if (!presetFile.exists) {
+            var cfgFolder = new Folder(joinFs(postFolder.fsName, "IN/data/config"));
+            var picked = cfgFolder.exists ? cfgFolder.openDlg("Select a preset JSON", "JSON:*.json") : File.openDialog("Select a preset JSON", "JSON:*.json");
+            if (!picked) { alert("Preset Loader: No preset selected."); return; }
+            presetFile = picked;
+        }
     }
 
     // 3) Read & parse JSON
