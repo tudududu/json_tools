@@ -1,3 +1,61 @@
+Batch Mode (Phase 2) — Run multiple ISOs in one go
+- Purpose: iterate all `data_*.json` under `POST/IN/data/` and run the pipeline once per ISO (derived from filename), with per-run overrides applied for Step 1 (link_data ISO).
+- Two ways to run
+  - Dev preset mode: create `script/ae/config/.use_dev_preset` and keep your `pipeline.preset.json` in `script/ae/config/`. Then run `script/ae/batch_orchestrator.jsx` from AE.
+  - POST-based mode: open any project saved under `POST/WORK/` in AE so the orchestrator can infer `POST`; it will load `POST/IN/data/config/pipeline.preset.json` automatically.
+- What it does per file
+  1) Derives ISO from filename using `FILE_PREFIX` + 3-letter code + `FILE_SUFFIX` (default: `data_XXX.json`).
+  2) Merges your preset and forces per-run overrides:
+     - `RUN_open_project=false`, `RUN_close_project=false` (the batch owns open/close lifecycle)
+    - `linkData.ENABLE_RELINK_DATA_JSON=true`
+    - `linkData.DATA_JSON_ISO_MODE="manual"`
+    - `linkData.DATA_JSON_ISO_CODE_MANUAL=<ISO from filename>`
+  3) Calls `pipeline_run.jsx` and records counts for created/inserted/addLayers/pack/ame.
+  4) Optionally reopens the template between runs to keep a clean baseline.
+  5) Optionally closes the project at the end of the batch.
+- Batch log
+  - Writes `POST/WORK/log/batch_orchestrator_<RunId>.log` with one line per run and a final summary.
+- Options (batch namespace, in your preset)
+```json
+{
+  "batch": {
+    "DATA_FS_SUBPATH": ["IN", "data"],
+    "FILE_PREFIX": "data_",
+    "FILE_SUFFIX": ".json",
+    "RUNS_MAX": 0,                     // 0 = all files
+    "SLEEP_BETWEEN_RUNS_MS": 500,      // small AE stabilization pause
+    "RESET_PROJECT_BETWEEN_RUNS": true,// reopen template between runs to avoid name stacking
+    "CLOSE_AT_END": true,              // close project after the last run using closeProject options
+    "DRY_RUN": false                   // when true: list planned runs only, no pipeline execution
+  }
+}
+```
+- Minimal usage
+  - Dev preset: enable `.use_dev_preset`, then run `batch_orchestrator.jsx` (no dialogs).
+  - POST preset: open `POST/WORK/project.aep`, then run `batch_orchestrator.jsx` (no dialogs).
+- Example outcome
+  - Batch log shows:
+    - `-- RUN 1/3 ISO=ESP file=.../data_ESP.json` → `Result: ok=true | counts=12,12,15,15,15`
+    - `-- RUN 2/3 ISO=GBL ...`
+    - `-- RUN 3/3 ISO=FRA ...`
+  - Pipeline logs appear per run under `POST/WORK/log/` (standard pipeline logging).
+
+Dry-run (no side effects)
+- Set `batch.DRY_RUN=true` to verify discovery and ISO mapping without executing the pipeline.
+- The batch log will list each `data_*.json` and `ISO=...` it would run. No project resets/closing and no phase execution occur.
+
+Changelog since “Integration 134”
+- Preset loader
+  - Prefers DEV override first when `script/ae/config/.use_dev_preset` exists; logs “DEV override active; skipping POST/WORK checks.”
+  - Echoes loader status lines into the unified pipeline log.
+- Step 0/8 orchestration
+  - Early bootstrap: if no project is open and `RUN_open_project=true`, Step 0 runs before headers/logging to avoid “Object is invalid”.
+  - Step 8 added with `closeProject.CLOSE_MODE` (prompt/force-save/force-no-save).
+- Batch Phase 2
+  - New `script/ae/batch_orchestrator.jsx` iterates `data_*.json`, overrides per-run ISO, sleeps between runs, optionally resets to the template each iteration, and closes at the end.
+  - ISO extraction is now anchored to the configured `FILE_PREFIX`/`FILE_SUFFIX` to avoid mismatches; prevents looking up the wrong `data_<ISO>.json`.
+  - Defaults tuned for unattended runs: `RESET_PROJECT_BETWEEN_RUNS=true`, `CLOSE_AT_END=true`.
+  - Added `batch.DRY_RUN` to allow “dry verification” with zero side effects.
 # AE Pipeline options: quick guide
 
 This repo uses a single options bundle merged from Defaults + your preset (pipeline.preset.json).

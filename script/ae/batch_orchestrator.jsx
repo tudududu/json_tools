@@ -88,7 +88,9 @@
             // Reset to the template between runs to keep a clean base and avoid name stacking (e.g., project_DAT_DAT.aep)
             RESET_PROJECT_BETWEEN_RUNS: true,
             // Close project at the end of the batch using preset closeProject options
-            CLOSE_AT_END: true
+            CLOSE_AT_END: true,
+            // When true, do not execute the pipeline; only list planned runs (no side effects)
+            DRY_RUN: false
         };
         return deepMerge(def, b);
     }
@@ -131,6 +133,9 @@
     flog("Preset: " + presetRef.file.fsName + (presetRef.dev ? " [DEV]" : ""));
     flog("DataDir: " + joinFs(post.fsName, joinFs(batchCfg.DATA_FS_SUBPATH[0], batchCfg.DATA_FS_SUBPATH[1])));
     flog("Files: " + files.length);
+    if (batchCfg.DRY_RUN === true) {
+        flog("Mode: DRY_RUN=true (listing planned runs; no pipeline execution, no side effects)");
+    }
 
     var maxRuns = (batchCfg.RUNS_MAX && batchCfg.RUNS_MAX>0) ? batchCfg.RUNS_MAX : files.length;
     var results = [];
@@ -146,48 +151,54 @@
         flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO=" + iso + " file=" + f.fsName);
         log("Batch: Starting ISO=" + iso + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
 
-        // Prepare per-run options: base preset + overrides
-        var runOpts = {}; // deep copy by merge into empty
-        deepMerge(runOpts, presetObj);
-        // Force per-run toggles (keep pipeline independent of batch):
-        runOpts.RUN_open_project = false; // we opened once already
-        runOpts.RUN_close_project = false; // close at end optionally
-        // Ensure Step 1 uses ISO from filename and links that file
-        runOpts.linkData = runOpts.linkData || {};
-        runOpts.linkData.ENABLE_RELINK_DATA_JSON = true;
-        runOpts.linkData.DATA_JSON_ISO_MODE = 'manual';
-        runOpts.linkData.DATA_JSON_ISO_CODE_MANUAL = iso;
-        // Optional: quieten phase file logs if master disabled in preset
-        if (runOpts.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
-            try { runOpts.linkData.ENABLE_FILE_LOG = false; } catch(eLF){}
+        var ok = true; var errMsg = null; var counts = { created:0, insertRelinked:0, addLayers:0, packed:0, ameConfigured:0 };
+
+        if (batchCfg.DRY_RUN === true) {
+            // Skip execution, just log intent
+            flog("   DRY RUN: would execute pipeline_run.jsx with ISO=" + iso);
+        } else {
+            // Prepare per-run options: base preset + overrides
+            var runOpts = {}; // deep copy by merge into empty
+            deepMerge(runOpts, presetObj);
+            // Force per-run toggles (keep pipeline independent of batch):
+            runOpts.RUN_open_project = false; // we opened once already
+            runOpts.RUN_close_project = false; // close at end optionally
+            // Ensure Step 1 uses ISO from filename and links that file
+            runOpts.linkData = runOpts.linkData || {};
+            runOpts.linkData.ENABLE_RELINK_DATA_JSON = true;
+            runOpts.linkData.DATA_JSON_ISO_MODE = 'manual';
+            runOpts.linkData.DATA_JSON_ISO_CODE_MANUAL = iso;
+            // Optional: quieten phase file logs if master disabled in preset
+            if (runOpts.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
+                try { runOpts.linkData.ENABLE_FILE_LOG = false; } catch(eLF){}
+            }
+
+            // Expose to pipeline via AE_PIPE
+            if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
+            AE_PIPE.MODE = 'pipeline';
+            AE_PIPE.userOptions = runOpts;
+            // Include metadata to tag which ISO we ran
+            try { AE_PIPE.userOptions.__presetMeta = { path: presetRef.file.fsName, loadedAt: runId, devUsed: !!presetRef.dev, batchISO: iso }; }catch(eMD){}
+
+            // Run pipeline
+            try { $.evalFile(PIPELINE_RUN_PATH); } catch(eRun) { ok=false; errMsg = (eRun && eRun.message)?eRun.message:(""+eRun); }
+
+            // Collect summary
+            try {
+                counts.created = (AE_PIPE.results && AE_PIPE.results.createComps) ? AE_PIPE.results.createComps.length : 0;
+                counts.insertRelinked = (AE_PIPE.results && AE_PIPE.results.insertRelink) ? AE_PIPE.results.insertRelink.length : 0;
+                counts.addLayers = (AE_PIPE.results && AE_PIPE.results.addLayers) ? AE_PIPE.results.addLayers.length : 0;
+                counts.packed = (AE_PIPE.results && AE_PIPE.results.pack) ? AE_PIPE.results.pack.length : 0;
+                counts.ameConfigured = (AE_PIPE.results && AE_PIPE.results.ame) ? AE_PIPE.results.ame.length : 0;
+            } catch(eCnt){}
         }
 
-        // Expose to pipeline via AE_PIPE
-        if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
-        AE_PIPE.MODE = 'pipeline';
-        AE_PIPE.userOptions = runOpts;
-        // Include metadata to tag which ISO we ran
-        try { AE_PIPE.userOptions.__presetMeta = { path: presetRef.file.fsName, loadedAt: runId, devUsed: !!presetRef.dev, batchISO: iso }; }catch(eMD){}
-
-        // Run pipeline
-        var ok = true; var errMsg = null;
-        try { $.evalFile(PIPELINE_RUN_PATH); } catch(eRun) { ok=false; errMsg = (eRun && eRun.message)?eRun.message:(""+eRun); }
-
-        // Collect summary
-        var counts = { created:0, insertRelinked:0, addLayers:0, packed:0, ameConfigured:0 };
-        try {
-            counts.created = (AE_PIPE.results && AE_PIPE.results.createComps) ? AE_PIPE.results.createComps.length : 0;
-            counts.insertRelinked = (AE_PIPE.results && AE_PIPE.results.insertRelink) ? AE_PIPE.results.insertRelink.length : 0;
-            counts.addLayers = (AE_PIPE.results && AE_PIPE.results.addLayers) ? AE_PIPE.results.addLayers.length : 0;
-            counts.packed = (AE_PIPE.results && AE_PIPE.results.pack) ? AE_PIPE.results.pack.length : 0;
-            counts.ameConfigured = (AE_PIPE.results && AE_PIPE.results.ame) ? AE_PIPE.results.ame.length : 0;
-        } catch(eCnt){}
         results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
         flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
         // Optionally reset/reopen template between runs
         try {
-            if (batchCfg.RESET_PROJECT_BETWEEN_RUNS === true) {
+            if (batchCfg.RESET_PROJECT_BETWEEN_RUNS === true && batchCfg.DRY_RUN !== true) {
                 try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr2){}
                 try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOP2){ log("Batch: open_project load error (reset): "+eOP2); }
                 if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
@@ -203,7 +214,7 @@
 
     // Close at end if requested
     try {
-        if (results.length && (batchCfg.CLOSE_AT_END === true)) {
+        if (results.length && (batchCfg.CLOSE_AT_END === true) && batchCfg.DRY_RUN !== true) {
             try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClr8){}
             try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL){ log("Batch: close_project load error: "+eCPL); }
             if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
