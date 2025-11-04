@@ -27,6 +27,10 @@
     "RUN_set_ame_output_paths": true,
     "RUN_close_project": true,
 
+"openProject": {
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/jbl/PROJECT_FOLDER/POST/WORK/project.aep",
+    "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
+},
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
@@ -173,5 +177,8 @@
         "1x1|06s": "Short_1x1",
         "1x1|15s": "Short_1x1_15"
         }
+    },
+"closeProject": {
+    "CLOSE_MODE": "force-no-save"
     }
 }

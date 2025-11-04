@@ -64,6 +64,22 @@ Project open/close automation (Step 0 and Step 8)
 }
 ```
 
+Batch Phase 1: preset loader prerequisites and troubleshooting
+- Why the alert appears
+  - The preset loader finds your preset at `POST/IN/data/config/pipeline.preset.json` by first locating the currently open project’s path. If no project is saved under `POST/WORK`, it can’t infer `POST`, so it shows:
+    - “Preset Loader: Save the project under POST/WORK before running. Expected: POST/WORK/<project>.aep and POST/IN/data/config/<preset>.json”
+- Important sequencing
+  - Step 0 (open project) only runs after the preset is loaded. That means `openProject.PROJECT_TEMPLATE_PATH` helps Step 0, but it does not help the preset loader itself locate the preset. You must satisfy the loader first.
+- Three ways to proceed
+  1) Recommended: save any .aep under `POST/WORK/` and run the loader
+     - Example: `POST/WORK/project.aep` and your preset at `POST/IN/data/config/pipeline.preset.json`.
+  2) Dev override: force using the repo-local preset
+     - Create an empty file: `script/ae/config/.use_dev_preset`
+     - The loader will use `script/ae/config/pipeline.preset.json` regardless of the current project location.
+  3) Manual pick (when prompted)
+     - If the loader can’t find the default preset but does know `POST`, it will offer a file dialog. Pick any JSON preset.
+- Tip: with Step 0 enabled, set an absolute `openProject.PROJECT_TEMPLATE_PATH` to a .aep inside `POST/WORK` (as in your example), so the pipeline opens the correct template automatically once the preset is loaded.
+
 Add layers to comp (Step 3) — Template picking (Solutions A/B/C)
 - Where templates live: under the project panel path in `add_layers_to_comp.jsx` → `TEMPLATE_FOLDER_PATH` (default `["project","work","template"]`). The script searches this folder recursively (subfolders included).
 - Safety: if you accidentally select template comps, they’re protected and skipped; only non-template comps are processed.
