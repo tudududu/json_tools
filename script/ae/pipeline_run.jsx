@@ -30,6 +30,10 @@
         return d.getFullYear()+""+p(d.getMonth()+1)+""+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
     }
     var RUN_ID = timestamp();
+    // Minimal console logger available before file logging is initialized
+    function consoleLog(s){ try { $.writeln(String(s)); } catch(e){} }
+    // Track if we ran Step 0 early (before file logging)
+    var __step0RanEarly = false;
 
     // Optional: write logs to ./project/log under the AE project root folder
     var ENABLE_FILE_LOG = true;
@@ -70,6 +74,30 @@
         }
     } catch (eUO) {}
     var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(__userOpts) : (__userOpts || {});
+
+    // Bootstrap: if no project is saved/open and Step 0 is enabled, open the template BEFORE initializing file logs.
+    // This ensures log files are created under POST/WORK/log instead of Desktop and avoids invalid object errors.
+    try {
+        var needEarlyOpen = (!app.project || !app.project.file) && (OPTS && OPTS.RUN_open_project === true);
+        if (needEarlyOpen) {
+            consoleLog("Bootstrap: Running Step 0 early (no project open)." );
+            // Evaluate and run open_project.jsx
+            try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr0) {}
+            try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOPL){ consoleLog("Bootstrap Step 0 load error: " + eOPL); }
+            if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
+                var __opts0b = (OPTS.openProject || {});
+                var res0b = AE_OpenProject.run({ runId: RUN_ID, log: consoleLog, options: __opts0b });
+                if (!(res0b && res0b.ok)) {
+                    consoleLog("Bootstrap Step 0 failed" + (res0b && res0b.reason ? (": "+res0b.reason) : "."));
+                } else {
+                    __step0RanEarly = true;
+                    try { consoleLog("INFO {open_project} Opened: " + (res0b.path||"(unknown)")); } catch(_) {}
+                }
+            } else {
+                consoleLog("Bootstrap Step 0: open_project API not available.");
+            }
+        }
+    } catch(eEarly0) { consoleLog("Bootstrap Step 0 error: " + (eEarly0 && eEarly0.message ? eEarly0.message : eEarly0)); }
     // Pipeline toggles (derived from options)
     // When true (default), Step 5 will queue items to AME after setting output paths.
     // When false, only output paths are set (no AME queue).
@@ -340,19 +368,23 @@
     // Step 0: Open project template (optional)
     try {
         if (OPTS.RUN_open_project === true) {
-            log("Step 0: Open project template...");
-            try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr0) {}
-            try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOPL){ log("Step 0 load error: " + eOPL); }
-            if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
-                var __opts0 = (OPTS.openProject || {});
-                var res0 = AE_OpenProject.run({ runId: RUN_ID, log: log, options: __opts0 });
-                if (!(res0 && res0.ok)) {
-                    log("Step 0: Open project failed" + (res0 && res0.reason ? (": "+res0.reason) : "."));
-                } else {
-                    try { log((OPTS.PIPELINE_SHOW_PHASE_TAGS ? "INFO {open_project} " : "") + "Opened: " + (res0.path||"(unknown)")); } catch(_) {}
-                }
+            if (__step0RanEarly) {
+                log("Step 0 (open_project.jsx): SKIPPED (already ran during bootstrap).");
             } else {
-                log("Step 0: open_project API not available; script evaluated without run().");
+                log("Step 0: Open project template...");
+                try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr0) {}
+                try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOPL){ log("Step 0 load error: " + eOPL); }
+                if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
+                    var __opts0 = (OPTS.openProject || {});
+                    var res0 = AE_OpenProject.run({ runId: RUN_ID, log: log, options: __opts0 });
+                    if (!(res0 && res0.ok)) {
+                        log("Step 0: Open project failed" + (res0 && res0.reason ? (": "+res0.reason) : "."));
+                    } else {
+                        try { log((OPTS.PIPELINE_SHOW_PHASE_TAGS ? "INFO {open_project} " : "") + "Opened: " + (res0.path||"(unknown)")); } catch(_) {}
+                    }
+                } else {
+                    log("Step 0: open_project API not available; script evaluated without run().");
+                }
             }
         } else {
             log("Step 0 (open_project.jsx): SKIPPED by toggle.");
