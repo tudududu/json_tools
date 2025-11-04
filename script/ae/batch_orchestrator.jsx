@@ -85,8 +85,10 @@
             FILE_SUFFIX: ".json",
             SLEEP_BETWEEN_RUNS_MS: 500,
             RUNS_MAX: 0, // 0 = all
-            RESET_PROJECT_BETWEEN_RUNS: false,
-            CLOSE_AT_END: false
+            // Reset to the template between runs to keep a clean base and avoid name stacking (e.g., project_DAT_DAT.aep)
+            RESET_PROJECT_BETWEEN_RUNS: true,
+            // Close project at the end of the batch using preset closeProject options
+            CLOSE_AT_END: true
         };
         return deepMerge(def, b);
     }
@@ -133,9 +135,13 @@
     var maxRuns = (batchCfg.RUNS_MAX && batchCfg.RUNS_MAX>0) ? batchCfg.RUNS_MAX : files.length;
     var results = [];
 
+    // Precompile ISO extraction regex using configured prefix/suffix to avoid mismatches
+    function escRe(s){ return String(s).replace(/([.*+?^${}()|[\]\\])/g,'\\$1'); }
+    var isoRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "([A-Za-z]{3})" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
+
     for (var i=0; i<files.length && i<maxRuns; i++) {
         var f = files[i];
-        var m = String(f.name||"").match(/([A-Za-z]{3})/);
+        var m = String(f.name||"").match(isoRx);
         var iso = m && m[1] ? m[1].toUpperCase() : "XXX";
         flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO=" + iso + " file=" + f.fsName);
         log("Batch: Starting ISO=" + iso + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
