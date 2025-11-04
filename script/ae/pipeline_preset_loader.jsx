@@ -32,6 +32,7 @@
         if (devPresetFile.exists) {
             presetFile = devPresetFile;
             log("Preset Loader: Using DEV preset -> " + devPresetFile.fsName);
+            log("Preset Loader: DEV override active; skipping POST/WORK checks.");
         } else {
             log("Preset Loader: DEV preset toggle is on but file not found -> " + devPresetFs);
         }
@@ -39,6 +40,7 @@
 
     // 2) If not using DEV preset, verify project and resolve POST folder to locate default preset
     if (!presetFile) {
+        log("Preset Loader: Using POST/WORK preset discovery (DEV override not active).");
         var proj = app.project;
         if (!proj || !proj.file) {
             alert("Preset Loader: Save the project under POST/WORK before running.\nExpected: POST/WORK/<project>.aep and POST/IN/data/config/<preset>.json");
