@@ -76,7 +76,7 @@
         return { ok:false, reason: 'open_project API not available' };
     }
 
-    // Prepare batch config with defaults
+    // Prepare batch config with defaults (simplified lifecycle)
     function resolveBatchConfig(presetObj){
         var b = (presetObj && presetObj.batch) ? presetObj.batch : {};
         var def = {
@@ -85,20 +85,12 @@
             FILE_SUFFIX: ".json",
             SLEEP_BETWEEN_RUNS_MS: 500,
             RUNS_MAX: 0, // 0 = all
-            // Reset to the template between runs to keep a clean base and avoid name stacking (e.g., project_DAT_DAT.aep)
-            RESET_PROJECT_BETWEEN_RUNS: true,
-            // Close project at the end of the batch using preset closeProject options
-            CLOSE_AT_END: true,
+            // Always reset to the template between runs (no option needed)
+            // Close project at the end of the batch (always)
             // When true, do not execute the pipeline; only list planned runs (no side effects)
             DRY_RUN: false,
-            // Optional: save the current project after each run without closing it
-            SAVE_AFTER_RUN: false,
-            // Optional: close the project between runs (applies chosen save/no-save once per item)
-            CLOSE_BETWEEN_RUNS: false,
-            // Optional override for between-runs close behavior: 'prompt' | 'force-save' | 'force-no-save'
-            CLOSE_MODE_BETWEEN_RUNS: null,
-            // Optional override for final close-at-end behavior. If null, falls back to CLOSE_MODE_BETWEEN_RUNS when provided.
-            CLOSE_MODE_AT_END: null
+            // Save policy at END close (Step 8): true => force-save, false => force-no-save
+            SAVE_AFTER_RUN: false
         };
         return deepMerge(def, b);
     }
@@ -204,36 +196,17 @@
         results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
         flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
-        // Apply end-of-run save/close policy and optionally reopen for next run
+        // Apply end-of-run policy: we don't close or save here; we just prepare for the next run
         var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
         try {
             if (batchCfg.DRY_RUN !== true) {
-                // Simple save without closing (only if not closing between runs)
-                if (batchCfg.SAVE_AFTER_RUN === true && batchCfg.CLOSE_BETWEEN_RUNS !== true) {
-                    try { app.project.save(); flog("   Saved project after run"); } catch (eSave) { flog("   Save after run failed: " + eSave); }
-                }
-
-                // Close between runs if requested (uses closeProject options, with optional override)
-                if (hasNextRun && batchCfg.CLOSE_BETWEEN_RUNS === true) {
-                    try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClrC){}
-                    try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL2){ log("Batch: close_project load error (between runs): "+eCPL2); }
-                    if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
-                        var closeOpts = (presetObj.closeProject||{});
-                        if (batchCfg.CLOSE_MODE_BETWEEN_RUNS) {
-                            // shallow clone + override
-                            try { closeOpts = deepMerge({}, closeOpts); } catch(_c){}
-                            closeOpts.CLOSE_MODE = String(batchCfg.CLOSE_MODE_BETWEEN_RUNS);
-                        }
-                        AE_CloseProject.run({ runId: "batch_between_close_" + (new Date().getTime()), log: log, options: closeOpts });
-                        flog("   Closed project between runs (mode=" + (closeOpts && closeOpts.CLOSE_MODE ? closeOpts.CLOSE_MODE : "default") + ")");
-                    }
-                }
+                // No save/close between runs; policy is applied at the final close only
             }
         } catch(eBetween){}
 
-        // Reopen template for next run if needed (either after closing or explicit reset), but not after the last run
+        // Reopen template for next run (always reset), but not after the last run
         try {
-            var needReopenNext = hasNextRun && (batchCfg.DRY_RUN !== true) && (batchCfg.CLOSE_BETWEEN_RUNS === true || batchCfg.RESET_PROJECT_BETWEEN_RUNS === true);
+            var needReopenNext = hasNextRun && (batchCfg.DRY_RUN !== true);
             if (needReopenNext) {
                 try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr2){}
                 try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOP2){ log("Batch: open_project load error (reset/reopen): "+eOP2); }
@@ -248,23 +221,17 @@
         try { var ms = Number(batchCfg.SLEEP_BETWEEN_RUNS_MS)||0; if (ms>0) { flog("   Sleep: "+ms+"ms"); $.sleep(ms); } } catch(eSl){}
     }
 
-    // Close at end if requested
+    // Close at end (always)
     try {
-        if (results.length && (batchCfg.CLOSE_AT_END === true) && batchCfg.DRY_RUN !== true) {
+        if (results.length && batchCfg.DRY_RUN !== true) {
             try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClr8){}
             try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL){ log("Batch: close_project load error: "+eCPL); }
             if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
-                // Determine close mode at end: explicit CLOSE_MODE_AT_END, else reuse BETWEEN_RUNS override when set
+                // Determine close mode at end from SAVE_AFTER_RUN
                 var endCloseOpts = (presetObj.closeProject||{});
-                var endMode = (batchCfg.CLOSE_MODE_AT_END != null && batchCfg.CLOSE_MODE_AT_END !== undefined)
-                    ? String(batchCfg.CLOSE_MODE_AT_END)
-                    : (batchCfg.CLOSE_MODE_BETWEEN_RUNS != null && batchCfg.CLOSE_MODE_BETWEEN_RUNS !== undefined)
-                        ? String(batchCfg.CLOSE_MODE_BETWEEN_RUNS)
-                        : null;
-                if (endMode) {
-                    try { endCloseOpts = deepMerge({}, endCloseOpts); } catch(_e){}
-                    endCloseOpts.CLOSE_MODE = endMode;
-                }
+                var endMode = batchCfg.SAVE_AFTER_RUN === true ? 'force-save' : 'force-no-save';
+                try { endCloseOpts = deepMerge({}, endCloseOpts); } catch(_e){}
+                endCloseOpts.CLOSE_MODE = endMode;
                 AE_CloseProject.run({ runId: "batch_end_"+runId, log: log, options: endCloseOpts });
                 try { flog("Final close executed (mode=" + (endCloseOpts && endCloseOpts.CLOSE_MODE ? endCloseOpts.CLOSE_MODE : "default") + ")"); } catch(_log){}
             }
