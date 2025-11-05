@@ -361,6 +361,39 @@ Dry-run (no side effects)
 - Set `batch.DRY_RUN=true` to verify discovery and ISO mapping without executing the pipeline.
 - The batch log will list each `data_*.json` and `ISO=...` it would run. No project resets/closing and no phase execution occur.
 
+Per-run save/close policy (batch)
+- Purpose: apply a single save/close decision to every item in the batch (no per-item prompts).
+- Options (inside the `batch` namespace):
+  - `SAVE_AFTER_RUN` (boolean, default `false`)
+    - Saves the current project immediately after each run without closing it.
+    - Use when you prefer one continuous AE session but still want changes persisted per iteration.
+  - `CLOSE_BETWEEN_RUNS` (boolean, default `false`)
+    - Closes the project after each run. The orchestrator will reopen the template for the next run.
+    - Ensures your chosen close behavior (save/no-save/prompt) applies to every batch item, not just the last.
+  - `CLOSE_MODE_BETWEEN_RUNS` (string | null, default `null`)
+    - Optional override for between-run close behavior. Accepted values: `"prompt"`, `"force-save"`, `"force-no-save"`.
+    - When `null`, falls back to `closeProject.CLOSE_MODE` from the preset.
+- Interplay with other toggles
+  - `RESET_PROJECT_BETWEEN_RUNS`: if `true`, the template is reopened between runs; when `CLOSE_BETWEEN_RUNS=true`, reopen happens regardless of this value.
+  - `CLOSE_AT_END`: still controls whether the final project is closed after the last run.
+  - `DRY_RUN=true`: skips all save/close operations entirely.
+- Minimal snippets
+```json
+{
+  "batch": {
+    "SAVE_AFTER_RUN": true
+  }
+}
+```
+```json
+{
+  "batch": {
+    "CLOSE_BETWEEN_RUNS": true,
+    "CLOSE_MODE_BETWEEN_RUNS": "force-save"
+  }
+}
+```
+
 
 Changelog since “Integration 70 - logging - rotation”
 - Path/template decoupling: output path is set regardless of preset availability.
