@@ -196,9 +196,10 @@
         results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
         flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
-        // Optionally reset/reopen template between runs
+        // Optionally reset/reopen template BETWEEN runs (skip after the last run)
         try {
-            if (batchCfg.RESET_PROJECT_BETWEEN_RUNS === true && batchCfg.DRY_RUN !== true) {
+            var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
+            if (hasNextRun && batchCfg.RESET_PROJECT_BETWEEN_RUNS === true && batchCfg.DRY_RUN !== true) {
                 try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr2){}
                 try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOP2){ log("Batch: open_project load error (reset): "+eOP2); }
                 if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
