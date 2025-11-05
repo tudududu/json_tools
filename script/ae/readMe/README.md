@@ -395,6 +395,23 @@ Per-run save/close policy (batch)
 ```
 
 
+Batch options quick reference
+
+| Option                     | Type (default)          | Description |
+|----------------------------|-------------------------|-------------|
+| DATA_FS_SUBPATH            | array (['IN','data'])   | Where to look under POST for data files. Usually ['IN','data']. |
+| FILE_PREFIX                | string ('data_')        | Prefix for data files (e.g., data_ESP.json). |
+| FILE_SUFFIX                | string ('.json')        | Suffix/extension for data files. |
+| RUNS_MAX                   | number (0)              | Maximum runs to execute; 0 processes all discovered files. |
+| SLEEP_BETWEEN_RUNS_MS      | number (500)            | Stabilization sleep between runs (milliseconds). |
+| RESET_PROJECT_BETWEEN_RUNS | boolean (true)          | Reopen template between runs to keep a clean baseline and avoid name stacking. Skipped after the final run. |
+| CLOSE_AT_END               | boolean (true)          | Close the project once after the last run using closeProject options. |
+| DRY_RUN                    | boolean (false)         | List planned runs only; do not execute pipeline; skip save/close and reopen. |
+| SAVE_AFTER_RUN             | boolean (false)         | Save the project after each run without closing it. |
+| CLOSE_BETWEEN_RUNS         | boolean (false)         | Close after each run, then reopen template for the next run. |
+| CLOSE_MODE_BETWEEN_RUNS    | string|null (null)      | Override between-run close behavior: 'prompt' | 'force-save' | 'force-no-save'. When null, uses closeProject.CLOSE_MODE. |
+
+
 Changelog since “Integration 70 - logging - rotation”
 - Path/template decoupling: output path is set regardless of preset availability.
 - ISO preference: Step 7 now prefers ISO from Step 1 (link_data), then filename, then disk scan.
