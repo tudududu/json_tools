@@ -27,6 +27,16 @@
     "RUN_set_ame_output_paths": true,
     "RUN_close_project": true,
 
+"batch": {
+    "DATA_FS_SUBPATH": ["IN", "data"],
+    "FILE_PREFIX": "data_",
+    "FILE_SUFFIX": ".json",
+    "RUNS_MAX": 0,
+    "SLEEP_BETWEEN_RUNS_MS": 500,
+    "RESET_PROJECT_BETWEEN_RUNS": true,
+    "CLOSE_AT_END": true,
+    "DRY_RUN": true
+},
 "openProject": {
     "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/jbl/PROJECT_FOLDER/POST/WORK/project.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
