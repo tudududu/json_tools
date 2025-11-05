@@ -328,8 +328,8 @@ Batch Mode (Phase 2) — Run multiple ISOs in one go
     - `linkData.DATA_JSON_ISO_MODE="manual"`
     - `linkData.DATA_JSON_ISO_CODE_MANUAL=<ISO from filename>`
   3) Calls `pipeline_run.jsx` and records counts for created/inserted/addLayers/pack/ame.
-  4) Optionally reopens the template between runs to keep a clean baseline.
-  5) Optionally closes the project at the end of the batch.
+  4) Closes the project after each run with a save/no-save policy derived from `batch.SAVE_AFTER_RUN` and logs `Closed with: <mode>`.
+  5) Automatically reopens the template for the next run (when any). After the last run, closes the project once more with the same policy and logs the final mode.
 - Batch log
   - Writes `POST/WORK/log/batch_orchestrator_<RunId>.log` with one line per run and a final summary.
 - Options (batch namespace, in your preset)
@@ -341,9 +341,8 @@ Batch Mode (Phase 2) — Run multiple ISOs in one go
     "FILE_SUFFIX": ".json",
     "RUNS_MAX": 0,                     // 0 = all files
     "SLEEP_BETWEEN_RUNS_MS": 500,      // small AE stabilization pause
-    "RESET_PROJECT_BETWEEN_RUNS": true,// reopen template between runs to avoid name stacking
-    "CLOSE_AT_END": true,              // close project after the last run using closeProject options
-    "DRY_RUN": false                   // when true: list planned runs only, no pipeline execution
+    "DRY_RUN": false,                  // when true: list planned runs only, no pipeline execution
+    "SAVE_AFTER_RUN": false            // save policy for between-run and final close: true=force-save, false=force-no-save
   }
 }
 ```
@@ -361,35 +360,21 @@ Dry-run (no side effects)
 - Set `batch.DRY_RUN=true` to verify discovery and ISO mapping without executing the pipeline.
 - The batch log will list each `data_*.json` and `ISO=...` it would run. No project resets/closing and no phase execution occur.
 
-Per-run save/close policy (batch)
-- Purpose: apply a single save/close decision to every item in the batch (no per-item prompts).
-- Options (inside the `batch` namespace):
+Save on close policy (simplified)
+- Purpose: one option controls save/no-save for every run, including the final close.
+- Option (inside the `batch` namespace):
   - `SAVE_AFTER_RUN` (boolean, default `false`)
-    - Saves the current project immediately after each run without closing it.
-    - Use when you prefer one continuous AE session but still want changes persisted per iteration.
-  - `CLOSE_BETWEEN_RUNS` (boolean, default `false`)
-    - Closes the project after each run. The orchestrator will reopen the template for the next run.
-    - Ensures your chosen close behavior (save/no-save/prompt) applies to every batch item, not just the last.
-  - `CLOSE_MODE_BETWEEN_RUNS` (string | null, default `null`)
-    - Optional override for between-run close behavior. Accepted values: `"prompt"`, `"force-save"`, `"force-no-save"`.
-    - When `null`, falls back to `closeProject.CLOSE_MODE` from the preset.
-- Interplay with other toggles
-  - `RESET_PROJECT_BETWEEN_RUNS`: if `true`, the template is reopened between runs; when `CLOSE_BETWEEN_RUNS=true`, reopen happens regardless of this value.
-  - `CLOSE_AT_END`: still controls whether the final project is closed after the last run.
-  - `DRY_RUN=true`: skips all save/close operations entirely.
-- Minimal snippets
+    - Determines close behavior after each run and at the end:
+      - `true`  → close with `force-save`
+      - `false` → close with `force-no-save`
+    - Step 2 (Save As `name_<ISO>.aep`) is unaffected by this flag.
+- Logging
+  - After each run and at the final close, the batch log includes: `Closed with: force-save` or `Closed with: force-no-save`.
+- Minimal snippet
 ```json
 {
   "batch": {
     "SAVE_AFTER_RUN": true
-  }
-}
-```
-```json
-{
-  "batch": {
-    "CLOSE_BETWEEN_RUNS": true,
-    "CLOSE_MODE_BETWEEN_RUNS": "force-save"
   }
 }
 ```
@@ -404,12 +389,8 @@ Batch options quick reference
 | FILE_SUFFIX                | string ('.json')        | Suffix/extension for data files. |
 | RUNS_MAX                   | number (0)              | Maximum runs to execute; 0 processes all discovered files. |
 | SLEEP_BETWEEN_RUNS_MS      | number (500)            | Stabilization sleep between runs (milliseconds). |
-| RESET_PROJECT_BETWEEN_RUNS | boolean (true)          | Reopen template between runs to keep a clean baseline and avoid name stacking. Skipped after the final run. |
-| CLOSE_AT_END               | boolean (true)          | Close the project once after the last run using closeProject options. |
 | DRY_RUN                    | boolean (false)         | List planned runs only; do not execute pipeline; skip save/close and reopen. |
-| SAVE_AFTER_RUN             | boolean (false)         | Save the project after each run without closing it. |
-| CLOSE_BETWEEN_RUNS         | boolean (false)         | Close after each run, then reopen template for the next run. |
-| CLOSE_MODE_BETWEEN_RUNS    | string|null (null)      | Override between-run close behavior: 'prompt' | 'force-save' | 'force-no-save'. When null, uses closeProject.CLOSE_MODE. |
+| SAVE_AFTER_RUN             | boolean (false)         | Save-on-close policy for each run and final close: true=force-save, false=force-no-save. |
 
 
 Changelog since “Integration 70 - logging - rotation”
@@ -459,8 +440,7 @@ Changelog since “Integration 134”
   - Early bootstrap: if no project is open and `RUN_open_project=true`, Step 0 runs before headers/logging to avoid “Object is invalid”.
   - Step 8 added with `closeProject.CLOSE_MODE` (prompt/force-save/force-no-save).
 - Batch Phase 2
-  - New `script/ae/batch_orchestrator.jsx` iterates `data_*.json`, overrides per-run ISO, sleeps between runs, optionally resets to the template each iteration, and closes at the end.
+  - New `script/ae/batch_orchestrator.jsx` iterates `data_*.json`, overrides per-run ISO, sleeps between runs, resets to the template each iteration, and closes after each run and at the end using the unified `SAVE_AFTER_RUN` policy.
   - ISO extraction is now anchored to the configured `FILE_PREFIX`/`FILE_SUFFIX` to avoid mismatches; prevents looking up the wrong `data_<ISO>.json`.
-  - Defaults tuned for unattended runs: `RESET_PROJECT_BETWEEN_RUNS=true`, `CLOSE_AT_END=true`.
   - Added `batch.DRY_RUN` to allow “dry verification” with zero side effects.
 # AE Pipeline options: quick guide
