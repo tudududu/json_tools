@@ -196,11 +196,22 @@
         results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
         flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
-        // Apply end-of-run policy: we don't close or save here; we just prepare for the next run
+        // Apply end-of-run policy: close after each run when there is a next run, using SAVE_AFTER_RUN to choose save/no-save
         var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
         try {
             if (batchCfg.DRY_RUN !== true) {
-                // No save/close between runs; policy is applied at the final close only
+                if (hasNextRun) {
+                    try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClrC){}
+                    try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL2){ log("Batch: close_project load error (between runs): "+eCPL2); }
+                    if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
+                        var closeOptsBR = (presetObj.closeProject||{});
+                        var modeBR = batchCfg.SAVE_AFTER_RUN === true ? 'force-save' : 'force-no-save';
+                        try { closeOptsBR = deepMerge({}, closeOptsBR); } catch(_c){}
+                        closeOptsBR.CLOSE_MODE = modeBR;
+                        AE_CloseProject.run({ runId: "batch_between_close_" + (new Date().getTime()), log: log, options: closeOptsBR });
+                        flog("   Closed with: " + modeBR);
+                    }
+                }
             }
         } catch(eBetween){}
 
@@ -234,6 +245,7 @@
                 endCloseOpts.CLOSE_MODE = endMode;
                 AE_CloseProject.run({ runId: "batch_end_"+runId, log: log, options: endCloseOpts });
                 try { flog("Final close executed (mode=" + (endCloseOpts && endCloseOpts.CLOSE_MODE ? endCloseOpts.CLOSE_MODE : "default") + ")"); } catch(_log){}
+                try { flog("   Closed with: " + endMode); } catch(_log2){}
             }
         }
     } catch(eEnd){}
