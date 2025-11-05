@@ -59,6 +59,21 @@ function __InsertRelink_coreRun(opts) {
         return a + sep + b;
     }
 
+    // File filters to avoid importing system/hidden or non-audio files (e.g., .DS_Store)
+    function __isHiddenOrSystemName(nm) {
+        var n = String(nm||"");
+        if (!n) return false;
+        // macOS and Windows common metadata files
+        if (n.charAt(0) === '.') return true; // .DS_Store, ._ResourceFork, etc.
+        var low = n.toLowerCase();
+        if (low === 'thumbs.db' || low === 'desktop.ini') return true;
+        return false;
+    }
+    function __isAllowedAudioFsName(nm) {
+        var low = String(nm||"").toLowerCase();
+        return /\.(wav|aif|aiff|mp3|m4a|aac|ogg)$/.test(low);
+    }
+
     // Settings
     var ENABLE_ALIGN_AUDIO_TO_MARKERS = false; // Set true to align audio start to first comp marker; false = place at 0s
     var ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = true; // When true, remove all pre-existing audio-only layers (FootageItem with audio, no video) after inserting the new one
@@ -148,6 +163,10 @@ function __InsertRelink_coreRun(opts) {
                 var childAEFolder = createChildFolder(aeParentFolder, entry.name);
                 importFolderRecursive(entry, childAEFolder);
             } else if (entry instanceof File) {
+                // Skip hidden/system files and non-audio files to avoid AE errors (e.g., .DS_Store)
+                if (__isHiddenOrSystemName(entry.name) || !__isAllowedAudioFsName(entry.name)) {
+                    continue;
+                }
                 try {
                     var ioFile = new ImportOptions(entry);
                     var imported = proj.importFile(ioFile);
@@ -513,7 +532,11 @@ function __InsertRelink_coreRun(opts) {
         var destFlat = ensureProjectPath(["project", "in", "sound"]);
         var flatContainer = createChildFolder(destFlat, soundImportFolder.name);
         var entries = [];
-        try { entries = soundImportFolder.getFiles(function(f){ return f instanceof File; }); } catch(eGF) { entries = []; }
+        try {
+            entries = soundImportFolder.getFiles(function(f){
+                return (f instanceof File) && !__isHiddenOrSystemName(f.name) && __isAllowedAudioFsName(f.name);
+            });
+        } catch(eGF) { entries = []; }
         var importedCount = 0;
         for (var ei = 0; ei < entries.length; ei++) {
             var f = entries[ei];
