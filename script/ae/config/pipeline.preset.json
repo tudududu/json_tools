@@ -35,6 +35,9 @@
     "SLEEP_BETWEEN_RUNS_MS": 500,
     "RESET_PROJECT_BETWEEN_RUNS": true,
     "CLOSE_AT_END": true,
+    "SAVE_AFTER_RUN": false,
+    "CLOSE_BETWEEN_RUNS": true,
+    "CLOSE_MODE_BETWEEN_RUNS": "force-no-save",
     "DRY_RUN": false
 },
 "openProject": {
@@ -189,6 +192,6 @@
         }
     },
 "closeProject": {
-    "CLOSE_MODE": "force-no-save"
+    "CLOSE_MODE": "force-save"
     }
 }

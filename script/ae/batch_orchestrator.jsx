@@ -90,7 +90,13 @@
             // Close project at the end of the batch using preset closeProject options
             CLOSE_AT_END: true,
             // When true, do not execute the pipeline; only list planned runs (no side effects)
-            DRY_RUN: false
+            DRY_RUN: false,
+            // Optional: save the current project after each run without closing it
+            SAVE_AFTER_RUN: false,
+            // Optional: close the project between runs (applies chosen save/no-save once per item)
+            CLOSE_BETWEEN_RUNS: false,
+            // Optional override for between-runs close behavior: 'prompt' | 'force-save' | 'force-no-save'
+            CLOSE_MODE_BETWEEN_RUNS: null
         };
         return deepMerge(def, b);
     }
@@ -196,15 +202,42 @@
         results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
         flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
-        // Optionally reset/reopen template BETWEEN runs (skip after the last run)
+        // Apply end-of-run save/close policy and optionally reopen for next run
+        var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
         try {
-            var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
-            if (hasNextRun && batchCfg.RESET_PROJECT_BETWEEN_RUNS === true && batchCfg.DRY_RUN !== true) {
+            if (batchCfg.DRY_RUN !== true) {
+                // Simple save without closing (only if not closing between runs)
+                if (batchCfg.SAVE_AFTER_RUN === true && batchCfg.CLOSE_BETWEEN_RUNS !== true) {
+                    try { app.project.save(); flog("   Saved project after run"); } catch (eSave) { flog("   Save after run failed: " + eSave); }
+                }
+
+                // Close between runs if requested (uses closeProject options, with optional override)
+                if (hasNextRun && batchCfg.CLOSE_BETWEEN_RUNS === true) {
+                    try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClrC){}
+                    try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL2){ log("Batch: close_project load error (between runs): "+eCPL2); }
+                    if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
+                        var closeOpts = (presetObj.closeProject||{});
+                        if (batchCfg.CLOSE_MODE_BETWEEN_RUNS) {
+                            // shallow clone + override
+                            try { closeOpts = deepMerge({}, closeOpts); } catch(_c){}
+                            closeOpts.CLOSE_MODE = String(batchCfg.CLOSE_MODE_BETWEEN_RUNS);
+                        }
+                        AE_CloseProject.run({ runId: "batch_between_close_" + (new Date().getTime()), log: log, options: closeOpts });
+                        flog("   Closed project between runs (mode=" + (closeOpts && closeOpts.CLOSE_MODE ? closeOpts.CLOSE_MODE : "default") + ")");
+                    }
+                }
+            }
+        } catch(eBetween){}
+
+        // Reopen template for next run if needed (either after closing or explicit reset), but not after the last run
+        try {
+            var needReopenNext = hasNextRun && (batchCfg.DRY_RUN !== true) && (batchCfg.CLOSE_BETWEEN_RUNS === true || batchCfg.RESET_PROJECT_BETWEEN_RUNS === true);
+            if (needReopenNext) {
                 try { if (typeof AE_OpenProject !== 'undefined') { AE_OpenProject = undefined; } } catch(eClr2){}
-                try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOP2){ log("Batch: open_project load error (reset): "+eOP2); }
+                try { $.evalFile(OPEN_PROJECT_PATH); } catch(eOP2){ log("Batch: open_project load error (reset/reopen): "+eOP2); }
                 if (typeof AE_OpenProject !== 'undefined' && AE_OpenProject && typeof AE_OpenProject.run === 'function') {
-                    var r2 = AE_OpenProject.run({ runId: "batch_reset_" + (new Date().getTime()), log: log, options: (presetObj.openProject||{}) });
-                    if (!(r2 && r2.ok)) { flog("   Reset open failed: " + (r2 && r2.reason ? r2.reason : "unknown")); }
+                    var r2 = AE_OpenProject.run({ runId: "batch_reopen_" + (new Date().getTime()), log: log, options: (presetObj.openProject||{}) });
+                    if (!(r2 && r2.ok)) { flog("   Reopen failed: " + (r2 && r2.reason ? r2.reason : "unknown")); }
                 }
             }
         } catch(eReset){}
