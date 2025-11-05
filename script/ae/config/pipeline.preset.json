@@ -37,11 +37,11 @@
     "CLOSE_AT_END": true,
     "SAVE_AFTER_RUN": false,
     "CLOSE_BETWEEN_RUNS": true,
-    "CLOSE_MODE_BETWEEN_RUNS": "force-no-save",
+    "CLOSE_MODE_BETWEEN_RUNS": "force-save",
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/POST/WORK/project.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/jbl/PROJECT_FOLDER/POST/WORK/project.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {

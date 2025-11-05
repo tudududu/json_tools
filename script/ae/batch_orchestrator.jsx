@@ -96,7 +96,9 @@
             // Optional: close the project between runs (applies chosen save/no-save once per item)
             CLOSE_BETWEEN_RUNS: false,
             // Optional override for between-runs close behavior: 'prompt' | 'force-save' | 'force-no-save'
-            CLOSE_MODE_BETWEEN_RUNS: null
+            CLOSE_MODE_BETWEEN_RUNS: null,
+            // Optional override for final close-at-end behavior. If null, falls back to CLOSE_MODE_BETWEEN_RUNS when provided.
+            CLOSE_MODE_AT_END: null
         };
         return deepMerge(def, b);
     }
@@ -252,7 +254,19 @@
             try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClr8){}
             try { $.evalFile(CLOSE_PROJECT_PATH); } catch(eCPL){ log("Batch: close_project load error: "+eCPL); }
             if (typeof AE_CloseProject !== 'undefined' && AE_CloseProject && typeof AE_CloseProject.run === 'function') {
-                AE_CloseProject.run({ runId: "batch_end_"+runId, log: log, options: (presetObj.closeProject||{}) });
+                // Determine close mode at end: explicit CLOSE_MODE_AT_END, else reuse BETWEEN_RUNS override when set
+                var endCloseOpts = (presetObj.closeProject||{});
+                var endMode = (batchCfg.CLOSE_MODE_AT_END != null && batchCfg.CLOSE_MODE_AT_END !== undefined)
+                    ? String(batchCfg.CLOSE_MODE_AT_END)
+                    : (batchCfg.CLOSE_MODE_BETWEEN_RUNS != null && batchCfg.CLOSE_MODE_BETWEEN_RUNS !== undefined)
+                        ? String(batchCfg.CLOSE_MODE_BETWEEN_RUNS)
+                        : null;
+                if (endMode) {
+                    try { endCloseOpts = deepMerge({}, endCloseOpts); } catch(_e){}
+                    endCloseOpts.CLOSE_MODE = endMode;
+                }
+                AE_CloseProject.run({ runId: "batch_end_"+runId, log: log, options: endCloseOpts });
+                try { flog("Final close executed (mode=" + (endCloseOpts && endCloseOpts.CLOSE_MODE ? endCloseOpts.CLOSE_MODE : "default") + ")"); } catch(_log){}
             }
         }
     } catch(eEnd){}
