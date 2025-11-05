@@ -29,6 +29,7 @@ The pipeline converts CSV briefs into JSON and drives AE to produce batched rend
 
 - Python app parses CSV (multi‑country, multi‑video), validates structure, and writes JSON.
 - AE scripts read JSON, resolve ISO/country and duration, set output folders/files, optionally apply Output Module templates, and queue to AME.
+- Batch Mode: run multiple ISOs in one go via `script/ae/batch_orchestrator.jsx` (save-on-close controlled by `batch.SAVE_AFTER_RUN`)
 - Logging is designed for large batches: compact per‑item lines, verbose toggles, and reliable overflow indicators.
 
 ## Quick start
