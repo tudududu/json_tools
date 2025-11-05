@@ -352,12 +352,12 @@
     try { log("--------------------------"); } catch(eHdr3) {}
 
     // Helpers - selection management
-    var proj = app.project;
-    if (!proj) { alert("No project open."); return; }
+    // NOTE: Do not cache app.project before Step 0 (open) completes; reassign after Step 0 to avoid invalid object refs.
+    var proj = null;
 
     function selectedFootageItems() {
         var out = [];
-        var sel = proj.selection;
+        var sel = (proj && proj.selection) ? proj.selection : null;
         if (sel && sel.length) {
             for (var i = 0; i < sel.length; i++) {
                 var it = sel[i];
@@ -404,6 +404,12 @@
             log("Step 0 (open_project.jsx): SKIPPED by toggle.");
         }
     } catch(e0) { log("Step 0 (open_project) error: " + (e0 && e0.message ? e0.message : e0)); }
+
+    // After Step 0 (whether run early or here), refresh project reference safely
+    try {
+        proj = app.project;
+        if (!proj) { alert("No project open."); return; }
+    } catch(eProj) { alert("No project open."); return; }
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
