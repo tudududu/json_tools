@@ -36,6 +36,17 @@ Tips
 - Keep phase settings under their namespace (linkData, createComps, insertRelink, addLayers, pack, ame).
 - When in doubt, check `script/ae/pipeline_options.jsx` for defaults and comments.
 
+Strict AUTO footage mode (Step 3)
+- `createComps.AUTO_FROM_PROJECT_FOOTAGE=true` enables strict automatic discovery; manual selection is ignored entirely.
+- The script resolves only the configured Project Panel path (default `project/in/footage`). If it cannot find:
+  - the path itself → logs `Auto footage: path not found: project/in/footage`
+  - a YYMMDD subfolder → logs `Auto footage: no YYMMDD subfolder under: project/in/footage`
+  - any footage items → logs `Auto footage: no footage items found under '<dateFolder>'`
+- In any of those cases, Step 3 aborts early (0 comps created) and does NOT fall back to other folders (e.g. `project/in/data`) or the user's selection.
+- Normal (non‑AUTO) mode still uses the current selection or a provided `selection` array.
+- Optional hardening: `createComps.SKIP_INVALID_DIMENSIONS=true` skips footage with invalid width/height (outside 4–30000) instead of creating a fallback 1920x1080 comp. When false (default), such items log a WARN and use 1920x1080.
+
+
 Project open/close automation (Step 0 and Step 8)
 - Purpose: prepare for unattended/batch runs by opening a template AEP at the start and closing the project at the end.
 - Behavior
