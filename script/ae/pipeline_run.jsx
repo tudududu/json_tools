@@ -486,13 +486,14 @@
         try {
             __autoCreate = (OPTS && ((OPTS.createComps && OPTS.createComps.AUTO_FROM_PROJECT_FOOTAGE === true) || (OPTS.AUTO_FROM_PROJECT_FOOTAGE === true)));
         } catch(eAC) {}
-        if (!footageSel.length && !__autoCreate) {
-            alert("Select one or more footage items in the Project panel for Step 3 (create_compositions).");
-            return;
-        }
-        if (__autoCreate && !footageSel.length) {
+        if (__autoCreate) {
+            // In strict AUTO mode, ignore manual Project selection entirely
             log("Step 3: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
         } else {
+            if (!footageSel.length) {
+                alert("Select one or more footage items in the Project panel for Step 3 (create_compositions).");
+                return;
+            }
             log("Step 3: Creating comps from " + footageSel.length + " selected footage item(s).");
         }
 
@@ -511,8 +512,10 @@
                 __assignTop('FOOTAGE_PROJECT_PATH');
                 __assignTop('FOOTAGE_DATE_YYMMDD');
                 __assignTop('INCLUDE_SUBFOLDERS');
+                __assignTop('SKIP_INVALID_DIMENSIONS');
             } catch(eNrm) {}
-            var selArg = (__autoCreate && !footageSel.length) ? [] : footageSel;
+            // Strict AUTO: always pass empty selection so the phase builds its own from project/in/footage
+            var selArg = __autoCreate ? [] : footageSel;
             if (!PHASE_FILE_LOGS_MASTER_ENABLE) { try { __opts1.ENABLE_FILE_LOG = false; } catch(eMS1) {} }
             var res1 = AE_CreateComps.run({ selection: selArg, runId: RUN_ID, log: log, options: __opts1 });
             if (res1 && res1.created && res1.created.length) {
