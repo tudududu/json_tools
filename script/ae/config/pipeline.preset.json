@@ -17,7 +17,7 @@
     "PIPELINE_SHOW_LEVELS": true,
     "LOG_MARKER": "*",
 
-    "RUN_open_project": true,
+    "RUN_open_project": false,
     "RUN_link_data": true,
     "RUN_save_as_iso": true,
     "RUN_create_compositions": true,
@@ -25,7 +25,7 @@
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
     "RUN_set_ame_output_paths": true,
-    "RUN_close_project": true,
+    "RUN_close_project": false,
 
 "batch": {
     "DATA_FS_SUBPATH": ["IN", "data"],

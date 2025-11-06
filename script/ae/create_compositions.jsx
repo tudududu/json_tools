@@ -485,6 +485,16 @@ function __CreateComps_coreRun(opts) {
 
 		// Gather footage properties only if we will create
 		var dims = getFootageDimensions(item);
+		// Validate and normalize dimensions to AE's acceptable range (4..30000)
+		try {
+			var w = (dims && typeof dims.w !== 'undefined') ? Number(dims.w) : 0;
+			var h = (dims && typeof dims.h !== 'undefined') ? Number(dims.h) : 0;
+			var invalid = (!w || !h || w < 4 || h < 4 || w > 30000 || h > 30000);
+			if (invalid) {
+				log("WARN {create_compositions} Invalid source dimensions (" + w + "x" + h + ") for '" + (item && item.name ? item.name : "footage") + "'. Using fallback 1920x1080.");
+				dims = { w: 1920, h: 1080 };
+			}
+		} catch(eDims) { dims = { w: 1920, h: 1080 }; }
 		var fps = getFootageFrameRate(item);
 		var dur = getFootageDuration(item);
 
