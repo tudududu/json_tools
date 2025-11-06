@@ -44,6 +44,7 @@ function __CreateComps_coreRun(opts) {
 	var FOOTAGE_PROJECT_PATH = ["project","in","footage"]; // Folder chain in AE Project panel
 	var FOOTAGE_DATE_YYMMDD = ""; // empty => pick newest YYMMDD under FOOTAGE_PROJECT_PATH
 	var INCLUDE_SUBFOLDERS = true;
+    var SKIP_INVALID_DIMENSIONS = false; // When true, skip items with invalid w/h instead of falling back
 	// Options overrides
 	try {
 		var o = opts && opts.options ? opts.options : null;
@@ -56,6 +57,7 @@ function __CreateComps_coreRun(opts) {
 			if (o.FOOTAGE_PROJECT_PATH && o.FOOTAGE_PROJECT_PATH.length) FOOTAGE_PROJECT_PATH = o.FOOTAGE_PROJECT_PATH;
 			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);
 			if (o.INCLUDE_SUBFOLDERS !== undefined) INCLUDE_SUBFOLDERS = !!o.INCLUDE_SUBFOLDERS;
+            if (o.SKIP_INVALID_DIMENSIONS !== undefined) SKIP_INVALID_DIMENSIONS = !!o.SKIP_INVALID_DIMENSIONS;
 		}
 		// Master switch: disable if top-level pipeline effective has PHASE_FILE_LOGS_MASTER_ENABLE=false
 		try {
@@ -397,26 +399,28 @@ function __CreateComps_coreRun(opts) {
 		return { created: [], skipped: ["No project open"] };
 	}
 
-	// Selection: prefer provided list when in pipeline/API mode, else build from project path if AUTO mode enabled
-	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : proj.selection;
-	if ((!opts || !opts.selection || !opts.selection.length) && AUTO_FROM_PROJECT_FOOTAGE) {
+	// Selection build
+	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : null;
+	var __autoErrorReason = null;
+	if (AUTO_FROM_PROJECT_FOOTAGE === true && (!selection || !selection.length)) {
 		try {
-			log("Auto footage: resolving path '" + FOOTAGE_PROJECT_PATH.join("/") + "' (case-insensitive)");
+			var targetPathStr = FOOTAGE_PROJECT_PATH.join("/");
+			log("Auto footage: resolving path '" + targetPathStr + "' (case-insensitive)");
 			var footageRoot = findProjectPath(app.project.rootFolder, FOOTAGE_PROJECT_PATH);
 			if (!footageRoot) {
-				alertOnce("Auto footage: path not found: " + FOOTAGE_PROJECT_PATH.join("/"));
+				__autoErrorReason = "Auto footage: path not found: " + targetPathStr;
+				log(__autoErrorReason);
 			} else {
 				log("Auto footage: root found -> '" + footageRoot.name + "' (items=" + footageRoot.numItems + ")");
-				// verbose: dump first level
 				var __verbose = false; try { __verbose = !!(__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.VERBOSE); } catch(eVB) {}
 				if (__verbose) dumpFolderChildren(footageRoot, footageRoot.name, 60);
 				var dateFolder = null;
 				if (FOOTAGE_DATE_YYMMDD && /^\d{6}$/.test(FOOTAGE_DATE_YYMMDD)) {
 					dateFolder = findChildFolderByName(footageRoot, FOOTAGE_DATE_YYMMDD);
-					if (!dateFolder) alertOnce("Auto footage: date folder not found: " + FOOTAGE_DATE_YYMMDD);
+					if (!dateFolder) { __autoErrorReason = "Auto footage: date folder not found: " + FOOTAGE_DATE_YYMMDD; log(__autoErrorReason); }
 				} else {
 					dateFolder = findNewestYYMMDDSubfolder(footageRoot);
-					if (!dateFolder) alertOnce("Auto footage: no YYMMDD subfolder under: " + FOOTAGE_PROJECT_PATH.join("/"));
+					if (!dateFolder) { __autoErrorReason = "Auto footage: no YYMMDD subfolder under: " + targetPathStr; log(__autoErrorReason); }
 				}
 				if (dateFolder) {
 					log("Auto footage: using date folder '" + dateFolder.name + "' (items=" + dateFolder.numItems + ")");
@@ -428,18 +432,32 @@ function __CreateComps_coreRun(opts) {
 						selection = coll;
 						log("Auto footage: using " + coll.length + " footage item(s) from '" + dateFolder.name + "'.");
 					} else {
-						alertOnce("Auto footage: no footage items found under '" + dateFolder.name + "'.");
+						__autoErrorReason = "Auto footage: no footage items found under '" + dateFolder.name + "'.";
+						log(__autoErrorReason);
 					}
 				}
 			}
-		} catch(eAuto) { alertOnce("Auto footage error: " + eAuto); }
+		} catch(eAuto) { __autoErrorReason = "Auto footage error: " + eAuto; log(__autoErrorReason); }
 	}
-	// Emit environment header now that we know initial selection size (before AUTO mode alters it)
-	__emitEnvHeader(selection ? selection.length : 0);
-	if (!selection || selection.length === 0) {
-		alertOnce("Select one or more footage items in the Project panel.");
-		app.endUndoGroup();
-		return { created: [], skipped: ["No footage selected"] };
+	// If AUTO mode is requested, do not fallback to manual Project selection
+	if (AUTO_FROM_PROJECT_FOOTAGE === true) {
+		// Emit env header with current selection size (0 if unresolved)
+		__emitEnvHeader(selection ? selection.length : 0);
+		if (!selection || selection.length === 0) {
+			var msg = __autoErrorReason || ("Auto footage: nothing to process under '" + FOOTAGE_PROJECT_PATH.join("/") + "'.");
+			alertOnce(msg);
+			app.endUndoGroup();
+			return { created: [], skipped: [msg] };
+		}
+	} else {
+		// Non-auto mode: fallback to manual selection if not provided
+		if (!selection || !selection.length) selection = proj.selection;
+		__emitEnvHeader(selection ? selection.length : 0);
+		if (!selection || selection.length === 0) {
+			alertOnce("Select one or more footage items in the Project panel.");
+			app.endUndoGroup();
+			return { created: [], skipped: ["No footage selected"] };
+		}
 	}
 
 	var compsRoot = getOrCreateProjectPath();
@@ -491,8 +509,15 @@ function __CreateComps_coreRun(opts) {
 			var h = (dims && typeof dims.h !== 'undefined') ? Number(dims.h) : 0;
 			var invalid = (!w || !h || w < 4 || h < 4 || w > 30000 || h > 30000);
 			if (invalid) {
-				log("WARN {create_compositions} Invalid source dimensions (" + w + "x" + h + ") for '" + (item && item.name ? item.name : "footage") + "'. Using fallback 1920x1080.");
-				dims = { w: 1920, h: 1080 };
+				if (SKIP_INVALID_DIMENSIONS) {
+					var skipMsg = "Skip: invalid source dimensions (" + w + "x" + h + ") for '" + (item && item.name ? item.name : "footage") + "'";
+					log(skipMsg);
+					skipped.push(skipMsg);
+					continue;
+				} else {
+					log("WARN {create_compositions} Invalid source dimensions (" + w + "x" + h + ") for '" + (item && item.name ? item.name : "footage") + "'. Using fallback 1920x1080.");
+					dims = { w: 1920, h: 1080 };
+				}
 			}
 		} catch(eDims) { dims = { w: 1920, h: 1080 }; }
 		var fps = getFootageFrameRate(item);

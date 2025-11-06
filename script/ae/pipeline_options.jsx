@@ -104,7 +104,8 @@
             AUTO_FROM_PROJECT_FOOTAGE: false,
             FOOTAGE_PROJECT_PATH: ["project","in","footage"],
             FOOTAGE_DATE_YYMMDD: "", // empty => pick newest YYMMDD folder under FOOTAGE_PROJECT_PATH
-            INCLUDE_SUBFOLDERS: true
+            INCLUDE_SUBFOLDERS: true,
+            SKIP_INVALID_DIMENSIONS: false
         },
         insertRelink: {
             ENABLE_FILE_LOG: true,
