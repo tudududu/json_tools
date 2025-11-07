@@ -1,6 +1,39 @@
+<!-- Executive Summary -->
+Executive summary
+
+- Single-run: open your template under POST/WORK and run `script/ae/pipeline_run.jsx`. It links JSON, saves as `name_<ISO>.aep`, builds comps, applies template layers, sets output paths, and can queue to AME.
+- Batch-run: run `script/ae/batch_orchestrator.jsx` to iterate all `POST/IN/data/data_*.json`. The close policy for every run (and final) is controlled by `batch.SAVE_AFTER_RUN`; the template is reopened between runs.
+- Strict AUTO: set `createComps.AUTO_FROM_PROJECT_FOOTAGE=true` to collect footage only from `project/in/footage/YYMMDD` (no fallbacks to selection or other folders).
+- Logs: unified pipeline log plus optional per‑phase file logs under `POST/WORK/log/`. Set `PHASE_FILE_LOGS_MASTER_ENABLE=false` to silence per‑phase logs.
+- Minimal knobs: `RUN_*` toggles per step; `ame.EXPORT_SUBPATH` for output base; `closeProject.CLOSE_MODE` for single run; `batch.SAVE_AFTER_RUN` for batch closes.
+
+Table of contents
+
+- [1. Overview](#1-overview)
+- [2. Folder & Phase Layout](#2-folder--phase-layout)
+- [3. Quick Start](#3-quick-start)
+- [4. Options Merging](#4-options-merging)
+- [5. Global Toggles & Logging](#5-global-toggles--logging)
+- [6. Step Details](#6-step-details)
+  - [Step 0 – Open Project](#step-0--open-project-optional)
+  - [Step 1 – Link Data / ISO](#step-1--link-data--iso-detection)
+  - [Step 2 – Save As with ISO](#step-2--save-as-with-iso)
+  - [Step 3 – Create Compositions](#step-3--create-compositions)
+  - [Step 4 – Insert & Relink Footage](#step-4--insert--relink-footage)
+  - [Step 5 – Add Layers](#step-5--add-layers-template-application)
+  - [Step 6 – Pack Output Comps](#step-6--pack-output-comps)
+  - [Step 7 – AME Output Paths & Queue](#step-7--ame-output-paths--queue)
+  - [Step 8 – Close Project](#step-8--close-project-optional)
+- [7. Batch Mode (Multi-ISO)](#7-batch-mode-multi-iso)
+- [8. Preset Examples](#8-preset-examples)
+- [9. Troubleshooting](#9-troubleshooting)
+- [10. Glossary](#10-glossary)
+- [11. Changelog (Recent Highlights)](#11-changelog-recent-highlights)
+- [12. Design Principles](#12-design-principles)
+
 # After Effects Pipeline Guide
 
-  ## After Effects Pipeline Guide
+ 
 
   ### 1. Overview
   The ExtendScript pipeline automates campaign production:
