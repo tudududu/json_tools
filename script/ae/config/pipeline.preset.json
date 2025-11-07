@@ -17,15 +17,15 @@
     "PIPELINE_SHOW_LEVELS": true,
     "LOG_MARKER": "*",
 
-    "RUN_open_project": false,
+    "RUN_open_project": true,
     "RUN_link_data": true,
     "RUN_save_as_iso": true,
     "RUN_create_compositions": true,
-    "RUN_insert_and_relink_footage": false,
-    "RUN_add_layers_to_comp": false,
-    "RUN_pack_output_comps": false,
-    "RUN_set_ame_output_paths": false,
-    "RUN_close_project": false,
+    "RUN_insert_and_relink_footage": true,
+    "RUN_add_layers_to_comp": true,
+    "RUN_pack_output_comps": true,
+    "RUN_set_ame_output_paths": true,
+    "RUN_close_project": true,
 
 "batch": {
     "DATA_FS_SUBPATH": ["IN", "data"],
@@ -63,10 +63,10 @@
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
     "AUTO_FROM_PROJECT_FOOTAGE": true,
+    "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
-    "INCLUDE_SUBFOLDERS": true,
-    "SKIP_INVALID_DIMENSIONS": false
+    "INCLUDE_SUBFOLDERS": true
 },
 "insertRelink": { 
     "ENABLE_FILE_LOG": false,

@@ -14,11 +14,11 @@
     var LINK_DATA_PATH     = join(base, "phase/link_data.jsx");
     var OPEN_PROJECT_PATH  = join(base, "phase/open_project.jsx");
     var SAVE_AS_ISO_PATH   = join(base, "phase/save_as_with_iso.jsx");
-    var CREATE_COMPS_PATH  = join(base, "create_compositions.jsx");
-    var INSERT_RELINK_PATH = join(base, "insert_and_relink_footage.jsx");
-    var ADD_LAYERS_PATH    = join(base, "add_layers_to_comp.jsx");
-    var PACK_OUTPUT_PATH   = join(base, "pack_output_comps.jsx");
-    var SET_AME_PATH       = join(base, "set_ame_output_paths.jsx");
+    var CREATE_COMPS_PATH  = join(base, "phase/create_compositions.jsx");
+    var INSERT_RELINK_PATH = join(base, "phase/insert_and_relink_footage.jsx");
+    var ADD_LAYERS_PATH    = join(base, "phase/add_layers_to_comp.jsx");
+    var PACK_OUTPUT_PATH   = join(base, "phase/pack_output_comps.jsx");
+    var SET_AME_PATH       = join(base, "phase/set_ame_output_paths.jsx");
     var CLOSE_PROJECT_PATH = join(base, "phase/close_project.jsx");
     var OPTS_UTILS_PATH    = join(base, "options_utils.jsx");
     var PIPELINE_OPTS_PATH = join(base, "pipeline_options.jsx");
