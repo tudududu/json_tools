@@ -1,6 +1,16 @@
 import pathlib
 import shutil
-from python.aux import log_picker
+import os, sys
+
+# Ensure repository root and python/ directory are on sys.path for direct module imports
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PYDIR = os.path.abspath(os.path.join(_HERE, '..', '..'))
+_REPOROOT = os.path.abspath(os.path.join(_PYDIR, '..'))
+for _p in (_REPOROOT, _PYDIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from aux import log_picker
 
 
 def test_log_picker_custom_prefix_and_counts(tmp_path):
