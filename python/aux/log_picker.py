@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import sys
+import re
 from pathlib import Path
 from typing import Iterable, List
 
@@ -74,20 +75,31 @@ def iter_log_files(base: Path, recursive: bool) -> Iterable[Path]:
 		yield from (p for p in base.glob("*.log") if p.is_file())
 
 
-def pick_lines(path: Path, prefixes: List[str], encoding: str = "utf-8") -> List[str]:
-	"""Return list of lines from file whose stripped content starts with any prefix.
+def pick_lines(path: Path, prefixes: List[str], regexes: List[re.Pattern], encoding: str = "utf-8") -> List[str]:
+	"""Return list of lines from file matching any prefix or regex pattern.
 
-	Lines are returned exactly as in file (no trailing newline removed except final strip).
+	Matching logic:
+	- Prefixes: line.startswith(prefix)
+	- Regexes: pattern.search(line)
+	Lines returned exactly as in file (newline stripped).
 	"""
 	picked: List[str] = []
 	try:
 		with path.open("r", encoding=encoding, errors="replace") as f:
 			for raw in f:
 				line = raw.rstrip("\n")
+				matched = False
 				for pref in prefixes:
 					if line.startswith(pref):
-						picked.append(line)
+						matched = True
 						break
+				if not matched:
+					for rgx in regexes:
+						if rgx.search(line):
+							matched = True
+							break
+				if matched:
+					picked.append(line)
 	except OSError as e:
 		picked.append(f"<ERROR reading {path.name}: {e}>")
 	return picked
@@ -102,9 +114,19 @@ def build_output_path(repo_root: Path, explicit: str | None) -> Path:
 	return (log_dir / f"log_picker_{stamp}.log").resolve()
 
 
-def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]]) -> None:
-	"""Write the condensed log plus a counts summary section."""
+def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_dir: Path, prefixes: List[str], regexes: List[re.Pattern]) -> None:
+	"""Write the condensed log with header and a counts summary section."""
+	stamp = _dt.datetime.now().isoformat(timespec="seconds")
 	with out_path.open("w", encoding="utf-8") as out:
+		# Header
+		out.write("==== Log Picker Summary ====" + "\n")
+		out.write(f"Timestamp: {stamp}\n")
+		out.write(f"Input Directory: {input_dir}\n")
+		if prefixes:
+			out.write("Prefixes: " + ", ".join(prefixes) + "\n")
+		if regexes:
+			out.write("Regexes: " + ", ".join(r.pattern for r in regexes) + "\n")
+		out.write("\n")
 		for idx, (src, lines) in enumerate(gathered, start=1):
 			sep = f"{'-' * SEPARATOR_WIDTH} {src.name}"
 			out.write(sep + "\n")
@@ -133,6 +155,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
 	p.add_argument("--encoding", default="utf-8", help="Encoding for reading log files")
 	p.add_argument("--recursive", action="store_true", help="Recurse into subdirectories")
 	p.add_argument("--prefix", action="append", default=[], help="Additional prefix to match (repeatable)")
+	p.add_argument("--regex", action="append", default=[], help="Regex pattern to match (repeatable)")
 	return p.parse_args(argv)
 
 
@@ -146,15 +169,23 @@ def main(argv: List[str] | None = None) -> int:
 	out_path = build_output_path(repo_root, ns.output_file)
 
 	prefixes = BASE_PREFIXES + list(ns.prefix)
+	regexes: List[re.Pattern] = []
+	for pattern in ns.regex:
+		try:
+			regexes.append(re.compile(pattern))
+		except re.error as e:
+			print(f"Invalid regex pattern '{pattern}': {e}", file=sys.stderr)
+			return 3
+
 	gathered: List[tuple[Path, List[str]]] = []
 	files = sorted(iter_log_files(input_dir, ns.recursive))
 	if not files:
 		print(f"No .log files found in {input_dir}", file=sys.stderr)
 	for f in files:
-		picked = pick_lines(f, prefixes, encoding=ns.encoding)
+		picked = pick_lines(f, prefixes, regexes, encoding=ns.encoding)
 		gathered.append((f, picked))
 
-	write_summary(out_path, gathered)
+	write_summary(out_path, gathered, input_dir, prefixes, regexes)
 	return 0
 
 
