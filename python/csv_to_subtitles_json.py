@@ -1442,7 +1442,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--output-dir", default=None, help="Directory for auto-derived outputs (default: input file directory)")
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
-    p.add_argument("--output-pattern", default=None, help="Pattern for split outputs; use {country}. If omitted, infer from output path by inserting _{country} before extension.")
+    p.add_argument("--output-pattern", default=None, help="Pattern for outputs; use {country}. Applies to split mode and to single-country exports with --country-column. If omitted, infer from output path by inserting _{country} before extension.")
     p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
     p.add_argument("--converter-version", default="auto", help=(
         "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
@@ -1516,7 +1516,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.auto_output:
         in_base = os.path.splitext(os.path.basename(args.input))[0]
         out_dir = args.output_dir or os.path.dirname(os.path.abspath(args.input)) or os.getcwd()
-        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern:
+        # Auto-output now supports single-country {country} expansion when --country-column provided
+        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern or args.country_column:
             args.output = os.path.join(out_dir, f"{in_base}_{{country}}.json")
         else:
             args.output = os.path.join(out_dir, f"{in_base}.json")
@@ -1954,7 +1955,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.dry_run:
                 print("Dry run complete (no files written).")
                 return 0
-        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern:
+        # Split branch only when explicitly splitting; otherwise handle single-country templating separately
+        if args.split_by_country:
             pattern = args.output_pattern or args.output
             # If pattern lacks {country}, inject before extension
             if "{country}" not in pattern:
@@ -2005,11 +2007,22 @@ def main(argv: Optional[List[str]] = None) -> int:
                         else:
                             trimmed[dur] = val
                     mg["logo_anim_flag"] = trimmed
+            # Support {country} templating for single-country output (auto-output or explicit pattern containing {country})
+            out_path_single = args.output
+            # Expand {country} if present in output or pattern (single-country mode)
+            if "{country}" in (out_path_single or ""):
+                out_path_single = out_path_single.replace("{country}", csel)
+            elif args.output_pattern:
+                root_pattern = args.output_pattern
+                if "{country}" not in root_pattern:
+                    rroot, rext = os.path.splitext(root_pattern)
+                    root_pattern = f"{rroot}_{{country}}{rext}"
+                out_path_single = root_pattern.replace("{country}", csel)
             if args.verbose:
-                print(f"Writing {args.output} (selected country: {csel})")
-            write_json(args.output, payload)
+                print(f"Writing {out_path_single} (selected country: {csel})")
+            write_json(out_path_single, payload)
             if args.sample:
-                sample_path = derive_sample_path(args.output)
+                sample_path = derive_sample_path(out_path_single)
                 write_json(sample_path, make_sample(payload))
     else:
         if args.validate_only or args.dry_run:

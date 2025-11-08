@@ -134,6 +134,11 @@ Custom output naming:
 python3 csv_to_subtitles_json.py unified.csv out/subs.json --fps 25 --split-by-country --output-pattern out/WTA_{country}.json
 ```
 
+Single-country with templated filename:
+```sh
+python3 csv_to_subtitles_json.py unified.csv out/WTA_{country}.json --fps 25 --country-column 1
+```
+
 Validation only (no files written):
 ```sh
 python3 csv_to_subtitles_json.py unified.csv /dev/null --fps 25 --validate-only
@@ -168,8 +173,8 @@ Merging / content behavior:
 
 Multi-country output control:
 * `--split-by-country` Write one JSON per country (pattern can include `{country}`)
-* `--output-pattern <path>` Custom split output path pattern (must include `{country}` or will be injected)
-* `--country-column <n>` When not splitting, choose the Nth country among detected ones (default last)
+* `--output-pattern <path>` Custom output path pattern using `{country}`. Works with split mode and with single-country exports when used with `--country-column <n>` (the placeholder expands to the selected country). If the pattern lacks `{country}`, it will be injected before the extension.
+* `--country-column <n>` When not splitting, choose the Nth country among detected ones (default last). You can still use `{country}` in the output path to inject the selected code.
 
 Validation / inspection:
 * `--validate-only` Parse & validate only (exit code 0 on success, 1 on validation errors)

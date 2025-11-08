@@ -91,6 +91,59 @@ class CliOutputTests(unittest.TestCase):
         finally:
             os.remove(path)
 
+    def test_output_pattern_single_country_via_placeholder(self):
+        # Two countries unified CSV
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            'meta_local;V3;;;;title;N;ALL;T3;;;;\n'
+            'sub;V3;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                # Select first country (GBL) but use {country} in output path
+                out_path = os.path.join(td, 'only-{country}.json')
+                rc = mod.main([path, out_path, '--country-column', '1'])
+                self.assertEqual(rc, 0)
+                gbl_path = os.path.join(td, 'only-GBL.json')
+                self.assertTrue(os.path.isfile(gbl_path))
+                with open(gbl_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.assertEqual(data['metadataGlobal']['country'], 'GBL')
+                # Ensure no FRA file created
+                self.assertFalse(os.path.exists(os.path.join(td, 'only-FRA.json')))
+        finally:
+            os.remove(path)
+
+    def test_output_pattern_single_country_flag(self):
+        # Two countries unified CSV
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+            'meta_local;V4;;;;title;N;ALL;T4;;;;\n'
+            'sub;V4;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                # Use --output-pattern in single-country mode; select second country (FRA)
+                dummy_out = os.path.join(td, 'ignored.json')
+                pattern = os.path.join(td, 'just-{country}.json')
+                rc = mod.main([path, dummy_out, '--country-column', '2', '--output-pattern', pattern])
+                self.assertEqual(rc, 0)
+                fra_path = os.path.join(td, 'just-FRA.json')
+                self.assertTrue(os.path.isfile(fra_path))
+                with open(fra_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.assertEqual(data['metadataGlobal']['country'], 'FRA')
+                # Ensure no GBL file created
+                self.assertFalse(os.path.exists(os.path.join(td, 'just-GBL.json')))
+        finally:
+            os.remove(path)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
