@@ -17,7 +17,13 @@ TEST_DIR = os.path.join(ROOT, 'tests')
 
 
 def run():
-    use_cov = os.getenv('COVERAGE') == '1'
+    # Allow enabling coverage either via env var COVERAGE=1 or via --coverage flag
+    argv = list(sys.argv[1:])
+    use_cov_flag = False
+    if '--coverage' in argv:
+        use_cov_flag = True
+        argv.remove('--coverage')
+    use_cov = use_cov_flag or (os.getenv('COVERAGE') == '1')
 
     # Build pytest command
     cmd = [sys.executable, '-m', 'pytest', '-q', TEST_DIR]
