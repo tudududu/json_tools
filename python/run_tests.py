@@ -43,6 +43,11 @@ def run():
     # On success with coverage, refresh badge
     if rc == 0 and use_cov:
         svg_path = os.path.join(cov_dir, 'coverage.svg')
+        # Combine parallel coverage data (important when parallel=True in .coveragerc)
+        try:
+            subprocess.call([sys.executable, '-m', 'coverage', 'combine'])
+        except Exception:
+            pass
         try:
             # coverage-badge reads the .coverage data produced by pytest-cov
             subprocess.call([sys.executable, '-m', 'coverage_badge', '-o', svg_path, '-f'])
