@@ -1,3 +1,18 @@
+# 1.4.12 - 2025-11-08
+
+Added:
+- `{country}` filename templating extended to single-country exports (CSV to JSON 120):
+	* When using `--country-column <n>` (non-split mode), `{country}` in the positional output path or in `--output-pattern` is now expanded to the selected country code.
+	* `--auto-output` with `--country-column` now also derives a `{country}`-aware default (e.g. `input_GBR.json`).
+	* Split behavior unchanged; multi-file mode still expands `{country}` for all countries.
+	* Note:“Previously, ‘{country}’ expansion only applied when --split-by-country was used. It now also expands in single-country mode when --country-column is provided.”
+
+Tests:
+- Added unit tests covering single-country `{country}` expansion both with an explicit templated output path and with `--output-pattern` + `--country-column`.
+
+Docs:
+- Updated README multi-country section and CLI examples to describe single-country `{country}` templating and added a one-country usage example.
+
 # 1.4.11 - 2025-10-29
 
 Added:
