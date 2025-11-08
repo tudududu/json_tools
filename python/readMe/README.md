@@ -444,26 +444,25 @@ Output:
 
 ## Testing
 
-You can run the suite in either unittest or pytest styles.
+The test runner is unified on pytest. Use the wrapper for convenience, or call pytest directly.
 
-- Unittest (fast default):
-  - Full run
-    ```sh
-    python3 python/run_tests.py
-    ```
-  - With coverage (branch + subprocess; emits XML/JSON and a badge at `python/tests/coverage/coverage.svg`)
-    ```sh
-    COVERAGE=1 python3 python/run_tests.py
-    ```
-- Pytest with coverage (requires pytest-cov):
+- Quick run (pytest):
   ```sh
-  make pytest-cov
+  python3 python/run_tests.py
   ```
-  This uses `.coveragerc` and outputs term, XML (`python/tests/coverage/coverage.xml`) and HTML (`python/tests/coverage/html`).
-
-Shortcuts:
-- `make test` → runs the unittest suite
-- `make coverage` → runs unittest suite with coverage enabled
+- With coverage (pytest-cov; updates badge at `python/tests/coverage/coverage.svg`):
+  ```sh
+  COVERAGE=1 python3 python/run_tests.py
+  ```
+- Direct invocation (equivalent):
+  ```sh
+  pytest -q python/tests
+  ```
+  With coverage (requires pytest-cov):
+  ```sh
+  pytest -q python/tests --cov=python --cov-branch --cov-report=term-missing --cov-report=xml:python/tests/coverage/coverage.xml
+  coverage-badge -o python/tests/coverage/coverage.svg -f
+  ```
 
 What’s covered by tests (CSV to JSON 62–105 highlights):
 - Unified multi-country/orientation parsing, video duplication and orientation metadata
@@ -487,13 +486,14 @@ What’s covered by tests (CSV to JSON 62–105 highlights):
   - XML: [coverage.xml](../tests/coverage/coverage.xml)
   - HTML: [index.html](../tests/coverage/html/index.html)
 
-- Or with pytest-cov:
-  ```sh
-  make pytest-cov
-  ```
-  Outputs:
-  - XML: [coverage.xml](../tests/coverage/coverage.xml)
-  - HTML: [index.html](../tests/coverage/html/index.html)
+Or, using direct pytest-cov:
+```sh
+pytest -q python/tests --cov=python --cov-branch --cov-report=term-missing --cov-report=xml:python/tests/coverage/coverage.xml
+coverage-badge -o python/tests/coverage/coverage.svg -f
+```
+Outputs:
+- Badge: [coverage.svg](../tests/coverage/coverage.svg)
+- XML: [coverage.xml](../tests/coverage/coverage.xml)
 
 ## Troubleshooting
 * Delimiter guess wrong? Use `--delimiter semicolon` (or `comma`, `tab`, `|`).
