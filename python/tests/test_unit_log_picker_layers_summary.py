@@ -1,14 +1,12 @@
 import os, sys, tempfile, unittest, pathlib
 
-# Ensure repository root and python/ directory are on sys.path for direct module imports
+# Ensure repository root is on sys.path; package markers allow python.* imports
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_PYDIR = os.path.abspath(os.path.join(_HERE, '..', '..'))
-_REPOROOT = os.path.abspath(os.path.join(_PYDIR, '..'))
-for _p in (_REPOROOT, _PYDIR):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+_REPOROOT = os.path.abspath(os.path.join(_HERE, '..', '..'))
+if _REPOROOT not in sys.path:
+    sys.path.insert(0, _REPOROOT)
 
-from aux import log_picker
+from python.aux import log_picker
 
 
 class LogPickerLayersSummaryTests(unittest.TestCase):
