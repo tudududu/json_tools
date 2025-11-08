@@ -3,21 +3,23 @@
 Collect selected lines from all ``*.log`` files in a given input directory and
 write a condensed summary log into the repository's ``./log`` folder.
 
-Selection criteria (line prefixes):
+Selection criteria (base line prefixes):
 	RunId=
 	ProjectPath:
 	INFO {link_data} [data.json] ISO code used:
 	Pipeline complete.
 	Counts =>
 	Timing (s) =>
+	INFO {add_layers} Processed
 
 Usage (CLI):
 	python -m python.aux.log_picker --input-dir path/to/logs
 
 Optional arguments:
-	--output-file  Explicit path for the output log file (useful for tests)
-	--encoding     Override file encoding used to read logs (default utf-8)
-	--recursive    Recurse into sub-directories when gathering *.log files
+	--output-file   Explicit path for the output log file (useful for tests)
+	--encoding      Override file encoding used to read logs (default utf-8)
+	--recursive     Recurse into sub-directories when gathering *.log files
+	--prefix PFX    Additional custom prefix to match (may be repeated)
 
 The default output filename (if --output-file not supplied) is:
 	./log/log_picker_<YYYYMMDD_HHMMSS>.log
@@ -34,14 +36,14 @@ from pathlib import Path
 from typing import Iterable, List
 
 
-PREFIXES: List[str] = [
+BASE_PREFIXES: List[str] = [
 	"RunId=",
 	"ProjectPath:",
 	"INFO {link_data} [data.json] ISO code used:",
 	"Pipeline complete.",
 	"Counts =>",
 	"Timing (s) =>",
-	# "INFO {add_layers} Processed",
+	"INFO {add_layers} Processed",
 ]
 
 SEPARATOR_WIDTH = 72
@@ -101,6 +103,7 @@ def build_output_path(repo_root: Path, explicit: str | None) -> Path:
 
 
 def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]]) -> None:
+	"""Write the condensed log plus a counts summary section."""
 	with out_path.open("w", encoding="utf-8") as out:
 		for idx, (src, lines) in enumerate(gathered, start=1):
 			sep = f"{'-' * SEPARATOR_WIDTH} {src.name}"
@@ -112,7 +115,14 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]]) -> Non
 				out.write("<NO MATCHING LINES>\n")
 			# Add blank line after each block for readability
 			out.write("\n")
-	# Provide a simple stdout notification
+		# Counts summary
+		out.write("==== Summary Counts ====\n")
+		total = 0
+		for src, lines in gathered:
+			cnt = len(lines)
+			total += cnt
+			out.write(f"{src.name}: {cnt}\n")
+		out.write(f"TOTAL_MATCHED_LINES: {total}\n")
 	print(f"Wrote summary: {out_path}")
 
 
@@ -122,6 +132,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
 	p.add_argument("--output-file", help="Explicit output file path")
 	p.add_argument("--encoding", default="utf-8", help="Encoding for reading log files")
 	p.add_argument("--recursive", action="store_true", help="Recurse into subdirectories")
+	p.add_argument("--prefix", action="append", default=[], help="Additional prefix to match (repeatable)")
 	return p.parse_args(argv)
 
 
@@ -134,12 +145,13 @@ def main(argv: List[str] | None = None) -> int:
 	repo_root = find_repo_root()
 	out_path = build_output_path(repo_root, ns.output_file)
 
+	prefixes = BASE_PREFIXES + list(ns.prefix)
 	gathered: List[tuple[Path, List[str]]] = []
 	files = sorted(iter_log_files(input_dir, ns.recursive))
 	if not files:
 		print(f"No .log files found in {input_dir}", file=sys.stderr)
 	for f in files:
-		picked = pick_lines(f, PREFIXES, encoding=ns.encoding)
+		picked = pick_lines(f, prefixes, encoding=ns.encoding)
 		gathered.append((f, picked))
 
 	write_summary(out_path, gathered)
