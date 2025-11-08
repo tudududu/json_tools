@@ -44,7 +44,7 @@ BASE_PREFIXES: List[str] = [
 	"Pipeline complete.",
 	"Counts =>",
 	"Timing (s) =>",
-	"INFO {add_layers} Processed",
+	# "INFO {add_layers} Processed",
 ]
 
 SEPARATOR_WIDTH = 72
@@ -145,6 +145,39 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			total += cnt
 			out.write(f"{src.name}: {cnt}\n")
 		out.write(f"TOTAL_MATCHED_LINES: {total}\n")
+
+		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
+		def _extract_value_from_line(line: str, key: str) -> str | None:
+			# Take substring after '=>' if present
+			payload = line
+			if '=>' in line:
+				payload = line.split('=>', 1)[1]
+			# Split by commas and parse key=value pairs
+			for piece in payload.split(','):
+				piece = piece.strip()
+				if not piece or '=' not in piece:
+					continue
+				k, v = piece.split('=', 1)
+				if k.strip() == key:
+					return v.strip()
+			return None
+
+		out.write("\n")
+		out.write("==== Short Summary ====\n")
+		for src, lines in gathered:
+			counts_val = None
+			timing_val = None
+			# Walk lines in reverse to prefer the last occurrence
+			for l in reversed(lines):
+				if counts_val is None and l.startswith("Counts =>"):
+					counts_val = _extract_value_from_line(l, "layersAddedTotal")
+				if timing_val is None and l.startswith("Timing (s) =>"):
+					timing_val = _extract_value_from_line(l, "addLayers")
+				if counts_val is not None and timing_val is not None:
+					break
+			counts_out = counts_val if counts_val is not None else "-"
+			timing_out = timing_val if timing_val is not None else "-"
+			out.write(f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n")
 	print(f"Wrote summary: {out_path}")
 
 
