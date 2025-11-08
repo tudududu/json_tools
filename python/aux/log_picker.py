@@ -41,6 +41,7 @@ PREFIXES: List[str] = [
 	"Pipeline complete.",
 	"Counts =>",
 	"Timing (s) =>",
+	# "INFO {add_layers} Processed",
 ]
 
 SEPARATOR_WIDTH = 72
