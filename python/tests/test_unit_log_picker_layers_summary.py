@@ -6,7 +6,7 @@ _REPOROOT = os.path.abspath(os.path.join(_HERE, '..', '..'))
 if _REPOROOT not in sys.path:
     sys.path.insert(0, _REPOROOT)
 
-from python.aux import log_picker
+from python.tools import log_picker
 
 
 class LogPickerLayersSummaryTests(unittest.TestCase):

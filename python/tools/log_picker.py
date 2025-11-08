@@ -13,7 +13,7 @@ Selection criteria (base line prefixes):
 	INFO {add_layers} Processed
 
 Usage (CLI):
-	python -m python.aux.log_picker --input-dir path/to/logs
+	python -m python.tools.log_picker --input-dir path/to/logs
 
 Optional arguments:
 	--output-file   Explicit path for the output log file (useful for tests)

@@ -9,7 +9,7 @@ for _p in (_REPOROOT,):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from python.aux import log_picker
+from python.tools import log_picker
 
 
 class LogPickerTests(unittest.TestCase):

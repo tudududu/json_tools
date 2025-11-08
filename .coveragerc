@@ -6,7 +6,6 @@ parallel = True
 concurrency = multiprocessing
 omit =
     python/tests/*
-    python/tools/*
     python/sitecustomize.py
     sitecustomize.py
     usercustomize.py
