@@ -7,4 +7,4 @@ python_files = ["test_*.py"]
 
 [tool.coverage.run]
 branch = true
-source = ["python/csv_to_subtitles_json.py"]
+source = ["python/csv_to_json.py"]

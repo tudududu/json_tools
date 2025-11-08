@@ -10,7 +10,7 @@ PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))
 if PYTHON_DIR not in sys.path:
     sys.path.insert(0, PYTHON_DIR)
 
-import csv_to_subtitles_json as mod
+import csv_to_json as mod
 
 
 def read_expected_version() -> str:

@@ -18,7 +18,7 @@ Timecodes can be one of:
 - SS[.ms]
 
 Usage:
-  python3 csv_to_subtitles_json.py input.csv output.json --fps 25
+  python3 csv_to_json.py input.csv output.json --fps 25
 """
 
 from __future__ import annotations

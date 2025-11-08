@@ -32,7 +32,7 @@ Added:
 Changed:
 - Repository docs reorg: Python-specific docs now live under `python/readMe/` (README.md and CHANGELOG.md) (CSV to JSON 106).
 - `python/bump_changelog.py` now reads/writes `python/readMe/CHANGELOG.md` and stages that path for git commit/tag (CSV to JSON 106).
-- `python/csv_to_subtitles_json.py` version resolution (`--converter-version auto`) falls back to `python/readMe/CHANGELOG.md` when the repo-root `CHANGELOG.md` is absent; `lastChangeId` metadata uses the same fallback (CSV to JSON 107).
+- `python/csv_to_json.py` version resolution (`--converter-version auto`) falls back to `python/readMe/CHANGELOG.md` when the repo-root `CHANGELOG.md` is absent; `lastChangeId` metadata uses the same fallback (CSV to JSON 107).
 
 # 1.4.9 - 2025-10-28
 

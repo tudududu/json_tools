@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Consolidated test runner for csv_to_subtitles_json tool.
+"""Consolidated test runner for csv_to_json tool.
 
 Discovers unittest-style test_*.py modules under python/tests/ and runs them.
 """

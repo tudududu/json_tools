@@ -7,7 +7,7 @@ PROJECT = os.path.dirname(ROOT)
 # Tests below create their own minimal CSV fixtures in temp directories.
 CSV_REL = 'in/data_in_251006_v19.csv'
 CSV_PATH = os.path.join(PROJECT, CSV_REL)
-CONVERTER = os.path.join(PROJECT, 'python', 'csv_to_subtitles_json.py')
+CONVERTER = os.path.join(PROJECT, 'python', 'csv_to_json.py')
 
 
 def run(cmd):
