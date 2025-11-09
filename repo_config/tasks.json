@@ -11,14 +11,62 @@
         "panel": "dedicated",
         "clear": true
       },
-      "problemMatcher": []
+      "problemMatcher": [
+        {
+          "owner": "python-tests",
+          "fileLocation": ["absolute"],
+          "pattern": [
+            {
+              "regexp": "^FAILURES.*$"
+            },
+            {
+              "regexp": "^File \"(.*)\", line (\\d+), in .*$",
+              "file": 1,
+              "line": 2
+            }
+          ]
+        },
+        {
+          "owner": "python-traceback",
+          "fileLocation": ["absolute"],
+          "pattern": [
+            {
+              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
+              "file": 1,
+              "line": 2,
+              "code": 3
+            },
+            {
+              "regexp": "^(E +.*)$",
+              "message": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "label": "Tests: pytest (quick)",
       "type": "shell",
       "command": "source .venv/bin/activate && pytest -q",
       "group": "test",
-      "problemMatcher": []
+      "problemMatcher": [
+        {
+          "owner": "python-traceback",
+          "fileLocation": ["absolute"],
+          "pattern": [
+            {
+              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
+              "file": 1,
+              "line": 2,
+              "code": 3
+            },
+            {
+              "regexp": "^(E +.*)$",
+              "message": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "label": "Tests: coverage (wrapper)",
@@ -30,7 +78,24 @@
         "panel": "shared",
         "clear": true
       },
-      "problemMatcher": []
+      "problemMatcher": [
+        {
+          "owner": "python-wrapper",
+          "fileLocation": ["absolute"],
+          "pattern": [
+            {
+              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
+              "file": 1,
+              "line": 2,
+              "code": 3
+            },
+            {
+              "regexp": "^(E +.*)$",
+              "message": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "label": "Tests: quick (wrapper)",
@@ -42,7 +107,24 @@
         "panel": "shared",
         "clear": false
       },
-      "problemMatcher": []
+      "problemMatcher": [
+        {
+          "owner": "python-wrapper",
+          "fileLocation": ["absolute"],
+          "pattern": [
+            {
+              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
+              "file": 1,
+              "line": 2,
+              "code": 3
+            },
+            {
+              "regexp": "^(E +.*)$",
+              "message": 1
+            }
+          ]
+        }
+      ]
     }
   ]
 }
