@@ -6,41 +6,15 @@
       "type": "shell",
       "command": "source .venv/bin/activate && pytest --cov=python --cov-branch --cov-report=term --cov-config=.coveragerc",
       "group": "test",
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "clear": true
-      },
       "problemMatcher": [
-        {
-          "owner": "python-tests",
-          "fileLocation": ["absolute"],
-          "pattern": [
-            {
-              "regexp": "^FAILURES.*$"
-            },
-            {
-              "regexp": "^File \"(.*)\", line (\\d+), in .*$",
-              "file": 1,
-              "line": 2
-            }
-          ]
-        },
         {
           "owner": "python-traceback",
           "fileLocation": ["absolute"],
-          "pattern": [
-            {
-              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
-              "file": 1,
-              "line": 2,
-              "code": 3
-            },
-            {
-              "regexp": "^(E +.*)$",
-              "message": 1
-            }
-          ]
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
         }
       ]
     },
@@ -53,18 +27,11 @@
         {
           "owner": "python-traceback",
           "fileLocation": ["absolute"],
-          "pattern": [
-            {
-              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
-              "file": 1,
-              "line": 2,
-              "code": 3
-            },
-            {
-              "regexp": "^(E +.*)$",
-              "message": 1
-            }
-          ]
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
         }
       ]
     },
@@ -82,18 +49,11 @@
         {
           "owner": "python-wrapper",
           "fileLocation": ["absolute"],
-          "pattern": [
-            {
-              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
-              "file": 1,
-              "line": 2,
-              "code": 3
-            },
-            {
-              "regexp": "^(E +.*)$",
-              "message": 1
-            }
-          ]
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
         }
       ]
     },
@@ -111,18 +71,11 @@
         {
           "owner": "python-wrapper",
           "fileLocation": ["absolute"],
-          "pattern": [
-            {
-              "regexp": "^File \"(.*)\", line (\\d+), in (.*)$",
-              "file": 1,
-              "line": 2,
-              "code": 3
-            },
-            {
-              "regexp": "^(E +.*)$",
-              "message": 1
-            }
-          ]
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
         }
       ]
     }
