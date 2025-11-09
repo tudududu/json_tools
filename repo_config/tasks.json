@@ -272,9 +272,20 @@
       }
     },
     {
-      "label": "Fix: all (ruff+isort+black)",
+      "label": "Format: ruff check",
       "type": "shell",
-      "command": "source .venv/bin/activate && ruff check --fix . && isort . && black .",
+      "command": "source .venv/bin/activate && ruff format --check .",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Fix: all (ruff format+ruff fix+isort)",
+      "type": "shell",
+      "command": "source .venv/bin/activate && ruff format . && ruff check --fix . && isort .",
       "group": "test",
       "presentation": {
         "reveal": "always",
