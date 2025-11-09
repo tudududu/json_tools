@@ -19,6 +19,18 @@
       "command": "source .venv/bin/activate && pytest -q",
       "group": "test",
       "problemMatcher": []
+    },
+    {
+      "label": "Tests: coverage (wrapper)",
+      "type": "shell",
+      "command": "source .venv/bin/activate && python3 python/run_tests.py --coverage",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
     }
   ]
 }
