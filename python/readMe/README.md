@@ -444,25 +444,65 @@ Output:
 
 ## Testing
 
-The test runner is unified on pytest. Use the wrapper for convenience, or call pytest directly.
+The test runner is unified on pytest. Use the wrapper for convenience, a `--coverage` flag, or call pytest directly.
 
-- Quick run (pytest):
+### Wrapper script (`python/run_tests.py`)
+
+- Quick run:
   ```sh
   python3 python/run_tests.py
   ```
-- With coverage (pytest-cov; updates badge at `python/tests/coverage/coverage.svg`):
+- With coverage (flag form):
+  ```sh
+  python3 python/run_tests.py --coverage
+  ```
+- With coverage (env var, legacy style – equivalent):
   ```sh
   COVERAGE=1 python3 python/run_tests.py
   ```
-- Direct invocation (equivalent):
+
+The flag form avoids occasional terminal input truncation issues some shells/editors have with leading environment assignments.
+
+### Direct pytest invocation
+
+- Plain:
   ```sh
   pytest -q python/tests
   ```
-  With coverage (requires pytest-cov):
+- With coverage (requires `pytest-cov`):
   ```sh
-  pytest -q python/tests --cov=python --cov-branch --cov-report=term-missing --cov-report=xml:python/tests/coverage/coverage.xml
+  pytest -q python/tests --cov=python --cov-branch --cov-report=term-missing \
+    --cov-report=xml:python/tests/coverage/coverage.xml
   coverage-badge -o python/tests/coverage/coverage.svg -f
   ```
+
+### Makefile shortcuts
+
+If available (see repository `Makefile`):
+```sh
+make test       # runs python/run_tests.py
+make coverage   # runs python/run_tests.py with coverage enabled
+make pytest-cov # direct pytest-cov invocation
+```
+
+### VS Code Task (optional)
+You can add a `.vscode/tasks.json` task to invoke coverage via the flag:
+```jsonc
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tests: Coverage",
+      "type": "shell",
+      "command": "python3 python/run_tests.py --coverage",
+      "group": "test",
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    }
+  ]
+}
+```
+Place this in `.vscode/tasks.json` (create folder/file if missing). Then run via Command Palette: *Tasks: Run Task* → *Tests: Coverage*.
 
 What’s covered by tests (CSV to JSON 62–105 highlights):
 - Unified multi-country/orientation parsing, video duplication and orientation metadata
