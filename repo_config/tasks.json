@@ -126,6 +126,56 @@
           }
         }
       ]
+    },
+    {
+      "label": "Lint: ruff",
+      "type": "shell",
+      "command": "source .venv/bin/activate && ruff check .",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "flake8-ruff",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": {
+            "regexp": "^(.+?):(\\\\d+):(\\\\d+): (\\w+\\d+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "Lint: flake8",
+      "type": "shell",
+      "command": "source .venv/bin/activate && flake8 .",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "flake8-ruff",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": {
+            "regexp": "^(.+?):(\\\\d+):(\\\\d+): (\\w+\\d+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
     }
   ]
 }
