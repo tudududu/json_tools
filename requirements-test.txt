@@ -4,3 +4,5 @@ coverage-badge>=1.1.0
 pytest-cov>=4.1.0
 ruff>=0.6.0
 flake8>=6.1.0
+black>=24.8.0
+isort>=5.13.2

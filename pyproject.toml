@@ -8,3 +8,9 @@ python_files = ["test_*.py"]
 [tool.coverage.run]
 branch = true
 source = ["python/csv_to_json.py"]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
