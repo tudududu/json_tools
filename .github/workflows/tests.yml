@@ -7,6 +7,7 @@ on:
       - 'python/**'
       - '.github/workflows/tests.yml'
       - 'requirements-test.txt'
+      - 'pyproject.toml'
       - '.coveragerc'
   pull_request:
     branches: [ master ]
@@ -14,9 +15,55 @@ on:
       - 'python/**'
       - '.github/workflows/tests.yml'
       - 'requirements-test.txt'
+      - 'pyproject.toml'
       - '.coveragerc'
   workflow_dispatch:
 jobs:
+  quality:
+    name: Lint & Format Checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12']
+        check: [ 'ruff', 'flake8', 'format-black-isort', 'format-ruff-check' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-test.txt
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: Run ${{ matrix.check }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.check }}" in
+            ruff)
+              ruff check .
+              ;;
+            flake8)
+              flake8 .
+              ;;
+            format-black-isort)
+              isort --check-only .
+              black --check .
+              ;;
+            format-ruff-check)
+              ruff format --check .
+              ;;
+          esac
+
   build:
     runs-on: ubuntu-latest
     strategy:

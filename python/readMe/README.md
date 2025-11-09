@@ -149,6 +149,76 @@ Dry run (list discovered countries/videos):
 python3 csv_to_json.py unified.csv /dev/null --fps 25 --dry-run
 ```
 
+## Development Tasks (Lint, Format, Tests)
+
+### One‑Click VS Code Tasks
+
+This repo defines several helpful tasks in `.vscode/tasks.json`:
+
+| Task Label | Purpose |
+|------------|---------|
+| Tests: pytest (quick) | Fast test run (`pytest -q`) |
+| Tests: pytest (coverage term) | Test run with inline coverage summary |
+| Tests: quick (wrapper) | Invoke `python/run_tests.py` (no coverage) |
+| Tests: coverage (wrapper) | Invoke wrapper with coverage + badge update |
+| Lint: ruff | Static analysis via `ruff check .` |
+| Lint: flake8 | Style/errors via `flake8 .` |
+| Lint: all | Fail fast (ruff then flake8) |
+| Lint: all (continue) | Always run both, fail if either reports issues |
+| Lint: ruff fix | Auto-fix ruff violations where supported |
+| Format: isort | Sort imports in place |
+| Format: black | Black format code in place |
+| Format: check | Non‑modifying isort + black validation |
+| Format: ruff | Ruff formatter (alternative to black) |
+| Format: ruff check | Non‑modifying ruff format validation |
+| Fix: all (ruff format+ruff fix+isort) | Full pipeline: format, fix lint, normalize imports |
+
+### Recommended Local Workflow
+
+1. Run `Tests: pytest (quick)` while iterating.
+2. Use `Lint: all (continue)` before committing (catches both tool outputs).
+3. For code style:
+  * Prefer `Fix: all (ruff format+ruff fix+isort)` OR `Format: black` + `Format: isort` (choose one style approach).
+4. Run `Tests: coverage (wrapper)` or the coverage term task to refresh the badge.
+
+### Formatting Strategy
+
+Ruff can now replace black for formatting. Both are configured to a line length of 88. If you fully migrate to ruff formatting you can remove the black tasks. Current pipeline keeps them separate to allow incremental adoption.
+
+### Makefile & Direct Commands
+
+Equivalent shell invocations (inside the virtualenv):
+
+```sh
+ruff check .              # lint
+ruff check --fix .        # auto-fix subset
+flake8 .                  # supplemental style checks
+black .                   # format with black
+isort .                   # sort imports
+pytest -q                 # quick tests
+pytest --cov=python --cov-branch --cov-config=.coveragerc  # coverage
+python3 python/run_tests.py --coverage  # wrapper + badge
+```
+
+## Continuous Integration
+
+GitHub Actions workflow (`.github/workflows/tests.yml`) now has a separate `quality` job matrix:
+
+| Matrix Entry | Command(s) |
+|--------------|------------|
+| ruff | `ruff check .` |
+| flake8 | `flake8 .` |
+| format-black-isort | `isort --check-only .` then `black --check .` |
+| format-ruff-check | `ruff format --check .` |
+
+These run in parallel on Ubuntu with Python 3.12. The `build` job then runs the full test + coverage suite (wrapper plus direct pytest-cov). Adjust required checks in branch protection to include both jobs for stricter gating.
+
+### Adding Pre-Commit Hooks (Optional)
+
+You can adopt pre-commit with a `.pre-commit-config.yaml` to enforce ruff, isort, black, and tests-on-changed (lightweight). Not yet included to keep dependency surface minimal.
+
+---
+
 ## Key Flags
 
 General:
