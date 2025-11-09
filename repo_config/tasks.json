@@ -31,6 +31,18 @@
         "clear": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Tests: quick (wrapper)",
+      "type": "shell",
+      "command": "source .venv/bin/activate && python3 python/run_tests.py",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": false
+      },
+      "problemMatcher": []
     }
   ]
 }
