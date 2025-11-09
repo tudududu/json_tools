@@ -250,6 +250,28 @@
       }
     },
     {
+      "label": "Format: check",
+      "type": "shell",
+      "command": "source .venv/bin/activate && isort --check-only . && black --check .",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Format: ruff",
+      "type": "shell",
+      "command": "source .venv/bin/activate && ruff format .",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
       "label": "Fix: all (ruff+isort+black)",
       "type": "shell",
       "command": "source .venv/bin/activate && ruff check --fix . && isort . && black .",

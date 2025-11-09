@@ -14,3 +14,6 @@ line-length = 88
 
 [tool.isort]
 profile = "black"
+
+[tool.ruff]
+line-length = 88
