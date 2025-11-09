@@ -219,6 +219,24 @@ You can adopt pre-commit with a `.pre-commit-config.yaml` to enforce ruff, isort
 
 ---
 
+## Discrepancy Postmortem (tests/coverage)
+
+Symptom
+- Test count and coverage differed between local runs and CI in earlier revisions.
+
+Root causes
+- Mixed discovery: the old unittest-based runner didn’t see three pytest-only tests, so fewer tests executed → lower, uneven coverage.
+- Coverage scope after refactor: moving `python/tools/log_picker.py` temporarily excluded it from coverage due to config/paths.
+- Invocation differences: VS Code inline env assignments and mixed runners led to inconsistent coverage data/combination.
+
+Fixes
+- Unified on pytest for a single discovery model (all tests run consistently; now 44).
+- Updated `.coveragerc` and used `--cov=python` so `python/tools/*` is included.
+- Added a wrapper (`python/run_tests.py --coverage`) to standardize flags and badge generation.
+
+Current state
+- Coverage is stable (e.g., `log_picker.py` ~94%), and tasks/CI are aligned for repeatable results.
+
 ## Key Flags
 
 General:
