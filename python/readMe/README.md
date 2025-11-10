@@ -158,7 +158,9 @@ This repo defines several helpful tasks in `.vscode/tasks.json`:
 | Task Label | Purpose |
 |------------|---------|
 | Tests: pytest (quick) | Fast test run (`pytest -q`) |
+| Tests: pytest (quick, parallel) | Parallel quick run (`pytest -q -n auto`) |
 | Tests: pytest (coverage term) | Test run with inline coverage summary |
+| Tests: pytest (coverage term, parallel) | Coverage run using xdist workers |
 | Tests: quick (wrapper) | Invoke `python/run_tests.py` (no coverage) |
 | Tests: coverage (wrapper) | Invoke wrapper with coverage + badge update |
 | Lint: ruff | Static analysis via `ruff check .` |
@@ -196,8 +198,24 @@ flake8 .                  # supplemental style checks
 black .                   # format with black
 isort .                   # sort imports
 pytest -q                 # quick tests
+pytest -q -n auto         # quick tests (parallel)
 pytest --cov=python --cov-branch --cov-config=.coveragerc  # coverage
+pytest -n auto --cov=python --cov-branch --cov-config=.coveragerc  # coverage (parallel)
 python3 python/run_tests.py --coverage  # wrapper + badge
+```
+
+### Parallel Test Execution (xdist)
+
+Pytest-xdist is included for optional speed-ups on multi-core machines. The `-n auto` flag chooses a worker count based on CPU cores; `--dist=loadfile` groups tests by file to reduce fixture thrashing.
+
+Guidelines:
+* Use parallel mode for larger test suites or when adding more parametrized cases.
+* If you encounter flaky tests due to shared global state, run without `-n` and refactor those tests (prefer isolated tmp_path usage, avoid modifying process-wide globals).
+* Coverage with xdist uses the same `--cov` flags; pytest-cov writes worker files that our wrapper then combines into a single XML/badge.
+
+Example:
+```sh
+pytest -n auto --dist=loadfile --cov=python --cov-branch --cov-config=.coveragerc
 ```
 
 ## Continuous Integration

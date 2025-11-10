@@ -6,3 +6,4 @@ ruff>=0.6.0
 flake8>=6.1.0
 black>=24.8.0
 isort>=5.13.2
+pytest-xdist>=3.5.0

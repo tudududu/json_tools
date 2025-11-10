@@ -103,7 +103,7 @@ jobs:
           COVERAGE_SUBPROCESS: '1'
         run: |
           mkdir -p python/tests/coverage
-          pytest --cov=python --cov-branch --cov-config=.coveragerc \
+          pytest -n auto --dist=loadfile --cov=python --cov-branch --cov-config=.coveragerc \
             --cov-report=term-missing \
             --cov-report=xml:python/tests/coverage/coverage.xml \
             --cov-fail-under=${COVERAGE_FAIL_UNDER}
