@@ -5,9 +5,6 @@ requires = []
 addopts = "-q --maxfail=1"
 python_files = ["test_*.py"]
 
-[tool.coverage.run]
-branch = true
-source = ["python/csv_to_json.py"]
 
 [tool.black]
 line-length = 88

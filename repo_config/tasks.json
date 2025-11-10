@@ -2,6 +2,17 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Coverage: clean",
+      "type": "shell",
+      "command": "source .venv/bin/activate && coverage erase && rm -f .coverage .coverage.*",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
       "label": "Tests: pytest (coverage term)",
       "type": "shell",
       "command": "source .venv/bin/activate && pytest --cov=python --cov-branch --cov-report=term --cov-config=.coveragerc",
@@ -31,9 +42,67 @@
       ]
     },
     {
+      "label": "Tests: pytest (coverage term, parallel)",
+      "type": "shell",
+      "command": "source .venv/bin/activate && pytest -n auto --dist=loadfile --cov=python --cov-branch --cov-report=term --cov-config=.coveragerc",
+      "group": "test",
+      "problemMatcher": [
+        {
+          "owner": "python-traceback",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
+        },
+        {
+          "owner": "flake8-ruff",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^(.+?):(\\\\d+):(\\\\d+): (\\w+\\d+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
       "label": "Tests: pytest (quick)",
       "type": "shell",
       "command": "source .venv/bin/activate && pytest -q",
+      "group": "test",
+      "problemMatcher": [
+        {
+          "owner": "python-traceback",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^\\s*File \\\"(.+?)\\\", line (\\\\d+), in .*$",
+            "file": 1,
+            "line": 2
+          }
+        },
+        {
+          "owner": "flake8-ruff",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^(.+?):(\\\\d+):(\\\\d+): (\\w+\\d+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "Tests: pytest (quick, parallel)",
+      "type": "shell",
+      "command": "source .venv/bin/activate && pytest -q -n auto --dist=loadfile",
       "group": "test",
       "problemMatcher": [
         {

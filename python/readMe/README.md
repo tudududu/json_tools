@@ -218,6 +218,14 @@ Example:
 pytest -n auto --dist=loadfile --cov=python --cov-branch --cov-config=.coveragerc
 ```
 
+#### Troubleshooting parallel coverage
+
+- Always use `--dist=loadfile` with parallel coverage to keep test files on the same worker; other strategies can skew or drop coverage.
+- Avoid exporting `COVERAGE_SUBPROCESS=1` unless your tests spawn extra Python processes themselves. Pytest‑cov already handles xdist workers; enabling subprocess coverage when you have `sitecustomize.py` hooks can lead to coverage's sqlite data error ("no such table: file").
+- If you see INTERNALERRORs or odd totals, first clear old data: run the new VS Code task "Coverage: clean" (does `coverage erase` and removes `.coverage*` files), then rerun tests.
+- Use up‑to‑date tooling: coverage ≥ 7.6.1, pytest‑cov ≥ 5.0.0, pytest‑xdist ≥ 3.6.1 (see `requirements-test.txt`).
+- The canonical coverage configuration is `.coveragerc`. Any older `pyproject.toml` coverage section was removed to prevent config conflicts across workers and subprocesses.
+
 ## Continuous Integration
 
 GitHub Actions workflow (`.github/workflows/tests.yml`) now has a separate `quality` job matrix:
