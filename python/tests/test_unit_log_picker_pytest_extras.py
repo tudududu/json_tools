@@ -56,3 +56,77 @@ def test_main_parametrized_error_cases(tmp_path, case):
             "(",
         ])
         assert rc == 3
+
+
+@pytest.mark.parametrize(
+    "file_encoding,cli_encoding,line,expect_exact",
+    [
+        ("utf-8", None, "RunId=Hello✓", True),
+        ("latin-1", "latin-1", "RunId=Ångström", True),
+        # Mismatch: we still match the prefix, but exact unicode may be replaced
+        ("latin-1", "utf-8", "RunId=Ångström", False),
+    ],
+)
+def test_param_encodings(tmp_path, file_encoding, cli_encoding, line, expect_exact):
+    d = tmp_path / "logs"
+    d.mkdir()
+    dest = d / "enc.log"
+    if file_encoding == "utf-8":
+        dest.write_text(line + "\n", encoding="utf-8")
+    else:
+        # latin-1
+        dest.write_bytes(line.encode("latin-1", errors="strict") + b"\n")
+
+    out = tmp_path / "out.log"
+    args = ["--input-dir", str(d), "--output-file", str(out)]
+    if cli_encoding is not None:
+        args += ["--encoding", cli_encoding]
+    rc = log_picker.main(args)
+    assert rc == 0
+    txt = out.read_text(encoding="utf-8")
+    # We should always match the prefix line once regardless of encoding outcome
+    assert "TOTAL_MATCHED_LINES: 1" in txt
+    assert "enc.log:" in txt
+    # Exact string may not be preserved under mismatched decoding
+    if expect_exact:
+        assert line in txt
+    else:
+        assert "RunId=" in txt
+
+
+@pytest.mark.parametrize(
+    "prefixes,expected_counts,total",
+    [
+        ([], {"a.log": 1, "b.log": 0}, 1),
+        (["PrefixA"], {"a.log": 2, "b.log": 0}, 2),
+        (["PrefixB"], {"a.log": 2, "b.log": 1}, 3),
+        (["PrefixA", "PrefixB"], {"a.log": 3, "b.log": 1}, 4),
+    ],
+)
+def test_param_prefix_combinations(tmp_path, prefixes, expected_counts, total):
+    base = tmp_path / "logs"
+    base.mkdir()
+    # a.log has both prefixes and a base prefix line
+    (base / "a.log").write_text(
+        "\n".join([
+            "PrefixA one",
+            "PrefixB two",
+            "Pipeline complete.",
+        ])
+        + "\n",
+        encoding="utf-8",
+    )
+    # b.log only has PrefixB
+    (base / "b.log").write_text("PrefixB only\n", encoding="utf-8")
+
+    out = tmp_path / "out.log"
+    args = ["--input-dir", str(base), "--output-file", str(out)]
+    for p in prefixes:
+        args += ["--prefix", p]
+    rc = log_picker.main(args)
+    assert rc == 0
+    txt = out.read_text(encoding="utf-8")
+    # Validate per-file counts
+    for fname, cnt in expected_counts.items():
+        assert f"{fname}: {cnt}" in txt
+    assert f"TOTAL_MATCHED_LINES: {total}" in txt
