@@ -234,6 +234,7 @@ def convert_csv_to_json(
     test_mode: bool = False,
     claims_as_objects: bool = False,
     no_orientation: bool = False,
+    country_variant_index: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -283,17 +284,25 @@ def convert_csv_to_json(
         # Support duplicate country codes for orientation (landscape/portrait)
         country_occurrences: Dict[str, List[int]] = {}
         countries_unique: List[str] = []
+        # Count how many orientation pairs (variants) exist per country (pairs of columns)
+        country_variant_counts: Dict[str, int] = {}
         for idx, code in country_cols:
             country_occurrences.setdefault(code, []).append(idx)
             if code not in countries_unique:
                 countries_unique.append(code)
+        for c in countries_unique:
+            occ = country_occurrences.get(c, [])
+            # group into pairs (landscape, portrait)
+            country_variant_counts[c] = max(1, (len(occ) + 1) // 2)
         countries = countries_unique
         # Map country -> {orientation: column_index or None}
         country_orientation_cols: Dict[str, Dict[str, Optional[int]]] = {}
         for c in countries_unique:
             occ = country_occurrences.get(c, [])
-            land = occ[0] if occ else None
-            port = occ[1] if len(occ) > 1 else None
+            # Select which pair to use based on variant index (default 0)
+            vi = country_variant_index or 0
+            land = occ[2 * vi] if len(occ) > 2 * vi else (occ[0] if occ else None)
+            port = occ[2 * vi + 1] if len(occ) > 2 * vi + 1 else (occ[1] if len(occ) > 1 else None)
             country_orientation_cols[c] = {"landscape": land, "portrait": port}
         if verbose:
             print(f"Unified schema detected. Countries: {countries} (orientation column mapping: {country_orientation_cols})")
@@ -1220,7 +1229,7 @@ def convert_csv_to_json(
             by_country[c] = payload
 
         # Multi output
-        return {"_multi": True, "countries": countries, "byCountry": by_country}
+        return {"_multi": True, "countries": countries, "byCountry": by_country, "_countryVariantCount": country_variant_counts}
 
     # Normalize headers for index lookup, preserving duplicates
     norm_headers = [re.sub(r"[^a-z]", "", (h or "").lower()) for h in headers]
@@ -1455,6 +1464,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
     p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
     p.add_argument("--output-pattern", default=None, help="Pattern for outputs; use {country}. Applies to split mode and to single-country exports with --country-column. If omitted, infer from output path by inserting _{country} before extension.")
+    p.add_argument("--country-variant-index", type=int, default=None, help=(
+        "Select which duplicated country column pair (variant) to use (0-based). When omitted, first pair is used."
+    ))
     p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
     p.add_argument("--converter-version", default="auto", help=(
         "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
@@ -1563,6 +1575,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         test_mode=args.test_mode,
         claims_as_objects=args.claims_as_objects,
         no_orientation=args.no_orientation,
+        country_variant_index=args.country_variant_index,
     )
 
     # Optionally strip overview if disabled flag set
@@ -1974,38 +1987,71 @@ def main(argv: Optional[List[str]] = None) -> int:
             if "{country}" not in pattern:
                 root, ext = os.path.splitext(pattern)
                 pattern = f"{root}_{{country}}{ext}"
+            # Variant counts per country (if provided by convert)
+            variant_counts: Dict[str, int] = data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
             for c in countries:
-                payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
-                # Per-country export: reduce logo_anim_flag overview to only this country's values
-                mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
-                if isinstance(mg, dict) and "logo_anim_flag" in mg:
-                    overview = mg["logo_anim_flag"]
-                    if isinstance(overview, dict):
-                        trimmed: Dict[str, Any] = {}
-                        for dur, val in overview.items():
-                            if isinstance(val, dict) and "_default" in val:
-                                # Pick country-specific if exists; else fallback to _default
-                                country_val = val.get(c, val.get("_default"))
-                                trimmed[dur] = country_val
-                            else:
-                                # Simple scalar applies to all countries; keep as-is
-                                trimmed[dur] = val
-                        mg["logo_anim_flag"] = trimmed
-                # Include language ISO in filename token when present
-                lang = ""
-                if isinstance(mg, dict):
-                    try:
-                        lang = str(mg.get("language") or "").strip()
-                    except Exception:
-                        lang = ""
-                country_token = f"{c}_{lang}" if lang else c
-                out_path = pattern.replace("{country}", country_token)
-                if args.verbose:
-                    print(f"Writing {out_path}")
-                write_json(out_path, payload)
-                if args.sample:
-                    sample_path = derive_sample_path(out_path)
-                    write_json(sample_path, make_sample(payload))
+                count = max(1, int(variant_counts.get(c, 1)))
+                for vi in range(count):
+                    if vi == 0:
+                        payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                    else:
+                        # Re-convert selecting alternate variant pair
+                        alt = convert_csv_to_json(
+                            input_csv=args.input,
+                            fps=args.fps,
+                            start_line_index=args.start_line,
+                            round_ndigits=round_ndigits,
+                            times_as_string=args.times_as_string,
+                            strip_text=not args.no_strip_text,
+                            skip_empty_text=not args.keep_empty_text,
+                            encoding=args.encoding,
+                            delimiter=args.delimiter,
+                            start_col=args.start_col,
+                            end_col=args.end_col,
+                            text_col=args.text_col,
+                            verbose=False,
+                            schema_version=args.schema_version,
+                            merge_subtitles=not args.no_merge_subtitles,
+                            merge_disclaimer=not args.no_merge_disclaimer,
+                            cast_metadata=args.cast_metadata,
+                            join_claim=args.join_claim,
+                            prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
+                            test_mode=args.test_mode,
+                            claims_as_objects=args.claims_as_objects,
+                            no_orientation=args.no_orientation,
+                            country_variant_index=vi,
+                        )
+                        payload = (alt.get("byCountry", {}) if isinstance(alt, dict) else {}).get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                    # Per-country export: reduce logo_anim_flag overview to only this country's values
+                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                    if isinstance(mg, dict) and "logo_anim_flag" in mg:
+                        overview = mg["logo_anim_flag"]
+                        if isinstance(overview, dict):
+                            trimmed: Dict[str, Any] = {}
+                            for dur, val in overview.items():
+                                if isinstance(val, dict) and "_default" in val:
+                                    # Pick country-specific if exists; else fallback to _default
+                                    country_val = val.get(c, val.get("_default"))
+                                    trimmed[dur] = country_val
+                                else:
+                                    # Simple scalar applies to all countries; keep as-is
+                                    trimmed[dur] = val
+                            mg["logo_anim_flag"] = trimmed
+                    # Include language ISO in filename token when present
+                    lang = ""
+                    if isinstance(mg, dict):
+                        try:
+                            lang = str(mg.get("language") or "").strip()
+                        except Exception:
+                            lang = ""
+                    country_token = f"{c}_{lang}" if lang else c
+                    out_path = pattern.replace("{country}", country_token)
+                    if args.verbose:
+                        print(f"Writing {out_path}")
+                    write_json(out_path, payload)
+                    if args.sample:
+                        sample_path = derive_sample_path(out_path)
+                        write_json(sample_path, make_sample(payload))
         else:
             # Single output selection: choose requested column or the last
             csel = None
