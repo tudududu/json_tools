@@ -183,3 +183,60 @@ def test_main_git_tag_exists_requires_force(tmp_path, capsys, monkeypatch):
     assert code == 3
     out = capsys.readouterr().out
     assert "ERROR: tag v1.0.1 already exists" in out
+
+
+def test_main_set_with_pre_without_build_metadata(tmp_path, capsys, monkeypatch):
+    changelog = tmp_path / "CHANGELOG.md"
+    write_changelog(str(changelog), ["# 1.2.3 - 2024-01-01", "", "body"])
+    monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
+
+    code = bc.main(["--set", "2.5.0", "--pre", "rc2", "--dry-run", "--date", "2025-05-01"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "# 2.5.0-rc2 - 2025-05-01" in out
+
+
+def test_main_git_force_tag_overwrite(tmp_path, capsys, monkeypatch):
+    # Prepare changelog and root
+    changelog = tmp_path / "CHANGELOG.md"
+    write_changelog(str(changelog), ["# 0.1.0 - 2024-01-01", "", "body"])
+    monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
+    monkeypatch.setattr(bc, "ROOT", str(tmp_path))
+
+    calls = []
+
+    def fake_git_run(args):
+        calls.append(args)
+        if args[:2] == ["git", "rev-parse"]:
+            return 0, "exists"  # simulate existing tag
+        return 0, "ok"
+
+    monkeypatch.setattr(bc, "git_run", fake_git_run)
+
+    code = bc.main(["--part", "patch", "--commit", "--tag", "--force-tag", "--date", "2025-06-01"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Git tag created: v0.1.1" in out
+    # Ensure deletion then creation order
+    del_idx = next(i for i,a in enumerate(calls) if a[:3] == ["git","tag","-d"])
+    create_idx = next(i for i,a in enumerate(calls) if a[:2] == ["git","tag"] and a[2] != "-d")
+    assert del_idx < create_idx
+
+
+def test_main_fallback_date_branch(tmp_path, capsys, monkeypatch):
+    # Force AttributeError on _dt.UTC to trigger fallback to timezone.utc
+    changelog = tmp_path / "CHANGELOG.md"
+    write_changelog(str(changelog), ["# 0.1.0 - 2024-01-01", "", "body"])
+    monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
+
+    # Provide a shim for _dt without UTC
+    import types, datetime as real_dt
+    shim = types.SimpleNamespace(datetime=real_dt.datetime)
+    monkeypatch.setattr(bc, "_dt", shim)
+
+    code = bc.main(["--part", "patch", "--dry-run"])  # no --date to use fallback path
+    assert code == 0
+    out = capsys.readouterr().out
+    # First line should be a heading with an ISO date
+    first = out.splitlines()[0]
+    assert first.startswith("# 0.1.1 - ") and len(first.split(" - ")[-1]) == 10
