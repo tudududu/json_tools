@@ -135,3 +135,92 @@ def test_times_as_string_no_rounding_defaults_to_two_decimals(tmp_path):
     run_cli([str(csv), str(out), "--fps", "25", "--times-as-string", "--round", "-1"])
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["subtitles"][0]["in"] == "1.23"
+
+
+def test_frames_rounding_near_boundary(tmp_path):
+    csv = tmp_path / "frames_boundary.csv"
+    # Use HH:MM:SS:FF with fps=24 so frame fraction has non-terminating decimal in base10 (e.g., 7/24)
+    # 00:00:01:07 @24fps = 1 + 7/24 = 1.291666... -> rounded to 1.29 with default round=2
+    # 00:00:01:23 @24fps = 1 + 23/24 = 1.958333... -> 1.96
+    write(csv, "Start Time,End Time,Text\n00:00:01:07,00:00:01:23,Edge")
+    out = tmp_path / "frames.json"
+    run_cli([str(csv), str(out), "--fps", "24", "--times-as-string"])  # default round=2
+    data = json.loads(out.read_text(encoding="utf-8"))
+    first = data["subtitles"][0]
+    assert first["in"] == "1.29" and first["out"] == "1.96"
+
+
+@pytest.mark.parametrize("delim_char", ["\t", "|"])
+def test_delimiter_auto_sniff_tab_and_pipe(tmp_path, delim_char):
+    # Exercise --delimiter auto sniff path for tab and pipe (no explicit --delimiter flag)
+    name = "tab" if delim_char == "\t" else "pipe"
+    csv = tmp_path / f"subs_auto_{name}.csv"
+    write(csv, f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}A")
+    out = tmp_path / "auto.json"
+    run_cli([str(csv), str(out), "--fps", "25"])  # delimiter=auto default
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["subtitles"][0]["text"] == "A"
+
+
+def unified_with_endframe_and_logo_anim(country_codes=("GBR", "FRA")):
+    # Build unified schema rows including an endFrame row to cover that branch and a logo_anim_flag overview row.
+    # Duplicate first country column for portrait simulation for each country (GBR, GBR, FRA, FRA)
+    countries_cols = ",".join([c for c in country_codes for _ in (0, 1)])  # e.g., GBR,GBR,FRA,FRA
+    header = f"record_type,video_id,line,start,end,key,is_global,country_scope,metadata,{countries_cols}"
+    rows = [header]
+    # meta_global country definition row
+    # key column is empty here; we provide 'country' codes via metadata column per original ingestion pattern
+    # Provide a logo_anim_flag overview duration row (duration = 3s) country_scope used as duration sub-key
+    rows.append("meta_global,,,,'',logo_anim_flag,,3s,animVal,,,,,,")
+    # Subtitle row with per-country text (only landscape columns filled)
+    rows.append("sub,VID2,1,0,2,,,,'Sub text',Sub GBR,,Sub FRA,")
+    # endFrame row timed with optional text
+    rows.append("endFrame,VID2,1,2,3,,,,'End frame',End GBR,,End FRA,")
+    return "\n".join(rows)
+
+
+def test_unified_endframe_and_logo_anim_overview(tmp_path):
+    csv = tmp_path / "unified_endframe.csv"
+    write(csv, unified_with_endframe_and_logo_anim())
+    out = tmp_path / "unified_endframe.json"
+    run_cli([str(csv), str(out), "--fps", "25"])
+    # Non-split mode writes a single selected country payload (default selects last country)
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    vids = payload.get("videos", [])
+    end_items = [v.get("endFrame") for v in vids if v.get("videoId") == "VID2_landscape"]
+    assert end_items and isinstance(end_items[0], list)
+    # Validate timing exists and is correctly parsed/rounded; text may be empty unless prefer-local is enabled
+    assert end_items[0][0]["in"] == 2.0 and end_items[0][0]["out"] == 3.0
+    mg = payload.get("metadataGlobal", {})
+    assert "logo_anim_flag" in mg
+    overview = mg["logo_anim_flag"]
+    # Duration sub-key may have been uppercased (country_scope normalization); accept either '3s' or '3S'
+    assert any(k.lower() == "3s" for k in overview.keys())
+
+
+def unified_country_column_single_trim():
+    # Provide two country columns but select the first via --country-column to test trimming of overview values
+    header = "record_type,video_id,line,start,end,key,is_global,country_scope,metadata,GBR,GBR,FRA,FRA"
+    rows = [header]
+    # logo_anim_flag duration row with per-country differing values (so trimming logic executes)
+    rows.append("meta_global,,,,'',logo_anim_flag,,5s,animDefault,ValGBR,,ValFRA,")
+    # Simple subtitle row
+    rows.append("sub,VIDX,1,0,1,,,,'Hello',Hi GBR,,Hi FRA,")
+    return "\n".join(rows)
+
+
+def test_country_column_selection_trims_logo_anim_overview(tmp_path):
+    csv = tmp_path / "country_sel.csv"
+    write(csv, unified_country_column_single_trim())
+    out = tmp_path / "country_sel.json"
+    # Select the first country (GBR) among 2 -> overview should only include GBR value not nested other country entries
+    run_cli([str(csv), str(out), "--fps", "25", "--country-column", "1"])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    mg = data.get("metadataGlobal", {})
+    assert "logo_anim_flag" in mg
+    overview = mg["logo_anim_flag"]
+    # After trimming, duration key should be present (case-insensitive) and map to the selected country's value
+    dur_key = next((k for k in overview.keys() if k.lower() == "5s"), None)
+    assert dur_key is not None
+    val = overview[dur_key]
+    assert isinstance(val, str) and val == "ValGBR"
