@@ -157,6 +157,31 @@ def test_multi_country_with_non_dict_payload_entry(tmp_path):
     assert any("[DEU][metadataGlobal]" in l and "subtitle_flag=True" in l for l in lines)
 
 
+def test_multi_country_per_video_show_missing(tmp_path):
+    # Build multi-country with videos lacking keys, assert <MISSING> appears in per-video lines
+    data = {
+        "_multi": True,
+        "byCountry": {
+            "GBR": {
+                "metadataGlobal": {"jobNumber": "gb"},
+                "videos": [
+                    {"videoId": "g0", "metadata": {}},  # both missing
+                    {"videoId": "g1", "metadata": {"subtitle_flag": True}},  # jobNumber missing
+                ],
+            }
+        },
+    }
+    f = tmp_path / "mc_show_missing.json"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    code, lines = run_cli([str(f), "--per-video", "--show-missing", "--keys", "jobNumber,subtitle_flag"])
+    assert code == 0
+    # two per-video lines expected, both with some <MISSING>
+    v0 = next(l for l in lines if "[GBR][video:g0]" in l)
+    assert "jobNumber=<MISSING>" in v0 and "subtitle_flag=<MISSING>" in v0
+    v1 = next(l for l in lines if "[GBR][video:g1]" in l)
+    assert "jobNumber=<MISSING>" in v1 and "subtitle_flag=True" in v1
+
+
 def test_default_keys_omitted_uses_defaults(tmp_path):
     # Defaults: disclaimer_flag, subtitle_flag, jobNumber
     f = make_single_country(
