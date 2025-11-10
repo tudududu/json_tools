@@ -79,6 +79,8 @@ def unified_csv_content(orientation=True):
         # Disclaimer timed starter + continuation (no end on second)
         "disclaimer,,1,0,1,,,,'Disc',Disc L,Disc P",
         "disclaimer,,2,,,,,,,'More',More L,",
+        # Logo timed row (global text)
+        "logo,,1,1,2,,,,'Logo',Logo L,Logo P",
     ]
     return "\n".join(base)
 
@@ -96,6 +98,40 @@ def test_no_orientation_switches_shapes(tmp_path, no_orientation_flag):
     if no_orientation_flag:
         # claim should be a list not an orientation dict
         assert isinstance(data["claim"], list)
+        assert isinstance(data["disclaimer"], list)
+        assert isinstance(data["logo"], list)
     else:
         assert isinstance(data["claim"], dict)
         assert "landscape" in data["claim"] and "portrait" in data["claim"]
+        assert isinstance(data["disclaimer"], dict)
+        assert isinstance(data["logo"], dict)
+
+
+def test_hhmmssff_parse_with_fps_times_as_string(tmp_path):
+    csv = tmp_path / "frames.csv"
+    # 00:00:01:12 @25fps = 1.48s
+    write(csv, "Start Time,End Time,Text\n00:00:01:12,00:00:03:00,Hello")
+    out = tmp_path / "out.json"
+    run_cli([str(csv), str(out), "--fps", "25", "--times-as-string"])  # default round=2
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["subtitles"][0]["in"] == "1.48"
+
+
+@pytest.mark.parametrize("delim_name,delim_char", [("tab", "\t"), ("pipe", "|")])
+def test_delimiter_named_mappings_tab_and_pipe(tmp_path, delim_name, delim_char):
+    csv = tmp_path / f"subs_{delim_name}.csv"
+    write(csv, f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}X")
+    out = tmp_path / "named.json"
+    run_cli([str(csv), str(out), "--fps", "25", "--delimiter", delim_name])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["subtitles"][0]["text"] == "X"
+
+
+def test_times_as_string_no_rounding_defaults_to_two_decimals(tmp_path):
+    csv = tmp_path / "noround.csv"
+    write(csv, "Start Time,End Time,Text\n1.2345,2.0,Hello")
+    out = tmp_path / "out.json"
+    # round=-1 disables rounding -> code formats with 2 decimals when times_as_string
+    run_cli([str(csv), str(out), "--fps", "25", "--times-as-string", "--round", "-1"])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["subtitles"][0]["in"] == "1.23"
