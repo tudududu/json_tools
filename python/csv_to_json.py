@@ -1991,7 +1991,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 # Simple scalar applies to all countries; keep as-is
                                 trimmed[dur] = val
                         mg["logo_anim_flag"] = trimmed
-                out_path = pattern.replace("{country}", c)
+                # Include language ISO in filename token when present
+                lang = ""
+                if isinstance(mg, dict):
+                    try:
+                        lang = str(mg.get("language") or "").strip()
+                    except Exception:
+                        lang = ""
+                country_token = f"{c}_{lang}" if lang else c
+                out_path = pattern.replace("{country}", country_token)
                 if args.verbose:
                     print(f"Writing {out_path}")
                 write_json(out_path, payload)
@@ -2023,13 +2031,29 @@ def main(argv: Optional[List[str]] = None) -> int:
             out_path_single = args.output
             # Expand {country} if present in output or pattern (single-country mode)
             if "{country}" in (out_path_single or ""):
-                out_path_single = out_path_single.replace("{country}", csel)
+                # Use language suffix when present in payload metadataGlobal
+                lang_sel = ""
+                if isinstance(mg, dict):
+                    try:
+                        lang_sel = str(mg.get("language") or "").strip()
+                    except Exception:
+                        lang_sel = ""
+                token = f"{csel}_{lang_sel}" if lang_sel else csel
+                out_path_single = out_path_single.replace("{country}", token)
             elif args.output_pattern:
                 root_pattern = args.output_pattern
                 if "{country}" not in root_pattern:
                     rroot, rext = os.path.splitext(root_pattern)
                     root_pattern = f"{rroot}_{{country}}{rext}"
-                out_path_single = root_pattern.replace("{country}", csel)
+                # Likewise include language suffix when present
+                lang_sel = ""
+                if isinstance(mg, dict):
+                    try:
+                        lang_sel = str(mg.get("language") or "").strip()
+                    except Exception:
+                        lang_sel = ""
+                token = f"{csel}_{lang_sel}" if lang_sel else csel
+                out_path_single = root_pattern.replace("{country}", token)
             if args.verbose:
                 print(f"Writing {out_path_single} (selected country: {csel})")
             write_json(out_path_single, payload)
