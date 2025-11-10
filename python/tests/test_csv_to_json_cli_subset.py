@@ -224,3 +224,29 @@ def test_country_column_selection_trims_logo_anim_overview(tmp_path):
     assert dur_key is not None
     val = overview[dur_key]
     assert isinstance(val, str) and val == "ValGBR"
+
+
+def unified_with_language_row():
+    # Two countries with duplicated columns for orientation: GBR,GBR,FRA,FRA
+    header = "record_type,video_id,line,start,end,key,is_global,country_scope,metadata,GBR,GBR,FRA,FRA"
+    rows = [header]
+    # language row: set value for GBR only; FRA left empty to test default ""
+    rows.append("meta_global,,,,'',language,Y,,,EN,,, ,")
+    # Minimal subtitle row so payload builds
+    rows.append("sub,VIDL,1,0,1,,,,'Hi',Hi GBR,,Hi FRA,")
+    return "\n".join(rows)
+
+
+def test_language_per_country_in_metadata_global(tmp_path):
+    csv = tmp_path / "lang.csv"
+    write(csv, unified_with_language_row())
+    out = tmp_path / "out.json"
+    # Split so we can inspect each country separately
+    run_cli([str(csv), str(out), "--fps", "25", "--split-by-country"])
+    # Expect files out_GBR.json and out_FRA.json written
+    out_gbr = out.parent / (out.stem + "_GBR.json")
+    out_fra = out.parent / (out.stem + "_FRA.json")
+    data_gbr = json.loads(out_gbr.read_text(encoding="utf-8"))
+    data_fra = json.loads(out_fra.read_text(encoding="utf-8"))
+    assert data_gbr.get("metadataGlobal", {}).get("language") == "EN"
+    assert data_fra.get("metadataGlobal", {}).get("language") == ""

@@ -321,6 +321,8 @@ def convert_csv_to_json(
         global_meta: Dict[str, Any] = {}
         # Per-country overrides for certain meta_global keys (currently jobNumber)
         job_number_per_country: Dict[str, str] = {}
+        # Per-country language mapping from meta_global language row
+        language_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
         # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag)
@@ -436,6 +438,14 @@ def convert_csv_to_json(
                             bucket = global_flag_values_per_country.setdefault(c, {})
                             bucket[key_name] = per_val
                     # Do not store as a single shared global_meta value; flags are per-country.
+                    continue
+                # Per-country language value for metadataGlobal.language (CSV to JSON 167)
+                if key_name == "language":
+                    for ctry in countries:
+                        # Prefer portrait > landscape > metadata cell; if none present, set empty string
+                        val = (texts_portrait.get(ctry, "") or texts.get(ctry, "") or metadata_cell_val or "").strip()
+                        language_per_country[ctry] = val
+                    # Do not store a single shared language in global_meta; injected per-country later
                     continue
                 # Special multi-row meta_global: logo_anim_flag
                 # Rows supply: key=logo_anim_flag, country_scope column used as a 'duration' sub-key, metadata column (or per-country columns) as value.
@@ -1161,6 +1171,8 @@ def convert_csv_to_json(
                 gm_cast["jobNumber"] = job_number_per_country[c]
             else:
                 gm_cast.setdefault("jobNumber", "noJobNumber")
+            # Inject per-country language (empty string when not provided in input)
+            gm_cast["language"] = language_per_country.get(c, "")
             # Remove orientation key from global metadata (orientation now structural)
             gm_cast.pop("orientation", None)
 
