@@ -68,9 +68,10 @@ def main(argv=None) -> int:
 
         if data.get('_multi') and isinstance(data.get('byCountry'), dict):
             for country, payload in data['byCountry'].items():
-                mg = payload.get('metadataGlobal', {}) if isinstance(payload, dict) else {}
+                is_dict = isinstance(payload, dict)
+                mg = payload.get('metadataGlobal', {}) if is_dict else {}
                 emit_line(f"[{country}][metadataGlobal]", mg)
-                if args.per_video:
+                if args.per_video and is_dict:
                     for v in payload.get('videos', []):
                         if isinstance(v, dict):
                             meta = v.get('metadata', {})

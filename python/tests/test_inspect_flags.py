@@ -113,6 +113,50 @@ def test_invalid_json_is_reported(tmp_path):
     assert any("<ERROR reading JSON" in l for l in lines)
 
 
+def test_single_country_per_video_empty_list(tmp_path):
+    # videos present but empty; --per-video should not emit [video:] lines
+    f = tmp_path / "empty_vids.json"
+    f.write_text(json.dumps({"metadataGlobal": {"jobNumber": "top"}, "videos": []}), encoding="utf-8")
+    code, lines = run_cli([str(f), "--per-video", "--keys", "jobNumber"])
+    assert code == 0
+    assert any("[metadataGlobal]" in l and "jobNumber='top'" in l for l in lines)
+    assert not any("[video:" in l for l in lines)
+
+
+def test_single_country_fallback_metadata_when_metadataGlobal_missing(tmp_path):
+    f = tmp_path / "fallback_meta.json"
+    f.write_text(json.dumps({"metadata": {"subtitle_flag": False}}), encoding="utf-8")
+    code, lines = run_cli([str(f), "--keys", "subtitle_flag,jobNumber"])
+    assert code == 0
+    mg = next(l for l in lines if "[metadataGlobal]" in l)
+    assert "subtitle_flag=False" in mg
+    assert "jobNumber=" not in mg
+
+
+def test_multi_country_without_multi_flag_treated_as_single(tmp_path):
+    # byCountry present but _multi missing -> else branch, use top-level metadataGlobal
+    data = {"metadataGlobal": {"jobNumber": "root"}, "byCountry": {"GBR": {"metadataGlobal": {"jobNumber": "gb"}}}}
+    f = tmp_path / "no_multi.json"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    code, lines = run_cli([str(f), "--keys", "jobNumber", "--per-video"])
+    assert code == 0
+    assert any("[metadataGlobal]" in l and "jobNumber='root'" in l for l in lines)
+    # Ensure we did not emit country-scoped lines
+    assert not any("[GBR][metadataGlobal]" in l for l in lines)
+
+
+def test_multi_country_with_non_dict_payload_entry(tmp_path):
+    data = {"_multi": True, "byCountry": {"GBR": "bad-payload", "DEU": {"metadataGlobal": {"subtitle_flag": True}}}}
+    f = tmp_path / "bad_payload.json"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    code, lines = run_cli([str(f), "--keys", "subtitle_flag", "--per-video"])
+    assert code == 0
+    # For GBR, payload is not dict -> prints (no keys) line
+    assert any(l.startswith(str(f)) and "[GBR][metadataGlobal]" in l for l in lines)
+    # For DEU, metadataGlobal exists
+    assert any("[DEU][metadataGlobal]" in l and "subtitle_flag=True" in l for l in lines)
+
+
 def test_default_keys_omitted_uses_defaults(tmp_path):
     # Defaults: disclaimer_flag, subtitle_flag, jobNumber
     f = make_single_country(
