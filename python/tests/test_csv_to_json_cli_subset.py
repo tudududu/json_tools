@@ -250,3 +250,28 @@ def test_language_per_country_in_metadata_global(tmp_path):
     data_fra = json.loads(out_fra.read_text(encoding="utf-8"))
     assert data_gbr.get("metadataGlobal", {}).get("language") == "EN"
     assert data_fra.get("metadataGlobal", {}).get("language") == ""
+
+
+def unified_bel_two_variants_language():
+    # Four BEL columns to simulate two variants (each pair is landscape/portrait): BEL,BEL,BEL,BEL
+    header = "record_type,video_id,line,start,end,key,is_global,country_scope,metadata,BEL,BEL,BEL,BEL"
+    rows = [header]
+    # language row: first pair FRA, second pair NLD
+    rows.append("meta_global,,,,'',language,Y,,,FRA,FRA,NLD,NLD")
+    # Minimal subtitle row so payload builds
+    rows.append("sub,VIDBEL,1,0,1,,,,'Hi',Hi,,Hoi,")
+    return "\n".join(rows)
+
+
+def test_generation_metadata_present_for_all_variants(tmp_path):
+    csv = tmp_path / "bel_variants.csv"
+    write(csv, unified_bel_two_variants_language())
+    out = tmp_path / "out.json"
+    # Split should emit BEL_FRA.json and BEL_NLD.json
+    run_cli([str(csv), str(out), "--fps", "25", "--split-by-country"])
+    f1 = out.parent / (out.stem + "_BEL_FRA.json")
+    f2 = out.parent / (out.stem + "_BEL_NLD.json")
+    d1 = json.loads(f1.read_text(encoding="utf-8"))
+    d2 = json.loads(f2.read_text(encoding="utf-8"))
+    assert d1.get("metadataGlobal", {}).get("generatedAt")
+    assert d2.get("metadataGlobal", {}).get("generatedAt")

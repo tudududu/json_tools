@@ -2021,6 +2021,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                             no_orientation=args.no_orientation,
                             country_variant_index=vi,
                         )
+                        # Inject generation metadata for alternate variant payloads as well
+                        if not args.no_generation_meta:
+                            try:
+                                _inject_generation_metadata(alt)  # type: ignore[arg-type]
+                            except Exception:
+                                pass
                         payload = (alt.get("byCountry", {}) if isinstance(alt, dict) else {}).get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
                     # Per-country export: reduce logo_anim_flag overview to only this country's values
                     mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
