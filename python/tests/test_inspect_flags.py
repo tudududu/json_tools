@@ -111,3 +111,19 @@ def test_invalid_json_is_reported(tmp_path):
     code, lines = run_cli([str(f)])
     assert code == 0  # continues processing other files (none here)
     assert any("<ERROR reading JSON" in l for l in lines)
+
+
+def test_default_keys_omitted_uses_defaults(tmp_path):
+    # Defaults: disclaimer_flag, subtitle_flag, jobNumber
+    f = make_single_country(
+        tmp_path / "defaults.json",
+        {"subtitle_flag": True},  # leave jobNumber/disclaimer_flag missing
+    )
+    code, lines = run_cli([str(f)])  # no --keys provided
+    assert code == 0
+    mg_line = next(l for l in lines if "[metadataGlobal]" in l)
+    # Present default key should appear
+    assert "subtitle_flag=True" in mg_line
+    # Missing default keys should be omitted (since --show-missing not set)
+    assert "jobNumber=" not in mg_line
+    assert "disclaimer_flag=" not in mg_line
