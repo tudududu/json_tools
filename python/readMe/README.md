@@ -134,6 +134,8 @@ Custom output naming:
 python3 csv_to_json.py unified.csv out/subs.json --fps 25 --split-by-country --output-pattern out/WTA_{country}.json
 ```
 
+When `language` is present (see below), filenames automatically include it after the country code during `{country}` expansion: `out/WTA_GBR_EN.json`. If the language is missing for a country, the file name remains `out/WTA_GBR.json`.
+
 Single-country with templated filename:
 ```sh
 python3 csv_to_json.py unified.csv out/WTA_{country}.json --fps 25 --country-column 1
@@ -289,6 +291,7 @@ Multi-country output control:
 * `--split-by-country` Write one JSON per country (pattern can include `{country}`)
 * `--output-pattern <path>` Custom output path pattern using `{country}`. Works with split mode and with single-country exports when used with `--country-column <n>` (the placeholder expands to the selected country). If the pattern lacks `{country}`, it will be injected before the extension.
 * `--country-column <n>` When not splitting, choose the Nth country among detected ones (default last). You can still use `{country}` in the output path to inject the selected code.
+* `--country-variant-index <n>` When a country appears multiple times (duplicate column pairs, e.g., to represent different language variants), select which pair to use in non-split scenarios (0-based; default 0). Split mode emits all variants automatically.
 
 Validation / inspection:
 * `--validate-only` Parse & validate only (exit code 0 on success, 1 on validation errors)
@@ -345,6 +348,11 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   * `lastChangeId` – first heading line in `CHANGELOG.md` (best-effort)
   These are omitted only during `--validate-only` and `--dry-run` since no files are written.
   Use `--no-generation-meta` to suppress all of the above for reproducible snapshots.
+
+* Per-country language (CSV to JSON 167–171):
+  * Provide a `meta_global` row with `key=language` to set per-country language codes. The converter captures values per country (portrait > landscape > metadata cell). When a value is missing for a country, `metadataGlobal.language` is set to an empty string.
+  * Filenames: when `{country}` is expanded, the language ISO is appended for that country if present, yielding `<base>_<COUNTRY>_<LANG>.json`; otherwise `<base>_<COUNTRY>.json`.
+  * Multi‑variant export: if the same country appears multiple times (duplicate columns representing distinct variants), split mode emits one file per variant (e.g., `..._BEL_FRA.json` and `..._BEL_NLD.json`). In non‑split mode you may choose a specific variant via `--country-variant-index`.
 
 * A `CHANGELOG.md` file tracks recent changes; `lastChangeId` references its latest heading.
   In this repository the Python-specific changelog resides at `python/readMe/CHANGELOG.md`.

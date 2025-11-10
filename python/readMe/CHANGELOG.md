@@ -1,3 +1,21 @@
+# 1.5.0 - 2025-11-10
+
+Added:
+- Per-country `language` support in unified CSVs (CSV to JSON 167):
+	* A `meta_global` row with `key=language` now captures per-country values (portrait > landscape > metadata cell), defaulting to empty string when missing.
+	* The captured value is injected into each output under `metadataGlobal.language`.
+- Filename language suffix (CSV to JSON 168):
+	* Wherever `{country}` is used in output naming (split mode or single-country templating), a language ISO code is appended when present: `<name>_<COUNTRY>_<LANG>.json`; otherwise `<name>_<COUNTRY>.json`.
+- Multi-variant export for duplicated country columns (CSV to JSON 169/170):
+	* When a country appears multiple times (e.g., repeated `BEL` columns representing distinct language variants), split mode now emits one file per variant (e.g., `..._BEL_FRA.json` and `..._BEL_NLD.json`).
+	* New optional `--country-variant-index` selects which duplicated pair to use in non-split scenarios (0-based; default 0).
+
+Tests:
+- Added tests for frames rounding near HH:MM:SS:FF boundaries, delimiter auto-sniff for tab/pipe, minimal `endFrame` branch coverage, `{country}` + language filename injection, multi-variant BEL exports with generation metadata on all variants, and a `--dry-run` visibility check for discovered countries.
+
+Docs:
+- Updated README with `language` rules, filename language suffix behavior, multi-variant export notes, and the `--country-variant-index` flag.
+
 # 1.4.12 - 2025-11-08
 
 Added:
