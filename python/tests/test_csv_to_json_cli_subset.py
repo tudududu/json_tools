@@ -275,3 +275,14 @@ def test_generation_metadata_present_for_all_variants(tmp_path):
     d2 = json.loads(f2.read_text(encoding="utf-8"))
     assert d1.get("metadataGlobal", {}).get("generatedAt")
     assert d2.get("metadataGlobal", {}).get("generatedAt")
+
+
+def test_dry_run_reports_variants(tmp_path):
+    csv = tmp_path / "bel_variants_dry.csv"
+    write(csv, unified_bel_two_variants_language())
+    out = tmp_path / "out.json"
+    # Expect dry-run to print discovered countries and per-country stats; we look for both BEL_FRA and BEL_NLD via filenames if split, but here we only check stdout contains country
+    proc = run_cli([str(csv), str(out), "--fps", "25", "--split-by-country", "--dry-run"], expect_exit=0)
+    # Should list Discovered countries and include BEL
+    assert "Discovered countries" in proc.stdout
+    assert "BEL" in proc.stdout
