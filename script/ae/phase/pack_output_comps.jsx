@@ -578,7 +578,22 @@ function __Pack_coreRun(opts) {
         switch(tokenKey){
             case 'CLIENT': return meta && meta.client ? meta.client : '';
             case 'BRAND': return meta && meta.brand ? meta.brand : '';
-            case 'COUNTRY': return meta && meta.country ? meta.country : '';
+            case 'COUNTRY':
+                // Integration 167: Multi-language — if both ISO and LANG available from link_data, return ISO_LANG, else ISO only.
+                // We deliberately do NOT introduce a new token; COUNTRY expands to DEU or DEU_FRA consistently.
+                var baseCountry = meta && meta.country ? meta.country : '';
+                try {
+                    if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData) {
+                        var ld = AE_PIPE.results.linkData;
+                        var iso = ld && ld.iso ? String(ld.iso).toUpperCase() : null;
+                        var lang = ld && ld.lang ? String(ld.lang).toUpperCase() : null;
+                        if (iso) {
+                            if (lang) return iso + '_' + lang; // prefer pipeline detection over JSON country
+                            return iso;
+                        }
+                    }
+                } catch(eCtry) {}
+                return baseCountry; // fallback to metadataGlobal.country
             case 'JOBNUMBER': return meta && meta.jobNumber ? meta.jobNumber : '';
             case 'CAMPAIGN': return meta && meta.campaign ? meta.campaign : '';
             case 'TITLE':

@@ -57,8 +57,12 @@
         return { file: df, dev:false };
     }
 
+    function __stripBOM(s){ try{ if(!s||!s.length) return s; if(s.charCodeAt(0)===0xFEFF) return s.substring(1); }catch(e){} return s; }
+    function __stripComments(s){ try{ s = s.replace(/(^|[^:])\/\/.*$/gm, '$1'); s = s.replace(/\/\*[\s\S]*?\*\//g, ''); }catch(e){} return s; }
+    function __stripTrailingCommas(s){ try{ s = s.replace(/,\s*([}\]])/g, '$1'); }catch(e){} return s; }
+    function __parseJSONSafe(text){ var t=String(text||""); t=__stripBOM(t); t=__stripComments(t); t=__stripTrailingCommas(t); try{ if(typeof JSON!=='undefined'&&JSON.parse) return JSON.parse(t);}catch(e){} try{ return eval('(' + t + ')'); }catch(e2){ return null; } }
     function readJson(file){
-        try { if (!file || !file.exists) return null; if (!file.open("r")) return null; var t=file.read(); file.close(); if (typeof JSON==='undefined'||!JSON.parse) throw new Error('JSON.parse not available'); return JSON.parse(t); } catch(e){ try{ file.close(); }catch(_){} return null; }
+        try { if (!file || !file.exists) return null; if (!file.open("r")) return null; var t=file.read(); file.close(); return __parseJSONSafe(t); } catch(e){ try{ file.close(); }catch(_){} return null; }
     }
 
     // Ensure project is open before scanning POST folders (run Step 0 if configured in preset)

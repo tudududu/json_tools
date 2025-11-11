@@ -66,6 +66,28 @@
     }
 
     // 3) Read & parse JSON
+    function __stripBOM(s){ try{ if(!s||!s.length) return s; if(s.charCodeAt(0)===0xFEFF) return s.substring(1); }catch(e){} return s; }
+    function __stripComments(s){
+        try{
+            // Remove // line comments (not within strings; heuristic: preceding char not a colon)
+            s = s.replace(/(^|[^:])\/\/.*$/gm, '$1');
+            // Remove /* block */ comments
+            s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+        }catch(e){}
+        return s;
+    }
+    function __stripTrailingCommas(s){
+        try{ s = s.replace(/,\s*([}\]])/g, '$1'); }catch(e){}
+        return s;
+    }
+    function __parseJSONSafe(text){
+        var t = String(text||"");
+        t = __stripBOM(t);
+        t = __stripComments(t);
+        t = __stripTrailingCommas(t);
+        try { if (typeof JSON !== 'undefined' && typeof JSON.parse === 'function') return JSON.parse(t); } catch(eJP) {}
+        try { return eval('(' + t + ')'); } catch(eEV) { throw eEV; }
+    }
     var text = "";
     try {
         if (!presetFile.open("r")) { alert("Preset Loader: Cannot open preset file: " + presetFile.fsName); return; }
@@ -77,13 +99,10 @@
         return;
     }
 
-    // Basic sanity trim; ExtendScript usually has JSON.parse in modern AE
+    // Robust parse: works without JSON.parse (older ExtendScript)
     var presetObj = null;
     try {
-        if (typeof JSON === 'undefined' || typeof JSON.parse !== 'function') {
-            throw new Error("JSON.parse not available in this AE environment.");
-        }
-        presetObj = JSON.parse(text);
+        presetObj = __parseJSONSafe(text);
     } catch(eJ) {
         alert("Preset Loader: Failed to parse JSON (" + (eJ && eJ.message ? eJ.message : eJ) + ")\nFile: " + presetFile.fsName);
         return;
