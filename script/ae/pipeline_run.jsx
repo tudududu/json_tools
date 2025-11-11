@@ -441,8 +441,25 @@
         }
     var resL1 = (typeof resL1 === 'undefined') ? null : resL1; // normalize in case of hoist differences
     if (resL1 && resL1.ok) {
-    var isoLine = "ISO=" + (resL1.iso||"?") + " (" + (resL1.origin||"?") + "), relinked=" + (!!resL1.relinked) + ", imported=" + (!!resL1.imported);
-    log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {link_data} " : "") + "Step 1: Link result: " + isoLine);
+        var isoLine = "ISO=" + (resL1.iso||"?") + " (" + (resL1.origin||"?") + "), relinked=" + (!!resL1.relinked) + ", imported=" + (!!resL1.imported);
+        log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {link_data} " : "") + "Step 1: Link result: " + isoLine);
+    } else if (resL1 && resL1.fatal) {
+        // Abort early on strict fatal from Step 1 (e.g., manual ISO_LANG requested but file missing)
+        var reason1 = resL1.reason || "link_data reported fatal";
+        log("FATAL: Aborting: " + reason1);
+        // Mark end time for Step 1 before building summary
+        tLe = nowMs();
+        // Summarize and end run early
+        var totalMsAbort1 = nowMs() - t0All;
+        var summary1 = [];
+        summary1.push("Pipeline aborted (Step 1 fatal).");
+        var layersAddedTotalAbort1 = 0; try { layersAddedTotalAbort1 = (AE_PIPE.results.meta && AE_PIPE.results.meta.addLayersAddedTotal) ? AE_PIPE.results.meta.addLayersAddedTotal : 0; } catch(eL1) {}
+        summary1.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length + ", layersAddedTotal=" + layersAddedTotalAbort1);
+        summary1.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMsAbort1));
+        var finalMsgAbort1 = summary1.join("\n");
+        log(finalMsgAbort1);
+        try { log("=== PIPELINE RUN END ==="); } catch(eE1) {}
+        return;
     }
     tLe = nowMs();
 

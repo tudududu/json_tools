@@ -166,6 +166,15 @@ function __LinkData_coreRun(opts) {
     }
     var fsFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, DATA_JSON_LANG_CODE)));
     if (!fsFile.exists) {
+        // Strict behavior: when language was requested manually, abort the pipeline if matching file is missing
+        if (DATA_JSON_LANG_CODE && __langOrigin === 'manual') {
+            var msgStrict = "[data.json] Strict: requested file not found for ISO_LANG=" + DATA_JSON_ISO_CODE + "_" + DATA_JSON_LANG_CODE + 
+                            " at path: " + (new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, DATA_JSON_LANG_CODE))).fsName);
+            log(msgStrict);
+            try { if (__AE_PIPE__){ __AE_PIPE__.__fatal = msgStrict; } } catch(eFatalSet) {}
+            app.endUndoGroup();
+            return { ok:false, fatal:true, reason: msgStrict, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
+        }
         // Fallback: if language was auto-detected but file missing (race), drop language and retry base ISO
         if (DATA_JSON_LANG_CODE && __langOrigin === 'auto') {
             var baseFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, null)));
@@ -179,7 +188,7 @@ function __LinkData_coreRun(opts) {
     if (!fsFile.exists) {
         log('[data.json] Source file not found: ' + fsFile.fsName + ' (ISO=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(', LANG='+DATA_JSON_LANG_CODE):'') + ')');
         app.endUndoGroup();
-    return { ok:true, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
+        return { ok:true, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
     }
 
     // Ensure AE project folder exists
