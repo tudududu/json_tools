@@ -142,6 +142,7 @@ function __Pack_coreRun(opts) {
         { key: 'CLIENT',       enabled: true },
         { key: 'BRAND',        enabled: true },
         { key: 'COUNTRY',      enabled: true },
+        { key: 'LANGUAGE',     enabled: true },
         { key: 'JOBNUMBER',    enabled: true },
         { key: 'CAMPAIGN',     enabled: true },
         { key: 'TITLE',        enabled: true },
@@ -571,6 +572,16 @@ function __Pack_coreRun(opts) {
         return null;
     }
 
+    function __isTokenEnabled(key){
+        try {
+            for (var i=0;i<OUTPUT_NAME_TOKENS.length;i++){
+                var t = OUTPUT_NAME_TOKENS[i];
+                if (t && t.key === key) return !!t.enabled;
+            }
+        } catch(e) {}
+        return false;
+    }
+
     function buildTokenValue(tokenKey, ctx){
         var meta = ctx.meta;
         var video = ctx.video;
@@ -579,21 +590,29 @@ function __Pack_coreRun(opts) {
             case 'CLIENT': return meta && meta.client ? meta.client : '';
             case 'BRAND': return meta && meta.brand ? meta.brand : '';
             case 'COUNTRY':
-                // Integration 167: Multi-language — if both ISO and LANG available from link_data, return ISO_LANG, else ISO only.
-                // We deliberately do NOT introduce a new token; COUNTRY expands to DEU or DEU_FRA consistently.
-                var baseCountry = meta && meta.country ? meta.country : '';
+                // Integration 169: COUNTRY yields ISO only; LANGUAGE is emitted separately right after COUNTRY.
+                // Prefer pipeline Step 1 (link_data) ISO; fallback to metadataGlobal.country.
                 try {
-                    if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData) {
-                        var ld = AE_PIPE.results.linkData;
-                        var iso = ld && ld.iso ? String(ld.iso).toUpperCase() : null;
-                        var lang = ld && ld.lang ? String(ld.lang).toUpperCase() : null;
-                        if (iso) {
-                            if (lang) return iso + '_' + lang; // prefer pipeline detection over JSON country
-                            return iso;
-                        }
+                    if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData && AE_PIPE.results.linkData.iso) {
+                        return String(AE_PIPE.results.linkData.iso).toUpperCase();
                     }
                 } catch(eCtry) {}
-                return baseCountry; // fallback to metadataGlobal.country
+                return meta && meta.country ? meta.country : '';
+            case 'LANGUAGE':
+                // Language token inherits COUNTRY behavior:
+                // - If COUNTRY token is disabled, suppress LANGUAGE as well.
+                // - If no ISO available, suppress LANGUAGE (ties to country presence).
+                try {
+                    if (!__isTokenEnabled('COUNTRY')) return '';
+                    if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData) {
+                        var ld2 = AE_PIPE.results.linkData;
+                        var iso2 = ld2 && ld2.iso ? String(ld2.iso) : null;
+                        var lang2 = ld2 && ld2.lang ? String(ld2.lang) : null;
+                        if (!iso2) return '';
+                        if (lang2) return String(lang2).toUpperCase();
+                    }
+                } catch(eLang) {}
+                return '';
             case 'JOBNUMBER': return meta && meta.jobNumber ? meta.jobNumber : '';
             case 'CAMPAIGN': return meta && meta.campaign ? meta.campaign : '';
             case 'TITLE':
