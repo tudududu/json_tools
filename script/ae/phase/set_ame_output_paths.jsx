@@ -100,6 +100,8 @@ function __AME_coreRun(opts) {
     var EXTRA_TAG_TOKENS = [];                      // optional tokens to detect extras in names (e.g., ["TIKTOK"])    
     // 5c. Duration-level subfolder toggle
     var ENABLE_DURATION_SUBFOLDER = true;           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
+    // 5d. Language-level subfolder toggle (Integration 166)
+    var USE_LANGUAGE_SUBFOLDER = false;             // When true, insert <LANG> subfolder under <date[_ISO]> when language is known
 
     // Options overrides
     try {
@@ -134,6 +136,7 @@ function __AME_coreRun(opts) {
             var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
             if (o.EXTRA_EXPORT_SUBFOLDER !== undefined) EXTRA_EXPORT_SUBFOLDER = !!o.EXTRA_EXPORT_SUBFOLDER;
             if (o.ENABLE_DURATION_SUBFOLDER !== undefined) ENABLE_DURATION_SUBFOLDER = !!o.ENABLE_DURATION_SUBFOLDER;
+            if (o.USE_LANGUAGE_SUBFOLDER !== undefined) USE_LANGUAGE_SUBFOLDER = !!o.USE_LANGUAGE_SUBFOLDER;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -509,6 +512,7 @@ function __AME_coreRun(opts) {
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
                 log("ExportSubpath=" + __exportSegs.join("/"));
                 log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
+                log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
                 var __ameEnvHeaderLogged = true;
@@ -534,6 +538,7 @@ function __AME_coreRun(opts) {
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
             log("ExportSubpath=" + __exportSegs.join("/"));
             log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
+            log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
             log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
             log("--- ENV HEADER END ---");
         }
@@ -590,6 +595,31 @@ function __AME_coreRun(opts) {
     }
     // Always list the date folder as base (with trailing slash)
     __markTouched(dateFolder.fsName);
+
+    // Optional: insert language subfolder under date folder when known
+    try {
+        if (USE_LANGUAGE_SUBFOLDER) {
+            var __langCode = null;
+            try {
+                if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) {
+                    __langCode = String(__AE_PIPE__.results.linkData.lang || '').toUpperCase();
+                }
+            } catch(eLang) { __langCode = null; }
+            if (__langCode && /^[A-Za-z]{3}$/.test(__langCode)) {
+                var langFolder = new Folder(joinPath(dateFolder.fsName, __langCode));
+                if (!ensureFolderExists(langFolder)) {
+                    alertOnce("Cannot create language folder: " + langFolder.fsName);
+                    app.endUndoGroup();
+                    return;
+                }
+                __markTouched(langFolder.fsName);
+                dateFolder = langFolder; // from now on, place under <date[_ISO]>/<LANG>/...
+                if (LOG_ISO_EXTRACTION) log("LANG: using language subfolder '" + __langCode + "'");
+            } else if (USE_LANGUAGE_SUBFOLDER) {
+                if (LOG_ISO_EXTRACTION) log("LANG: language not available; skipping subfolder");
+            }
+        }
+    } catch(eLangBlock) { try { log("LANG: subfolder block error: " + eLangBlock); } catch(_){} }
 
     // ————— Gather / Create Render Queue Items —————
     var rq = app.project.renderQueue;

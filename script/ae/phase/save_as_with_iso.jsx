@@ -20,16 +20,17 @@ if (typeof AE_SaveAsISO === 'undefined') { AE_SaveAsISO = {}; }
         // Prefer result from link_data phase
         try {
             if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.results && AE_PIPE.results.linkData && AE_PIPE.results.linkData.iso) {
-                return { iso: String(AE_PIPE.results.linkData.iso), origin: String(AE_PIPE.results.linkData.origin||'link_data') };
+                var ld = AE_PIPE.results.linkData;
+                return { iso: String(ld.iso), lang: (ld.lang?String(ld.lang):null), origin: String(ld.isoOrigin||ld.origin||'link_data') };
             }
         } catch(eLD) {}
         // Fallback: accept explicit override via options.iso
         try {
-            if (options && options.iso) return { iso: String(options.iso), origin: 'options.iso' };
+            if (options && options.iso) return { iso: String(options.iso), lang: null, origin: 'options.iso' };
         } catch(eOpt) {}
-        return { iso: null, origin: 'none' };
+        return { iso: null, lang: null, origin: 'none' };
     }
-    function __saveAsWithISO(iso, runId, log, options){
+    function __saveAsWithISO(iso, lang, runId, log, options){
         var proj = app.project;
         if (!proj) throw new Error('No project open.');
         if (!iso || !iso.length) return { ok: false, iso: null, origin: 'none', savedPath: null, existed: false, overwritten: false };
@@ -39,7 +40,7 @@ if (typeof AE_SaveAsISO === 'undefined') { AE_SaveAsISO = {}; }
         var name = String(f.name||'project.aep');
         // strip extension .aep (case-insensitive)
         var base = name.replace(/\.aep$/i, '');
-        var targetName = base + '_' + iso + '.aep';
+        var targetName = base + '_' + iso + (lang && lang.length ? '_' + lang : '') + '.aep';
         var target = new File(dir.fsName + '/' + targetName);
         var existed = false, overwritten = false;
         if (target.exists) {
@@ -48,7 +49,7 @@ if (typeof AE_SaveAsISO === 'undefined') { AE_SaveAsISO = {}; }
             try { overwrite = !!(options && options.OVERWRITE === true); } catch(eOW) {}
             if (!overwrite) {
                 // Avoid overwrite by appending runId
-                target = new File(dir.fsName + '/' + base + '_' + iso + '_' + (runId||'') + '.aep');
+                target = new File(dir.fsName + '/' + base + '_' + iso + (lang && lang.length ? '_' + lang : '') + '_' + (runId||'') + '.aep');
             } else {
                 overwritten = true;
             }
@@ -74,7 +75,7 @@ if (typeof AE_SaveAsISO === 'undefined') { AE_SaveAsISO = {}; }
             L.info((typeof AE_PIPE!=='undefined' && AE_PIPE && AE_PIPE.optionsEffective && AE_PIPE.optionsEffective.PIPELINE_SHOW_PHASE_TAGS)? 'WARN {save_as_iso} ISO not available; skipping Save As.' : 'ISO not available; skipping Save As.');
             return { ok: false, iso: null, origin: isoInfo.origin, savedPath: null, existed: false, overwritten: false };
         }
-        var res = __saveAsWithISO(isoInfo.iso, runId, log, options);
+        var res = __saveAsWithISO(isoInfo.iso, isoInfo.lang, runId, log, options);
         L.info(((typeof AE_PIPE!=='undefined' && AE_PIPE && AE_PIPE.optionsEffective && AE_PIPE.optionsEffective.PIPELINE_SHOW_PHASE_TAGS)? /*'INFO {save_as_iso} '*/ '' : '') + 'Saved project as: ' + res.savedPath);
         return res;
     };

@@ -25,7 +25,7 @@
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
     "RUN_set_ame_output_paths": true,
-    "RUN_close_project": true,
+    "RUN_close_project": false,
 
 "batch": {
     "DATA_FS_SUBPATH": ["IN", "data"],
@@ -44,6 +44,7 @@
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
     "DATA_JSON_ISO_CODE_MANUAL": "DEU",
+    "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
     "DATA_JSON_FS_SUBPATH": ["IN","data"],
@@ -169,6 +170,7 @@
     "AME_MAX_QUEUE_ATTEMPTS": 3,
     "AME_RETRY_DELAY_MS": 650,
     "FILE_LOG_APPEND_MODE": true,
+    "USE_LANGUAGE_SUBFOLDER": false,
     "EXPORT_SUBPATH": ["OUT","DELIVERIES"],
     "EXTRA_EXPORT_SUBFOLDER": true,
     "ENABLE_DURATION_SUBFOLDER": false,

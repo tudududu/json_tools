@@ -81,6 +81,7 @@
             ENABLE_RELINK_DATA_JSON: true,
             DATA_JSON_ISO_MODE: "manual",             // "auto" | "manual"
             DATA_JSON_ISO_CODE_MANUAL: "SAU",
+            DATA_JSON_LANG_CODE_MANUAL: "",
             DATA_JSON_PROJECT_FOLDER: ["project","in","data"],
             DATA_JSON_PROJECT_ITEM_NAME: "data.json",
             DATA_JSON_FS_SUBPATH: ["IN","data"],
@@ -269,6 +270,7 @@
             EXTRA_EXPORT_SUBFOLDER: false,
             // 5c. Duration-level subfolder toggle
             ENABLE_DURATION_SUBFOLDER: true,           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
+            USE_LANGUAGE_SUBFOLDER: false,
 
             // Logging toggles for Step 7 (AME)
             VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block

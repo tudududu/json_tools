@@ -38,6 +38,7 @@ function __LinkData_coreRun(opts) {
     var ENABLE_RELINK_DATA_JSON = !!pick('ENABLE_RELINK_DATA_JSON', true);
     var DATA_JSON_ISO_MODE = String(pick('DATA_JSON_ISO_MODE', 'manual'));     // 'auto' | 'manual'
     var DATA_JSON_ISO_CODE_MANUAL = String(pick('DATA_JSON_ISO_CODE_MANUAL', 'SAU'));
+    var DATA_JSON_LANG_CODE_MANUAL = String(pick('DATA_JSON_LANG_CODE_MANUAL', '')); // Optional language (ISO-3) manual override
     var DATA_JSON_PROJECT_FOLDER = pick('DATA_JSON_PROJECT_FOLDER', ['project','in','data']);
     var DATA_JSON_PROJECT_ITEM_NAME = String(pick('DATA_JSON_PROJECT_ITEM_NAME', 'data.json'));
     var DATA_JSON_FS_SUBPATH = pick('DATA_JSON_FS_SUBPATH', ['IN','data']);   // under POST
@@ -86,6 +87,9 @@ function __LinkData_coreRun(opts) {
 
     // Auto-detect ISO from parent of POST folder (same logic as insert_and_relink_footage.jsx)
     var DATA_JSON_ISO_CODE = null;
+    var DATA_JSON_LANG_CODE = null; // language token (when data_<ISO>_<LANG>.json present)
+    
+    var __langOrigin = 'none';
     var __isoOrigin = "manual";
     if (DATA_JSON_ISO_MODE !== "manual") {
         var parentOfPost = postFolder ? postFolder.parent : null;
@@ -139,11 +143,43 @@ function __LinkData_coreRun(opts) {
     var sub0 = DATA_JSON_FS_SUBPATH && DATA_JSON_FS_SUBPATH.length ? DATA_JSON_FS_SUBPATH[0] : "IN";
     var sub1 = DATA_JSON_FS_SUBPATH && DATA_JSON_FS_SUBPATH.length > 1 ? DATA_JSON_FS_SUBPATH[1] : "data";
     var dataFolderFS = new Folder(joinPath(postFolder.fsName, joinPath(sub0, sub1)));
-    var fsFile = new File(joinPath(dataFolderFS.fsName, DATA_JSON_FILE_PREFIX + DATA_JSON_ISO_CODE + DATA_JSON_FILE_SUFFIX));
+    // Support optional language token: prefer file with ISO_LANG when present (strict, no fallback to other lang)
+    function buildDataFileName(iso, lang){
+        if (lang && lang.length) return DATA_JSON_FILE_PREFIX + iso + '_' + lang + DATA_JSON_FILE_SUFFIX;
+        return DATA_JSON_FILE_PREFIX + iso + DATA_JSON_FILE_SUFFIX;
+    }
+    // If manual language provided, use it directly (no auto-detect yet)
+    if (DATA_JSON_LANG_CODE_MANUAL && DATA_JSON_LANG_CODE_MANUAL.length >= 2) {
+        DATA_JSON_LANG_CODE = DATA_JSON_LANG_CODE_MANUAL.toUpperCase();
+        __langOrigin = 'manual';
+    } else {
+        // Attempt auto-detect by scanning files matching data_<ISO>_??? .json (restrict ??? to 3 letters)
+        try {
+            var pattern = new RegExp('^' + DATA_JSON_FILE_PREFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + DATA_JSON_ISO_CODE + '_([A-Za-z]{3})' + DATA_JSON_FILE_SUFFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + '$','i');
+            var files = dataFolderFS.getFiles(function(f){ return (f instanceof File) && pattern.test(f.name); });
+            if (files && files.length) {
+                // Pick first (or consider deterministic choice later). Use uppercase.
+                var m = files[0].name.match(pattern);
+                if (m && m[1]) { DATA_JSON_LANG_CODE = m[1].toUpperCase(); __langOrigin = 'auto'; }
+            }
+        } catch(eScanLang) { /* silent */ }
+    }
+    var fsFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, DATA_JSON_LANG_CODE)));
     if (!fsFile.exists) {
-        log("[data.json] Source file not found: " + fsFile.fsName);
+        // Fallback: if language was auto-detected but file missing (race), drop language and retry base ISO
+        if (DATA_JSON_LANG_CODE && __langOrigin === 'auto') {
+            var baseFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, null)));
+            if (baseFile.exists) {
+                if (DATA_JSON_LOG_VERBOSE) log('[data.json] Language file missing; falling back to ISO-only file: ' + baseFile.fsName);
+                fsFile = baseFile;
+                DATA_JSON_LANG_CODE = null; __langOrigin = 'none';
+            }
+        }
+    }
+    if (!fsFile.exists) {
+        log('[data.json] Source file not found: ' + fsFile.fsName + ' (ISO=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(', LANG='+DATA_JSON_LANG_CODE):'') + ')');
         app.endUndoGroup();
-        return { ok:true, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, origin:__isoOrigin, projectItem:null };
+    return { ok:true, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
     }
 
     // Ensure AE project folder exists
@@ -171,12 +207,12 @@ function __LinkData_coreRun(opts) {
         log("[data.json] Project item missing and import disabled.");
     }
 
-    var summary = "[data.json] Link summary: iso=" + DATA_JSON_ISO_CODE + " origin=" + __isoOrigin + " relinked=" + relinked + " imported=" + imported;
+    var summary = '[data.json] Link summary: iso=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(' lang='+DATA_JSON_LANG_CODE):'') + ' isoOrigin=' + __isoOrigin + ' langOrigin=' + __langOrigin + ' relinked=' + relinked + ' imported=' + imported;
     log(summary);
     if (!__AE_PIPE__) { try { alert(summary); } catch(eA){} }
 
     app.endUndoGroup();
-    return { ok:true, relinked:relinked, imported:imported, iso:DATA_JSON_ISO_CODE, origin:__isoOrigin, projectItem:projectItem };
+    return { ok:true, relinked:relinked, imported:imported, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:projectItem };
 }
 
 AE_LinkData.run = function(opts) { return __LinkData_coreRun(opts || {}); };
