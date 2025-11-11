@@ -579,6 +579,22 @@ function __AME_coreRun(opts) {
             }
         }
     } catch(eISOBlock) { if (LOG_ISO_EXTRACTION) log("ISO: suffix block error: " + eISOBlock); }
+
+    // Append language token to the date folder name when not using a separate subfolder
+    try {
+        if (!USE_LANGUAGE_SUBFOLDER) {
+            var __langCodeForDate = null;
+            try {
+                if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) {
+                    __langCodeForDate = String(__AE_PIPE__.results.linkData.lang || '').toUpperCase();
+                }
+            } catch(eLangRd) { __langCodeForDate = null; }
+            if (__langCodeForDate && /^[A-Za-z]{3}$/.test(__langCodeForDate)) {
+                dateFolderName = dateFolderName + "_" + __langCodeForDate;
+                if (LOG_ISO_EXTRACTION) log("LANG: appended to date folder name -> '" + dateFolderName + "'");
+            }
+        }
+    } catch(eLangDate){ try { log("LANG: date folder append error: " + eLangDate); } catch(_){} }
     // Defensive: ensure export base is valid before composing date folder
     try { if (!exportBase || !(exportBase instanceof Folder)) { throw new Error("Export base invalid"); } } catch(eEB) { log("Export base sanity check failed: " + eEB); }
     var dateFolder = new Folder(joinPath(exportBase.fsName, dateFolderName));
