@@ -166,7 +166,10 @@
             var iLANG = mG[2] ? mG[2].toUpperCase() : "";
             if (!idx[iISO]) idx[iISO] = { hasBase:false, langs:[] };
             if (iLANG) {
-                if (idx[iISO].langs.indexOf(iLANG) === -1) idx[iISO].langs.push(iLANG);
+                // ExtendScript sometimes lacks reliable Array.indexOf; use manual contains
+                var already = false;
+                for (var ci=0; ci<idx[iISO].langs.length; ci++) { if (idx[iISO].langs[ci] === iLANG) { already = true; break; } }
+                if (!already) idx[iISO].langs.push(iLANG);
             } else {
                 idx[iISO].hasBase = true;
             }
