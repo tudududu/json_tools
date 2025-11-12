@@ -155,13 +155,44 @@
     function escRe(s){ return String(s).replace(/([.*+?^${}()|[\]\\])/g,'\\$1'); }
     var isoLangRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "([A-Za-z]{3})(?:_([A-Za-z]{3}))?" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
 
+    // Build ISO index to detect ambiguous language sets in DRY_RUN mode
+    var isoIndex = (function(){
+        var idx = {};
+        for (var ii=0; ii<files.length; ii++) {
+            var fN = String(files[ii].name||"");
+            var mG = fN.match(isoLangRx);
+            if (!mG) continue;
+            var iISO = mG[1] ? mG[1].toUpperCase() : "XXX";
+            var iLANG = mG[2] ? mG[2].toUpperCase() : "";
+            if (!idx[iISO]) idx[iISO] = { hasBase:false, langs:[] };
+            if (iLANG) {
+                if (idx[iISO].langs.indexOf(iLANG) === -1) idx[iISO].langs.push(iLANG);
+            } else {
+                idx[iISO].hasBase = true;
+            }
+        }
+        return idx;
+    })();
+
+    // Preflight warnings in DRY_RUN for ambiguous language presence without manual selection
+    if (batchCfg.DRY_RUN === true) {
+        for (var kISO in isoIndex) if (isoIndex.hasOwnProperty(kISO)) {
+            var ent = isoIndex[kISO];
+            if (ent && ent.hasBase && ent.langs && ent.langs.length > 1) {
+                flog("WARN: Multiple language files detected for ISO " + kISO + " (" + ent.langs.join(", ") + ") and an ISO-only file exists. No auto-selection will occur; the ISO-only run will not pick a language. To run language-specific variants, ensure runs for data_"+kISO+"_<LANG>.json or set linkData.DATA_JSON_LANG_CODE_MANUAL.");
+            }
+        }
+    }
+
     for (var i=0; i<files.length && i<maxRuns; i++) {
         var f = files[i];
         var m = String(f.name||"").match(isoLangRx);
         var iso = m && m[1] ? m[1].toUpperCase() : "XXX";
         var lang = m && m[2] ? m[2].toUpperCase() : "";
         var runTag = lang ? (iso + "_" + lang) : iso;
-        flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO/LANG=" + runTag + " file=" + f.fsName);
+        var isAmbiguousIsoOnly = (batchCfg.DRY_RUN === true) && (!lang) && isoIndex[iso] && isoIndex[iso].langs && isoIndex[iso].langs.length > 1;
+        var ambTag = isAmbiguousIsoOnly ? " [AMBIGUOUS-LANG]" : "";
+        flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO/LANG=" + runTag + ambTag + " file=" + f.fsName);
         log("Batch: Starting " + runTag + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
 
         var ok = true; var errMsg = null; var counts = { created:0, insertRelinked:0, addLayers:0, packed:0, ameConfigured:0 };
@@ -169,6 +200,9 @@
         if (batchCfg.DRY_RUN === true) {
             // Skip execution, just log intent
             flog("   DRY RUN: would execute pipeline_run.jsx with " + (lang?"ISO_LANG=":"ISO=") + runTag);
+            if (isAmbiguousIsoOnly) {
+                flog("   WARNING: Multiple data_"+iso+"_<LANG>.json present (" + isoIndex[iso].langs.join(", ") + ") but no language selected; Step 1 (link_data) will proceed with ISO-only and emit a warning.");
+            }
         } else {
             // Prepare per-run options: base preset + overrides
             var runOpts = {}; // deep copy by merge into empty
