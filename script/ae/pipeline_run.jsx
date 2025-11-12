@@ -447,6 +447,7 @@
         // Abort early on strict fatal from Step 1 (e.g., manual ISO_LANG requested but file missing)
         var reason1 = resL1.reason || "link_data reported fatal";
         log("FATAL: Aborting: " + reason1);
+        try { alert("Pipeline aborted (Step 1):\n" + reason1); } catch(eA1) {}
         // Mark end time for Step 1 before building summary
         tLe = nowMs();
         // Summarize and end run early
@@ -599,6 +600,7 @@
                     summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMsAbort));
                     var finalMsgAbort = summary.join("\n");
                     log(finalMsgAbort);
+                    try { alert("Pipeline aborted:\n" + AE_PIPE.__fatal); } catch(eA2) {}
                     try { log("=== PIPELINE RUN END ==="); } catch(eEnd) {}
                     return; // terminate pipeline IIFE
                 }

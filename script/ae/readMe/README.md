@@ -193,6 +193,33 @@ Table of contents
   ### 11. Changelog (Recent Highlights)
   See prior integration notes for full history. Key additions: Strict AUTO footage mode; template duration matching; extras duplication & routing; unified save policy in Batch Mode; global log marker; dimension validation; early Step 0 bootstrap; dynamic AME template mapping.
 
+  #### Integration 165 – Multi-Language Countries (MLC) Foundation
+  Goal: Introduce minimal options to support campaigns where a single country ISO may have multiple language JSON variants without exploding configuration surface.
+  Scope implemented:
+  - Added manual language override option: `linkData.DATA_JSON_LANG_CODE_MANUAL` (empty string => no manual language).
+  - Added AME language subfolder toggle: `ame.USE_LANGUAGE_SUBFOLDER`.
+  - Language detection logic in `link_data.jsx`:
+    - Filename pattern: `data_<ISO>_<LANG>.json` (LANG = 3 letters) auto-detect when manual language unset.
+    - Manual language strict mode: if set and `data_<ISO>_<LANG>.json` missing ⇒ fatal abort.
+    - Auto-detected language missing (race) ⇒ fallback to ISO-only file if present.
+  - Save-As (Step 2) includes language when present: `project_<ISO>_<LANG>_<runId>.aep`.
+  - Pack naming (Step 6): introduced distinct `COUNTRY` (ISO only) and new `LANGUAGE` token inserted immediately after country. COUNTRY token no longer carries language; LANGUAGE suppressed if no ISO or language.
+  - AME output date folder naming (Step 7):
+    - When `USE_LANGUAGE_SUBFOLDER=false`: date folder suffix becomes `_ISO_LANG` (e.g., `251112_CAN_FRA`).
+    - When `USE_LANGUAGE_SUBFOLDER=true`: date folder suffix `_ISO` only, with `<LANG>/` nested (e.g., `251112_CAN/FRA/16x9/...`).
+  - Robust preset loader & batch orchestrator JSON parsing updated to support environments missing native `JSON.parse` (BOM strip, comment & trailing comma cleanup, eval fallback).
+  - Strict fatal enforcement extended: manual ISO missing file now aborts early (alongside manual ISO+LANG missing).
+  Guidance:
+  - Prefer manual language only when needing deterministic pair; rely on auto-detect for typical multi-file drops.
+  - If multiple `data_<ISO>_<LANG>.json` exist, first match selected (deterministic by folder enumeration order); future enhancement could sort by modified time.
+  - Logging origins: `isoOrigin` = `manual(forced)|manual(fallback)|auto`; `langOrigin` = `manual|auto|none` clarifies detection path.
+  Deferred (possible future work):
+  - Sorting heuristic for multiple language files.
+  - Batch Mode multi-language runs per ISO (current batch iterates ISO variants only).
+  - Pack token for language when country token suppressed (currently LANGUAGE inherits COUNTRY suppression).
+  - Language-aware audio ISO checks (currently only country vs audio ISO).
+
+
   ### 12. Design Principles
   Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
       - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
