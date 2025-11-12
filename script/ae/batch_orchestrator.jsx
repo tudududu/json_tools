@@ -104,7 +104,14 @@
         var sub1 = batchCfg.DATA_FS_SUBPATH[1] || 'data';
         var folder = new Folder(joinFs(postFolder.fsName, joinFs(sub0, sub1)));
         if (!folder.exists) return [];
-        var rx = new RegExp("^" + batchCfg.FILE_PREFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') + "([A-Za-z]{3})" + batchCfg.FILE_SUFFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') + "$", "i");
+        // Match both ISO-only and ISO_LANG variants: data_<ISO>.json and data_<ISO>_<LANG>.json
+        var rx = new RegExp(
+            "^" + batchCfg.FILE_PREFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') +
+            "([A-Za-z]{3})(?:_([A-Za-z]{3}))?" +
+            batchCfg.FILE_SUFFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') +
+            "$",
+            "i"
+        );
         var files = folder.getFiles(function(f){ return f instanceof File && rx.test(String(f.name||"")); });
         files.sort(function(a,b){ try { return String(a.name).toLowerCase() < String(b.name).toLowerCase() ? -1 : 1; } catch(e){ return 0; } });
         return files;
@@ -144,22 +151,24 @@
     var maxRuns = (batchCfg.RUNS_MAX && batchCfg.RUNS_MAX>0) ? batchCfg.RUNS_MAX : files.length;
     var results = [];
 
-    // Precompile ISO extraction regex using configured prefix/suffix to avoid mismatches
+    // Precompile ISO(+LANG) extraction regex using configured prefix/suffix to avoid mismatches
     function escRe(s){ return String(s).replace(/([.*+?^${}()|[\]\\])/g,'\\$1'); }
-    var isoRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "([A-Za-z]{3})" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
+    var isoLangRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "([A-Za-z]{3})(?:_([A-Za-z]{3}))?" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
 
     for (var i=0; i<files.length && i<maxRuns; i++) {
         var f = files[i];
-        var m = String(f.name||"").match(isoRx);
+        var m = String(f.name||"").match(isoLangRx);
         var iso = m && m[1] ? m[1].toUpperCase() : "XXX";
-        flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO=" + iso + " file=" + f.fsName);
-        log("Batch: Starting ISO=" + iso + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
+        var lang = m && m[2] ? m[2].toUpperCase() : "";
+        var runTag = lang ? (iso + "_" + lang) : iso;
+        flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO/LANG=" + runTag + " file=" + f.fsName);
+        log("Batch: Starting " + runTag + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
 
         var ok = true; var errMsg = null; var counts = { created:0, insertRelinked:0, addLayers:0, packed:0, ameConfigured:0 };
 
         if (batchCfg.DRY_RUN === true) {
             // Skip execution, just log intent
-            flog("   DRY RUN: would execute pipeline_run.jsx with ISO=" + iso);
+            flog("   DRY RUN: would execute pipeline_run.jsx with " + (lang?"ISO_LANG=":"ISO=") + runTag);
         } else {
             // Prepare per-run options: base preset + overrides
             var runOpts = {}; // deep copy by merge into empty
@@ -172,6 +181,8 @@
             runOpts.linkData.ENABLE_RELINK_DATA_JSON = true;
             runOpts.linkData.DATA_JSON_ISO_MODE = 'manual';
             runOpts.linkData.DATA_JSON_ISO_CODE_MANUAL = iso;
+            // Set manual language when present; empty string otherwise
+            runOpts.linkData.DATA_JSON_LANG_CODE_MANUAL = lang || "";
             // Optional: quieten phase file logs if master disabled in preset
             if (runOpts.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
                 try { runOpts.linkData.ENABLE_FILE_LOG = false; } catch(eLF){}
@@ -182,7 +193,7 @@
             AE_PIPE.MODE = 'pipeline';
             AE_PIPE.userOptions = runOpts;
             // Include metadata to tag which ISO we ran
-            try { AE_PIPE.userOptions.__presetMeta = { path: presetRef.file.fsName, loadedAt: runId, devUsed: !!presetRef.dev, batchISO: iso }; }catch(eMD){}
+            try { AE_PIPE.userOptions.__presetMeta = { path: presetRef.file.fsName, loadedAt: runId, devUsed: !!presetRef.dev, batchISO: iso, batchLANG: lang }; }catch(eMD){}
 
             // Run pipeline
             try { $.evalFile(PIPELINE_RUN_PATH); } catch(eRun) { ok=false; errMsg = (eRun && eRun.message)?eRun.message:(""+eRun); }
@@ -197,8 +208,8 @@
             } catch(eCnt){}
         }
 
-        results.push({ iso: iso, ok: ok, err: errMsg, counts: counts });
-        flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
+    results.push({ iso: iso, lang: lang, ok: ok, err: errMsg, counts: counts });
+    flog("   Result: ok=" + ok + (ok?"":" err="+errMsg) + " | counts="+counts.created+","+counts.insertRelinked+","+counts.addLayers+","+counts.packed+","+counts.ameConfigured);
 
         // Apply end-of-run policy: close after each run when there is a next run, using SAVE_AFTER_RUN to choose save/no-save
         var hasNextRun = ((i+1) < Math.min(files.length, maxRuns));
@@ -260,7 +271,8 @@
     flog("Runs: total=" + results.length + " ok=" + okCount + " fail=" + failCount);
     for (var k=0;k<results.length;k++) {
         var r = results[k];
-        flog("  ISO=" + r.iso + " ok=" + r.ok + (r.ok?"":" err="+r.err) + " counts=" + r.counts.created + "," + r.counts.insertRelinked + "," + r.counts.addLayers + "," + r.counts.packed + "," + r.counts.ameConfigured);
+        var tag = r.lang ? (r.iso + "_" + r.lang) : r.iso;
+        flog("  ISO/LANG=" + tag + " ok=" + r.ok + (r.ok?"":" err="+r.err) + " counts=" + r.counts.created + "," + r.counts.insertRelinked + "," + r.counts.addLayers + "," + r.counts.packed + "," + r.counts.ameConfigured);
     }
     flog("=== BATCH RUN END ===");
 })();
