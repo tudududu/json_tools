@@ -184,6 +184,15 @@ function __LinkData_coreRun(opts) {
                 DATA_JSON_LANG_CODE = null; __langOrigin = 'none';
             }
         }
+        // If still missing and we are in manual ISO mode (strict), abort early as well
+        if (!fsFile.exists && DATA_JSON_ISO_MODE === 'manual') {
+            var msgStrictIso = "[data.json] Strict: requested file not found for ISO=" + DATA_JSON_ISO_CODE +
+                               " at path: " + (new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, null))).fsName);
+            log(msgStrictIso);
+            try { if (__AE_PIPE__){ __AE_PIPE__.__fatal = msgStrictIso; } } catch(eFatalSet2) {}
+            app.endUndoGroup();
+            return { ok:false, fatal:true, reason: msgStrictIso, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
+        }
     }
     if (!fsFile.exists) {
         log('[data.json] Source file not found: ' + fsFile.fsName + ' (ISO=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(', LANG='+DATA_JSON_LANG_CODE):'') + ')');

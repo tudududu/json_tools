@@ -102,6 +102,7 @@ function __AME_coreRun(opts) {
     var ENABLE_DURATION_SUBFOLDER = true;           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
     // 5d. Language-level subfolder toggle (Integration 166)
     var USE_LANGUAGE_SUBFOLDER = false;             // When true, insert <LANG> subfolder under <date[_ISO]> when language is known
+    var USE_OM_FILENAME_AS_BASE = true;             // When true, reuse existing OM file base as baseName; when false, always use compName
 
     // Options overrides
     try {
@@ -137,6 +138,7 @@ function __AME_coreRun(opts) {
             if (o.EXTRA_EXPORT_SUBFOLDER !== undefined) EXTRA_EXPORT_SUBFOLDER = !!o.EXTRA_EXPORT_SUBFOLDER;
             if (o.ENABLE_DURATION_SUBFOLDER !== undefined) ENABLE_DURATION_SUBFOLDER = !!o.ENABLE_DURATION_SUBFOLDER;
             if (o.USE_LANGUAGE_SUBFOLDER !== undefined) USE_LANGUAGE_SUBFOLDER = !!o.USE_LANGUAGE_SUBFOLDER;
+            if (o.USE_OM_FILENAME_AS_BASE !== undefined) USE_OM_FILENAME_AS_BASE = !!o.USE_OM_FILENAME_AS_BASE;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -851,12 +853,12 @@ function __AME_coreRun(opts) {
                 if (detailLines.length < MAX_DETAIL_LINES) detailLines.push("OM has no file (safe to set new): " + compName + " -> " + eFileGet);
             }
             var ext = DEFAULT_EXTENSION_FALLBACK;
-            var baseName = compName;
-            if (curFile && curFile.name) {
-                var parts2 = splitBaseExt(curFile.name);
-                if (parts2.ext) ext = parts2.ext;
-                if (parts2.base) baseName = parts2.base;
-            }
+                var baseName = compName;
+                if (curFile && curFile.name) {
+                    var parts2 = splitBaseExt(curFile.name);
+                    if (parts2.ext) ext = parts2.ext;
+                    if (USE_OM_FILENAME_AS_BASE && parts2.base) baseName = parts2.base;
+                }
 
             var tokens = parseTokensFromName(compName);
             pushDetail("TOKENS -> ar=" + (tokens.ar||"-") + ", dur=" + (tokens.duration||"-") );

@@ -271,6 +271,9 @@
             // 5c. Duration-level subfolder toggle
             ENABLE_DURATION_SUBFOLDER: true,           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
             USE_LANGUAGE_SUBFOLDER: false,
+            // When true (default), if an Output Module already has a file set, reuse its base name as the output filename base.
+            // When false, always derive the base name from the comp name (only reuse extension from OM if present).
+            USE_OM_FILENAME_AS_BASE: true,
 
             // Logging toggles for Step 7 (AME)
             VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block
