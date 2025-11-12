@@ -87,8 +87,8 @@ function __LinkData_coreRun(opts) {
 
     // Auto-detect ISO from parent of POST folder (same logic as insert_and_relink_footage.jsx)
     var DATA_JSON_ISO_CODE = null;
-    var DATA_JSON_LANG_CODE = null; // language token (when data_<ISO>_<LANG>.json present)
-    
+    var DATA_JSON_LANG_CODE = null; // language token (only when manual override provided)
+
     var __langOrigin = 'none';
     var __isoOrigin = "manual";
     if (DATA_JSON_ISO_MODE !== "manual") {
@@ -143,30 +143,32 @@ function __LinkData_coreRun(opts) {
     var sub0 = DATA_JSON_FS_SUBPATH && DATA_JSON_FS_SUBPATH.length ? DATA_JSON_FS_SUBPATH[0] : "IN";
     var sub1 = DATA_JSON_FS_SUBPATH && DATA_JSON_FS_SUBPATH.length > 1 ? DATA_JSON_FS_SUBPATH[1] : "data";
     var dataFolderFS = new Folder(joinPath(postFolder.fsName, joinPath(sub0, sub1)));
-    // Support optional language token: prefer file with ISO_LANG when present (strict, no fallback to other lang)
+    // Support optional language token ONLY via manual override (no auto-detect). If multiple language files exist and none chosen manually, warn & proceed ISO-only.
     function buildDataFileName(iso, lang){
         if (lang && lang.length) return DATA_JSON_FILE_PREFIX + iso + '_' + lang + DATA_JSON_FILE_SUFFIX;
         return DATA_JSON_FILE_PREFIX + iso + DATA_JSON_FILE_SUFFIX;
     }
-    // If manual language provided, use it directly (no auto-detect yet)
+    // Manual language selection only; enumerate language files for warning if ambiguous.
     if (DATA_JSON_LANG_CODE_MANUAL && DATA_JSON_LANG_CODE_MANUAL.length >= 2) {
         DATA_JSON_LANG_CODE = DATA_JSON_LANG_CODE_MANUAL.toUpperCase();
         __langOrigin = 'manual';
     } else {
-        // Attempt auto-detect by scanning files matching data_<ISO>_??? .json (restrict ??? to 3 letters)
+        // Enumerate existing language files (data_<ISO>_<LANG>.json); if >1 present and none selected manually, warn.
         try {
-            var pattern = new RegExp('^' + DATA_JSON_FILE_PREFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + DATA_JSON_ISO_CODE + '_([A-Za-z]{3})' + DATA_JSON_FILE_SUFFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + '$','i');
-            var files = dataFolderFS.getFiles(function(f){ return (f instanceof File) && pattern.test(f.name); });
-            if (files && files.length) {
-                // Pick first (or consider deterministic choice later). Use uppercase.
-                var m = files[0].name.match(pattern);
-                if (m && m[1]) { DATA_JSON_LANG_CODE = m[1].toUpperCase(); __langOrigin = 'auto'; }
+            var warnPattern = new RegExp('^' + DATA_JSON_FILE_PREFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + DATA_JSON_ISO_CODE + '_([A-Za-z]{3})' + DATA_JSON_FILE_SUFFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + '$','i');
+            var langFiles = dataFolderFS.getFiles(function(f){ return (f instanceof File) && warnPattern.test(f.name); });
+            if (langFiles && langFiles.length > 1) {
+                var langs = [];
+                for (var lfIdx=0; lfIdx<langFiles.length; lfIdx++){ var nm = langFiles[lfIdx].name; var mLF = nm.match(warnPattern); if (mLF && mLF[1]) langs.push(mLF[1].toUpperCase()); }
+                log('[data.json] WARNING: Multiple language files detected for ISO ' + DATA_JSON_ISO_CODE + ' (' + langs.join(', ') + ') but no manual language selected. Proceeding with ISO-only file. Set linkData.DATA_JSON_LANG_CODE_MANUAL to one of these to use language-specific JSON.');
+                try { if (__AE_PIPE__) { if (!__AE_PIPE__.__warnings) __AE_PIPE__.__warnings = []; __AE_PIPE__.__warnings.push('Multiple language files for ' + DATA_JSON_ISO_CODE + ': ' + langs.join(', ')); } } catch(eWarnArr) {}
             }
-        } catch(eScanLang) { /* silent */ }
+        } catch(eWarnScan) { /* silent */ }
     }
+
     var fsFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, DATA_JSON_LANG_CODE)));
     if (!fsFile.exists) {
-        // Strict behavior: when language was requested manually, abort the pipeline if matching file is missing
+        // Strict behavior: when language was requested manually, abort the pipeline if matching ISO_LANG file is missing
         if (DATA_JSON_LANG_CODE && __langOrigin === 'manual') {
             var msgStrict = "[data.json] Strict: requested file not found for ISO_LANG=" + DATA_JSON_ISO_CODE + "_" + DATA_JSON_LANG_CODE + 
                             " at path: " + (new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, DATA_JSON_LANG_CODE))).fsName);
@@ -175,16 +177,7 @@ function __LinkData_coreRun(opts) {
             app.endUndoGroup();
             return { ok:false, fatal:true, reason: msgStrict, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:__isoOrigin, isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
         }
-        // Fallback: if language was auto-detected but file missing (race), drop language and retry base ISO
-        if (DATA_JSON_LANG_CODE && __langOrigin === 'auto') {
-            var baseFile = new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, null)));
-            if (baseFile.exists) {
-                if (DATA_JSON_LOG_VERBOSE) log('[data.json] Language file missing; falling back to ISO-only file: ' + baseFile.fsName);
-                fsFile = baseFile;
-                DATA_JSON_LANG_CODE = null; __langOrigin = 'none';
-            }
-        }
-        // If still missing and we are in manual ISO mode (strict), abort early as well
+        // If ISO-only file missing in manual ISO mode (strict), abort early as well
         if (!fsFile.exists && DATA_JSON_ISO_MODE === 'manual') {
             var msgStrictIso = "[data.json] Strict: requested file not found for ISO=" + DATA_JSON_ISO_CODE +
                                " at path: " + (new File(joinPath(dataFolderFS.fsName, buildDataFileName(DATA_JSON_ISO_CODE, null))).fsName);

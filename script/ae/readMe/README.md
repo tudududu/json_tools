@@ -91,7 +91,13 @@ Table of contents
   Enable with `RUN_open_project`. Auto-discovers newest template under `POST/WORK/` when no explicit path. Respects `openProject.OPEN_IF_DIRTY_BEHAVIOR` (abort/prompt/force-no-save) if a project is already open & unsaved.
 
   #### Step 1 – Link Data / ISO Detection
-  Controls: `linkData.ENABLE_RELINK_DATA_JSON`, `linkData.DATA_JSON_ISO_MODE` (`manual`|`auto`), `linkData.DATA_JSON_ISO_CODE_MANUAL`. Keeps ISO authoritative for later steps (Save As, audio checks, AME folder building).
+  Controls: `linkData.ENABLE_RELINK_DATA_JSON`, `linkData.DATA_JSON_ISO_MODE` (`manual`|`auto`), `linkData.DATA_JSON_ISO_CODE_MANUAL`, and optional `linkData.DATA_JSON_LANG_CODE_MANUAL`.
+  Behavior:
+  - ISO can be auto-detected from parent folder name or forced via `DATA_JSON_ISO_CODE_MANUAL`.
+  - Language is manual-only: set `DATA_JSON_LANG_CODE_MANUAL` to use `data_<ISO>_<LANG>.json`. If unset, the pipeline uses `data_<ISO>.json` and does not auto-pick any language file.
+  - Strictness: if a manually requested file is missing (ISO or ISO+LANG), Step 1 returns fatal and the run aborts immediately.
+  - Ambiguity warning: when multiple `data_<ISO>_<LANG>.json` files exist and no language is selected, a warning is logged and ISO-only is used.
+  Keeps ISO/LANG authoritative for later steps (Save As, audio checks, AME folder building).
 
   #### Step 2 – Save As with ISO
   Saves as `<base>_<ISO>.aep` (or `<base>_<ISO>_<runId>.aep` if collision unless `saveAsISO.OVERWRITE=true`). Independent of Batch `SAVE_AFTER_RUN` policy.
@@ -128,7 +134,15 @@ Table of contents
 
   ### 7. Batch Mode (Multi-ISO)
   Script: `batch_orchestrator.jsx`. Discovers `data_*.json` in `POST/IN/data/` (regex anchored by `FILE_PREFIX` & `FILE_SUFFIX`). For each file:
-  - Forces ISO into Step 1 (`DATA_JSON_ISO_MODE='manual'`, `DATA_JSON_ISO_CODE_MANUAL=<ISO>`).
+  - Supports both ISO and ISO+LANG files:
+    - `data_<ISO>.json` → runs ISO only.
+    - `data_<ISO>_<LANG>.json` → runs ISO with manual language.
+  - Forces ISO (and, when present, language) into Step 1 using manual overrides:
+    - `linkData.DATA_JSON_ISO_MODE='manual'`
+    - `linkData.DATA_JSON_ISO_CODE_MANUAL=<ISO>`
+    - `linkData.DATA_JSON_LANG_CODE_MANUAL=<LANG>` (empty when no `<LANG>` in filename)
+  - Strictness inherited from Step 1:
+    - If a manually specified file is missing (ISO-only or ISO_LANG), Step 1 returns fatal and the batch aborts that run immediately.
   - Runs pipeline (`RUN_open_project=false`, `RUN_close_project=false`).
   - Applies per-run close policy: `batch.SAVE_AFTER_RUN` → `force-save` or `force-no-save` (between runs & final). Step 2 still saves per ISO regardless.
   - Reopens template between runs (reset environment).
@@ -198,10 +212,7 @@ Table of contents
   Scope implemented:
   - Added manual language override option: `linkData.DATA_JSON_LANG_CODE_MANUAL` (empty string => no manual language).
   - Added AME language subfolder toggle: `ame.USE_LANGUAGE_SUBFOLDER`.
-  - Language detection logic in `link_data.jsx`:
-    - Filename pattern: `data_<ISO>_<LANG>.json` (LANG = 3 letters) auto-detect when manual language unset.
-    - Manual language strict mode: if set and `data_<ISO>_<LANG>.json` missing ⇒ fatal abort.
-    - Auto-detected language missing (race) ⇒ fallback to ISO-only file if present.
+  - Language handling in `link_data.jsx` (initial): auto-detected language based on `data_<ISO>_<LANG>.json` pattern with fallback to ISO-only when missing.
   - Save-As (Step 2) includes language when present: `project_<ISO>_<LANG>_<runId>.aep`.
   - Pack naming (Step 6): introduced distinct `COUNTRY` (ISO only) and new `LANGUAGE` token inserted immediately after country. COUNTRY token no longer carries language; LANGUAGE suppressed if no ISO or language.
   - AME output date folder naming (Step 7):
@@ -215,12 +226,22 @@ Table of contents
   - Logging origins: `isoOrigin` = `manual(forced)|manual(fallback)|auto`; `langOrigin` = `manual|auto|none` clarifies detection path.
   Deferred (possible future work):
   - Sorting heuristic for multiple language files.
-  - Batch Mode multi-language runs per ISO (current batch iterates ISO variants only).
+  - Batch Mode multi-language runs per ISO (batch now iterates both ISO and ISO+LANG variants).
   - Pack token for language when country token suppressed (currently LANGUAGE inherits COUNTRY suppression).
   - Language-aware audio ISO checks (currently only country vs audio ISO).
 
 
   ### 12. Design Principles
   Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
-      - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
+    - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
+
+  #### Integration 176 – MLC Cleanup: Manual-only Language, No Fallbacks
+  Goal: Remove language auto-detection/fallback for deterministic runs; add explicit operator signal when multiple language files exist.
+  Changes:
+  - Removed auto-detection of language in Step 1. The pipeline will never auto-select a `data_<ISO>_<LANG>.json` when `DATA_JSON_LANG_CODE_MANUAL` is empty.
+  - Removed fallback from missing ISO+LANG to ISO-only. When a language is manually selected and the file is missing, Step 1 is fatal.
+  - Added warning when multiple `data_<ISO>_<LANG>.json` files are present for the selected ISO and no language is chosen; run continues using ISO-only file.
+  - Documentation updated in Step 1 to reflect manual-only language policy.
+  Notes:
+  - Batch orchestrator already injects `DATA_JSON_LANG_CODE_MANUAL` when iterating `data_<ISO>_<LANG>.json` files, aligning with this strict policy.
 
