@@ -114,6 +114,28 @@ Table of contents
   - `insertRelink.ENABLE_CHECK_AUDIO_ISO` + `insertRelink.CHECK_AUDIO_ISO_STRICT` to abort or warn on mismatch.
   Sound import modes (language subfolders): `SOUND_USE_ISO_SUBFOLDER`, `SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER`, `SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER`.
 
+  Audio ISO / ISO_LANG filename check (Insert & Relink)
+  - When enabled, Step 4 parses tokens immediately after the duration (e.g., `06s_ENG` or `06s_BEL_FRA`). Dual-token form treated as `<ISO>_<LANG>`.
+  - Matching rules:
+    - If project has both ISO & LANG (Step 1 provided language), audio filename must present both tokens in order (duration → ISO → LANG).
+    - If project has ISO only (no language), audio may supply ISO only or ISO+LANG; ISO must match; LANG (if present) is ignored.
+  - Failure reasons surfaced: missing ISO token, ISO mismatch, missing LANG when required, LANG mismatch.
+  - Strict mode (`CHECK_AUDIO_ISO_STRICT=true`) aborts the pipeline on first mismatch; non-strict logs `[warn]` and continues.
+  - Project tokens sourced from Step 1 (`linkData.iso`, `linkData.lang`); ISO fallback to manual if absent.
+  - Options:
+    - `insertRelink.ENABLE_CHECK_AUDIO_ISO` (boolean): enable the check. Default: false.
+    - `insertRelink.CHECK_AUDIO_ISO_STRICT` (boolean): when true, a mismatch triggers an alert and aborts the pipeline; when false, a `[warn]` is logged and processing continues. Default: false.
+
+  Sound import from ISO subfolders (Insert & Relink)
+  - When your SOUND date folder contains per-language subfolders (e.g., `POST/IN/SOUND/YYMMDD/DEU`, `.../FRA`), you can import only the subfolder matching the project ISO.
+  - Project ISO source: prefers Step 1 (`linkData.iso`), fallback to `insertRelink.DATA_JSON_ISO_CODE`.
+  - If the ISO subfolder is missing or ISO is unavailable, the script falls back to importing the whole date folder and logs a `[warn]` line.
+  - Option:
+  - `insertRelink.SOUND_USE_ISO_SUBFOLDER` (boolean): enable ISO folder selection. Default: false.
+  - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported. Any subfolders inside `YYMMDD` are skipped entirely.
+  - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import the ISO-named subfolder instead (using the project ISO from Step 1, with manual/auto fallback). A `[warn]` is logged when fallback is used.
+  - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and no top-level files exist and the ISO subfolder is not available, the pipeline aborts with a fatal summary (instead of a graceful exit).
+
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
@@ -236,6 +258,17 @@ Table of contents
     - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
 
   #### Integration 176 – MLC Cleanup: Manual-only Language, No Fallbacks
+  #### Integration 179 – Multi-Language Audio Matching (Step 4)
+  Goal: Extend audio filename ISO validation to support dual ISO_LANG tokens for campaigns with language-specific audio variants.
+  Changes:
+  - Added parser for ISO or ISO_LANG tokens immediately following duration (e.g., `06s_BEL_FRA_...`).
+  - Validation considers presence of project language (from Step 1). If project expects language, audio must provide matching ISO_LANG pair.
+  - Reused existing strict toggle (`insertRelink.CHECK_AUDIO_ISO_STRICT`) for abort behavior; no new options added.
+  - Warning messages now include consolidated `audio='BEL_FRA' vs project='BEL_FRA'` tags and detailed mismatch reason.
+  - Backward-compatible: single ISO filenames continue to validate for ISO-only projects.
+  Notes:
+  - Audio with extra tokens between duration and ISO (e.g., `06s_NEW_BEL_FRA`) is tolerated only when ISO appears immediately after duration.
+  - When project has language but audio supplies only ISO, mismatch logged (missing LANG).
   Goal: Remove language auto-detection/fallback for deterministic runs; add explicit operator signal when multiple language files exist.
   Changes:
   - Removed auto-detection of language in Step 1. The pipeline will never auto-select a `data_<ISO>_<LANG>.json` when `DATA_JSON_LANG_CODE_MANUAL` is empty.

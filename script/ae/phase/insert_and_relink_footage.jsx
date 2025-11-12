@@ -758,51 +758,42 @@ function __InsertRelink_coreRun(opts) {
         collectFootageItemsRecursiveFolderItem(importedFolderItem, allFootage);
     }
     var inserted = 0, missed = [];
-    function __extractISOFromAudioName(name){
-        // Robustly extract a 3-letter ISO token from common filename patterns.
-        // Handles both: Title_06s_ENG_... and Title_NEW_06s_ENG_...
+    function __extractISOLangAfterDuration(name){
+        // Extract ISO or ISO_LANG tokens immediately after duration token (e.g., 06s_BEL or 06s_BEL_FRA)
         try {
             var base = String(name||"");
             var parts = base.split(/[_\s]+/);
-            if (!parts || !parts.length) return null;
-            // Helper: clean token (strip extension) and upper
-            function cleanTok(tok){
-                var t = String(tok||"");
-                // drop extension if present
-                t = t.replace(/\.[^.]+$/, "");
-                return t.toUpperCase();
-            }
-            // Find index of first duration token like NN..Ns
+            if (!parts || !parts.length) return { iso:null, lang:null, token:null };
+            function cleanTok(tok){ var t = String(tok||""); t = t.replace(/\.[^.]+$/, ""); return t.toUpperCase(); }
             var durIdx = -1;
-            for (var i=0; i<parts.length; i++) {
-                var p = cleanTok(parts[i]);
-                if (/^\d{1,4}S$/.test(p)) { durIdx = i; break; }
-            }
-            // Candidates to ignore as non-ISO 3-letter tokens
+            for (var i=0; i<parts.length; i++) { var p = cleanTok(parts[i]); if (/^\d{1,4}S$/.test(p)) { durIdx = i; break; } }
             var IGNORE = { "NEW": true };
-            // Prefer the first 3-letter token after duration
             if (durIdx >= 0) {
-                for (var j = durIdx + 1; j < parts.length; j++) {
-                    var pj = cleanTok(parts[j]);
-                    if (/^[A-Z]{3}$/.test(pj) && !IGNORE[pj]) {
-                        return pj;
-                    }
+                var first = null, second = null;
+                if (durIdx + 1 < parts.length) {
+                    var t1 = cleanTok(parts[durIdx+1]);
+                    if (/^[A-Z]{3}$/.test(t1) && !IGNORE[t1]) first = t1;
                 }
-            }
-            // Fallback: any standalone 3-letter token in the name (skip ignored and obvious non-ISO patterns)
-            for (var k=0; k<parts.length; k++) {
-                var pk = cleanTok(parts[k]);
-                if (/^[A-Z]{3}$/.test(pk) && !IGNORE[pk]) {
-                    return pk;
+                if (first && durIdx + 2 < parts.length) {
+                    var t2 = cleanTok(parts[durIdx+2]);
+                    if (/^[A-Z]{3}$/.test(t2) && !IGNORE[t2]) second = t2;
                 }
+                if (first && second) { return { iso:first, lang:second, token:first+"_"+second }; }
+                if (first) { return { iso:first, lang:null, token:first }; }
             }
+            // Fallback: scan any 3-letter token if no duration found
+            for (var k=0; k<parts.length; k++) { var pk = cleanTok(parts[k]); if (/^[A-Z]{3}$/.test(pk) && !IGNORE[pk]) { return { iso:pk, lang:null, token:pk }; } }
         } catch(eNI) {}
-        return null;
+        return { iso:null, lang:null, token:null };
     }
     function __getProjectISO(){
         // Prefer Step 1 result
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) return String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(e1){}
         try { if (DATA_JSON_ISO_CODE) return String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(e2){}
+        return null;
+    }
+    function __getProjectLANG(){
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) return String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(eL){}
         return null;
     }
 
@@ -820,20 +811,38 @@ function __InsertRelink_coreRun(opts) {
         }
         // Optional: validate ISO token in audio filename
         if (ENABLE_CHECK_AUDIO_ISO) {
-            var audioISO = __extractISOFromAudioName(match.name);
+            var audioTok = __extractISOLangAfterDuration(match.name); // {iso, lang, token}
             var projectISO = __getProjectISO();
-            if (projectISO && audioISO && audioISO !== projectISO) {
-                var msg = "Audio ISO mismatch: audio='" + audioISO + "' vs project='" + projectISO + "' (comp='" + comp.name + "', file='" + match.name + "')";
-                if (CHECK_AUDIO_ISO_STRICT) {
-                    // Log as warning as well for consistent tagging
-                    log("[warn] " + msg);
-                    // Mark fatal for pipeline orchestrator and force a visible alert even in pipeline mode
-                    try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = msg; } } catch(eF) {}
-                    alertAlways(msg);
-                    app.endUndoGroup();
-                    return { processed: [] };
+            var projectLANG = __getProjectLANG();
+            if (projectISO) {
+                var mismatch = false;
+                var reason = "";
+                if (projectLANG) {
+                    // Project expects ISO_LANG
+                    if (!audioTok.iso) { mismatch = true; reason = "audio missing ISO token"; }
+                    else if (audioTok.iso !== projectISO) { mismatch = true; reason = "ISO mismatch (audio='"+audioTok.iso+"' vs project='"+projectISO+"')"; }
+                    else {
+                        if (!audioTok.lang) { mismatch = true; reason = "audio missing LANG token (project='"+projectISO+"_"+projectLANG+"')"; }
+                        else if (audioTok.lang !== projectLANG) { mismatch = true; reason = "LANG mismatch (audio='"+audioTok.lang+"' vs project='"+projectLANG+"')"; }
+                    }
                 } else {
-                    log("[warn] " + msg);
+                    // Project expects ISO only
+                    if (!audioTok.iso) { mismatch = true; reason = "audio missing ISO token"; }
+                    else if (audioTok.iso !== projectISO) { mismatch = true; reason = "ISO mismatch (audio='"+audioTok.iso+"' vs project='"+projectISO+"')"; }
+                }
+                if (mismatch) {
+                    var projTag = projectISO + (projectLANG? ("_"+projectLANG) : "");
+                    var audTag = audioTok.token || "(none)";
+                    var msg = "Audio ISO/LANG mismatch: audio='" + audTag + "' vs project='" + projTag + "' (" + reason + ") (comp='" + comp.name + "', file='" + match.name + "')";
+                    if (CHECK_AUDIO_ISO_STRICT) {
+                        log("[warn] " + msg);
+                        try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = msg; } } catch(eF) {}
+                        alertAlways(msg);
+                        app.endUndoGroup();
+                        return { processed: [] };
+                    } else {
+                        log("[warn] " + msg);
+                    }
                 }
             }
         }
