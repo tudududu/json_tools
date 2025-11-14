@@ -486,6 +486,18 @@ function __InsertRelink_coreRun(opts) {
         return;
     }
 
+    // Audit hint: echo expected audio token
+    try {
+        var __auditISO = null, __auditLANG = null;
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __auditISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(_al1){}
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __auditLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(_al2){}
+        if (!__auditISO) { try { if (DATA_JSON_ISO_CODE) __auditISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(_al3){} }
+        if (__auditISO) {
+            if (__auditLANG) log("Expecting AUDIO token: ISO_LANG=" + __auditISO + "_" + __auditLANG);
+            else log("Expecting AUDIO token: ISO=" + __auditISO);
+        }
+    } catch(_alAny){}
+
     // Determine actual folder to import (optionally pick ISO[/LANG] subfolder)
     var soundImportFolder = dateFolder;
     if (SOUND_USE_ISO_SUBFOLDER) {
@@ -585,22 +597,12 @@ function __InsertRelink_coreRun(opts) {
                     }
                     if (matched2) {
                         log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
-                        // Attempt recursive import of the matched subfolder (same as recursive path)
-                        var importErrorFB = null;
-                        try {
-                            var ioFB = new ImportOptions();
-                            ioFB.file = new Folder(matched2.fsName);
-                            if (typeof ImportAsType !== "undefined") { ioFB.importAs = ImportAsType.FOLDER; }
-                            importedFolderItem = proj.importFile(ioFB);
-                        } catch (eFB) { importErrorFB = eFB; }
-                        if (!importedFolderItem) {
-                            var destFB = ensureProjectPath(["project", "in", "sound"]);
-                            var contFB = createChildFolder(destFB, matched2.name);
-                            importFolderRecursive(matched2, contFB);
-                            if (contFB && contFB.numItems > 0) {
-                                importedFolderItem = contFB;
-                                log("Imported via fallback into project/in/sound/" + contFB.name);
-                            }
+                        var destFB = ensureProjectPath(["project", "in", "sound"]);
+                        var contFB = createChildFolder(destFB, matched2.name);
+                        importFolderRecursive(matched2, contFB);
+                        if (contFB && contFB.numItems > 0) {
+                            importedFolderItem = contFB;
+                            log("Imported via fallback into project/in/sound/" + contFB.name);
                         }
                         if (importedFolderItem) {
                             didFallback = true;
@@ -636,36 +638,19 @@ function __InsertRelink_coreRun(opts) {
             }
         }
     } else {
-        // Recursive import (original behavior)
-        var importError = null;
-        try {
-            var io = new ImportOptions();
-            io.file = new Folder(soundImportFolder.fsName);
-            if (typeof ImportAsType !== "undefined") {
-                io.importAs = ImportAsType.FOLDER;
-            }
-            importedFolderItem = proj.importFile(io);
-        } catch (e) {
-            importError = e;
-        }
-
-        // If direct import failed, perform recursive fallback by creating AE folder and importing contents
-        if (!importedFolderItem) {
-            var destForFallback = ensureProjectPath(["project", "in", "sound"]);
-            var container = createChildFolder(destForFallback, soundImportFolder.name);
-            importFolderRecursive(soundImportFolder, container);
-            // If at least one item was imported under container, treat it as success
-            if (container && container.numItems > 0) {
-                importedFolderItem = container;
-                log("Imported via fallback into project/in/sound/" + container.name);
-            } else {
-                var emsg = "Import failed" + (importError ? (": " + (importError.message || importError)) : ".") +
-                           " Path: " + soundImportFolder.fsName;
-                alertOnce(emsg);
-                log(emsg);
-                app.endUndoGroup();
-                return;
-            }
+        // Recursive import using manual scan (avoid ImportOptions on Folder)
+        var destForFallback = ensureProjectPath(["project", "in", "sound"]);
+        var container = createChildFolder(destForFallback, soundImportFolder.name);
+        importFolderRecursive(soundImportFolder, container);
+        if (container && container.numItems > 0) {
+            importedFolderItem = container;
+            log("Imported via recursive scan into project/in/sound/" + container.name);
+        } else {
+            var emsg = "Import failed. Path: " + soundImportFolder.fsName;
+            alertOnce(emsg);
+            log(emsg);
+            app.endUndoGroup();
+            return;
         }
     }
 
