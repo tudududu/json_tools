@@ -486,26 +486,36 @@ function __InsertRelink_coreRun(opts) {
         return;
     }
 
-    // Determine actual folder to import (optionally pick ISO subfolder)
+    // Determine actual folder to import (optionally pick ISO[/LANG] subfolder)
     var soundImportFolder = dateFolder;
     if (SOUND_USE_ISO_SUBFOLDER) {
-        var __projISO = null;
+        var __projISO = null, __projLANG = null;
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI) {}
+        try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __projLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(ePL) {}
         if (!__projISO) { try { if (DATA_JSON_ISO_CODE) __projISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF) {} }
         if (__projISO) {
             var subs = dateFolder.getFiles(function(f){ return f instanceof Folder; });
             var matched = null;
-            for (var s=0; s<subs.length; s++) {
-                var nm = String(subs[s].name||"").toUpperCase();
-                if (nm === __projISO) { matched = subs[s]; break; }
+            var candidates = [];
+            if (__projLANG) candidates.push(__projISO + "_" + __projLANG);
+            candidates.push(__projISO);
+            // First pass: exact match against candidates
+            for (var c=0; c<candidates.length && !matched; c++) {
+                var want = candidates[c];
+                for (var s=0; s<subs.length; s++) {
+                    var nm = String(subs[s].name||"").toUpperCase();
+                    if (nm === want) { matched = subs[s]; break; }
+                }
             }
             if (matched) {
                 soundImportFolder = matched;
+                log("Using SOUND subfolder: '" + matched.name + "'");
             } else {
-                log("[warn] ISO subfolder '" + __projISO + "' not found under " + dateFolder.fsName + "; importing from date folder.");
+                var wantStr = candidates.join(" or ");
+                log("[warn] ISO subfolder '" + wantStr + "' not found under " + dateFolder.fsName + "; importing from date folder.");
             }
         } else {
-            log("[warn] Project ISO unavailable; cannot select ISO subfolder. Importing from date folder.");
+            log("[warn] Project ISO unavailable; cannot select ISO/ISO_LANG subfolder. Importing from date folder.");
         }
     }
 
@@ -556,18 +566,25 @@ function __InsertRelink_coreRun(opts) {
             var didFallback = false;
             if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
                 // Recompute project ISO similar to ISO subfolder selection
-                var __projISO2 = null;
+                var __projISO2 = null, __projLANG2 = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO2 = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI2) {}
+                try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __projLANG2 = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(ePL2) {}
                 if (!__projISO2) { try { if (DATA_JSON_ISO_CODE) __projISO2 = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF2) {} }
                 if (__projISO2) {
                     var subs2 = dateFolder.getFiles(function(f){ return f instanceof Folder; });
                     var matched2 = null;
-                    for (var s2=0; s2<subs2.length; s2++) {
-                        var nm2 = String(subs2[s2].name||"").toUpperCase();
-                        if (nm2 === __projISO2) { matched2 = subs2[s2]; break; }
+                    var candidates2 = [];
+                    if (__projLANG2) candidates2.push(__projISO2 + "_" + __projLANG2);
+                    candidates2.push(__projISO2);
+                    for (var cc=0; cc<candidates2.length && !matched2; cc++) {
+                        var want2 = candidates2[cc];
+                        for (var s2=0; s2<subs2.length; s2++) {
+                            var nm2 = String(subs2[s2].name||"").toUpperCase();
+                            if (nm2 === want2) { matched2 = subs2[s2]; break; }
+                        }
                     }
                     if (matched2) {
-                        log("[warn] Flat import empty; falling back to ISO subfolder '" + __projISO2 + "'.");
+                        log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
                         // Attempt recursive import of the matched subfolder (same as recursive path)
                         var importErrorFB = null;
                         try {
@@ -594,12 +611,14 @@ function __InsertRelink_coreRun(opts) {
             if (!didFallback) {
                 // Nothing imported at top-level and fallback not used or failed
                 try { flatContainer.remove(); } catch(eRm) {}
-                var wantedISO = null;
+                var wantedISO = null, wantedLANG = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) wantedISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(eW1) {}
+                try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) wantedLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(eW1b) {}
                 if (!wantedISO) { try { if (DATA_JSON_ISO_CODE) wantedISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(eW2) {} }
                 var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
                 if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
-                    emsgFlat += " ISO subfolder " + (wantedISO?("'"+wantedISO+"'"):"(unknown)") + " not found.";
+                    var wantStr2 = wantedISO ? (wantedLANG ? ("'"+wantedISO+"_"+wantedLANG+"' or '"+wantedISO+"'") : ("'"+wantedISO+"'")) : "(unknown)";
+                    emsgFlat += " ISO subfolder " + wantStr2 + " not found.";
                 }
                 if (SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER) {
                     var fatalMsg = emsgFlat + " Aborting (flat-mode strict).";

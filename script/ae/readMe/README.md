@@ -126,15 +126,18 @@ Table of contents
     - `insertRelink.ENABLE_CHECK_AUDIO_ISO` (boolean): enable the check. Default: false.
     - `insertRelink.CHECK_AUDIO_ISO_STRICT` (boolean): when true, a mismatch triggers an alert and aborts the pipeline; when false, a `[warn]` is logged and processing continues. Default: false.
 
-  Sound import from ISO subfolders (Insert & Relink)
-  - When your SOUND date folder contains per-language subfolders (e.g., `POST/IN/SOUND/YYMMDD/DEU`, `.../FRA`), you can import only the subfolder matching the project ISO.
-  - Project ISO source: prefers Step 1 (`linkData.iso`), fallback to `insertRelink.DATA_JSON_ISO_CODE`.
-  - If the ISO subfolder is missing or ISO is unavailable, the script falls back to importing the whole date folder and logs a `[warn]` line.
-  - Option:
-  - `insertRelink.SOUND_USE_ISO_SUBFOLDER` (boolean): enable ISO folder selection. Default: false.
-  - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported. Any subfolders inside `YYMMDD` are skipped entirely.
-  - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import the ISO-named subfolder instead (using the project ISO from Step 1, with manual/auto fallback). A `[warn]` is logged when fallback is used.
-  - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and no top-level files exist and the ISO subfolder is not available, the pipeline aborts with a fatal summary (instead of a graceful exit).
+  Sound import from ISO/ISO_LANG subfolders (Insert & Relink)
+  - When your SOUND date folder contains country/language subfolders, the importer can target them directly when `SOUND_USE_ISO_SUBFOLDER=true`.
+  - Project tokens: `linkData.iso` and optional `linkData.lang` (from Step 1); ISO falls back to manual if absent.
+  - Selection order (case-insensitive, first match wins):
+    1) `<ISO>_<LANG>` (e.g., `BEL_FRA`) when project language is present
+    2) `<ISO>` (e.g., `BEL`)
+  - If neither candidate subfolder exists or tokens are unavailable, the script imports from the date folder and logs a `[warn]` line.
+  - Options:
+    - `insertRelink.SOUND_USE_ISO_SUBFOLDER` (boolean): enable ISO/ISO_LANG subfolder selection. Default: false.
+    - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported; subfolders are skipped.
+  - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import `<ISO>_<LANG>` then `<ISO>` as a fallback. A `[warn]` is logged when fallback is used.
+  - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and neither candidate subfolder exists, the pipeline aborts with a fatal summary.
 
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
