@@ -153,30 +153,50 @@ function __InsertRelink_coreRun(opts) {
         return f;
     }
 
-    function importFolderRecursive(fsFolder, aeParentFolder) {
+    function importFolderRecursive(fsFolder, aeParentFolder, expectedISO, expectedLANG) {
         // Recursively import files and subfolders under fsFolder into AE under aeParentFolder
         if (!fsFolder || !fsFolder.exists) return;
         var entries = fsFolder.getFiles();
+        var importedCnt = 0, skippedCnt = 0;
         for (var i = 0; i < entries.length; i++) {
             var entry = entries[i];
             if (entry instanceof Folder) {
                 var childAEFolder = createChildFolder(aeParentFolder, entry.name);
-                importFolderRecursive(entry, childAEFolder);
+                importFolderRecursive(entry, childAEFolder, expectedISO, expectedLANG);
             } else if (entry instanceof File) {
                 // Skip hidden/system files and non-audio files to avoid AE errors (e.g., .DS_Store)
                 if (__isHiddenOrSystemName(entry.name) || !__isAllowedAudioFsName(entry.name)) {
                     continue;
                 }
+                // Optional token filter: only import files that match expected ISO or ISO_LANG
+                var okByToken = true;
+                try {
+                    if (expectedISO) {
+                        var at = __extractISOLangAfterDuration(entry.name);
+                        if (expectedLANG) {
+                            okByToken = (at && at.iso === String(expectedISO).toUpperCase() && at.lang === String(expectedLANG).toUpperCase());
+                        } else {
+                            okByToken = (at && at.iso === String(expectedISO).toUpperCase());
+                        }
+                    }
+                } catch(__tokRec) { okByToken = true; }
+                if (!okByToken) { skippedCnt++; continue; }
                 try {
                     var ioFile = new ImportOptions(entry);
                     try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioFile.importAs = ImportAsType.FOOTAGE; } } catch(eIAS1) {}
                     var imported = proj.importFile(ioFile);
-                    if (imported) imported.parentFolder = aeParentFolder;
+                    if (imported) { imported.parentFolder = aeParentFolder; importedCnt++; }
                 } catch (eFile) {
                     log("Skip file '" + entry.fsName + "' (" + (eFile && eFile.message ? eFile.message : eFile) + ")");
                 }
             }
         }
+        try {
+            if (expectedISO) {
+                var tag = expectedISO + (expectedLANG ? ("_"+expectedLANG) : "");
+                log("Imported recursive: matched '"+tag+"' => " + importedCnt + " file(s), skipped " + skippedCnt + ".");
+            }
+        } catch(__tokLog) {}
     }
 
     function newestYYMMDDSubfolder(soundFolder) {
@@ -563,10 +583,25 @@ function __InsertRelink_coreRun(opts) {
                 return (f instanceof File) && !__isHiddenOrSystemName(f.name) && __isAllowedAudioFsName(f.name);
             });
         } catch(eGF) { entries = []; }
-        var importedCount = 0;
+        // Determine expected token (ISO or ISO_LANG)
+        var __expectedISO = null, __expectedLANG = null;
+        try { __expectedISO = __getProjectISO(); } catch(__gpi) {}
+        try { __expectedLANG = __getProjectLANG(); } catch(__gpl) {}
+        if (__expectedISO) {
+            try { log("Filter AUDIO by token: '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "'"); } catch(__flog) {}
+        }
+        var importedCount = 0, skippedCount = 0;
         for (var ei = 0; ei < entries.length; ei++) {
             var f = entries[ei];
             try {
+                // Optional token filter in flat mode
+                var allow = true;
+                if (__expectedISO) {
+                    var tk = __extractISOLangAfterDuration(f.name);
+                    if (__expectedLANG) { allow = (tk && tk.iso === __expectedISO && tk.lang === __expectedLANG); }
+                    else { allow = (tk && tk.iso === __expectedISO); }
+                }
+                if (!allow) { skippedCount++; continue; }
                 var ioFile = new ImportOptions(f);
                 try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioFile.importAs = ImportAsType.FOOTAGE; } } catch(eIAS2) {}
                 var imported = proj.importFile(ioFile);
@@ -574,6 +609,9 @@ function __InsertRelink_coreRun(opts) {
             } catch (eImpFile) {
                 log("Skip file '" + f.fsName + "' (" + (eImpFile && eImpFile.message ? eImpFile.message : eImpFile) + ")");
             }
+        }
+        if (__expectedISO) {
+            try { log("Imported flat: matched '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "' => " + importedCount + " file(s), skipped " + skippedCount + "."); } catch(__fl2) {}
         }
         if (importedCount > 0) {
             importedFolderItem = flatContainer;
@@ -604,7 +642,7 @@ function __InsertRelink_coreRun(opts) {
                         log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
                         var destFB = ensureProjectPath(["project", "in", "sound"]);
                         var contFB = createChildFolder(destFB, matched2.name);
-                        importFolderRecursive(matched2, contFB);
+                        importFolderRecursive(matched2, contFB, __expectedISO2, __projLANG2);
                         if (contFB && contFB.numItems > 0) {
                             importedFolderItem = contFB;
                             log("Imported via fallback into project/in/sound/" + contFB.name);
@@ -646,7 +684,12 @@ function __InsertRelink_coreRun(opts) {
         // Recursive import using manual scan (avoid ImportOptions on Folder)
         var destForFallback = ensureProjectPath(["project", "in", "sound"]);
         var container = createChildFolder(destForFallback, soundImportFolder.name);
-        importFolderRecursive(soundImportFolder, container);
+        // Determine expected token (ISO or ISO_LANG)
+        var __expectedISO3 = null, __expectedLANG3 = null;
+        try { __expectedISO3 = __getProjectISO(); } catch(__gp3) {}
+        try { __expectedLANG3 = __getProjectLANG(); } catch(__gl3) {}
+        if (__expectedISO3) { try { log("Filter AUDIO by token: '" + __expectedISO3 + ( __expectedLANG3 ? ("_"+__expectedLANG3) : "") + "'"); } catch(__fl3) {} }
+        importFolderRecursive(soundImportFolder, container, __expectedISO3, __expectedLANG3);
         if (container && container.numItems > 0) {
             importedFolderItem = container;
             log("Imported via recursive scan into project/in/sound/" + container.name);
