@@ -169,6 +169,7 @@ function __InsertRelink_coreRun(opts) {
                 }
                 try {
                     var ioFile = new ImportOptions(entry);
+                    try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioFile.importAs = ImportAsType.FOOTAGE; } } catch(eIAS1) {}
                     var imported = proj.importFile(ioFile);
                     if (imported) imported.parentFolder = aeParentFolder;
                 } catch (eFile) {
@@ -567,6 +568,7 @@ function __InsertRelink_coreRun(opts) {
             var f = entries[ei];
             try {
                 var ioFile = new ImportOptions(f);
+                try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioFile.importAs = ImportAsType.FOOTAGE; } } catch(eIAS2) {}
                 var imported = proj.importFile(ioFile);
                 if (imported) { imported.parentFolder = flatContainer; importedCount++; }
             } catch (eImpFile) {
@@ -729,6 +731,7 @@ function __InsertRelink_coreRun(opts) {
                 } else if (DATA_JSON_IMPORT_IF_MISSING) {
                     try {
                         var ioData = new ImportOptions(fsFile);
+                        try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioData.importAs = ImportAsType.FOOTAGE; } } catch(eIAS3) {}
                         var importedData = proj.importFile(ioData);
                         if (importedData) {
                             importedData.parentFolder = projDataFolder;
