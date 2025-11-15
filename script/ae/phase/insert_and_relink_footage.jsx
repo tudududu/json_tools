@@ -642,7 +642,8 @@ function __InsertRelink_coreRun(opts) {
                         log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
                         var destFB = ensureProjectPath(["project", "in", "sound"]);
                         var contFB = createChildFolder(destFB, matched2.name);
-                        importFolderRecursive(matched2, contFB, __expectedISO2, __projLANG2);
+                        try { if (__projISO2) { log("Filter AUDIO by token: '" + __projISO2 + ( __projLANG2 ? ("_"+__projLANG2) : "") + "'"); } } catch(__flFB) {}
+                        importFolderRecursive(matched2, contFB, __projISO2, __projLANG2);
                         if (contFB && contFB.numItems > 0) {
                             importedFolderItem = contFB;
                             log("Imported via fallback into project/in/sound/" + contFB.name);
