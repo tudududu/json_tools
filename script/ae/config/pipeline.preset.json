@@ -44,7 +44,7 @@
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
     "DATA_JSON_ISO_CODE_MANUAL": "BEL",
-    "DATA_JSON_LANG_CODE_MANUAL": "NLD",
+    "DATA_JSON_LANG_CODE_MANUAL": "FRA",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
     "DATA_JSON_FS_SUBPATH": ["IN","data"],

@@ -531,6 +531,9 @@ function __InsertRelink_coreRun(opts) {
         }
     }
 
+    // One-line summary to tighten audit trail right after expectation line
+    try { log("Using SOUND folder: " + (soundImportFolder ? soundImportFolder.fsName : "(unknown)")); } catch(__lfAny) {}
+
     log("Importing SOUND folder: " + soundImportFolder.fsName);
 
     // Optional Step 0: Clear existing AE project folder project/in/sound/ before new import
