@@ -626,16 +626,16 @@ function __InsertRelink_coreRun(opts) {
             importedFolderItem = flatContainer;
             log("Imported flat (no subfolders) into project/in/sound/" + flatContainer.name);
         } else {
-            // Nothing imported at top-level; optionally fall back to ISO-named subfolder
+            // No top-level files imported; attempt ISO subfolder fallback if enabled.
+            var subs2 = [];
+            try { subs2 = dateFolder.getFiles(function(f){ return f instanceof Folder; }); } catch(eSubs2) { subs2 = []; }
             var didFallback = false;
             if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
-                // Recompute project ISO similar to ISO subfolder selection
                 var __projISO2 = null, __projLANG2 = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO2 = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI2) {}
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __projLANG2 = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(ePL2) {}
                 if (!__projISO2) { try { if (DATA_JSON_ISO_CODE) __projISO2 = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF2) {} }
                 if (__projISO2) {
-                    var subs2 = dateFolder.getFiles(function(f){ return f instanceof Folder; });
                     var matched2 = null;
                     var candidates2 = [];
                     if (__projLANG2) candidates2.push(__projISO2 + "_" + __projLANG2);
@@ -651,58 +651,66 @@ function __InsertRelink_coreRun(opts) {
                         log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
                         var destFB = ensureProjectPath(["project", "in", "sound"]);
                         var contFB = createChildFolder(destFB, matched2.name);
-                        try { if (__projISO2) { var __strictNoteFB = __projLANG2 ? "" : " (strict ISO-only)"; log("Filter AUDIO by token: '" + __projISO2 + ( __projLANG2 ? ("_"+__projLANG2) : "") + "'" + __strictNoteFB); } } catch(__flFB) {}
+                        try { if (__projISO2) { var __strictNoteFB = __projLANG2 ? "" : (CHECK_AUDIO_ISO_STRICT ? " (strict ISO-only)" : " (preferred ISO-only; lenient fallback)"); log("Filter AUDIO by token: '" + __projISO2 + ( __projLANG2 ? ("_"+__projLANG2) : "") + "'" + __strictNoteFB); } } catch(__flFB) {}
                         importFolderRecursive(matched2, contFB, __projISO2, __projLANG2);
                         if (contFB && contFB.numItems > 0) {
                             importedFolderItem = contFB;
                             log("Imported via fallback into project/in/sound/" + contFB.name);
-                        }
-                        if (importedFolderItem) {
                             didFallback = true;
                         }
                     }
                 }
             }
-            // Lenient fallback: if no ISO/ISO_LANG matches, and strict checking is off, import all audio at top-level
-            if (!didFallback && __expectedISO && !CHECK_AUDIO_ISO_STRICT) {
-                try { log("No token matches; lenient mode importing all top-level audio (will warn on insert)."); } catch(__ln1) {}
-                importedCount = 0; skippedCount = 0;
-                for (var ei2 = 0; ei2 < entries.length; ei2++) {
-                    var f2 = entries[ei2];
-                    try {
-                        var ioFile2 = new ImportOptions(f2);
-                        try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioFile2.importAs = ImportAsType.FOOTAGE; } } catch(eIAS2b) {}
-                        var imported2 = proj.importFile(ioFile2);
-                        if (imported2) { imported2.parentFolder = flatContainer; importedCount++; }
-                    } catch (eImpFile2) {
-                        log("Skip file '" + f2.fsName + "' (" + (eImpFile2 && eImpFile2.message ? eImpFile2.message : eImpFile2) + ")");
+            // Lenient subfolder fallback when abort flag is false and ISO-specific subfolder absent.
+            if (!didFallback && !SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER && !CHECK_AUDIO_ISO_STRICT) {
+                var fallbackSub = null;
+                // Prefer 'GBL'
+                for (var gs=0; gs<subs2.length; gs++) { var nmG = String(subs2[gs].name||"").toUpperCase(); if (nmG === 'GBL') { fallbackSub = subs2[gs]; break; } }
+                // If not GBL and exactly one subfolder, use it
+                if (!fallbackSub && subs2.length === 1) fallbackSub = subs2[0];
+                // Else pick first subfolder containing at least one audio file directly
+                if (!fallbackSub) {
+                    for (var as=0; as<subs2.length; as++) {
+                        var filesTest = [];
+                        try { filesTest = subs2[as].getFiles(function(f){ return f instanceof File; }); } catch(eFT) { filesTest = []; }
+                        var hasAudio = false;
+                        for (var ft=0; ft<filesTest.length; ft++) { if (__isAllowedAudioFsName(filesTest[ft].name)) { hasAudio = true; break; } }
+                        if (hasAudio) { fallbackSub = subs2[as]; break; }
                     }
                 }
-                if (importedCount > 0) {
-                    importedFolderItem = flatContainer;
-                    try { log("Imported flat (lenient) into project/in/sound/" + flatContainer.name); } catch(__ln2) {}
-                    didFallback = true;
+                if (fallbackSub) {
+                    log("[warn] ISO subfolder not found; lenient fallback to subfolder '" + fallbackSub.name + "' (importing all audio, mismatch warnings expected)." );
+                    var destLF = ensureProjectPath(["project", "in", "sound"]);
+                    var contLF = createChildFolder(destLF, fallbackSub.name);
+                    importFolderRecursive(fallbackSub, contLF, null, null); // import all audio in fallback
+                    if (contLF && contLF.numItems > 0) {
+                        importedFolderItem = contLF;
+                        log("Imported via lenient fallback into project/in/sound/" + contLF.name);
+                        didFallback = true;
+                    }
                 }
             }
             if (!didFallback) {
-                // Nothing imported at top-level and fallback not used or failed
                 try { flatContainer.remove(); } catch(eRm) {}
                 var wantedISO = null, wantedLANG = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) wantedISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(eW1) {}
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) wantedLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(eW1b) {}
                 if (!wantedISO) { try { if (DATA_JSON_ISO_CODE) wantedISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(eW2) {} }
-                var emsgFlat = "No top-level files found in: " + soundImportFolder.fsName + " (subfolders were skipped).";
+                var emsgFlat = "No suitable audio found under: " + soundImportFolder.fsName + ".";
                 if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
                     var wantStr2 = wantedISO ? (wantedLANG ? ("'"+wantedISO+"_"+wantedLANG+"' or '"+wantedISO+"'") : ("'"+wantedISO+"'")) : "(unknown)";
                     emsgFlat += " ISO subfolder " + wantStr2 + " not found.";
                 }
-                if (SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER || true) {
+                if (SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER || CHECK_AUDIO_ISO_STRICT) {
                     var fatalMsg = emsgFlat + " Aborting (flat-mode strict).";
                     log("[warn] " + fatalMsg);
                     try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = fatalMsg; } } catch(eSetF) {}
                     alertAlways(fatalMsg);
                     app.endUndoGroup();
                     return;
+                } else {
+                    // Non-strict and abort disabled: warn and continue without audio (insert step will produce misses)
+                    log("[warn] " + emsgFlat + " Continuing without audio.");
                 }
             }
         }
