@@ -176,6 +176,34 @@ Table of contents
   - `AUDIO_ISO_MANUAL` (default `"SAU"`): ISO fallback used for import-time filtering and insert-time validation.
   - `AUDIO_LANG_MANUAL` (default `null`): Optional language fallback for the above.
 
+  Example configurations
+  Strict import and validation (fail-fast):
+  ```json
+  {
+    "insertRelink": {
+      "ENABLE_CHECK_AUDIO_ISO": true,
+      "CHECK_AUDIO_ISO_STRICT": true,
+      "SOUND_USE_ISO_SUBFOLDER": true,
+      "SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER": false,
+      "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": true,
+      "CLEAR_EXISTING_PROJECT_SOUND_FOLDER": true
+    }
+  }
+  ```
+
+  Lenient import with safe fallbacks (warn-only):
+  ```json
+  {
+    "insertRelink": {
+      "ENABLE_CHECK_AUDIO_ISO": true,
+      "CHECK_AUDIO_ISO_STRICT": false,
+      "SOUND_USE_ISO_SUBFOLDER": false,
+      "SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER": true,
+      "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": false
+    }
+  }
+  ```
+
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
