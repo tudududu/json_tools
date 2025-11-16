@@ -575,6 +575,7 @@ function __InsertRelink_coreRun(opts) {
     // - When SOUND_USE_ISO_SUBFOLDER=false, import ONLY top-level files from the YYMMDD folder (skip all subfolders).
     // - Otherwise (true), import the folder recursively (existing behavior).
     var importedFolderItem = null;
+    var __didImportAny = false;
     if (!SOUND_USE_ISO_SUBFOLDER) {
         // Flat import (no subfolders)
         var destFlat = ensureProjectPath(["project", "in", "sound"]);
@@ -625,6 +626,7 @@ function __InsertRelink_coreRun(opts) {
         if (importedCount > 0) {
             importedFolderItem = flatContainer;
             log("Imported flat (no subfolders) into project/in/sound/" + flatContainer.name);
+            __didImportAny = true;
         } else {
             // No top-level files imported; attempt ISO subfolder fallback if enabled.
             var subs2 = [];
@@ -656,6 +658,7 @@ function __InsertRelink_coreRun(opts) {
                         if (contFB && contFB.numItems > 0) {
                             importedFolderItem = contFB;
                             log("Imported via fallback into project/in/sound/" + contFB.name);
+                            __didImportAny = true;
                             didFallback = true;
                         }
                     }
@@ -686,6 +689,7 @@ function __InsertRelink_coreRun(opts) {
                     if (contLF && contLF.numItems > 0) {
                         importedFolderItem = contLF;
                         log("Imported via lenient fallback into project/in/sound/" + contLF.name);
+                        __didImportAny = true;
                         didFallback = true;
                     }
                 }
@@ -727,6 +731,7 @@ function __InsertRelink_coreRun(opts) {
         if (container && container.numItems > 0) {
             importedFolderItem = container;
             log("Imported via recursive scan into project/in/sound/" + container.name);
+            __didImportAny = true;
         } else {
             // Lenient fallback for recursive mode if strict check is off
             if (__expectedISO3 && !CHECK_AUDIO_ISO_STRICT) {
@@ -735,6 +740,7 @@ function __InsertRelink_coreRun(opts) {
                 if (container && container.numItems > 0) {
                     importedFolderItem = container;
                     log("Imported via recursive scan (lenient) into project/in/sound/" + container.name);
+                    __didImportAny = true;
                 }
             }
             if (!importedFolderItem) {
@@ -748,7 +754,7 @@ function __InsertRelink_coreRun(opts) {
         }
     }
 
-    if (!importedFolderItem || !(importedFolderItem instanceof FolderItem)) {
+    if (__didImportAny && (!importedFolderItem || !(importedFolderItem instanceof FolderItem))) {
         // AE may import top item differently; attempt to resolve by name
         var fallback = null;
         for (var k = proj.numItems; k >= 1; k--) {
@@ -759,19 +765,25 @@ function __InsertRelink_coreRun(opts) {
     }
 
     if (!importedFolderItem) {
-        alertOnce("Imported folder not found in project.");
-        app.endUndoGroup();
-        return;
+        if (__didImportAny) {
+            alertOnce("Imported folder not found in project.");
+            app.endUndoGroup();
+            return;
+        } else {
+            // Nothing imported: continue gracefully without affecting project structure
+            log("[warn] No SOUND audio imported; continuing without audio.");
+        }
     }
 
     // Move to project/in/sound (if not already placed there by fallback)
-    var dest = ensureProjectPath(["project", "in", "sound"]);
-    if (importedFolderItem.parentFolder !== dest) {
-        importedFolderItem.parentFolder = dest;
-        log("Moved imported folder '" + importedFolderItem.name + "' to project/in/sound");
+    if (__didImportAny && importedFolderItem) {
+        var dest = ensureProjectPath(["project", "in", "sound"]);
+        if (importedFolderItem.parentFolder !== dest) {
+            importedFolderItem.parentFolder = dest;
+            log("Moved imported folder '" + importedFolderItem.name + "' to project/in/sound");
+        }
+        alertOnce("Imported SOUND folder '" + importedFolderItem.name + "' into project/in/sound.");
     }
-
-    alertOnce("Imported SOUND folder '" + importedFolderItem.name + "' into project/in/sound.");
 
     // ————— Relink JSON data file (data_<ISO>.json -> project/in/data/data.json) —————
     if (ENABLE_RELINK_DATA_JSON) {
@@ -853,7 +865,7 @@ function __InsertRelink_coreRun(opts) {
 
     // Collect all footage items under the imported folder (recursively)
     var allFootage = [];
-    if (importedFolderItem instanceof FolderItem) {
+    if (importedFolderItem instanceof FolderItem && __didImportAny) {
         collectFootageItemsRecursiveFolderItem(importedFolderItem, allFootage);
     }
     var inserted = 0, missed = [];
