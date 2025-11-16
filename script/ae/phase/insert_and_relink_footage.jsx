@@ -8,7 +8,7 @@
 // 2) Find YYMMDD-named folders (6 digits) under SOUND and pick the newest (max by number)
 // 3) Import that folder into the open project
 // 4) Move the imported folder to: project/in/sound/
-// 5) Relink "data.json" footage file (auto/manual)
+// (data.json relink logic moved to Step 1: link_data.jsx; removed here)
 //
 // Usage:
 // 1 Save your project to POST/WORK
@@ -81,19 +81,9 @@ function __InsertRelink_coreRun(opts) {
     var CLEAR_EXISTING_PROJECT_SOUND_FOLDER = true; // When true, BEFORE importing, clear AE Project panel folder project/in/sound/ (its contents only)
     // When true, import from ISO-named subfolder under SOUND/<YYMMDD>/ matching the project ISO
     var SOUND_USE_ISO_SUBFOLDER = false;
-    // New: JSON data relink settings
-    var ENABLE_RELINK_DATA_JSON = true;            // Master switch for data.json relink/import
-    var DATA_JSON_ISO_CODE_MANUAL = "SAU";        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
-    var DATA_JSON_ISO_CODE = null;                 // Actual ISO code used (auto-detected first, fallback to manual)
-    var DATA_JSON_ISO_MODE = "manual";              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
-    var DATA_JSON_PROJECT_FOLDER = ["project","in","data"]; // Project panel target folder path
-    var DATA_JSON_PROJECT_ITEM_NAME = "data.json"; // Desired item name inside AE project
-    var DATA_JSON_FS_SUBPATH = ["IN","data"];    // Relative path under POST where data files live
-    var DATA_JSON_FILE_PREFIX = "data_";          // Prefix before ISO code
-    var DATA_JSON_FILE_SUFFIX = ".json";         // Suffix/extension
-    var DATA_JSON_IMPORT_IF_MISSING = true;       // Import if project item missing
-    var DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = true; // Rename imported item to data.json even if file name differs
-    var DATA_JSON_LOG_VERBOSE = true;             // Extra logging for relink process
+    // Manual audio ISO/LANG fallback for standalone (non-pipeline) execution
+    var AUDIO_ISO_MANUAL = "SAU";   // Change as needed when running outside pipeline
+    var AUDIO_LANG_MANUAL = null;    // e.g., "FRA" if language-specific filtering desired standalone
     // New: audio filename ISO check options
     var ENABLE_CHECK_AUDIO_ISO = false;            // Phase 1: toggle checking
     var CHECK_AUDIO_ISO_STRICT = false;            // Phase 2: strict mode => alert + abort pipeline
@@ -111,14 +101,6 @@ function __InsertRelink_coreRun(opts) {
             if (o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_REMOVE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS;
             if (o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS !== undefined) ENABLE_MUTE_EXISTING_AUDIO_LAYERS = !!o.ENABLE_MUTE_EXISTING_AUDIO_LAYERS;
             if (o.CLEAR_EXISTING_PROJECT_SOUND_FOLDER !== undefined) CLEAR_EXISTING_PROJECT_SOUND_FOLDER = !!o.CLEAR_EXISTING_PROJECT_SOUND_FOLDER;
-            if (o.ENABLE_RELINK_DATA_JSON !== undefined) ENABLE_RELINK_DATA_JSON = !!o.ENABLE_RELINK_DATA_JSON;
-            if (o.hasOwnProperty('DATA_JSON_ISO_MODE')) DATA_JSON_ISO_MODE = String(o.DATA_JSON_ISO_MODE);
-            if (o.hasOwnProperty('DATA_JSON_ISO_CODE_MANUAL')) DATA_JSON_ISO_CODE_MANUAL = String(o.DATA_JSON_ISO_CODE_MANUAL);
-            if (o.DATA_JSON_PROJECT_FOLDER) DATA_JSON_PROJECT_FOLDER = o.DATA_JSON_PROJECT_FOLDER;
-            if (o.DATA_JSON_PROJECT_ITEM_NAME) DATA_JSON_PROJECT_ITEM_NAME = String(o.DATA_JSON_PROJECT_ITEM_NAME);
-            if (o.DATA_JSON_IMPORT_IF_MISSING !== undefined) DATA_JSON_IMPORT_IF_MISSING = !!o.DATA_JSON_IMPORT_IF_MISSING;
-            if (o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL !== undefined) DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = !!o.DATA_JSON_RENAME_IMPORTED_TO_CANONICAL;
-            if (o.DATA_JSON_LOG_VERBOSE !== undefined) DATA_JSON_LOG_VERBOSE = !!o.DATA_JSON_LOG_VERBOSE;
             if (o.ENABLE_CHECK_AUDIO_ISO !== undefined) ENABLE_CHECK_AUDIO_ISO = !!o.ENABLE_CHECK_AUDIO_ISO;
             if (o.CHECK_AUDIO_ISO_STRICT !== undefined) CHECK_AUDIO_ISO_STRICT = !!o.CHECK_AUDIO_ISO_STRICT;
             if (o.SOUND_USE_ISO_SUBFOLDER !== undefined) SOUND_USE_ISO_SUBFOLDER = !!o.SOUND_USE_ISO_SUBFOLDER;
@@ -431,69 +413,7 @@ function __InsertRelink_coreRun(opts) {
         } catch (eWrap) {}
     }
 
-    // Auto-detect ISO code from parent of POST: parentFolderName pattern "jobNumber - ISO"
-    // Example path: /.../<Parent>/<POST>/WORK/project.aep, we need <Parent> folder name.
-    var __isoOrigin = "manual"; // default assumption
-    var parentOfPost = postFolder ? postFolder.parent : null;
-    if (DATA_JSON_ISO_MODE !== "manual") {
-        if (parentOfPost && parentOfPost.exists) {
-            var parentNameRaw = parentOfPost.name || "";
-            var decodedName = parentNameRaw;
-            // Attempt URI decode (handles %20 etc.)
-            try { decodedName = decodeURIComponent(parentNameRaw); } catch (eDec) {
-                // Fallback simple replacement for %20 only
-                decodedName = parentNameRaw.replace(/%20/g, ' ');
-            }
-            // Also replace remaining %XX sequences generically if not decoded
-            if (decodedName === parentNameRaw && /%[0-9A-Fa-f]{2}/.test(parentNameRaw)) {
-                decodedName = parentNameRaw.replace(/%([0-9A-Fa-f]{2})/g, function(m,h){
-                    try { return String.fromCharCode(parseInt(h,16)); } catch(eC){ return m; }
-                });
-            }
-            // Normalize whitespace
-            var normalizedName = decodedName.replace(/\s+/g,' ').replace(/\s*-\s*/,' - ').replace(/^\s+|\s+$/g,'');
-            if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
-                log("[data.json] Parent of POST folder name (raw): '" + parentNameRaw + "'");
-                if (parentNameRaw !== decodedName) log("[data.json] Decoded name: '" + decodedName + "'");
-                if (decodedName !== normalizedName) log("[data.json] Normalized name: '" + normalizedName + "'");
-            }
-            var workName = normalizedName || decodedName || parentNameRaw;
-            var mIso = null;
-            // Primary pattern: anything - ISO (3 letters at end)
-            var m1 = workName.match(/-\s*([A-Za-z]{3})$/);
-            if (m1) mIso = m1;
-            // Secondary: last whitespace separated token is 3 letters
-            if (!mIso) {
-                var parts = workName.split(/[\s_]+/);
-                if (parts.length) {
-                    var last = parts[parts.length - 1];
-                    if (/^[A-Za-z]{3}$/.test(last)) mIso = [null, last];
-                }
-            }
-            // Tertiary: dash-split last trimmed token of length 3
-            if (!mIso) {
-                var dashParts = workName.split('-');
-                if (dashParts.length >= 2) {
-                    var cand = dashParts[dashParts.length - 1].replace(/\s+/g,'');
-                    if (/^[A-Za-z]{3}$/.test(cand)) mIso = [null, cand];
-                }
-            }
-            if (mIso && mIso[1]) {
-                DATA_JSON_ISO_CODE = mIso[1].toUpperCase();
-                __isoOrigin = "auto";
-                if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Auto-detected ISO from parent folder: " + DATA_JSON_ISO_CODE);
-            } else {
-                if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) log("[data.json] Could not auto-detect ISO from parent folder name (after decoding/normalizing); will use manual fallback.");
-            }
-        }
-    }
-    if (!DATA_JSON_ISO_CODE) { // either manual mode or auto failed
-        DATA_JSON_ISO_CODE = (DATA_JSON_ISO_CODE_MANUAL || "XXX").toUpperCase();
-        __isoOrigin = (DATA_JSON_ISO_MODE === "manual") ? "manual(forced)" : "manual(fallback)";
-    }
-    if (ENABLE_RELINK_DATA_JSON && DATA_JSON_LOG_VERBOSE) {
-        log("[data.json] ISO code used: " + DATA_JSON_ISO_CODE + " (" + __isoOrigin + ")");
-    }
+    // (Removed parent folder ISO auto-detection; rely on pipeline or manual audio constants)
 
     var inFolder = new Folder(joinPath(postFolder.fsName, joinPath("IN", "SOUND")));
     if (!inFolder.exists) {
@@ -514,7 +434,7 @@ function __InsertRelink_coreRun(opts) {
         var __auditISO = null, __auditLANG = null;
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __auditISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(_al1){}
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __auditLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(_al2){}
-        if (!__auditISO) { try { if (DATA_JSON_ISO_CODE) __auditISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(_al3){} }
+        if (!__auditISO && AUDIO_ISO_MANUAL) { __auditISO = String(AUDIO_ISO_MANUAL).toUpperCase(); }
         if (__auditISO) {
             if (__auditLANG) log("Expecting AUDIO token: ISO_LANG=" + __auditISO + "_" + __auditLANG);
             else log("Expecting AUDIO token: ISO=" + __auditISO);
@@ -527,7 +447,7 @@ function __InsertRelink_coreRun(opts) {
         var __projISO = null, __projLANG = null;
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI) {}
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __projLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(ePL) {}
-        if (!__projISO) { try { if (DATA_JSON_ISO_CODE) __projISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF) {} }
+        if (!__projISO && AUDIO_ISO_MANUAL) { __projISO = String(AUDIO_ISO_MANUAL).toUpperCase(); }
         if (__projISO) {
             var subs = dateFolder.getFiles(function(f){ return f instanceof Folder; });
             var matched = null;
@@ -636,7 +556,7 @@ function __InsertRelink_coreRun(opts) {
                 var __projISO2 = null, __projLANG2 = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO2 = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI2) {}
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) __projLANG2 = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(ePL2) {}
-                if (!__projISO2) { try { if (DATA_JSON_ISO_CODE) __projISO2 = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(ePF2) {} }
+                if (!__projISO2 && AUDIO_ISO_MANUAL) { __projISO2 = String(AUDIO_ISO_MANUAL).toUpperCase(); }
                 if (__projISO2) {
                     var matched2 = null;
                     var candidates2 = [];
@@ -699,7 +619,7 @@ function __InsertRelink_coreRun(opts) {
                 var wantedISO = null, wantedLANG = null;
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) wantedISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(eW1) {}
                 try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) wantedLANG = String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(eW1b) {}
-                if (!wantedISO) { try { if (DATA_JSON_ISO_CODE) wantedISO = String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(eW2) {} }
+                if (!wantedISO && AUDIO_ISO_MANUAL) { wantedISO = String(AUDIO_ISO_MANUAL).toUpperCase(); }
                 var emsgFlat = "No suitable audio found under: " + soundImportFolder.fsName + ".";
                 if (SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER) {
                     var wantStr2 = wantedISO ? (wantedLANG ? ("'"+wantedISO+"_"+wantedLANG+"' or '"+wantedISO+"'") : ("'"+wantedISO+"'")) : "(unknown)";
@@ -785,75 +705,7 @@ function __InsertRelink_coreRun(opts) {
         alertOnce("Imported SOUND folder '" + importedFolderItem.name + "' into project/in/sound.");
     }
 
-    // ————— Relink JSON data file (data_<ISO>.json -> project/in/data/data.json) —————
-    if (ENABLE_RELINK_DATA_JSON) {
-        try {
-            function findOrCreateProjectFolder(segments) {
-                var cur = proj.rootFolder;
-                for (var i = 0; i < segments.length; i++) {
-                    var seg = segments[i];
-                    if (!seg) continue;
-                    var found = null;
-                    for (var j = 1; j <= cur.numItems; j++) {
-                        var it = cur.items[j];
-                        if (it && it instanceof FolderItem && it.name === seg) { found = it; break; }
-                    }
-                    if (!found) { // create
-                        found = proj.items.addFolder(seg); found.parentFolder = cur;
-                    }
-                    cur = found;
-                }
-                return cur;
-            }
-            function findItemByNameInFolder(folderItem, name) {
-                if (!folderItem) return null;
-                for (var i = 1; i <= folderItem.numItems; i++) {
-                    var it = folderItem.items[i];
-                    if (it && it.name === name) return it;
-                }
-                return null;
-            }
-            var iso = String(DATA_JSON_ISO_CODE || "").toUpperCase(); // already auto-detected or manual fallback earlier
-            var dataFolderFS = new Folder(joinPath(postFolder.fsName, joinPath(DATA_JSON_FS_SUBPATH[0], DATA_JSON_FS_SUBPATH[1])));
-            var fsFile = new File(joinPath(dataFolderFS.fsName, DATA_JSON_FILE_PREFIX + iso + DATA_JSON_FILE_SUFFIX));
-            if (!fsFile.exists) {
-                log("[data.json] Source file not found: " + fsFile.fsName);
-            } else {
-                var projDataFolder = findOrCreateProjectFolder(DATA_JSON_PROJECT_FOLDER);
-                var existing = findItemByNameInFolder(projDataFolder, DATA_JSON_PROJECT_ITEM_NAME);
-                if (existing && existing instanceof FootageItem) {
-                    // Attempt relink
-                    try {
-                        existing.replace(fsFile);
-                        if (DATA_JSON_LOG_VERBOSE) log("[data.json] Relinked existing item to " + fsFile.fsName);
-                    } catch (eRep) {
-                        log("[data.json] Relink failed: " + eRep);
-                    }
-                } else if (DATA_JSON_IMPORT_IF_MISSING) {
-                    try {
-                        var ioData = new ImportOptions(fsFile);
-                        try { if (typeof ImportAsType !== 'undefined' && ImportAsType && ImportAsType.FOOTAGE !== undefined) { ioData.importAs = ImportAsType.FOOTAGE; } } catch(eIAS3) {}
-                        var importedData = proj.importFile(ioData);
-                        if (importedData) {
-                            importedData.parentFolder = projDataFolder;
-                            if (DATA_JSON_RENAME_IMPORTED_TO_CANONICAL) {
-                                try { importedData.name = DATA_JSON_PROJECT_ITEM_NAME; } catch (eNm) {}
-                            }
-                            if (DATA_JSON_LOG_VERBOSE) log("[data.json] Imported new JSON: " + fsFile.fsName);
-                        } else {
-                            log("[data.json] Import returned null for: " + fsFile.fsName);
-                        }
-                    } catch (eImp) {
-                        log("[data.json] Import failed: " + eImp);
-                    }
-                } else {
-                    log("[data.json] Project item missing and import disabled.");
-                }
-            }
-        } catch (eData) {
-            log("[data.json] Unexpected error: " + eData);
-        }
-    }
+    // (Removed data.json relink block; handled earlier in pipeline Step 1.)
 
     // Step 2: Insert audio into selected comps
     var comps = (opts && opts.comps && opts.comps.length) ? opts.comps : getSelectedComps();
@@ -898,13 +750,13 @@ function __InsertRelink_coreRun(opts) {
         return { iso:null, lang:null, token:null };
     }
     function __getProjectISO(){
-        // Prefer Step 1 result
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) return String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(e1){}
-        try { if (DATA_JSON_ISO_CODE) return String(DATA_JSON_ISO_CODE).toUpperCase(); } catch(e2){}
+        if (AUDIO_ISO_MANUAL) return String(AUDIO_ISO_MANUAL).toUpperCase();
         return null;
     }
     function __getProjectLANG(){
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.lang) return String(__AE_PIPE__.results.linkData.lang).toUpperCase(); } catch(eL){}
+        if (AUDIO_LANG_MANUAL) return String(AUDIO_LANG_MANUAL).toUpperCase();
         return null;
     }
 

@@ -114,10 +114,7 @@
             ENABLE_REMOVE_EXISTING_AUDIO_LAYERS: true,
             ENABLE_MUTE_EXISTING_AUDIO_LAYERS: true,
             CLEAR_EXISTING_PROJECT_SOUND_FOLDER: true,
-            ENABLE_RELINK_DATA_JSON: false,
-            DATA_JSON_ISO_CODE_MANUAL: "SAU",        // Manual fallback 3-letter ISO country code (used if auto-detect fails)
-            DATA_JSON_ISO_CODE: null,                 // Actual ISO code used (auto-detected first, fallback to manual)
-            DATA_JSON_ISO_MODE: "manual",              // "auto" = try auto-detect then fallback to manual; "manual" = force manual only
+
             // New: audio filename ISO check
             ENABLE_CHECK_AUDIO_ISO: false,            // Phase 1: when true, check token3 (ISO) in audio filename vs project ISO
             CHECK_AUDIO_ISO_STRICT: false,            // Phase 2: when true and check is enabled, alert+abort on mismatch; when false, log warning only
