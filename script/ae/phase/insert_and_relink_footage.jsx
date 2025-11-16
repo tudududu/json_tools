@@ -176,7 +176,8 @@ function __InsertRelink_coreRun(opts) {
                         if (expectedLANG) {
                             okByToken = (at && at.iso === String(expectedISO).toUpperCase() && at.lang === String(expectedLANG).toUpperCase());
                         } else {
-                            okByToken = (at && at.iso === String(expectedISO).toUpperCase());
+                            // STRICT ISO-only: require ISO match and no LANG token
+                            okByToken = (at && at.iso === String(expectedISO).toUpperCase() && !at.lang);
                         }
                     }
                 } catch(__tokRec) { okByToken = true; }
@@ -194,7 +195,8 @@ function __InsertRelink_coreRun(opts) {
         try {
             if (expectedISO) {
                 var tag = expectedISO + (expectedLANG ? ("_"+expectedLANG) : "");
-                log("Imported recursive: matched '"+tag+"' => " + importedCnt + " file(s), skipped " + skippedCnt + ".");
+                var strictNote = expectedLANG ? "" : " (strict ISO-only)";
+                log("Imported recursive: matched '"+tag+"' => " + importedCnt + " file(s), skipped " + skippedCnt + "." + strictNote);
             }
         } catch(__tokLog) {}
     }
@@ -588,7 +590,10 @@ function __InsertRelink_coreRun(opts) {
         try { __expectedISO = __getProjectISO(); } catch(__gpi) {}
         try { __expectedLANG = __getProjectLANG(); } catch(__gpl) {}
         if (__expectedISO) {
-            try { log("Filter AUDIO by token: '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "'"); } catch(__flog) {}
+            try {
+                var __strictNote = __expectedLANG ? "" : " (strict ISO-only)";
+                log("Filter AUDIO by token: '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "'" + __strictNote);
+            } catch(__flog) {}
         }
         var importedCount = 0, skippedCount = 0;
         for (var ei = 0; ei < entries.length; ei++) {
@@ -599,7 +604,7 @@ function __InsertRelink_coreRun(opts) {
                 if (__expectedISO) {
                     var tk = __extractISOLangAfterDuration(f.name);
                     if (__expectedLANG) { allow = (tk && tk.iso === __expectedISO && tk.lang === __expectedLANG); }
-                    else { allow = (tk && tk.iso === __expectedISO); }
+                    else { allow = (tk && tk.iso === __expectedISO && !tk.lang); }
                 }
                 if (!allow) { skippedCount++; continue; }
                 var ioFile = new ImportOptions(f);
@@ -611,7 +616,10 @@ function __InsertRelink_coreRun(opts) {
             }
         }
         if (__expectedISO) {
-            try { log("Imported flat: matched '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "' => " + importedCount + " file(s), skipped " + skippedCount + "."); } catch(__fl2) {}
+            try {
+                var __strictNote2 = __expectedLANG ? "" : " (strict ISO-only)";
+                log("Imported flat: matched '" + __expectedISO + ( __expectedLANG ? ("_"+__expectedLANG) : "") + "' => " + importedCount + " file(s), skipped " + skippedCount + "." + __strictNote2);
+            } catch(__fl2) {}
         }
         if (importedCount > 0) {
             importedFolderItem = flatContainer;
@@ -642,7 +650,7 @@ function __InsertRelink_coreRun(opts) {
                         log("[warn] Flat import empty; falling back to ISO/ISO_LANG subfolder '" + matched2.name + "'.");
                         var destFB = ensureProjectPath(["project", "in", "sound"]);
                         var contFB = createChildFolder(destFB, matched2.name);
-                        try { if (__projISO2) { log("Filter AUDIO by token: '" + __projISO2 + ( __projLANG2 ? ("_"+__projLANG2) : "") + "'"); } } catch(__flFB) {}
+                        try { if (__projISO2) { var __strictNoteFB = __projLANG2 ? "" : " (strict ISO-only)"; log("Filter AUDIO by token: '" + __projISO2 + ( __projLANG2 ? ("_"+__projLANG2) : "") + "'" + __strictNoteFB); } } catch(__flFB) {}
                         importFolderRecursive(matched2, contFB, __projISO2, __projLANG2);
                         if (contFB && contFB.numItems > 0) {
                             importedFolderItem = contFB;
@@ -689,7 +697,7 @@ function __InsertRelink_coreRun(opts) {
         var __expectedISO3 = null, __expectedLANG3 = null;
         try { __expectedISO3 = __getProjectISO(); } catch(__gp3) {}
         try { __expectedLANG3 = __getProjectLANG(); } catch(__gl3) {}
-        if (__expectedISO3) { try { log("Filter AUDIO by token: '" + __expectedISO3 + ( __expectedLANG3 ? ("_"+__expectedLANG3) : "") + "'"); } catch(__fl3) {} }
+        if (__expectedISO3) { try { var __strictNote3 = __expectedLANG3 ? "" : " (strict ISO-only)"; log("Filter AUDIO by token: '" + __expectedISO3 + ( __expectedLANG3 ? ("_"+__expectedLANG3) : "") + "'" + __strictNote3); } catch(__fl3) {} }
         importFolderRecursive(soundImportFolder, container, __expectedISO3, __expectedLANG3);
         if (container && container.numItems > 0) {
             importedFolderItem = container;
