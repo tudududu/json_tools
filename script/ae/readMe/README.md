@@ -114,11 +114,19 @@ Table of contents
   - `insertRelink.ENABLE_CHECK_AUDIO_ISO` + `insertRelink.CHECK_AUDIO_ISO_STRICT` to abort or warn on mismatch.
   Sound import modes (language subfolders): `SOUND_USE_ISO_SUBFOLDER`, `SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER`, `SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER`.
 
+  Import-time token filtering (SOUND import)
+  - Source tokens: Step 1 provides `linkData.iso` and optional `linkData.lang`. For standalone runs, Step 4 can use manual fallbacks `AUDIO_ISO_MANUAL` / `AUDIO_LANG_MANUAL`.
+  - Filtering rules during import (before any layer insertion):
+    - Project has ISO+LANG → import only files whose names encode `<duration>_<ISO>_<LANG>`.
+    - Project has ISO only → import only files whose names encode `<duration>_<ISO>` and contain no language token (strict ISO-only at import time).
+    - Logging shows the active filter: `Filter AUDIO by token: 'ISO[_LANG]'` with a note `(strict ISO-only)` or `(preferred ISO-only; lenient fallback)` depending on strictness toggle.
+  - Note: The insert-time validator (below) ignores LANG for ISO-only projects, but the importer is stricter and may exclude `ISO_LANG` audio unless a lenient fallback is triggered.
+
   Audio ISO / ISO_LANG filename check (Insert & Relink)
   - When enabled, Step 4 parses tokens immediately after the duration (e.g., `06s_ENG` or `06s_BEL_FRA`). Dual-token form treated as `<ISO>_<LANG>`.
   - Matching rules:
     - If project has both ISO & LANG (Step 1 provided language), audio filename must present both tokens in order (duration → ISO → LANG).
-    - If project has ISO only (no language), audio may supply ISO only or ISO+LANG; ISO must match; LANG (if present) is ignored.
+    - If project has ISO only (no language), audio may supply ISO only or ISO+LANG; ISO must match; LANG (if present) is ignored at validation time (see import-time filter note above).
   - Failure reasons surfaced: missing ISO token, ISO mismatch, missing LANG when required, LANG mismatch.
   - Strict mode (`CHECK_AUDIO_ISO_STRICT=true`) aborts the pipeline on first mismatch; non-strict logs `[warn]` and continues.
   - Project tokens sourced from Step 1 (`linkData.iso`, `linkData.lang`); ISO fallback to manual if absent.
@@ -138,6 +146,18 @@ Table of contents
     - When `false`, only top-level files in `POST/IN/SOUND/YYMMDD` are imported; subfolders are skipped.
   - Soft fallback (flat mode): If `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true` and no top-level files are found, the script will try to import `<ISO>_<LANG>` then `<ISO>` as a fallback. A `[warn]` is logged when fallback is used.
   - Flat strict abort: If `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=true` and neither candidate subfolder exists, the pipeline aborts with a fatal summary.
+
+  Flat vs recursive behavior and fallbacks
+  - Flat mode (`SOUND_USE_ISO_SUBFOLDER=false`): imports only top-level files in the date folder; applies token filter. If nothing is imported:
+    - With `SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=true`: tries `<ISO>_<LANG>` then `<ISO>` subfolder; applies token filter there.
+    - If still empty and `CHECK_AUDIO_ISO_STRICT=false` and `SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=false`: lenient subfolder fallback prefers `GBL`, else the single subfolder, else the first subfolder containing audio, importing all audio (no token filter).
+    - If strict/abort flags are active: logs fatal and aborts.
+  - Recursive mode (`SOUND_USE_ISO_SUBFOLDER=true` or when importing a chosen subfolder): imports recursively with token filter. If nothing matches and `CHECK_AUDIO_ISO_STRICT=false`, it retries recursively without a token filter (imports all audio) and proceeds with warnings at insert time.
+
+  Audit & safety
+  - Audit lines include both the expected token and the chosen SOUND path: `Expecting AUDIO token: ...` and `Using SOUND folder: <path>`.
+  - Import uses `importAs=FOOTAGE` and a manual recursive scan (not `ImportOptions(Folder)`) to avoid first‑run anomalies.
+  - The script only moves the imported folder under `project/in/sound/` when audio was actually imported (`__didImportAny`).
 
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
