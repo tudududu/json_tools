@@ -232,6 +232,29 @@ Table of contents
   ### 11. Changelog (Recent Highlights)
   See prior integration notes for full history. Key additions: Strict AUTO footage mode; template duration matching; extras duplication & routing; unified save policy in Batch Mode; global log marker; dimension validation; early Step 0 bootstrap; dynamic AME template mapping.
 
+  #### Integration 182–189 – Step 4 Audio Hardening
+  Goals: Make SOUND imports deterministic, safer, and self-documenting.
+  Changes:
+  - Audit: Added single-line summary after expectation — `Using SOUND folder: <path>`.
+  - Import type: Forced `importAs=FOOTAGE` for audio to avoid AE guessing.
+  - Token-based filtering: During import, only bring in files whose names match expected `ISO` or `ISO_LANG` tokens immediately after duration (prevents wrong-country audio landing in comps).
+  - Strict ISO-only (ISO without language): For projects with ISO only, import-time filtering accepts only `ISO` (no `LANG`) by default. A lenient path still exists when non‑strict.
+  - Lenient fallbacks (non‑strict):
+    - Flat mode: If no top-level audio matched, optionally fall back to an `ISO[_LANG]` subfolder; if absent and abort disabled, prefer `GBL`, then the single/first viable subfolder with audio.
+    - Recursive mode: If nothing matched the token filter and strict check is off, import all audio recursively (mismatch warnings are emitted on insert).
+  - Subfolder selection fix: Corrected fallback ISO variable typo in ISO-subfolder selection.
+  - Safety: Replaced folder `ImportOptions(Folder)` with manual recursive scan to avoid first‑run cold‑start issues in AE; added `__didImportAny` guard so the script only moves/labels imported folders when something was actually imported.
+
+  #### Integration 190 – Step 4 Audio Validation Pass
+  Outcome: Verified behaviors above with additional scenarios; no functional changes beyond logging refinements.
+
+  #### Integration 191 – Data.json Relink Removal from Step 4
+  Rationale: Centralize JSON linking in Step 1 for single source of truth.
+  Changes:
+  - Removed all `data.json` relink logic and settings from Step 4.
+  - Step 4 now relies on tokens provided by Step 1 (`linkData.iso` / `linkData.lang`).
+  - Standalone runs (outside pipeline) can set manual fallbacks: `AUDIO_ISO_MANUAL` and `AUDIO_LANG_MANUAL` for import-time filtering and validation.
+
   #### Integration 165 – Multi-Language Countries (MLC) Foundation
   Goal: Introduce minimal options to support campaigns where a single country ISO may have multiple language JSON variants without exploding configuration surface.
   Scope implemented:
