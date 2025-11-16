@@ -159,6 +159,23 @@ Table of contents
   - Import uses `importAs=FOOTAGE` and a manual recursive scan (not `ImportOptions(Folder)`) to avoid first‑run anomalies.
   - The script only moves the imported folder under `project/in/sound/` when audio was actually imported (`__didImportAny`).
 
+  Options quick reference (Step 4)
+  | Option key | Default | Description |
+  |------------|---------|-------------|
+  | `insertRelink.CLEAR_EXISTING_PROJECT_SOUND_FOLDER` | `true` | Clear `project/in/sound` before new import. |
+  | `insertRelink.SOUND_USE_ISO_SUBFOLDER` | `false` | Import from matching ISO/ISO_LANG subfolder recursively. |
+  | `insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER` | `false` | Flat mode: when top-level empty, try `<ISO>_<LANG>` then `<ISO>` subfolder. |
+  | `insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER` | `false` | Flat mode: abort if required ISO subfolder not found. |
+  | `insertRelink.ENABLE_CHECK_AUDIO_ISO` | `false` | Validate inserted audio filename tokens against project ISO/LANG. |
+  | `insertRelink.CHECK_AUDIO_ISO_STRICT` | `false` | When true, abort on first mismatch; otherwise log warnings only. |
+  | `insertRelink.ENABLE_ALIGN_AUDIO_TO_MARKERS` | `false` | Align new audio layer start to first comp marker. |
+  | `insertRelink.ENABLE_REMOVE_EXISTING_AUDIO_LAYERS` | `true` | Remove existing audio-only layers after inserting new audio. |
+  | `insertRelink.ENABLE_MUTE_EXISTING_AUDIO_LAYERS` | `true` | Mute other audio-capable layers (when not removed). |
+
+  Standalone constants (when not running via pipeline)
+  - `AUDIO_ISO_MANUAL` (default `"SAU"`): ISO fallback used for import-time filtering and insert-time validation.
+  - `AUDIO_LANG_MANUAL` (default `null`): Optional language fallback for the above.
+
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
