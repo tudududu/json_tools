@@ -54,12 +54,8 @@ if (!isoLayer) {
     country = "";
     language = "";
   }
-    var locale = "";
-    if (language !== "") {
-        locale = country + "_" + language;
-    } else {
-        locale = country;
-    }
+  var locale = (language + "") ? (country + "_" + language) : (country + "");
+
   // Normalize both sides (uppercase)
   var match = (locale + "").toUpperCase() === isoLayer.toUpperCase();
 

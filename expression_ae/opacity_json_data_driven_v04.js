@@ -28,17 +28,19 @@ function normCode(s) {
 // --- Extract one or more codes from the tail of the layer name ---
 // Accepts tail like: AAA, AAA_BBB, AAA+BBB, AAA_BBB+CCC_DDD
 function extractCodes(layerName) {
-  var ln = layerName + "";
-  var m = ln.match(/[_-]([A-Za-z0-9_+\-]+)$/); // capture last token after '_' or '-'
+  var ln = (layerName + "").replace(/\s+/g, "");
+  // Strip common suffix decorations like _v2, -v03, _revA, -final
+  ln = ln.replace(/([_-]v\d+|[_-]rev\w+|[_-]final)$/i, "");
+  // Find last cluster of codes possibly with plus separators.
+  // Pattern: optional preceding delimiter then cluster of (CODE or CODE_CODE) separated by '+'
+  var m = ln.match(/(?:^|[_-])([A-Za-z0-9]{3}(?:_[A-Za-z0-9]{3})?(?:\+[A-Za-z0-9]{3}(?:_[A-Za-z0-9]{3})?)*)$/);
   if (!m) return [];
-  var tail = m[1].replace(/-/g, "_");
-  var parts = tail.split("+");
+  var cluster = m[1].replace(/-/g, "_");
+  var rawParts = cluster.split("+");
   var out = [];
-  for (var i=0;i<parts.length;i++) {
-    var p = parts[i];
-    if (/^[A-Za-z0-9]{3}$/.test(p)) {
-      out.push(p);
-    } else if (/^[A-Za-z0-9]{3}_[A-Za-z0-9]{3}$/.test(p)) {
+  for (var i=0;i<rawParts.length;i++) {
+    var p = rawParts[i];
+    if (/^[A-Za-z0-9]{3}$/.test(p) || /^[A-Za-z0-9]{3}_[A-Za-z0-9]{3}$/.test(p)) {
       out.push(p);
     }
   }
