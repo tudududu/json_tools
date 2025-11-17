@@ -1,7 +1,7 @@
 // TARGET ► Position — Baseline-locked for TEXT; same alignment for others
-// v02
+// v03
 
-var holder = thisComp.layer("Size_Holder_Subtit");
+var holder = thisComp.layer("Size_Holder_Subtitles");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
@@ -56,28 +56,28 @@ if (isText(thisLayer)){
   var multiline = lineCount > 1;
   var deltaC;
   if (multiline) {
-    // --- Mode A: lock baseline to LAST line (requested for 2-line subtitles) ---
-    // We detect 2-line case specifically; for >2 lines we still geometric-center.
     if (lineCount === 2) {
-      // Improved baseline estimate: r.top = -ascender. Height = asc + B + desc.
-      // Let descent ≈ ascender * descentRatio (default 0.25). Then
-      // baseline2Y = r.height + r.top*(1 + descentRatio) (derivation in notes).
-      var descentRatio = ctrl("Descent Ratio", 0.25); // optional fine-tune
-      var baseline2Y = r.height + r.top * (1 + descentRatio);
-      // Fallback: if estimate goes negative or > height, revert to lineH method.
-      if (baseline2Y < 0 || baseline2Y > r.height) {
-        baseline2Y = r.height / lineCount; // fallback
+      // Compute baseline spacing using text style leading (stable vs descenders).
+      var lead = 0, autoL = false, fSize = 0;
+      try {
+        var st = text.sourceText.style;
+        fSize = st.fontSize || 0;
+        lead = st.leading || 0;
+        autoL = st.autoLeading ? true : false;
+      } catch (e) {}
+      if (autoL || lead <= 0) {
+        lead = fSize > 0 ? fSize * 1.2 : (r.height/lineCount); // fallback
       }
-      var lastBaselineComp = toComp([bx, baseline2Y]);
-      deltaC = P - lastBaselineComp; // place 2nd line baseline at P
+      var secondBaselineComp = toComp([bx, lead]);
+      deltaC = P - secondBaselineComp; // lock second line baseline to P
     } else {
-      // Fallback to geometric center for 3+ lines
+      // 3+ lines: keep geometric center behavior
       var centerY = r.top + r.height/2;
       var centerComp = toComp([bx, centerY]);
       deltaC = P - centerComp;
     }
   } else {
-    // Single line: align first line baseline at P
+    // Single line: align first line baseline at P (stable vs descenders)
     var baselineComp = toComp([bx, 0]);
     deltaC = P - baselineComp;
   }
