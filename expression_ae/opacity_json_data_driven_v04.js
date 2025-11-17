@@ -1,7 +1,10 @@
 /*
-  Opacity – ISO code driven v03
-  Layer name patterns (tail tokens): token1_token2_<ISO> or token1_token2_<ISO>_<ISO>
-  Shows (100) if tail <ISO> (or <ISO>_<ISO>) matches JSON locale built from metadataGlobal.country[_language].
+  Opacity – ISO code driven v04
+  Layer name patterns (tail tokens):
+    - token1_token2_<ISO>
+    - token1_token2_<ISO>_<ISO>
+    - Multi-code: any combination joined by '+', e.g. token1_token2_<ISO>+<ISO>, token1_token2_<ISO>_<ISO>+<ISO>
+  Shows (100) if ANY tail code equals JSON locale built from metadataGlobal.country[_language].
   Comparison is case-insensitive; hyphen vs underscore is normalized.
 
   Assumptions:
@@ -11,7 +14,6 @@
 */
 
 var FOOTAGE_NAME = "data.json";
-var ALLOW_COUNTRY_ONLY_MATCH = true; // If layer has just COUNTRY and JSON has COUNTRY_LANGUAGE, treat as match
 
 // Normalize code strings: to string, uppercase, unify separators, trim spaces
 function normCode(s) {
@@ -23,17 +25,24 @@ function normCode(s) {
   return t.toUpperCase();
 }
 
-// --- Extract <ISO> (or <ISO>_<ISO>) from the END of the layer name ---
-function extractISO(layerName) {
+// --- Extract one or more codes from the tail of the layer name ---
+// Accepts tail like: AAA, AAA_BBB, AAA+BBB, AAA_BBB+CCC_DDD
+function extractCodes(layerName) {
   var ln = layerName + "";
-  var parts = ln.split(/[_-]/);
-  var n = parts.length;
-  function is3(x){ return /^[A-Za-z0-9]{3}$/.test(x || ""); }
-  var last = parts[n-1] || "";
-  var prev = parts[n-2] || "";
-  if (is3(last) && is3(prev)) return prev + "_" + last; // ISO_ISO
-  if (is3(last)) return last;                              // ISO
-  return "";                                              // not found at tail
+  var m = ln.match(/[_-]([A-Za-z0-9_+\-]+)$/); // capture last token after '_' or '-'
+  if (!m) return [];
+  var tail = m[1].replace(/-/g, "_");
+  var parts = tail.split("+");
+  var out = [];
+  for (var i=0;i<parts.length;i++) {
+    var p = parts[i];
+    if (/^[A-Za-z0-9]{3}$/.test(p)) {
+      out.push(p);
+    } else if (/^[A-Za-z0-9]{3}_[A-Za-z0-9]{3}$/.test(p)) {
+      out.push(p);
+    }
+  }
+  return out;
 }
 
 function safe(obj, path, defVal) {
@@ -48,8 +57,8 @@ function safe(obj, path, defVal) {
 }
 
 
-var isoLayer = extractISO(thisLayer.name);
-if (!isoLayer) {
+var isoList = extractCodes(thisLayer.name);
+if (!isoList.length) {
   0; // No pattern → hide
 } else {
   var country = "";
@@ -65,18 +74,11 @@ if (!isoLayer) {
   // Build locale, then normalize both sides
   var locale = (language + "") ? (country + "_" + language) : (country + "");
   var L = normCode(locale);
-  var S = normCode(isoLayer);
-
   var match = false;
-  if (S && L) {
-    if (S === L) {
-      match = true;
-    } else if (ALLOW_COUNTRY_ONLY_MATCH) {
-      // If layer specifies just COUNTRY (3 chars) and JSON has COUNTRY_LANGUAGE
-      // treat as match when prefixes match.
-      if (S.length === 3 && L.length === 7 && L.indexOf(S + "_") === 0) {
-        match = true;
-      }
+  if (L) {
+    for (var k=0; k<isoList.length; k++) {
+      var S = normCode(isoList[k]);
+      if (S === L) { match = true; break; }
     }
   }
 
