@@ -1,5 +1,5 @@
 // TARGET ► Position — Baseline-locked for TEXT; same alignment for others
-// v03
+// v03 The second line baseline anchored using the text style’s leading
 
 var holder = thisComp.layer("Size_Holder_Subtitles");
 var group  = holder.content("PLACEHOLDER");
