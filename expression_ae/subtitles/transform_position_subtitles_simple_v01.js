@@ -1,5 +1,5 @@
 // TARGET ► Position — Baseline-locked for TEXT (simple)
-// v01 — independent from holder; aligns to the current Position as target baseline
+// v02 — independent from holder; aligns to the current Position as target baseline
 
 // This simple variant uses the layer's own Position as the target point P.
 // - Single line: first-line baseline (y=0) aligns to P.
@@ -9,9 +9,11 @@
 function isText(li){ try{ li.text.sourceText; return true; } catch(e){ return false; } }
 
 if (isText(thisLayer)){
-  var P = value; // comp-space target (the layer's current Position)
+  var is3D = thisLayer.threeDLayer;
+  var P = value; // current position
   var nudge = 0; try { nudge = effect("Baseline Nudge Y")("Slider").value; } catch (e) {}
-  var Pn = [P[0], P[1] + nudge, P.length>2? P[2] : undefined];
+  // Build target point with matching dimensionality (avoid undefined element)
+  var Pn = is3D ? [P[0], P[1] + nudge, P[2]] : [P[0], P[1] + nudge];
 
   var r  = sourceRectAtTime(time, false);
   var w  = Math.max(1, r.width);
@@ -37,17 +39,17 @@ if (isText(thisLayer)){
     lead = fSize > 0 ? fSize * 1.2 : (r.height/Math.max(1,lineCount));
   }
 
-  var delta;
-  if (lineCount > 1) {
-    var lastY = (lineCount - 1) * lead;
-    var lastBaselineComp = toComp([bx, lastY]);
-    delta = Pn - lastBaselineComp;
+  // Compute local baseline point for target line
+  var targetLocalY = (lineCount > 1) ? (lineCount - 1) * lead : 0;
+  var baselineComp = toComp(is3D ? [bx, targetLocalY, 0] : [bx, targetLocalY]);
+  // Shift so baselineComp aligns to Pn
+  var dx = Pn[0] - baselineComp[0];
+  var dy = Pn[1] - baselineComp[1];
+  if (is3D) {
+    value + [dx, dy, 0];
   } else {
-    var baselineComp = toComp([bx, 0]);
-    delta = Pn - baselineComp;
+    value + [dx, dy];
   }
-
-  thisLayer.threeDLayer ? value + [delta[0], delta[1], 0] : value + delta;
 } else {
   value; // Non-text: do nothing
 }

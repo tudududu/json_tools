@@ -1,4 +1,4 @@
-// TARGET ► Position — Baseline-locked for TEXT; same alignment for others
+// TARGET ► Position — Baseline-locked for TEXT;
 // v04 baseline-consistent approach for 3+ lines
 
 var holder = thisComp.layer("Size_Holder_Subtitles");
