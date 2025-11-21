@@ -844,6 +844,69 @@ def convert_csv_to_json(
                 merged.append(prev)
             vdata["super_a_rows"] = merged
 
+        # Deduplicate non-contiguous duplicate subtitle & super_A rows by (line,start,end)
+        for vid, vdata in videos.items():
+            # Subtitles
+            if vdata.get("sub_rows"):
+                grouped_sub: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                order_sub: List[Tuple[int, Optional[float], Optional[float]]] = []
+                for row in vdata["sub_rows"]:
+                    key = (row["line"], row["start"], row["end"])
+                    if key not in grouped_sub:
+                        grouped_sub[key] = {
+                            "line": row["line"],
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"].get(c, "") for c in countries},
+                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        }
+                        order_sub.append(key)
+                    else:
+                        for c in countries:
+                            extra_l = row["texts"].get(c, "")
+                            if extra_l:
+                                if grouped_sub[key]["texts"][c]:
+                                    grouped_sub[key]["texts"][c] += "\n" + extra_l
+                                else:
+                                    grouped_sub[key]["texts"][c] = extra_l
+                            extra_p = row.get("texts_portrait", {}).get(c, "")
+                            if extra_p:
+                                if grouped_sub[key]["texts_portrait"][c]:
+                                    grouped_sub[key]["texts_portrait"][c] += "\n" + extra_p
+                                else:
+                                    grouped_sub[key]["texts_portrait"][c] = extra_p
+                vdata["sub_rows"] = [grouped_sub[k] for k in order_sub]
+            # super_A
+            if vdata.get("super_a_rows"):
+                grouped_sa: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                order_sa: List[Tuple[int, Optional[float], Optional[float]]] = []
+                for row in vdata["super_a_rows"]:
+                    key = (row["line"], row["start"], row["end"])
+                    if key not in grouped_sa:
+                        grouped_sa[key] = {
+                            "line": row["line"],
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"].get(c, "") for c in countries},
+                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        }
+                        order_sa.append(key)
+                    else:
+                        for c in countries:
+                            extra_l = row["texts"].get(c, "")
+                            if extra_l:
+                                if grouped_sa[key]["texts"][c]:
+                                    grouped_sa[key]["texts"][c] += "\n" + extra_l
+                                else:
+                                    grouped_sa[key]["texts"][c] = extra_l
+                            extra_p = row.get("texts_portrait", {}).get(c, "")
+                            if extra_p:
+                                if grouped_sa[key]["texts_portrait"][c]:
+                                    grouped_sa[key]["texts_portrait"][c] += "\n" + extra_p
+                                else:
+                                    grouped_sa[key]["texts_portrait"][c] = extra_p
+                vdata["super_a_rows"] = [grouped_sa[k] for k in order_sa]
+
         # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
             grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
