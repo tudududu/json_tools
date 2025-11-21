@@ -865,16 +865,22 @@ def convert_csv_to_json(
                         for c in countries:
                             extra_l = row["texts"].get(c, "")
                             if extra_l:
-                                if grouped_sub[key]["texts"][c]:
-                                    grouped_sub[key]["texts"][c] += "\n" + extra_l
-                                else:
+                                existing = grouped_sub[key]["texts"][c]
+                                # Append only if different and not already present as a full line
+                                if not existing:
                                     grouped_sub[key]["texts"][c] = extra_l
+                                else:
+                                    # Split existing by newline to check duplication
+                                    if extra_l not in existing.split("\n"):
+                                        grouped_sub[key]["texts"][c] += "\n" + extra_l
                             extra_p = row.get("texts_portrait", {}).get(c, "")
                             if extra_p:
-                                if grouped_sub[key]["texts_portrait"][c]:
-                                    grouped_sub[key]["texts_portrait"][c] += "\n" + extra_p
-                                else:
+                                existing_p = grouped_sub[key]["texts_portrait"][c]
+                                if not existing_p:
                                     grouped_sub[key]["texts_portrait"][c] = extra_p
+                                else:
+                                    if extra_p not in existing_p.split("\n"):
+                                        grouped_sub[key]["texts_portrait"][c] += "\n" + extra_p
                 vdata["sub_rows"] = [grouped_sub[k] for k in order_sub]
             # super_A
             if vdata.get("super_a_rows"):
@@ -895,16 +901,20 @@ def convert_csv_to_json(
                         for c in countries:
                             extra_l = row["texts"].get(c, "")
                             if extra_l:
-                                if grouped_sa[key]["texts"][c]:
-                                    grouped_sa[key]["texts"][c] += "\n" + extra_l
-                                else:
+                                existing = grouped_sa[key]["texts"][c]
+                                if not existing:
                                     grouped_sa[key]["texts"][c] = extra_l
+                                else:
+                                    if extra_l not in existing.split("\n"):
+                                        grouped_sa[key]["texts"][c] += "\n" + extra_l
                             extra_p = row.get("texts_portrait", {}).get(c, "")
                             if extra_p:
-                                if grouped_sa[key]["texts_portrait"][c]:
-                                    grouped_sa[key]["texts_portrait"][c] += "\n" + extra_p
-                                else:
+                                existing_p = grouped_sa[key]["texts_portrait"][c]
+                                if not existing_p:
                                     grouped_sa[key]["texts_portrait"][c] = extra_p
+                                else:
+                                    if extra_p not in existing_p.split("\n"):
+                                        grouped_sa[key]["texts_portrait"][c] += "\n" + extra_p
                 vdata["super_a_rows"] = [grouped_sa[k] for k in order_sa]
 
         # Optional join of claim rows by identical timing (global)
