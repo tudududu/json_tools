@@ -665,6 +665,9 @@ def convert_csv_to_json(
                 if line_num is None:
                     line_num = auto_sub_line_per_video[video_id]
                     auto_sub_line_per_video[video_id] += 1
+                else:
+                    # Explicit line number provided; sync counter for next auto line
+                    auto_sub_line_per_video[video_id] = line_num + 1
                 videos[video_id]["sub_rows"].append({
                     "line": line_num,
                     "start": start_tc,
@@ -687,6 +690,9 @@ def convert_csv_to_json(
                 if line_num is None:
                     line_num = auto_super_a_line_per_video[video_id]
                     auto_super_a_line_per_video[video_id] += 1
+                else:
+                    # Explicit line number provided; sync counter for next auto line
+                    auto_super_a_line_per_video[video_id] = line_num + 1
                 videos[video_id]["super_a_rows"].append({
                     "line": line_num,
                     "start": start_tc,
