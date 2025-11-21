@@ -334,7 +334,7 @@ def convert_csv_to_json(
         language_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
-        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag)
+        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag, super_A_flag)
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
         global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
@@ -364,6 +364,7 @@ def convert_csv_to_json(
         auto_endframe_line = 1
         auto_endframe_line_per_video: Dict[str, int] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
+        auto_super_a_line_per_video: Dict[str, int] = {}
 
         for r in rows:
             if len(r) < len(headers):
@@ -438,9 +439,9 @@ def convert_csv_to_json(
                             job_number_per_country[c] = "noJobNumber"
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
                     continue
-                # Per-country flag keys (disclaimer_flag / subtitle_flag) now can appear as meta_global.
+                # Per-country flag keys (disclaimer_flag / subtitle_flag / super_A_flag) now can appear as meta_global.
                 # Capture per-country values so they can act as defaults for per-video metadata flags.
-                if key_name in ("disclaimer_flag", "subtitle_flag"):
+                if key_name in ("disclaimer_flag", "subtitle_flag", "super_A_flag"):
                     for c in countries:
                         per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
                         if per_val:
@@ -488,11 +489,11 @@ def convert_csv_to_json(
                 if not key_name or not video_id:
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": []}
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
                     video_order.append(video_id)
                 key_lower = key_name.lower()
                 # Special per-country meta_local keys: collect values per country instead of a single shared one
-                if key_lower in {"disclaimer_flag", "subtitle_flag", "logo_anim_flag"}:
+                if key_lower in {"disclaimer_flag", "subtitle_flag", "super_a_flag", "logo_anim_flag"}:
                     if video_id not in per_video_meta_local_country:
                         per_video_meta_local_country[video_id] = {}
                     # For each country, pick per-country landscape/portrait cell (first non-empty among them)
@@ -657,14 +658,42 @@ def convert_csv_to_json(
                     # Skip if no video id
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": []}
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
                     video_order.append(video_id)
                 if video_id not in auto_sub_line_per_video:
                     auto_sub_line_per_video[video_id] = start_line_index
                 if line_num is None:
                     line_num = auto_sub_line_per_video[video_id]
                     auto_sub_line_per_video[video_id] += 1
+                else:
+                    # Explicit line number provided; sync counter for next auto line
+                    auto_sub_line_per_video[video_id] = line_num + 1
                 videos[video_id]["sub_rows"].append({
+                    "line": line_num,
+                    "start": start_tc,
+                    "end": end_tc,
+                    "texts": texts,
+                    "texts_portrait": texts_portrait,
+                })
+                continue
+
+            # Super_A rows (follows subtitle pattern exactly)
+            if rt == "super_a":
+                if not video_id:
+                    # Skip if no video id
+                    continue
+                if video_id not in videos:
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
+                    video_order.append(video_id)
+                if video_id not in auto_super_a_line_per_video:
+                    auto_super_a_line_per_video[video_id] = start_line_index
+                if line_num is None:
+                    line_num = auto_super_a_line_per_video[video_id]
+                    auto_super_a_line_per_video[video_id] += 1
+                else:
+                    # Explicit line number provided; sync counter for next auto line
+                    auto_super_a_line_per_video[video_id] = line_num + 1
+                videos[video_id]["super_a_rows"].append({
                     "line": line_num,
                     "start": start_tc,
                     "end": end_tc,
@@ -761,6 +790,15 @@ def convert_csv_to_json(
                                 prev["texts"][c] += "\n" + t
                             else:
                                 prev["texts"][c] = t
+                        # Handle portrait text
+                        t_p = row.get("texts_portrait", {}).get(c, "")
+                        if t_p:
+                            if prev.get("texts_portrait", {}).get(c, ""):
+                                prev["texts_portrait"][c] += "\n" + t_p
+                            else:
+                                if "texts_portrait" not in prev:
+                                    prev["texts_portrait"] = {}
+                                prev["texts_portrait"][c] = t_p
                 else:
                     if prev:
                         merged.append(prev)
@@ -768,6 +806,43 @@ def convert_csv_to_json(
             if prev:
                 merged.append(prev)
             vdata["sub_rows"] = merged
+
+        # Merge super_A rows with same line (per video) if enabled
+        for vid, vdata in videos.items():
+            if not merge_subtitles:  # Use same merge flag as subtitles
+                continue
+            merged: List[Dict[str, Any]] = []
+            prev: Optional[Dict[str, Any]] = None
+            for row in vdata.get("super_a_rows", []):
+                if prev and row["line"] == prev["line"] and (
+                    (row["start"] is None and row["end"] is None) or (
+                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                    )
+                ):
+                    # Continuation
+                    for c in countries:
+                        t = row["texts"][c]
+                        if t:
+                            if prev["texts"][c]:
+                                prev["texts"][c] += "\n" + t
+                            else:
+                                prev["texts"][c] = t
+                        # Handle portrait text
+                        t_p = row.get("texts_portrait", {}).get(c, "")
+                        if t_p:
+                            if prev.get("texts_portrait", {}).get(c, ""):
+                                prev["texts_portrait"][c] += "\n" + t_p
+                            else:
+                                if "texts_portrait" not in prev:
+                                    prev["texts_portrait"] = {}
+                                prev["texts_portrait"][c] = t_p
+                else:
+                    if prev:
+                        merged.append(prev)
+                    prev = row
+            if prev:
+                merged.append(prev)
+            vdata["super_a_rows"] = merged
 
         # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
@@ -909,6 +984,31 @@ def convert_csv_to_json(
                         "out": fmt_time(srow["end"]),
                         "text": txt_port_final,
                     })
+                # Super_A processing (follows subtitle pattern exactly)
+                super_a_land: List[Dict[str, Any]] = []
+                super_a_port: List[Dict[str, Any]] = []
+                for sarow in vdata.get("super_a_rows", []):
+                    txt_l = (sarow["texts"].get(c, "") or "").strip()
+                    txt_p = (sarow.get("texts_portrait", {}).get(c, "") or "").strip()
+                    # Skip super_A if landscape text empty and skipping empties
+                    if skip_empty_text and not txt_l:
+                        continue
+                    if sarow["start"] is None or sarow["end"] is None:
+                        continue
+                    super_a_land.append({
+                        "line": sarow["line"],
+                        "in": fmt_time(sarow["start"]),
+                        "out": fmt_time(sarow["end"]),
+                        "text": txt_l,
+                    })
+                    # Portrait: use portrait text if provided else mirror landscape
+                    txt_port_final = txt_p if txt_p else txt_l
+                    super_a_port.append({
+                        "line": sarow["line"],
+                        "in": fmt_time(sarow["start"]),
+                        "out": fmt_time(sarow["end"]),
+                        "text": txt_port_final,
+                    })
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject logo_anim_flag per video based on its duration (string match)
                 if logo_anim_flag_by_duration:
@@ -920,7 +1020,7 @@ def convert_csv_to_json(
                             country_specific = per_map.get(c)
                             value_to_use = country_specific if country_specific else logo_anim_flag_by_duration[dur_key]
                             base_meta["logo_anim_flag"] = value_to_use
-                # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag) if present
+                # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag, super_A_flag) if present
                 # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
                 # First apply global per-country flags as defaults
                 if c in global_flag_values_per_country:
@@ -939,11 +1039,13 @@ def convert_csv_to_json(
                     "videoId": f"{vid}_landscape",
                     "metadata": land_meta,
                     "subtitles": subs_land,
+                    "super_A": super_a_land,
                 })
                 videos_list.append({
                     "videoId": f"{vid}_portrait",
                     "metadata": port_meta,
                     "subtitles": subs_port,
+                    "super_A": super_a_port,
                 })
 
             # Attach per-video claim/disclaimer with timings and choose text (prefer local if requested)
@@ -1192,6 +1294,7 @@ def convert_csv_to_json(
                     "videoId": vobj["videoId"],
                     "metadata": meta_cast,
                     "subtitles": vobj["subtitles"],
+                    "super_A": vobj.get("super_A", []),
                     "disclaimer": vobj.get("disclaimer", []),
                     "logo": vobj.get("logo", []),
                     "endFrame": vobj.get("endFrame", []),
