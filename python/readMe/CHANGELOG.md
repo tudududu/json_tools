@@ -1,3 +1,18 @@
+# 1.5.1 - 2025-11-21
+
+Added (CSV to JSON 174–176):
+- New timed collection `super_A` plus flag `super_A_flag`, implemented with identical parsing, orientation mirroring, line auto‑numbering, and per‑video scoping rules as `subtitles` (174).
+- Per-country `super_A_flag` precedence: `meta_local` per‑country value (if present) overrides `meta_global` per‑country default; values like `N` are preserved verbatim (174).
+- Non‑contiguous dedup merge pass for `subtitles` and `super_A`: rows sharing `(line,start,end)` are grouped; identical duplicate texts are collapsed (not re‑concatenated), distinct texts are newline‑joined in stable order (175).
+- Portrait text handling for `super_A` mirrors subtitles: when a portrait cell for a line is empty its landscape text is used (174).
+- Empty `super_A` arrays are emitted for videos without any `super_a` rows (no implicit inheritance to shorter cutdowns; behavior clarified vs. subtitles) (176).
+
+Docs:
+- README updated with `super_a` record_type mapping, merging & dedup rules, flag precedence, sample video object containing `super_A` arrays, and clarification on non‑inheritance (176).
+
+Tests:
+- Added unit tests covering basic `super_A` parsing, flag precedence (global vs local), merging of continuation lines, portrait mirroring, empty array emission, and the new non‑contiguous dedup logic ensuring identical duplicates are not duplicated while distinct duplicates concatenate (175–176).
+
 # 1.5.0 - 2025-11-10
 
 Added:

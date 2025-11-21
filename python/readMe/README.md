@@ -29,6 +29,7 @@ Meaning:
   * `claim` – claim text rows (timed or untimed)
   * `disclaimer` – disclaimer rows (first timed row starts a block; following untimed rows append)
   * `sub` – subtitle rows (must have `video_id` + start/end)
+  * `super_a` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_A`)
 * `video_id`: identifies the target video for `sub` and `meta_local` rows
 * `line`: optional manual line index; auto-assigned when missing
 * `start` / `end`: timecodes (may be empty for continuation lines of disclaimers or untimed claim segments)
@@ -46,12 +47,15 @@ Meaning:
 | claim         | Appended to per‑country `claim[]` (merged if `--join-claim`) |
 | disclaimer    | Appended / merged into per‑country `disclaimer[]` blocks |
 | sub           | Appended to `videos[].subtitles[]` for the given `video_id` |
+| super_a       | Appended to `videos[].super_A[]` for the given `video_id` |
 | endFrame      | Appended to `videos[].endFrame[]` (timed segments; mirrors logo behavior per video) |
 
 ### Merging Behaviors
 * Subtitle continuation lines (same `line` + same timing OR untimed continuation) concatenate text with newline unless `--no-merge-subtitles`.
+* `super_A` continuation lines follow the exact same logic as subtitles.
 * Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
+* Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
 ### Per-Country Output Structure
 
@@ -84,6 +88,7 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
        "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
+       ,"super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
      },
      {
        "videoId": "WTA_30s_portrait",
@@ -91,7 +96,8 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "subtitles": [{"line":1,"in":0.0,"out":2.4,"text":"Hello"}],
        "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
-       "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
+       "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ],
+       "super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
      }
   ]
 }
@@ -355,6 +361,13 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   * Multi‑variant export: if the same country appears multiple times (duplicate columns representing distinct variants), split mode emits one file per variant (e.g., `..._BEL_FRA.json` and `..._BEL_NLD.json`). In non‑split mode you may choose a specific variant via `--country-variant-index`.
 
 * A `CHANGELOG.md` file tracks recent changes; `lastChangeId` references its latest heading.
+  * `super_A` & `super_A_flag` (CSV to JSON 174–176):
+    * `super_a` rows mirror subtitle row requirements (must specify `video_id` and timings; auto line numbering when omitted; portrait fallback to landscape when the portrait cell is empty).
+    * Emitted under each video as `super_A` (orientation duplicated like other per‑video arrays).
+    * Merging: identical to subtitles for contiguous continuation lines; subsequent dedup pass collapses non‑contiguous identical duplicates and newline‑joins distinct duplicates (see Merging Behaviors).
+    * Flag precedence: per‑country `meta_global.super_A_flag` provides a default injected into each video’s metadata for that country; a per‑country `meta_local.super_A_flag` overrides it. Values are not coerced—`N` remains `N`.
+    * No automatic inheritance to shorter cutdowns: if only the longest duration video has rows, other videos simply emit an empty `super_A` array (even when their flag is `Y`), matching the subtitle non‑inheritance model.
+    * Empty array emission keeps the schema stable for consumers that expect the key.
   In this repository the Python-specific changelog resides at `python/readMe/CHANGELOG.md`.
   The converter’s `--converter-version auto` first looks for a repo-root `CHANGELOG.md`, then falls back to `python/readMe/CHANGELOG.md`.
 
