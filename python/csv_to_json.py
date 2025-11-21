@@ -784,6 +784,15 @@ def convert_csv_to_json(
                                 prev["texts"][c] += "\n" + t
                             else:
                                 prev["texts"][c] = t
+                        # Handle portrait text
+                        t_p = row.get("texts_portrait", {}).get(c, "")
+                        if t_p:
+                            if prev.get("texts_portrait", {}).get(c, ""):
+                                prev["texts_portrait"][c] += "\n" + t_p
+                            else:
+                                if "texts_portrait" not in prev:
+                                    prev["texts_portrait"] = {}
+                                prev["texts_portrait"][c] = t_p
                 else:
                     if prev:
                         merged.append(prev)
@@ -812,6 +821,15 @@ def convert_csv_to_json(
                                 prev["texts"][c] += "\n" + t
                             else:
                                 prev["texts"][c] = t
+                        # Handle portrait text
+                        t_p = row.get("texts_portrait", {}).get(c, "")
+                        if t_p:
+                            if prev.get("texts_portrait", {}).get(c, ""):
+                                prev["texts_portrait"][c] += "\n" + t_p
+                            else:
+                                if "texts_portrait" not in prev:
+                                    prev["texts_portrait"] = {}
+                                prev["texts_portrait"][c] = t_p
                 else:
                     if prev:
                         merged.append(prev)
