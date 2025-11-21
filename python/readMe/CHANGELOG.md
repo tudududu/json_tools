@@ -8,7 +8,7 @@ Added (CSV to JSON 174–176):
 - Empty `super_A` arrays are emitted for videos without any `super_a` rows (no implicit inheritance to shorter cutdowns; behavior clarified vs. subtitles) (176).
 
 Docs:
-- README updated with `super_a` record_type mapping, merging & dedup rules, flag precedence, sample video object containing `super_A` arrays, and clarification on non‑inheritance (176).
+- README updated with `super_a` record_type mapping, merging & dedup rules, flag precedence, sample video object containing `super_A` arrays, a minimal sample CSV snippet, and clarification on non‑inheritance (176–177).
 
 Tests:
 - Added unit tests covering basic `super_A` parsing, flag precedence (global vs local), merging of continuation lines, portrait mirroring, empty array emission, and the new non‑contiguous dedup logic ensuring identical duplicates are not duplicated while distinct duplicates concatenate (175–176).

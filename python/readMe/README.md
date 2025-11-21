@@ -57,6 +57,37 @@ Meaning:
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
+### Sample CSV (super_A + flags)
+
+Semicolon‑delimited minimal unified CSV showing `super_a` rows and `super_A_flag` usage:
+
+```
+record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL
+meta_global;;;;;briefVersion;Y;ALL;25;
+meta_global;;;;;fps;Y;ALL;25;
+meta_global;;;;;super_A_flag;Y;ALL;enabled;
+meta_local;VID_A;;;;title;N;ALL;Test Video;
+sub;VID_A;1;00:00:00:00;00:00:02:00;;;;;Hello world;
+super_a;VID_A;1;00:00:05:00;00:00:07:00;;;;;EVENT ONE;
+super_a;VID_A;2;00:00:08:00;00:00:09:12;;;;;EVENT TWO;
+```
+
+```json
+{
+  "videos": [{
+    "videoId": "VID_001_landscape",
+    "metadata": {"super_A_flag": "enabled"},
+    "super_A": [
+      {"line": 1, "in": 1.0, "out": 3.0, "text": "Super A Text"}
+    ]
+  }]
+}
+```
+Notes:
+- The `super_a` rows are emitted under each video as `super_A` arrays (duplicated to portrait; portrait text mirrors landscape when its cell is empty).
+- `super_A_flag` from `meta_global` is injected into per‑video metadata by country; a per‑video `meta_local.super_A_flag` (when provided per country) overrides the global value.
+- No automatic inheritance: if only some videos have `super_a` rows, other videos simply emit `"super_A": []`.
+
 ### Per-Country Output Structure
 
 When the unified schema is detected the converter produces an internal multi-country structure which can be split to separate files (`--split-by-country`) or a single chosen country file. There are now two shapes depending on orientation mode:
