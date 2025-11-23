@@ -1205,7 +1205,7 @@ def convert_csv_to_json(
                         if idx < len(claim_texts_global)
                         else (claim_texts_global[0] if claim_texts_global else "")
                     )
-                    if prefer_local_claim_disclaimer and txt_local:
+                    if txt_local:
                         text_value = txt_local
                     else:
                         text_value = txt_global_timing or txt_global_index or txt_local

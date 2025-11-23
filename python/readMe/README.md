@@ -55,6 +55,7 @@ Meaning:
 * `super_A` continuation lines follow the exact same logic as subtitles.
 * Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
+* Per-video claim text always takes precedence over the global claim arrays when a local cell is populated (landscape or portrait). Global claim text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
 ### Sample CSV (super_A + flags)

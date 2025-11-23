@@ -155,6 +155,31 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(v_land['subtitles'][0]['text'], 'helloL')
         self.assertEqual(v_port['subtitles'][0]['text'], 'helloP')
 
+    def test_per_video_claim_local_precedence_without_flag(self):
+        # Local claim text should override global fallback even when prefer_local flag is False
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;DEU\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'meta_local;VID_CLAIM;;;;title;N;ALL;Title;;\n'
+            'claim;;1;00:00:05:00;00:00:07:00;;;;;GLOBAL_GBL;GLOBAL_DEU\n'
+            'claim;VID_CLAIM;;00:00:05:00;00:00:07:00;;;;;LOCAL_GBL;\n'
+            'sub;VID_CLAIM;1;00:00:00:00;00:00:01:00;;;;;hiGBL;hiDEU\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        self.assertTrue(out.get('_multi'))
+        node_gbl = out['byCountry']['GBL']
+        node_deu = out['byCountry']['DEU']
+        vid_gbl = next(v for v in node_gbl['videos'] if v['videoId'].endswith('_landscape'))
+        vid_deu = next(v for v in node_deu['videos'] if v['videoId'].endswith('_landscape'))
+        self.assertEqual(vid_gbl['claim'][0]['text'], 'LOCAL_GBL')
+        self.assertEqual(vid_deu['claim'][0]['text'], 'GLOBAL_DEU')
+
     def test_join_claim_edge_cases_none_timings(self):
         # Multiple global claim rows without timings should join into one entry
         csv_content = (
@@ -339,8 +364,8 @@ class FlagsAndMergingTests(unittest.TestCase):
         v_land = next(v for v in out['byCountry']['GBL']['videos'] if v['videoId'].endswith('_landscape'))
         self.assertIn('claim', v_land)
         self.assertEqual(len(v_land['claim']), 2)
-        self.assertEqual(v_land['claim'][0]['text'], 'G1')  # timing match
-        self.assertEqual(v_land['claim'][1]['text'], 'G2')  # index fallback
+        self.assertEqual(v_land['claim'][0]['text'], 'X\nY')  # joined local rows override global
+        self.assertEqual(v_land['claim'][1]['text'], 'G2')  # index fallback still applies
 
     def test_global_flags_propagation_vs_local_overrides(self):
         # Two countries; meta_global provides defaults; meta_local overrides per-country for one video

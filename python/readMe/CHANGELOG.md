@@ -1,3 +1,15 @@
+# 1.5.2 - 2025-11-22
+
+Changed (CSV to JSON 178–179):
+- Per-video claim text now always overrides global claim text when the local cell is non-empty (landscape/portrait). Global claim arrays still provide fallback text when the local cell is blank, so existing sheets with sparse overrides continue to work.
+- Claim joining retains the same precedence: when `--join-claim` merges local rows sharing a timing, the merged local text wins over any global row for that timing; subsequent entries continue to use the top-level claim arrays as index fallback when local rows run out.
+
+Tests:
+- Added unit coverage for local-override precedence (both with and without `--join-claim`) to ensure country-specific fallbacks remain intact.
+
+Docs:
+- README clarifies per-video claim precedence and how it interacts with join + global fallback behavior.
+
 # 1.5.1 - 2025-11-21
 
 Added (CSV to JSON 174–176):
