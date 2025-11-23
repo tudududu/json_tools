@@ -56,7 +56,7 @@ Meaning:
 * Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
 * Per-video claim text always takes precedence over the global claim arrays when a local cell is populated (landscape or portrait). Global claim text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
-* Local claim/disclaimer override is now ON by default. A portrait claim or disclaimer line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use the flag `--prefer-local-claim-disclaimer` (now inverted) to disable this override behavior and revert to global timing/index fallback only.
+* Local claim/disclaimer override is ON by default. A portrait claim or disclaimer line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
 ### Sample CSV (super_A + flags)
@@ -323,6 +323,7 @@ Merging / content behavior:
 * `--no-merge-disclaimer` Disable disclaimer merging
 * `--join-claim` Merge claim rows sharing identical timing into one block
 * `--claims-as-objects` In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array
+* `--no-local-claim-override` Disable per‑video local claim/disclaimer override (default override enabled). Legacy alias: `--prefer-local-claim-disclaimer` (same effect)
 * `--cast-metadata` Attempt numeric casting of metadata values (ints / floats)
 * `--sample` Also emit a truncated preview file alongside each output (adds `_sample` before extension). The sample keeps at most: 2 claim lines, 1 disclaimer line, 1 logo line, 2 videos, 5 subtitles per video, 2 claim entries per video (or first two claim_XX objects).
 

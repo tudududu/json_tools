@@ -1,13 +1,16 @@
-# 1.5.2 - 2025-11-22
 # 1.5.3 - 2025-11-23
 
-Changed (CSV to JSON 181):
+Changed (CSV to JSON 181–182):
 - Inverted gating for per-video claim/disclaimer local overrides. Local text precedence (including portrait fallback to landscape local) is now enabled by default.
-- The existing CLI flag `--prefer-local-claim-disclaimer` has been repurposed: supplying it now disables the local override behavior (store_false) to fall back strictly to global timing/index text.
-- README updated to clarify new default and inverted flag usage; tests added to verify behavior when override disabled.
+- Introduced clearer alias flag `--no-local-claim-override` to disable local override (preferred). Legacy flag name `--prefer-local-claim-disclaimer` retained as an alias but now also disables the override.
+- README updated to clarify new default and inverted flag usage; tests added to verify behavior when override disabled; added test for alias flag.
 
+# 1.5.2 - 2025-11-22
 
 Changed (CSV to JSON 178–180):
+
+
+Changed (CSV to JSON 178–180) (superseded by 1.5.3 override default change):
 - Per-video claim override retained under flag `--prefer-local-claim-disclaimer`; when enabled, local claim text (landscape or portrait) takes precedence over global claim text for that orientation.
 - New portrait local fallback: if the flag is enabled and a portrait claim/disclaimer cell is empty but the landscape local cell has content, the portrait line inherits the landscape local text before considering global fallbacks.
 - Claim joining retains precedence: when `--join-claim` merges per-video rows sharing a timing, the combined local text wins over any global row for that timing; subsequent unmatched timings still use global arrays (timing or index) when local cells are blank.
