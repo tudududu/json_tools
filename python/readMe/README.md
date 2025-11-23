@@ -56,7 +56,7 @@ Meaning:
 * Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
 * Per-video claim text always takes precedence over the global claim arrays when a local cell is populated (landscape or portrait). Global claim text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
-* With `--prefer-local-claim-disclaimer` enabled, a portrait claim or disclaimer line whose portrait cell is empty now inherits the landscape local text (if provided) before falling back to any global portrait/landscape text; portrait cells still override when populated.
+* Local claim/disclaimer override is now ON by default. A portrait claim or disclaimer line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use the flag `--prefer-local-claim-disclaimer` (now inverted) to disable this override behavior and revert to global timing/index fallback only.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
 ### Sample CSV (super_A + flags)

@@ -230,7 +230,7 @@ def convert_csv_to_json(
     merge_disclaimer: bool = True,
     cast_metadata: bool = False,
     join_claim: bool = False,
-    prefer_local_claim_disclaimer: bool = False,
+    prefer_local_claim_disclaimer: bool = True,
     test_mode: bool = False,
     claims_as_objects: bool = False,
     no_orientation: bool = False,
@@ -1643,7 +1643,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
-    p.add_argument("--prefer-local-claim-disclaimer", action="store_true", help="Prefer per-video claim/disclaimer text when present; fallback to global text by timing/index")
+    p.add_argument("--prefer-local-claim-disclaimer", action="store_false", dest="prefer_local_claim_disclaimer", help="Disable per-video local claim/disclaimer override (default: enabled)")
     p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer text with '<videoId>_' for testing")
     p.add_argument("--claims-as-objects", action="store_true", help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")

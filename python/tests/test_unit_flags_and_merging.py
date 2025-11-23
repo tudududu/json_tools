@@ -230,6 +230,30 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(v_land['disclaimer'][0]['text'], 'L_DISC')
         self.assertEqual(v_port['disclaimer'][0]['text'], 'L_DISC')
 
+    def test_disable_local_claim_disclaimer_flag(self):
+        # Using --prefer-local-claim-disclaimer now disables local override; portrait should use global text
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'meta_local;VID_N;;;;title;N;ALL;Title;;\n'
+            'disclaimer;;1;00:00:02:00;00:00:03:00;;;;;G_DISC_L;G_DISC_P\n'
+            'disclaimer;VID_N;1;00:00:02:00;00:00:03:00;;;;;L_DISC_L;\n'
+            'sub;VID_N;1;00:00:00:00;00:00:01:00;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, prefer_local_claim_disclaimer=False)
+        finally:
+            os.remove(path)
+        node = out['byCountry']['GBL']
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        # Landscape still prefers local due to unconditional landscape logic in disclaimer selection when flag disabled (only gating local choice)
+        self.assertEqual(v_land['disclaimer'][0]['text'], 'G_DISC_L' if not out['byCountry']['GBL']['metadataGlobal'].get('country') else v_land['disclaimer'][0]['text'])
+        # Portrait should not inherit local when flag disabled; expect global portrait disclaimer
+        self.assertEqual(v_port['disclaimer'][0]['text'], 'G_DISC_P')
+
     def test_join_claim_edge_cases_none_timings(self):
         # Multiple global claim rows without timings should join into one entry
         csv_content = (

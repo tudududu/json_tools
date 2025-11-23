@@ -1,4 +1,11 @@
 # 1.5.2 - 2025-11-22
+# 1.5.3 - 2025-11-23
+
+Changed (CSV to JSON 181):
+- Inverted gating for per-video claim/disclaimer local overrides. Local text precedence (including portrait fallback to landscape local) is now enabled by default.
+- The existing CLI flag `--prefer-local-claim-disclaimer` has been repurposed: supplying it now disables the local override behavior (store_false) to fall back strictly to global timing/index text.
+- README updated to clarify new default and inverted flag usage; tests added to verify behavior when override disabled.
+
 
 Changed (CSV to JSON 178–180):
 - Per-video claim override retained under flag `--prefer-local-claim-disclaimer`; when enabled, local claim text (landscape or portrait) takes precedence over global claim text for that orientation.
