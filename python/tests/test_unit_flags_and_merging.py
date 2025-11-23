@@ -180,6 +180,56 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(vid_gbl['claim'][0]['text'], 'LOCAL_GBL')
         self.assertEqual(vid_deu['claim'][0]['text'], 'GLOBAL_DEU')
 
+    def test_portrait_claim_fallback_to_landscape_local_with_flag(self):
+        # When portrait local empty and landscape local populated, portrait should inherit landscape local under flag
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'meta_local;VID_P;;;;title;N;ALL;Title;;\n'
+            # Global claim text (will be fallback if local absent)
+            'claim;;1;00:00:05:00;00:00:07:00;;;;;GLOBAL_LAND;GLOBAL_PORT\n'
+            # Per-video claim row: landscape local only (portrait empty)
+            'claim;VID_P;;00:00:05:00;00:00:07:00;;;;;LOCAL_LAND;\n'
+            'sub;VID_P;1;00:00:00:00;00:00:01:00;;;;;s_land;s_port\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, prefer_local_claim_disclaimer=True)
+        finally:
+            os.remove(path)
+        node = out['byCountry']['GBL']
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        # Landscape uses LOCAL_LAND
+        self.assertEqual(v_land['claim'][0]['text'], 'LOCAL_LAND')
+        # Portrait inherits LOCAL_LAND (not GLOBAL_PORT) because portrait local empty
+        self.assertEqual(v_port['claim'][0]['text'], 'LOCAL_LAND')
+
+    def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
+        # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'meta_local;VID_D;;;;title;N;ALL;Title;;\n'
+            # Global disclaimer block
+            'disclaimer;;1;00:00:02:00;00:00:03:00;;;;;G_DISC;G_DISC_P\n'
+            # Per-video local disclaimer (landscape only)
+            'disclaimer;VID_D;1;00:00:02:00;00:00:03:00;;;;;L_DISC;\n'
+            'sub;VID_D;1;00:00:00:00;00:00:01:00;;;;;x;y\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, prefer_local_claim_disclaimer=True)
+        finally:
+            os.remove(path)
+        node = out['byCountry']['GBL']
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        self.assertEqual(v_land['disclaimer'][0]['text'], 'L_DISC')
+        self.assertEqual(v_port['disclaimer'][0]['text'], 'L_DISC')
+
     def test_join_claim_edge_cases_none_timings(self):
         # Multiple global claim rows without timings should join into one entry
         csv_content = (

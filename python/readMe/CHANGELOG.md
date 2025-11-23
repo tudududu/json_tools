@@ -1,11 +1,12 @@
 # 1.5.2 - 2025-11-22
 
-Changed (CSV to JSON 178–179):
-- Per-video claim text now always overrides global claim text when the local cell is non-empty (landscape/portrait). Global claim arrays still provide fallback text when the local cell is blank, so existing sheets with sparse overrides continue to work.
-- Claim joining retains the same precedence: when `--join-claim` merges local rows sharing a timing, the merged local text wins over any global row for that timing; subsequent entries continue to use the top-level claim arrays as index fallback when local rows run out.
+Changed (CSV to JSON 178–180):
+- Per-video claim override retained under flag `--prefer-local-claim-disclaimer`; when enabled, local claim text (landscape or portrait) takes precedence over global claim text for that orientation.
+- New portrait local fallback: if the flag is enabled and a portrait claim/disclaimer cell is empty but the landscape local cell has content, the portrait line inherits the landscape local text before considering global fallbacks.
+- Claim joining retains precedence: when `--join-claim` merges per-video rows sharing a timing, the combined local text wins over any global row for that timing; subsequent unmatched timings still use global arrays (timing or index) when local cells are blank.
 
 Tests:
-- Added unit coverage for local-override precedence (both with and without `--join-claim`) to ensure country-specific fallbacks remain intact.
+- Added unit coverage for local-override precedence (with and without `--join-claim`) and portrait inheritance of landscape local claim/disclaimer text.
 
 Docs:
 - README clarifies per-video claim precedence and how it interacts with join + global fallback behavior.

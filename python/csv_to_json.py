@@ -1199,6 +1199,11 @@ def convert_csv_to_json(
                 claim_texts_global = claim_portrait if orientation == "portrait" else claim_landscape
                 for idx, row in enumerate(src_claims):
                     txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
+                    # Portrait local fallback to landscape local when override flag enabled
+                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        if alt_land_local:
+                            txt_local = alt_land_local
                     txt_global_timing = global_claim_map.get(timing_key(row), "")
                     txt_global_index = (
                         claim_texts_global[idx]
@@ -1244,6 +1249,11 @@ def convert_csv_to_json(
                         txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    # Portrait local fallback to landscape local disclaimer when override flag enabled
+                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        if alt_land_local:
+                            txt_local = alt_land_local
                     txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
                     # If portrait and both local/global portrait empty, mirror landscape global text for same index
                     if orientation == "portrait" and not txt_local and not txt_global:
@@ -1269,6 +1279,11 @@ def convert_csv_to_json(
                         txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    # Portrait local fallback to landscape local logo when override flag enabled
+                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        if alt_land_local:
+                            txt_local = alt_land_local
                     txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
                     if orientation == "portrait" and not txt_local and not txt_global:
                         if i < len(global_logo_land):
@@ -1294,6 +1309,11 @@ def convert_csv_to_json(
                         txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    # Portrait local fallback to landscape local endFrame when override flag enabled
+                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        if alt_land_local:
+                            txt_local = alt_land_local
                     txt_global = (
                         global_endframe_port[i] if orientation == "portrait" else global_endframe_land[i]
                     ) if i < (len(global_endframe_port) if orientation == "portrait" else len(global_endframe_land)) else (
