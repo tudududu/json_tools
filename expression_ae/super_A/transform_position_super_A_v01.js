@@ -1,5 +1,5 @@
-// TARGET ► Position — vertical centering for multiline TEXT
-var holder = thisComp.layer("Size_Holder_Claim");
+// TARGET ► Position — vertical centering for oneline and multiline TEXT
+var holder = thisComp.layer("Size_Holder_super_A");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
@@ -36,36 +36,15 @@ var P = C + Xax*(ax*halfW) + Yax*(ay*halfH);
 function isText(li){ try{ li.text.sourceText; return true; } catch(e) { return false; } }
 
 if (isText(thisLayer)){
-  // Determine reference point in layer space we want to align to P.
-  // For baseline mode: [centerX, 0]. For vertical-centering: middle of text block.
-  var r  = sourceRectAtTime(time, false);
-  var w  = Math.max(1, r.width);
-  var bx = r.left + w/2;
-
-  // Count lines (split on CR or LF). If text empty treat as 1.
-  var txtStr = ""; try { txtStr = text.sourceText + ""; } catch(e) {}
-  var lineCount = 1;
-  if (txtStr.length) {
-    // Normalize newlines then split
-    var norm2 = txtStr.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    lineCount = norm2.split("\n").length;
-  }
-
-  var multiline = lineCount > 1;
-  var deltaC;
-  if (multiline) {
-    // Robust geometric center method:
-    // centerY = r.top + r.height/2 (layer space). Convert that point & baseline to comp, then shift so center hits P.
-    var centerY = r.top + r.height/2;
-    var centerComp = toComp([bx, centerY]);
-    deltaC = P - centerComp; // move layer so its current center lands at P
-  } else {
-    // Single line: align baseline centerX to P (baseline y=0)
-    var baselineComp = toComp([bx, 0]);
-    deltaC = P - baselineComp;
-  }
-
-  thisLayer.threeDLayer ? value + [deltaC[0], deltaC[1], 0] : value + deltaC;
+  // Uniform: align left edge & vertical geometric center for all line counts.
+  var r = sourceRectAtTime(time, false);
+  var leftX = r.left; // left edge
+  var centerY = r.top + r.height/2; // vertical center
+  var refComp = toComp([leftX, centerY]);
+  // Delta from current placed center-left to target P
+  var dx = P[0] - refComp[0];
+  var dy = P[1] - refComp[1];
+  thisLayer.threeDLayer ? value + [dx, dy, 0] : value + [dx, dy];
 } else {
   // Non-text: keep prior behavior (position to alignment target)
   thisLayer.threeDLayer ? [P[0], P[1], value[2]] : P;
