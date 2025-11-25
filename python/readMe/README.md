@@ -28,11 +28,12 @@ Meaning:
   * `meta_local` – per‑video metadata key/value (requires `video_id`)
   * `claim` – claim text rows (timed or untimed)
   * `disclaimer` – disclaimer rows (first timed row starts a block; following untimed rows append)
+  * `disclaimer_02` – secondary disclaimer rows (same behavior as `disclaimer`)
   * `sub` – subtitle rows (must have `video_id` + start/end)
   * `super_a` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_A`)
 * `video_id`: identifies the target video for `sub` and `meta_local` rows
 * `line`: optional manual line index; auto-assigned when missing
-* `start` / `end`: timecodes (may be empty for continuation lines of disclaimers or untimed claim segments)
+* `start` / `end`: timecodes (may be empty for continuation lines of disclaimers/disclaimer_02 or untimed claim segments)
 * `key`: metadata key for meta rows
 * `is_global`: (reserved / optional) – currently not required (parser ignores)
 * `country_scope`: `ALL` will propagate the first non-empty text across all country columns
@@ -46,6 +47,7 @@ Meaning:
 | meta_local    | Inside matching video: `videos[].metadata[key] = value` |
 | claim         | Appended to per‑country `claim[]` (merged if `--join-claim`) |
 | disclaimer    | Appended / merged into per‑country `disclaimer[]` blocks |
+| disclaimer_02 | Appended / merged into per‑country `disclaimer_02[]` blocks |
 | sub           | Appended to `videos[].subtitles[]` for the given `video_id` |
 | super_a       | Appended to `videos[].super_A[]` for the given `video_id` |
 | endFrame      | Appended to `videos[].endFrame[]` (timed segments; mirrors logo behavior per video) |
@@ -54,9 +56,10 @@ Meaning:
 * Subtitle continuation lines (same `line` + same timing OR untimed continuation) concatenate text with newline unless `--no-merge-subtitles`.
 * `super_A` continuation lines follow the exact same logic as subtitles.
 * Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
+* Disclaimer_02 continuation lines follow identical merging behavior as disclaimer unless `--no-merge-disclaimer-02`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
-* Per-video claim text always takes precedence over the global claim arrays when a local cell is populated (landscape or portrait). Global claim text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
-* Local claim/disclaimer override is ON by default. A portrait claim or disclaimer line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
+* Per-video claim/disclaimer/disclaimer_02 text always takes precedence over the global arrays when a local cell is populated (landscape or portrait). Global text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
+* Local claim/disclaimer/disclaimer_02 override is ON by default. A portrait line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
 ### Sample CSV (super_A + flags)
@@ -109,6 +112,10 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
     "landscape": ["Disclaimer block"],
     "portrait":  ["Disclaimer block"]
   },
+  "disclaimer_02": {
+    "landscape": ["Disclaimer 02 block"],
+    "portrait":  ["Disclaimer 02 block"]
+  },
   "logo": {
     "landscape": ["Logo text"],
     "portrait":  ["Logo text"]
@@ -120,6 +127,7 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "subtitles": [{"line":1,"in":0.0,"out":2.4,"text":"Hello"}],
        "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
+       "disclaimer_02": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer 02 block"} ],
        "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
        ,"super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
      },
@@ -129,6 +137,7 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "subtitles": [{"line":1,"in":0.0,"out":2.4,"text":"Hello"}],
        "claim": [ {"line":1,"text":"Claim line 1"}, {"line":2,"text":"Claim line 2"} ],
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
+       "disclaimer_02": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer 02 block"} ],
        "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ],
        "super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
      }
@@ -145,6 +154,7 @@ Top-level values are simple arrays and only the landscape set is emitted. Video 
   "metadataGlobal": {"schemaVersion": "v2", "country": "GBR", "briefVersion": 6, "fps": 25, "duration": 30},
   "claim": [ {"line":1, "in":0.0, "out":3.2, "text":"Claim line 1"}, {"line":2, "text":"Claim line 2"} ],
   "disclaimer": [ {"line":1, "in":0.0, "out":29.5, "text":"Disclaimer block"} ],
+  "disclaimer_02": [ {"line":1, "in":0.0, "out":29.5, "text":"Disclaimer 02 block"} ],
   "logo": [ {"line":1, "in":29.5, "out":30.0, "text":"Logo text"} ],
   "videos": [
      {
@@ -321,11 +331,12 @@ Simple mode overrides:
 Merging / content behavior:
 * `--no-merge-subtitles` Disable multi-line subtitle merging
 * `--no-merge-disclaimer` Disable disclaimer merging
+* `--no-merge-disclaimer-02` Disable disclaimer_02 merging
 * `--join-claim` Merge claim rows sharing identical timing into one block
 * `--claims-as-objects` In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array
 * `--no-local-claim-override` Disable per‑video local claim/disclaimer override (default override enabled). Legacy alias: `--prefer-local-claim-disclaimer` (same effect)
 * `--cast-metadata` Attempt numeric casting of metadata values (ints / floats)
-* `--sample` Also emit a truncated preview file alongside each output (adds `_sample` before extension). The sample keeps at most: 2 claim lines, 1 disclaimer line, 1 logo line, 2 videos, 5 subtitles per video, 2 claim entries per video (or first two claim_XX objects).
+* `--sample` Also emit a truncated preview file alongside each output (adds `_sample` before extension). The sample keeps at most: 2 claim lines, 1 disclaimer line, 1 disclaimer_02 line, 1 logo line, 2 videos, 5 subtitles per video, 2 claim entries per video (or first two claim_XX objects).
 
 Multi-country output control:
 * `--split-by-country` Write one JSON per country (pattern can include `{country}`)

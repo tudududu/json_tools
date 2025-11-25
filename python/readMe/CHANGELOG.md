@@ -1,3 +1,22 @@
+# 1.5.4 - 2025-11-24
+
+Added (CSV to JSON 184–185):
+- New timed collection `disclaimer_02` with identical behavior to `disclaimer` (184):
+  * Recognized via `record_type=disclaimer_02`; supports global and per-video rows.
+  * Independent merge flag `--no-merge-disclaimer-02` controls continuation block merging (default enabled).
+  * Shares the existing local override flag `--no-local-claim-override` (applies to claim, disclaimer, disclaimer_02, logo, endFrame).
+  * Portrait fallback to landscape local text before global arrays (when override enabled).
+  * Metadata flag `disclaimer_02_flag` (meta_global, meta_local) controls per-video visibility.
+  * Full orientation support: top-level `disclaimer_02` object with `landscape`/`portrait` arrays; per-video `disclaimer_02` items.
+  * Legacy mode (`--no-orientation`) outputs simple `disclaimer_02` array.
+  * Validation includes legacy validation, orientation validation, and no-orientation mode.
+  * Sampling: `SAMPLE_LIMITS["disclaimer_02"] = 1` (keeps 1 disclaimer_02 line in samples).
+- Tests: Added 8 comprehensive tests covering parsing, continuation merging, no-merge flag, portrait fallback, per-video override, flag metadata, empty defaults, and per-video structure (185).
+
+Docs:
+- README updated with `disclaimer_02` in record_type list, mapping table, merging behaviors section, sample JSON blocks (orientation and legacy modes), and CLI flags documentation.
+- CHANGELOG entry added for version 1.5.4.
+
 # 1.5.3 - 2025-11-23
 
 Changed (CSV to JSON 181–182):

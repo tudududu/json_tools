@@ -228,6 +228,7 @@ def convert_csv_to_json(
     schema_version: str = "v1",
     merge_subtitles: bool = True,
     merge_disclaimer: bool = True,
+    merge_disclaimer_02: bool = True,
     cast_metadata: bool = False,
     join_claim: bool = False,
     prefer_local_claim_disclaimer: bool = True,
@@ -334,7 +335,7 @@ def convert_csv_to_json(
         language_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
-        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, subtitle_flag, super_A_flag)
+        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag)
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
         global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
@@ -347,6 +348,8 @@ def convert_csv_to_json(
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
         disc_rows_raw: List[Dict[str, Any]] = []  # global disclaimer rows
         per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        disc_02_rows_raw: List[Dict[str, Any]] = []  # global disclaimer_02 rows
+        per_video_disc_02_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
         # Logo rows (global text + per-video timings)
         logo_rows_raw: List[Dict[str, Any]] = []
         per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
@@ -357,9 +360,11 @@ def convert_csv_to_json(
 
         auto_claim_line = 1
         auto_disc_line = 1
+        auto_disc_02_line = 1
         auto_logo_line = 1
         auto_claim_line_per_video: Dict[str, int] = {}
         auto_disc_line_per_video: Dict[str, int] = {}
+        auto_disc_02_line_per_video: Dict[str, int] = {}
         auto_logo_line_per_video: Dict[str, int] = {}
         auto_endframe_line = 1
         auto_endframe_line_per_video: Dict[str, int] = {}
@@ -439,9 +444,9 @@ def convert_csv_to_json(
                             job_number_per_country[c] = "noJobNumber"
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
                     continue
-                # Per-country flag keys (disclaimer_flag / subtitle_flag / super_A_flag) now can appear as meta_global.
+                # Per-country flag keys (disclaimer_flag / disclaimer_02_flag / subtitle_flag / super_A_flag) now can appear as meta_global.
                 # Capture per-country values so they can act as defaults for per-video metadata flags.
-                if key_name in ("disclaimer_flag", "subtitle_flag", "super_A_flag"):
+                if key_name in ("disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_A_flag"):
                     for c in countries:
                         per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
                         if per_val:
@@ -493,7 +498,7 @@ def convert_csv_to_json(
                     video_order.append(video_id)
                 key_lower = key_name.lower()
                 # Special per-country meta_local keys: collect values per country instead of a single shared one
-                if key_lower in {"disclaimer_flag", "subtitle_flag", "super_a_flag", "logo_anim_flag"}:
+                if key_lower in {"disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_a_flag", "logo_anim_flag"}:
                     if video_id not in per_video_meta_local_country:
                         per_video_meta_local_country[video_id] = {}
                     # For each country, pick per-country landscape/portrait cell (first non-empty among them)
@@ -572,6 +577,43 @@ def convert_csv_to_json(
                     else:
                         auto_disc_line = line_num
                     disc_rows_raw.append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    })
+                continue
+
+            # Disclaimer_02 rows (will merge later)
+            if rt == "disclaimer_02":
+                if video_id:
+                    if video_id not in per_video_disc_02_rows_raw:
+                        per_video_disc_02_rows_raw[video_id] = []
+                    if video_id not in auto_disc_02_line_per_video:
+                        auto_disc_02_line_per_video[video_id] = 1
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_disc_02_line_per_video[video_id]
+                    if line_num is None:
+                        line_num = auto_disc_02_line_per_video[video_id]
+                    else:
+                        auto_disc_02_line_per_video[video_id] = line_num
+                    per_video_disc_02_rows_raw[video_id].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    })
+                else:
+                    if line_num is None and (start_tc is not None or end_tc is not None):
+                        line_num = auto_disc_02_line
+                    if line_num is None:
+                        # Continuation lines inherit previous line
+                        line_num = auto_disc_02_line
+                    else:
+                        auto_disc_02_line = line_num
+                    disc_02_rows_raw.append({
                         "line": line_num,
                         "start": start_tc,
                         "end": end_tc,
@@ -769,6 +811,53 @@ def convert_csv_to_json(
                 disclaimers_rows_merged.append(current_block)
         else:
             disclaimers_rows_merged = disc_rows_raw
+
+        # Merge disclaimer_02 rows into blocks
+        disclaimers_02_rows_merged: List[Dict[str, Any]] = []
+        if merge_disclaimer_02:
+            current_block: Optional[Dict[str, Any]] = None
+            for row in disc_02_rows_raw:
+                if row["start"] is not None and row["end"] is not None:
+                    # Start a new block
+                    if current_block:
+                        disclaimers_02_rows_merged.append(current_block)
+                    current_block = {
+                        "line": row["line"],
+                        "start": row["start"],
+                        "end": row["end"],
+                        # Preserve both landscape and portrait per-country texts
+                        "texts": {c: row["texts"][c] for c in countries},
+                        "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                    }
+                else:
+                    # Continuation lines
+                    if not current_block:
+                        # No base block; skip or create untimed block
+                        current_block = {
+                            "line": row["line"],
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"][c] for c in countries},
+                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        }
+                    else:
+                        for c in countries:
+                            extra = row["texts"][c]
+                            if extra:
+                                if current_block["texts"][c]:
+                                    current_block["texts"][c] += "\n" + extra
+                                else:
+                                    current_block["texts"][c] = extra
+                            extra_p = row.get("texts_portrait", {}).get(c, "")
+                            if extra_p:
+                                if current_block.get("texts_portrait", {}).get(c, ""):
+                                    current_block["texts_portrait"][c] += "\n" + extra_p
+                                else:
+                                    current_block["texts_portrait"][c] = extra_p
+            if current_block:
+                disclaimers_02_rows_merged.append(current_block)
+        else:
+            disclaimers_02_rows_merged = disc_02_rows_raw
 
         # Merge subtitle rows with same line (per video) if enabled
         for vid, vdata in videos.items():
@@ -1017,6 +1106,20 @@ def convert_csv_to_json(
             if not disc_portrait and disc_landscape:
                 disc_portrait = disc_landscape.copy()
 
+            disc_02_landscape: List[str] = []
+            disc_02_portrait: List[str] = []
+            for row in disclaimers_02_rows_merged:
+                txt_l = (row["texts"].get(c, "") or "").strip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                if txt_l or not skip_empty_text:
+                    disc_02_landscape.append(txt_l)
+                if txt_p:
+                    disc_02_portrait.append(txt_p)
+            if not disc_02_landscape:
+                disc_02_landscape = [""]
+            if not disc_02_portrait and disc_02_landscape:
+                disc_02_portrait = disc_02_landscape.copy()
+
             logo_landscape: List[str] = []
             logo_portrait: List[str] = []
             for row in logo_rows_raw:
@@ -1093,7 +1196,7 @@ def convert_csv_to_json(
                             country_specific = per_map.get(c)
                             value_to_use = country_specific if country_specific else logo_anim_flag_by_duration[dur_key]
                             base_meta["logo_anim_flag"] = value_to_use
-                # Inject per-country meta_local overrides (disclaimer_flag, subtitle_flag, super_A_flag) if present
+                # Inject per-country meta_local overrides (disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag) if present
                 # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
                 # First apply global per-country flags as defaults
                 if c in global_flag_values_per_country:
@@ -1131,6 +1234,9 @@ def convert_csv_to_json(
             # For disclaimers, order matters but often it's one block; use index-based fallback too
             global_disc_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
             global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+            # For disclaimer_02, same as disclaimer
+            global_disc_02_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
+            global_disc_02_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
             # For logos, typically one line; use index-based fallback as well
             global_logo_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
             global_logo_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in logo_rows_raw]
@@ -1184,6 +1290,52 @@ def convert_csv_to_json(
                     merged = rows_raw
                 per_video_disc_merged[vid] = merged
 
+            # Prepare per-video merged disclaimer_02
+            per_video_disc_02_merged: Dict[str, List[Dict[str, Any]]] = {}
+            for vid, rows_raw in per_video_disc_02_rows_raw.items():
+                merged: List[Dict[str, Any]] = []
+                if merge_disclaimer_02:
+                    current_block: Optional[Dict[str, Any]] = None
+                    for row in rows_raw:
+                        if row["start"] is not None and row["end"] is not None:
+                            if current_block:
+                                merged.append(current_block)
+                            current_block = {
+                                "line": row["line"],
+                                "start": row["start"],
+                                "end": row["end"],
+                                "texts": {cc: row["texts"][cc] for cc in countries},
+                                "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                            }
+                        else:
+                            if not current_block:
+                                current_block = {
+                                    "line": row["line"],
+                                    "start": row["start"],
+                                    "end": row["end"],
+                                    "texts": {cc: row["texts"][cc] for cc in countries},
+                                    "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                                }
+                            else:
+                                for cc in countries:
+                                    extra = row["texts"][cc]
+                                    if extra:
+                                        if current_block["texts"][cc]:
+                                            current_block["texts"][cc] += "\n" + extra
+                                        else:
+                                            current_block["texts"][cc] = extra
+                                    extra_p = row.get("texts_portrait", {}).get(cc, "")
+                                    if extra_p:
+                                        if current_block.get("texts_portrait", {}).get(cc, ""):
+                                            current_block["texts_portrait"][cc] += "\n" + extra_p
+                                        else:
+                                            current_block["texts_portrait"][cc] = extra_p
+                    if current_block:
+                        merged.append(current_block)
+                else:
+                    merged = rows_raw
+                per_video_disc_02_merged[vid] = merged
+
             # Now fill claim/disclaimer in each video object
             for vobj in videos_list:
                 vid_full = vobj["videoId"]
@@ -1191,6 +1343,7 @@ def convert_csv_to_json(
                 # Pick appropriate global maps
                 global_claim_map = global_claim_map_port if orientation == "portrait" else global_claim_map_land
                 global_disc_texts = global_disc_port if orientation == "portrait" else global_disc_land
+                global_disc_02_texts = global_disc_02_port if orientation == "portrait" else global_disc_02_land
                 global_logo_texts = global_logo_port if orientation == "portrait" else global_logo_land
                 # Claims source rows
                 src_claims = per_video_claim_rows.get(vid_full.rsplit("_", 1)[0]) or claims_rows
@@ -1271,6 +1424,36 @@ def convert_csv_to_json(
                         entry["out"] = None
                     disc_items.append(entry)
                 vobj["disclaimer"] = disc_items
+                # Disclaimer_02
+                src_discs_02 = per_video_disc_02_merged.get(vid_full.rsplit("_",1)[0]) or disclaimers_02_rows_merged
+                disc_02_items: List[Dict[str, Any]] = []
+                for i, row in enumerate(src_discs_02):
+                    if orientation == "portrait":
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                    else:
+                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                    # Portrait local fallback to landscape local disclaimer_02 when override flag enabled
+                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        if alt_land_local:
+                            txt_local = alt_land_local
+                    txt_global = global_disc_02_texts[i] if i < len(global_disc_02_texts) else (global_disc_02_texts[0] if global_disc_02_texts else "")
+                    # If portrait and both local/global portrait empty, mirror landscape global text for same index
+                    if orientation == "portrait" and not txt_local and not txt_global:
+                        if i < len(global_disc_02_land):
+                            txt_global = global_disc_02_land[i]
+                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                    if test_mode and text_value:
+                        text_value = f"{vid_full}_{text_value}"
+                    entry = {"line": row.get("line", i + 1), "text": text_value}
+                    if row.get("start") is not None and row.get("end") is not None:
+                        entry["in"] = fmt_time(row["start"])
+                        entry["out"] = fmt_time(row["end"])
+                    else:
+                        entry["in"] = None
+                        entry["out"] = None
+                    disc_02_items.append(entry)
+                vobj["disclaimer_02"] = disc_02_items
                 # Logo
                 src_logos = per_video_logo_rows_raw.get(vid_full.rsplit("_",1)[0]) or logo_rows_raw
                 logo_items: List[Dict[str, Any]] = []
@@ -1389,6 +1572,7 @@ def convert_csv_to_json(
                     "subtitles": vobj["subtitles"],
                     "super_A": vobj.get("super_A", []),
                     "disclaimer": vobj.get("disclaimer", []),
+                    "disclaimer_02": vobj.get("disclaimer_02", []),
                     "logo": vobj.get("logo", []),
                     "endFrame": vobj.get("endFrame", []),
                 }
@@ -1411,6 +1595,7 @@ def convert_csv_to_json(
                     "metadataGlobal": gm_cast,
                     "claim": claim_landscape,
                     "disclaimer": disc_landscape if disc_landscape else [""],
+                    "disclaimer_02": disc_02_landscape if disc_02_landscape else [""],
                     "logo": logo_landscape,
                     "videos": vlist_cast,
                 }
@@ -1419,6 +1604,7 @@ def convert_csv_to_json(
                     "metadataGlobal": gm_cast,
                     "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
                     "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
+                    "disclaimer_02": {"landscape": disc_02_landscape, "portrait": disc_02_portrait},
                     "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
                     "videos": vlist_cast,
                 }
@@ -1506,7 +1692,7 @@ def convert_csv_to_json(
                 country_codes.append(code or f"col{k - (len(text_cols) - len(country_codes)) + 1}")
         c = country_codes[idx]
         if c not in per_country:
-            per_country[c] = {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
+            per_country[c] = {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}}
         return c
 
     def fmt_time(val: float) -> Any:
@@ -1549,14 +1735,14 @@ def convert_csv_to_json(
                     # Ensure bucket name matches code
                     if ccode != val:
                         # Move bucket if previously created with placeholder
-                        per_country[val] = per_country.pop(ccode, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                        per_country[val] = per_country.pop(ccode, {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}})
                     ccode = val
                 if key_norm.lower() != "country":
                     per_country[ccode]["metadata"][key_norm] = val
             continue
 
         # Subtitle-like sections
-        if current_section in ("subtitles", "claim", "disclaimer"):
+        if current_section in ("subtitles", "claim", "disclaimer", "disclaimer_02"):
             # Line index
             if idx_line is not None and idx_line < len(r) and str(r[idx_line]).strip():
                 try:
@@ -1594,7 +1780,7 @@ def convert_csv_to_json(
     if not country_codes:
         country_codes = ["default"]
         if "default" not in per_country:
-            per_country["default"] = {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
+            per_country["default"] = {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}}
 
     # If only one country requested, and matches original return shape
     if len(country_codes) == 1:
@@ -1603,6 +1789,7 @@ def convert_csv_to_json(
             "subtitles": per_country[c]["subtitles"],
             "claim": per_country[c]["claim"],
             "disclaimer": per_country[c]["disclaimer"],
+            "disclaimer_02": per_country[c]["disclaimer_02"],
             "metadata": per_country[c]["metadata"],
         }
 
@@ -1641,11 +1828,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--schema-version", default="v2", help="Schema version tag to use if not supplied via meta_global 'schemaVersion' row (default v2)")
     p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
     p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
+    p.add_argument("--no-merge-disclaimer-02", action="store_true", help="Disable merging of multi-line disclaimer_02 continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--prefer-local-claim-disclaimer", action="store_false", dest="prefer_local_claim_disclaimer", help="(Deprecated name) Disable per-video local claim/disclaimer override (default: enabled)")
     p.add_argument("--no-local-claim-override", action="store_false", dest="prefer_local_claim_disclaimer", help="Alias: disable per-video local claim/disclaimer override (default: enabled)")
-    p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer text with '<videoId>_' for testing")
+    p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer/disclaimer_02 text with '<videoId>_' for testing")
     p.add_argument("--claims-as-objects", action="store_true", help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array")
     p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
     p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
@@ -1766,6 +1954,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         schema_version=args.schema_version,
         merge_subtitles=not args.no_merge_subtitles,
         merge_disclaimer=not args.no_merge_disclaimer,
+        merge_disclaimer_02=not args.no_merge_disclaimer_02,
         cast_metadata=args.cast_metadata,
         join_claim=args.join_claim,
         prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
@@ -1907,8 +2096,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                     parts.append(seg)
             required_global_keys = parts
         # Legacy/simple structure
-        if any(k in obj for k in ("subtitles", "claim", "disclaimer")) and "videos" not in obj:
-            for arr_name in ("subtitles", "claim", "disclaimer"):
+        if any(k in obj for k in ("subtitles", "claim", "disclaimer", "disclaimer_02")) and "videos" not in obj:
+            for arr_name in ("subtitles", "claim", "disclaimer", "disclaimer_02"):
                 arr = obj.get(arr_name)
                 if arr is None:
                     continue
@@ -1937,8 +2126,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         # Unified per-country per-video shape (orientation-aware unless --no-orientation)
         if args.no_orientation:
-            # Expect legacy flat arrays for claim/disclaimer/logo
-            for nm in ("claim", "disclaimer", "logo"):
+            # Expect legacy flat arrays for claim/disclaimer/disclaimer_02/logo
+            for nm in ("claim", "disclaimer", "disclaimer_02", "logo"):
                 val = obj.get(nm)
                 if val is not None and not isinstance(val, list):
                     errs.append(f"{nm} must be a list in --no-orientation mode")
@@ -1976,6 +2165,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
             _validate_orientation_array("claim", obj.get("claim"))
             _validate_orientation_array("disclaimer", obj.get("disclaimer"))
+            _validate_orientation_array("disclaimer_02", obj.get("disclaimer_02"))
             _validate_orientation_array("logo", obj.get("logo"))
         # Required global metadata keys if any metadata present (configurable)
         gm = obj.get("metadataGlobal", {})
@@ -2047,6 +2237,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         SAMPLE_LIMITS = {
             "claim": 2,
             "disclaimer": 1,
+            "disclaimer_02": 1,
             "logo": 1,
             "videos": 2,
             "subtitles": 5,
@@ -2058,16 +2249,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 out["claim"] = out["claim"][:SAMPLE_LIMITS["claim"]]
             if "disclaimer" in out and isinstance(out["disclaimer"], list):
                 out["disclaimer"] = out["disclaimer"][:SAMPLE_LIMITS["disclaimer"]]
+            if "disclaimer_02" in out and isinstance(out["disclaimer_02"], list):
+                out["disclaimer_02"] = out["disclaimer_02"][:SAMPLE_LIMITS["disclaimer_02"]]
             if "logo" in out and isinstance(out["logo"], list):
                 out["logo"] = out["logo"][:SAMPLE_LIMITS["logo"]]
             # Orientation-aware objects
-            for key in ("claim", "disclaimer", "logo"):
+            for key in ("claim", "disclaimer", "disclaimer_02", "logo"):
                 val = out.get(key)
                 if isinstance(val, dict):
                     for orient in ("landscape", "portrait"):
                         arr = val.get(orient)
                         if isinstance(arr, list):
-                            limit = SAMPLE_LIMITS["claim"] if key == "claim" else SAMPLE_LIMITS["disclaimer"] if key == "disclaimer" else SAMPLE_LIMITS["logo"]
+                            limit = SAMPLE_LIMITS["claim"] if key == "claim" else SAMPLE_LIMITS["disclaimer"] if key == "disclaimer" else SAMPLE_LIMITS["disclaimer_02"] if key == "disclaimer_02" else SAMPLE_LIMITS["logo"]
                             val[orient] = arr[:limit]
             return out
         sample = copy.deepcopy(payload)
@@ -2124,7 +2317,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 vids = [v.get("videoId") for v in vids_objs]
                 subtitle_count = sum(len(v.get("subtitles", [])) for v in vids_objs)
                 print(
-                    f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))} logoLines={len(payload.get('logo', []))}"
+                    f"  {c}: videos={len(vids)} subtitleLines={subtitle_count} claimLines={len(payload.get('claim', []))} disclaimerLines={len(payload.get('disclaimer', []))} disclaimer_02Lines={len(payload.get('disclaimer_02', []))} logoLines={len(payload.get('logo', []))}"
                 )
                 all_errors.extend([f"{c}: {e}" for e in res["errors"]])
                 all_warnings.extend([f"{c}: {w}" for w in res["warnings"]])
@@ -2137,6 +2330,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     ],
                     "claimLines": len(payload.get("claim", [])),
                     "disclaimerLines": len(payload.get("disclaimer", [])),
+                    "disclaimer_02Lines": len(payload.get("disclaimer_02", [])),
                     "logoLines": len(payload.get("logo", [])),
                 })
             if all_warnings:
@@ -2210,6 +2404,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             schema_version=args.schema_version,
                             merge_subtitles=not args.no_merge_subtitles,
                             merge_disclaimer=not args.no_merge_disclaimer,
+                            merge_disclaimer_02=not args.no_merge_disclaimer_02,
                             cast_metadata=args.cast_metadata,
                             join_claim=args.join_claim,
                             prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
