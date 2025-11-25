@@ -1,3 +1,4 @@
+// transform_opacity_fadein_onTime_v01
 // Opacity = fade-in for video-level claim line N using JSON timings
 // - Starts at claim.in, lasts FADE_IN seconds (linear), stays 100 until out, then 0
 // - Out is exclusive: visible for t ∈ [in, out)
