@@ -397,8 +397,8 @@ def convert_csv_to_json(
             for c in countries:
                 land_idx = country_orientation_cols[c]["landscape"]
                 port_idx = country_orientation_cols[c]["portrait"]
-                land_val = r[land_idx].replace("\r", "").strip() if land_idx is not None and land_idx < len(r) else ""
-                port_val = r[port_idx].replace("\r", "").strip() if port_idx is not None and port_idx < len(r) else ""
+                land_val = r[land_idx].replace("\r", "").rstrip() if land_idx is not None and land_idx < len(r) else ""
+                port_val = r[port_idx].replace("\r", "").rstrip() if port_idx is not None and port_idx < len(r) else ""
                 texts[c] = land_val
                 texts_portrait[c] = port_val
 
@@ -1077,8 +1077,8 @@ def convert_csv_to_json(
             claim_landscape: List[str] = []
             claim_portrait: List[str] = []
             for row in claims_rows:
-                txt_l = (row["texts"].get(c, "") or "").strip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                txt_l = (row["texts"].get(c, "") or "").rstrip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                 # If portrait empty mirror later; only append landscape if not empty (unless keeping empty forbidden)
                 if txt_l or not skip_empty_text:
                     claim_landscape.append(txt_l)
@@ -1095,8 +1095,8 @@ def convert_csv_to_json(
             disc_landscape: List[str] = []
             disc_portrait: List[str] = []
             for row in disclaimers_rows_merged:
-                txt_l = (row["texts"].get(c, "") or "").strip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                txt_l = (row["texts"].get(c, "") or "").rstrip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                 if txt_l or not skip_empty_text:
                     disc_landscape.append(txt_l)
                 if txt_p:
@@ -1109,8 +1109,8 @@ def convert_csv_to_json(
             disc_02_landscape: List[str] = []
             disc_02_portrait: List[str] = []
             for row in disclaimers_02_rows_merged:
-                txt_l = (row["texts"].get(c, "") or "").strip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                txt_l = (row["texts"].get(c, "") or "").rstrip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                 if txt_l or not skip_empty_text:
                     disc_02_landscape.append(txt_l)
                 if txt_p:
@@ -1123,8 +1123,8 @@ def convert_csv_to_json(
             logo_landscape: List[str] = []
             logo_portrait: List[str] = []
             for row in logo_rows_raw:
-                txt_l = (row["texts"].get(c, "") or "").strip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                txt_l = (row["texts"].get(c, "") or "").rstrip()
+                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                 if txt_l or not skip_empty_text:
                     logo_landscape.append(txt_l)
                 if txt_p:
@@ -1139,8 +1139,8 @@ def convert_csv_to_json(
                 subs_land: List[Dict[str, Any]] = []
                 subs_port: List[Dict[str, Any]] = []
                 for srow in vdata.get("sub_rows", []):
-                    txt_l = (srow["texts"].get(c, "") or "").strip()
-                    txt_p = (srow.get("texts_portrait", {}).get(c, "") or "").strip()
+                    txt_l = (srow["texts"].get(c, "") or "").rstrip()
+                    txt_p = (srow.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     # Skip subtitle if landscape text empty and skipping empties
                     if skip_empty_text and not txt_l:
                         continue
@@ -1164,8 +1164,8 @@ def convert_csv_to_json(
                 super_a_land: List[Dict[str, Any]] = []
                 super_a_port: List[Dict[str, Any]] = []
                 for sarow in vdata.get("super_a_rows", []):
-                    txt_l = (sarow["texts"].get(c, "") or "").strip()
-                    txt_p = (sarow.get("texts_portrait", {}).get(c, "") or "").strip()
+                    txt_l = (sarow["texts"].get(c, "") or "").rstrip()
+                    txt_p = (sarow.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     # Skip super_A if landscape text empty and skipping empties
                     if skip_empty_text and not txt_l:
                         continue
@@ -1232,8 +1232,8 @@ def convert_csv_to_json(
             global_claim_map_land = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
             global_claim_map_port = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in claims_rows}
             # For disclaimers, order matters but often it's one block; use index-based fallback too
-            global_disc_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
-            global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_rows_merged]
+            global_disc_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
+            global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
             # For disclaimer_02, same as disclaimer
             global_disc_02_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
             global_disc_02_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
@@ -1351,10 +1351,10 @@ def convert_csv_to_json(
                 # Top-level claim text arrays for current orientation (to support index fallback)
                 claim_texts_global = claim_portrait if orientation == "portrait" else claim_landscape
                 for idx, row in enumerate(src_claims):
-                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").strip()
+                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local when override flag enabled
                     if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global_timing = global_claim_map.get(timing_key(row), "")
@@ -1399,12 +1399,12 @@ def convert_csv_to_json(
                 disc_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     else:
-                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local disclaimer when override flag enabled
                     if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
@@ -1429,12 +1429,12 @@ def convert_csv_to_json(
                 disc_02_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs_02):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     else:
-                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local disclaimer_02 when override flag enabled
                     if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global = global_disc_02_texts[i] if i < len(global_disc_02_texts) else (global_disc_02_texts[0] if global_disc_02_texts else "")
@@ -1459,12 +1459,12 @@ def convert_csv_to_json(
                 logo_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_logos):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     else:
-                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local logo when override flag enabled
                     if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
@@ -1489,12 +1489,12 @@ def convert_csv_to_json(
                 end_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_end):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     else:
-                        txt_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local endFrame when override flag enabled
                     if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").strip()
+                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global = (
