@@ -37,14 +37,14 @@
     "DRY_RUN": true
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/jbl/PROJECT_FOLDER/POST/WORK/project.aep",
+    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/HARMAN/JBL/2025/_LIBRARIES/TOUR SERIES 3 BENSON BOONE/PROJECT_FOLDER/POST/WORK/project.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "BEL",
-    "DATA_JSON_LANG_CODE_MANUAL": "FRA",
+    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
+    "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
     "DATA_JSON_FS_SUBPATH": ["IN","data"],
