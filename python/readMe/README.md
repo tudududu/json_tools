@@ -338,6 +338,8 @@ Merging / content behavior:
 * `--cast-metadata` Attempt numeric casting of metadata values (ints / floats)
 * `--sample` Also emit a truncated preview file alongside each output (adds `_sample` before extension). The sample keeps at most: 2 claim lines, 1 disclaimer line, 1 disclaimer_02 line, 1 logo line, 2 videos, 5 subtitles per video, 2 claim entries per video (or first two claim_XX objects).
 
+Deprecated (pre‑1.5.5): Prior versions merged disclaimers by default and used `--no-merge-disclaimer` / `--no-merge-disclaimer-02` to disable merging. These flags are now deprecated; non‑merging is the default. Update any automation to use `--merge-disclaimer` / `--merge-disclaimer-02` when merging is desired.
+
 Multi-country output control:
 * `--split-by-country` Write one JSON per country (pattern can include `{country}`)
 * `--output-pattern <path>` Custom output path pattern using `{country}`. Works with split mode and with single-country exports when used with `--country-column <n>` (the placeholder expands to the selected country). If the pattern lacks `{country}`, it will be injected before the extension.
