@@ -55,8 +55,8 @@ Meaning:
 ### Merging Behaviors
 * Subtitle continuation lines (same `line` + same timing OR untimed continuation) concatenate text with newline unless `--no-merge-subtitles`.
 * `super_A` continuation lines follow the exact same logic as subtitles.
-* Disclaimer continuation lines (untimed lines after a timed starter) merge into a single block unless `--no-merge-disclaimer`.
-* Disclaimer_02 continuation lines follow identical merging behavior as disclaimer unless `--no-merge-disclaimer-02`.
+* Disclaimer continuation lines (untimed lines after a timed starter) do NOT merge by default. Enable merging with `--merge-disclaimer`.
+* Disclaimer_02 continuation lines follow identical behavior: non‑merging by default; enable with `--merge-disclaimer-02`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
 * Per-video claim/disclaimer/disclaimer_02 text always takes precedence over the global arrays when a local cell is populated (landscape or portrait). Global text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
 * Local claim/disclaimer/disclaimer_02 override is ON by default. A portrait line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
@@ -330,8 +330,8 @@ Simple mode overrides:
 
 Merging / content behavior:
 * `--no-merge-subtitles` Disable multi-line subtitle merging
-* `--no-merge-disclaimer` Disable disclaimer merging
-* `--no-merge-disclaimer-02` Disable disclaimer_02 merging
+* `--merge-disclaimer` Enable disclaimer continuation block merging (default off)
+* `--merge-disclaimer-02` Enable disclaimer_02 continuation block merging (default off)
 * `--join-claim` Merge claim rows sharing identical timing into one block
 * `--claims-as-objects` In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array
 * `--no-local-claim-override` Disable per‑video local claim/disclaimer override (default override enabled). Legacy alias: `--prefer-local-claim-disclaimer` (same effect)

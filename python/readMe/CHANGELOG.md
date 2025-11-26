@@ -1,3 +1,16 @@
+# 1.5.5 - 2025-11-26
+
+Changed (CSV to JSON 186):
+- Inverted disclaimer merging default and flags:
+	* Previous: disclaimer blocks merged by default; disable via `--no-merge-disclaimer` and `--no-merge-disclaimer-02`.
+	* Now: disclaimer blocks do NOT merge by default; enable merging via `--merge-disclaimer` and `--merge-disclaimer-02`.
+	* Behavior applies to both global and per‑video disclaimer/disclaimer_02 continuation rows (untimed lines after a timed starter).
+	* Old `--no-merge-...` flags are deprecated; use the new `--merge-...` flags.
+
+Docs:
+- README updated to reflect new default (non‑merging) and new flags (`--merge-disclaimer`, `--merge-disclaimer-02`).
+
+
 # 1.5.4 - 2025-11-24
 
 Added (CSV to JSON 184–185):

@@ -1827,8 +1827,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
     p.add_argument("--schema-version", default="v2", help="Schema version tag to use if not supplied via meta_global 'schemaVersion' row (default v2)")
     p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
-    p.add_argument("--no-merge-disclaimer", action="store_true", help="Disable merging of multi-line disclaimer continuation lines")
-    p.add_argument("--no-merge-disclaimer-02", action="store_true", help="Disable merging of multi-line disclaimer_02 continuation lines")
+    p.add_argument("--merge-disclaimer", action="store_false", help="Disable merging of multi-line disclaimer continuation lines")
+    p.add_argument("--merge-disclaimer-02", action="store_false", help="Disable merging of multi-line disclaimer_02 continuation lines")
     p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
     p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
     p.add_argument("--prefer-local-claim-disclaimer", action="store_false", dest="prefer_local_claim_disclaimer", help="(Deprecated name) Disable per-video local claim/disclaimer override (default: enabled)")
@@ -1953,8 +1953,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         verbose=args.verbose,
         schema_version=args.schema_version,
         merge_subtitles=not args.no_merge_subtitles,
-        merge_disclaimer=not args.no_merge_disclaimer,
-        merge_disclaimer_02=not args.no_merge_disclaimer_02,
+        merge_disclaimer=not args.merge_disclaimer,
+        merge_disclaimer_02=not args.merge_disclaimer_02,
         cast_metadata=args.cast_metadata,
         join_claim=args.join_claim,
         prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
@@ -2403,8 +2403,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                             verbose=False,
                             schema_version=args.schema_version,
                             merge_subtitles=not args.no_merge_subtitles,
-                            merge_disclaimer=not args.no_merge_disclaimer,
-                            merge_disclaimer_02=not args.no_merge_disclaimer_02,
+                            merge_disclaimer=not args.merge_disclaimer,
+                            merge_disclaimer_02=not args.merge_disclaimer_02,
                             cast_metadata=args.cast_metadata,
                             join_claim=args.join_claim,
                             prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
