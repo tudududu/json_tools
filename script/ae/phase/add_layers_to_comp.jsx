@@ -121,7 +121,7 @@ function __AddLayers_coreRun(opts) {
     var proj = app.project;
     if (!proj) { alertOnce("No project open."); app.endUndoGroup(); return; }
 
-    // Helpers ————————————————————————————————————————————————
+
     // Config: set the template folder path here (segments under Project panel Root)
     var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
     // Gate for applying JSON disclaimer in/out; when false, disclaimer spans full comp
@@ -163,6 +163,122 @@ function __AddLayers_coreRun(opts) {
     var PARENTING_ASSIGN_AT_REF_TIME = true;
     var PARENTING_REF_TIME_MODE = 'zero'; // 'zero' | 'current' | 'inPoint' | 'custom'
     var PARENTING_REF_TIME_SECONDS = 0.0; // used when mode='custom'
+
+    // Logo timing behavior toggle:
+    // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
+    // and layer.outPoint to the logo JSON out value (tout). This causes the layer's internal time zero to align
+    // with its visible inPoint (useful for expressions referencing time / sourceTime inside the logo layer).
+    // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
+    var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
+
+    // Time-stretch configuration for 'logo_anim' layers
+    // Enables speeding up the first N seconds of the logo_anim source so that the animation ends around
+    // a fraction of the target layer's in/out span, while keeping the layer outPoint at the target time.
+    // - ENABLE_LOGO_ANIM_TIMESTRETCH: master ON/OFF
+    // - LOGO_ANIM_STRETCH_PERCENT: base percent (e.g., 66 means 0.66x duration, i.e., faster)
+    // - LOGO_ANIM_SOURCE_ANIM_DURATION: how many seconds at the start of the source contain the animated part (e.g., 2.0s)
+    // - LOGO_ANIM_ANIM_END_FRACTION: desired fraction of the target span where the animated part should complete (e.g., 2/3)
+    // - LOGO_ANIM_STRETCH_GATE_MAX_DURATION: do NOT apply stretch if target layer span exceeds this threshold (e.g., 2.2s)
+    var ENABLE_LOGO_ANIM_TIMESTRETCH = true;
+    var LOGO_ANIM_STRETCH_PERCENT = 66;               // base stretch percent
+    var LOGO_ANIM_SOURCE_ANIM_DURATION = 2.0;         // seconds
+    var LOGO_ANIM_ANIM_END_FRACTION = 2.0/3.0;        // target fraction of span to end animation
+    var LOGO_ANIM_STRETCH_GATE_MAX_DURATION = 2.2;    // seconds; if span > this, no stretch is applied
+
+    // Start-time shift configuration for 'logo_anim' layers
+    // Shift startTime backwards by a small amount to skip initial frames while keeping in/out unchanged.
+    // - ENABLE_LOGO_ANIM_START_SHIFT: master ON/OFF
+    // - LOGO_ANIM_START_SHIFT_SECONDS: e.g., -0.20 means move startTime 0.20s earlier relative to current
+    // - LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER: multiply the shift when comp duration < (gate/2)
+    // - LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE: only apply shift when comp.duration < this threshold (seconds)
+    var ENABLE_LOGO_ANIM_START_SHIFT = true;
+    var LOGO_ANIM_START_SHIFT_SECONDS = -0.20;            // seconds (negative to cut the beginning)
+    var LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER = 1.5;
+    var LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE = 35.0; // seconds
+
+    // Visibility flag configuration (JSON key names)
+    // These keys are looked up first on each video object, then (if not found) under video.metadata.*
+    // Change here if the JSON schema evolves.
+    var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n' (case-insensitive)
+    var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
+    var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
+    // Configurable acceptable values (all compared case-insensitively)
+    // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
+    var FLAG_VALUES = {
+        ON:   ['y', 'yes', '1'],
+        OFF:  ['n', 'no', '0']
+    };
+
+    // Skip-copy configuration (compact)
+    var SKIP_COPY_CONFIG = {
+        // When true, these layers will not be copied when their flag resolves to OFF
+        disclaimerOff: true,
+        subtitlesOff: true,
+        logoAnimOff:  true,
+        // Base logo layers that must always be copied (case-insensitive exact names)
+        alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
+        // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
+        groups: {
+            enabled: true,
+            keys: ["info"/* e.g., "claim" */]
+        },
+        // Ad-hoc skip list (name tokens); case-insensitive contains match
+        adHoc: {
+            enabled: false,
+            tokens: ["info", "template_aspect"]
+        }
+    };
+
+    // Config: Layer name configuration (case-insensitive)
+    // - exact: list of layer names to match exactly
+    // - contains: list of substrings; if present in layer name, it's a match
+    // - imageOnlyForContains (logo only): when true, a 'contains' match is valid only for image/bitmap footage layers
+    // Adjust these lists to match your template naming conventions.
+    var LAYER_NAME_CONFIG = {
+        info: {
+            exact: ["info"],
+            contains: ["info"]
+        },
+        logo: {
+            exact: ["Size_Holder_Logo"],
+            contains: ["logo"],
+            imageOnlyForContains: false
+        },
+        // Specific match for animated logo variant to distinguish from generic 'logo'
+        logoAnim: {
+            exact: ["logo_anim", "Size_Holder_Logo"],
+            contains: ["logo_anim"]
+        },
+        claim: {
+            exact: ["claim", "Size_Holder_Claim"],
+            contains: []
+        },
+        disclaimer: {
+            exact: ["disclaimer", "Size_Holder_Disclaimer"],
+            contains: []
+        },
+        subtitles: {
+            exact: [],
+            contains: ["subtitles"]
+        },
+        dataJson: {
+            exact: ["DATA_JSON", "data.json"],
+            contains: []
+            },
+            // Auto-center exceptions and alignment rules (case-insensitive exact names)
+            recenterRules: {
+                // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
+                // noRecenter entries will be skipped from auto-centering.
+                // force entries will be auto-centered regardless (useful if default changes in future).
+                // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
+                force: [],        // e.g., ["Logo", "Brand_Safe"]
+                noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
+                alignH: [],       // e.g., ["Claim", "CTA"]
+                alignV: []        // e.g., ["Disclaimer"]
+            }
+    };
+
+
     // Options overrides
     function __toBool(v, defVal) {
         if (typeof v === 'boolean') return v;
@@ -254,122 +370,8 @@ function __AddLayers_coreRun(opts) {
         } catch(ePDO) {}
     } catch(eOpt){}
 
-    // Skip-copy configuration (compact)
-    var SKIP_COPY_CONFIG = {
-        // When true, these layers will not be copied when their flag resolves to OFF
-        disclaimerOff: true,
-        subtitlesOff: true,
-        logoAnimOff:  true,
-        // Base logo layers that must always be copied (case-insensitive exact names)
-        alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
-        // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
-        groups: {
-            enabled: true,
-            keys: ["info"/* e.g., "claim" */]
-        },
-        // Ad-hoc skip list (name tokens); case-insensitive contains match
-        adHoc: {
-            enabled: false,
-            tokens: ["info", "template_aspect"]
-        }
-    };
 
-    // Logo timing behavior toggle:
-    // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
-    // and layer.outPoint to the logo JSON out value (tout). This causes the layer's internal time zero to align
-    // with its visible inPoint (useful for expressions referencing time / sourceTime inside the logo layer).
-    // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
-    var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
-
-    // Time-stretch configuration for 'logo_anim' layers
-    // Enables speeding up the first N seconds of the logo_anim source so that the animation ends around
-    // a fraction of the target layer's in/out span, while keeping the layer outPoint at the target time.
-    // - ENABLE_LOGO_ANIM_TIMESTRETCH: master ON/OFF
-    // - LOGO_ANIM_STRETCH_PERCENT: base percent (e.g., 66 means 0.66x duration, i.e., faster)
-    // - LOGO_ANIM_SOURCE_ANIM_DURATION: how many seconds at the start of the source contain the animated part (e.g., 2.0s)
-    // - LOGO_ANIM_ANIM_END_FRACTION: desired fraction of the target span where the animated part should complete (e.g., 2/3)
-    // - LOGO_ANIM_STRETCH_GATE_MAX_DURATION: do NOT apply stretch if target layer span exceeds this threshold (e.g., 2.2s)
-    var ENABLE_LOGO_ANIM_TIMESTRETCH = true;
-    var LOGO_ANIM_STRETCH_PERCENT = 66;               // base stretch percent
-    var LOGO_ANIM_SOURCE_ANIM_DURATION = 2.0;         // seconds
-    var LOGO_ANIM_ANIM_END_FRACTION = 2.0/3.0;        // target fraction of span to end animation
-    var LOGO_ANIM_STRETCH_GATE_MAX_DURATION = 2.2;    // seconds; if span > this, no stretch is applied
-
-    // Start-time shift configuration for 'logo_anim' layers
-    // Shift startTime backwards by a small amount to skip initial frames while keeping in/out unchanged.
-    // - ENABLE_LOGO_ANIM_START_SHIFT: master ON/OFF
-    // - LOGO_ANIM_START_SHIFT_SECONDS: e.g., -0.20 means move startTime 0.20s earlier relative to current
-    // - LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER: multiply the shift when comp duration < (gate/2)
-    // - LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE: only apply shift when comp.duration < this threshold (seconds)
-    var ENABLE_LOGO_ANIM_START_SHIFT = true;
-    var LOGO_ANIM_START_SHIFT_SECONDS = -0.20;            // seconds (negative to cut the beginning)
-    var LOGO_ANIM_START_SHIFT_PROGRESSIVE_MULTIPLIER = 1.5;
-    var LOGO_ANIM_START_SHIFT_VIDEO_DURATION_GATE = 35.0; // seconds
-
-    // Visibility flag configuration (JSON key names)
-    // These keys are looked up first on each video object, then (if not found) under video.metadata.*
-    // Change here if the JSON schema evolves.
-    var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n' (case-insensitive)
-    var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
-    var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
-    // Configurable acceptable values (all compared case-insensitively)
-    // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
-    var DISCLAIMER_FLAG_VALUES = {
-        ON:   ['y', 'yes', '1'],
-        OFF:  ['n', 'no', '0']
-    };
-    var SUBTITLES_FLAG_VALUES = DISCLAIMER_FLAG_VALUES;
-    var LOGO_ANIM_FLAG_VALUES = DISCLAIMER_FLAG_VALUES; // share the same ON/OFF tokens
-
-    // Config: Layer name configuration (case-insensitive)
-    // - exact: list of layer names to match exactly
-    // - contains: list of substrings; if present in layer name, it's a match
-    // - imageOnlyForContains (logo only): when true, a 'contains' match is valid only for image/bitmap footage layers
-    // Adjust these lists to match your template naming conventions.
-    var LAYER_NAME_CONFIG = {
-        info: {
-            exact: ["info"],
-            contains: ["info"]
-        },
-        logo: {
-            exact: ["Size_Holder_Logo"],
-            contains: ["logo"],
-            imageOnlyForContains: false
-        },
-        // Specific match for animated logo variant to distinguish from generic 'logo'
-        logoAnim: {
-            exact: ["logo_anim", "Size_Holder_Logo"],
-            contains: ["logo_anim"]
-        },
-        claim: {
-            exact: ["claim", "Size_Holder_Claim"],
-            contains: []
-        },
-        disclaimer: {
-            exact: ["disclaimer", "Size_Holder_Disclaimer"],
-            contains: []
-        },
-        subtitles: {
-            exact: [],
-            contains: ["subtitles"]
-        },
-        dataJson: {
-            exact: ["DATA_JSON", "data.json"],
-            contains: []
-            },
-            // Auto-center exceptions and alignment rules (case-insensitive exact names)
-            recenterRules: {
-                // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
-                // noRecenter entries will be skipped from auto-centering.
-                // force entries will be auto-centered regardless (useful if default changes in future).
-                // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
-                force: [],        // e.g., ["Logo", "Brand_Safe"]
-                noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
-                alignH: [],       // e.g., ["Claim", "CTA"]
-                alignV: []        // e.g., ["Disclaimer"]
-            }
-    };
-
+    // Helpers ————————————————————————————————————————————————
     // Simple name matching helpers (case-insensitive)
     function _matchesExact(name, list) {
         if (!name || !list || !list.length) return false;
@@ -949,10 +951,10 @@ function __AddLayers_coreRun(opts) {
             if (allowAuto && inList(cfg.AUTO)) return 'auto';
             return null; // unrecognized
         }
-    var disclaimerMode = interpretFlag(disclaimerFlag, DISCLAIMER_FLAG_VALUES, false);  // 'on','off', or null
-    var subtitlesMode  = interpretFlag(subtitlesFlag, SUBTITLES_FLAG_VALUES, false);   // 'on','off', or null
+    var disclaimerMode = interpretFlag(disclaimerFlag, FLAG_VALUES, false);  // 'on','off', or null
+    var subtitlesMode  = interpretFlag(subtitlesFlag, FLAG_VALUES, false);   // 'on','off', or null
     var logoAnimFlag   = extractFlag(v, LOGO_ANIM_FLAG_KEY);
-    var logoAnimMode   = interpretFlag(logoAnimFlag, LOGO_ANIM_FLAG_VALUES, false);    // 'on','off', or null
+    var logoAnimMode   = interpretFlag(logoAnimFlag, FLAG_VALUES, false);    // 'on','off', or null
     // Defaults when flags are missing: force OFF
     var effectiveDisclaimerMode = disclaimerMode || 'off';
     var effectiveSubtitlesMode  = subtitlesMode  || 'off';
@@ -1188,7 +1190,7 @@ function __AddLayers_coreRun(opts) {
                     log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
                 if (!disclaimerMode && disclaimerFlag) {
-                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+DISCLAIMER_FLAG_VALUES.ON.join('/')+", OFF:"+DISCLAIMER_FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
+                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
                 }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
@@ -1200,7 +1202,7 @@ function __AddLayers_coreRun(opts) {
                     log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
                 if (!subtitlesMode && subtitlesFlag) {
-                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (configured ON:"+SUBTITLES_FLAG_VALUES.ON.join('/')+", OFF:"+SUBTITLES_FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
+                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
                 }
             }
         }
@@ -1345,12 +1347,12 @@ function __AddLayers_coreRun(opts) {
             function _interpret(raw, cfg) {
                 if (!raw) return null; var val = String(raw).toLowerCase();
                 function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++) if(val===String(list[i]).toLowerCase()) return true; return false; }
-                if (inList(DISCLAIMER_FLAG_VALUES.ON) && cfg===DISCLAIMER_FLAG_VALUES) return 'on';
-                if (inList(SUBTITLES_FLAG_VALUES.ON) && cfg===SUBTITLES_FLAG_VALUES) return 'on';
-                if (inList(LOGO_ANIM_FLAG_VALUES.ON) && cfg===LOGO_ANIM_FLAG_VALUES) return 'on';
-                if (inList(DISCLAIMER_FLAG_VALUES.OFF) && cfg===DISCLAIMER_FLAG_VALUES) return 'off';
-                if (inList(SUBTITLES_FLAG_VALUES.OFF) && cfg===SUBTITLES_FLAG_VALUES) return 'off';
-                if (inList(LOGO_ANIM_FLAG_VALUES.OFF) && cfg===LOGO_ANIM_FLAG_VALUES) return 'off';
+                if (inList(FLAG_VALUES.ON) && cfg===FLAG_VALUES) return 'on';
+                if (inList(FLAG_VALUES.ON) && cfg===FLAG_VALUES) return 'on';
+                if (inList(FLAG_VALUES.ON) && cfg===FLAG_VALUES) return 'on';
+                if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
+                if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
+                if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
                 return null;
             }
             var _discMode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
@@ -1358,9 +1360,9 @@ function __AddLayers_coreRun(opts) {
                 var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
                 var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
                 var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
-                var dm = _interpret(dfRaw, DISCLAIMER_FLAG_VALUES);
-                var sm = _interpret(sfRaw, SUBTITLES_FLAG_VALUES);
-                var lm = _interpret(lafRaw, LOGO_ANIM_FLAG_VALUES);
+                var dm = _interpret(dfRaw, FLAG_VALUES);
+                var sm = _interpret(sfRaw, FLAG_VALUES);
+                var lm = _interpret(lafRaw, FLAG_VALUES);
                 _discMode = dm || 'off';
                 _subtMode = sm || 'off';
                 _logoAnimMode = lm || 'off';

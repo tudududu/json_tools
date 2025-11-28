@@ -121,7 +121,7 @@ function __CreateComps_coreRun(opts) {
 		for (var i=0;i<lines.length;i++) __writeFileLine(__logFile, lines[i]);
 	}
 
-	// Tagged logger (shared pipeline-aware)  created if running under pipeline with getLogger available
+	// Tagged logger (shared pipeline-aware) created if running under pipeline with getLogger available
 	var __logger = null;
 	try {
 		if (__AE_PIPE__ && typeof __AE_PIPE__.getLogger === 'function') {
