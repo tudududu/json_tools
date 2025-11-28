@@ -1,4 +1,4 @@
-// sourceText_json_info (per-video metadata inspector)
+// sourceText_json_info v02 251128 (per-video metadata inspector)
 // Builds an informational multiline string combining global metadata and the resolved video object's metadata.
 // Intended for a debug / QA text layer inside AE.
 // Output example:
@@ -6,6 +6,7 @@
 // If a field is missing it shows '-'. If video not found, returns basic global info only.
 
 var FOOTAGE_NAME = "data.json"; // name of JSON footage
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
 // ---------- Orientation detection (computed test) ----------
 var ar = thisComp.width / Math.max(1, thisComp.height);
@@ -18,9 +19,12 @@ if (nameLower.indexOf("_landscape") >= 0) compOrientTest = "landscape";
 else if (nameLower.indexOf("_portrait") >= 0) compOrientTest = "portrait";
 
 // ---------- Derive candidate videoIds ----------
+var token1 = 0 + nameShift;
+var token2 = 1 + nameShift;
+
 function baseVideoId() {
   var p = thisComp.name.split("_");
-  return (p.length >= 2) ? (p[0] + "_" + p[1]) : ""; // e.g. Title_30s
+  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // e.g. Title_30s
 }
 var baseId = baseVideoId();
 var orientedId = baseId ? (baseId + "_" + compOrientTest) : ""; // oriented video id suffix pattern
@@ -76,23 +80,32 @@ try {
   var client   = toStr(safe(globalMeta, ["client"], "-"));
   var campaign = toStr(safe(globalMeta, ["campaign"], "-"));
   var country = toStr(safe(globalMeta, ["country"], "-"));
-
+  var language = toStr(safe(globalMeta, ["language"], "-"));
   var videoId  = video ? toStr(video.videoId) : "(video not found)";
   var vMeta    = video ? video.metadata : null;
   var vOrient  = toStr(safe(vMeta, ["orientation"], "-"));
   var vDur     = toStr(safe(vMeta, ["duration"], "-"));
   var vTitle   = toStr(safe(vMeta, ["title"], "-"));
+  var subsFlag = toStr(safe(vMeta, ["subtitle_flag"], "-"));
+  var disclaimerFlag = toStr(safe(vMeta, ["disclaimer_flag"], "-"));
+  var disclaimerFlag_02 = toStr(safe(vMeta, ["disclaimer_02_flag"], "-"));
+  var logo_animFlag = toStr(safe(vMeta, ["logo_anim_flag"], "-"));
   var subsLen  = video && video.subtitles instanceof Array ? (video.subtitles.length+"") : (video ? "0" : "-");
-
+        
   out  = "client: " + client;
   out += "\rcampaign: " + campaign;
   out += "\rcountry: " + country;
+  out += "\rlanguage: " + language;
   out += "\rvideoId: " + videoId;
   out += "\rdata(compOrientMeta): " + vOrient;
   out += "\rcompOrient(test): " + compOrientTest;
   out += "\raspect ratio: " + resultAspect;
   out += "\rduration(meta): " + vDur;
   out += "\rtitle: " + vTitle;
+  out += "\rsubtitles: " + subsFlag;
+  out += "\rdisclaimer: " + disclaimerFlag;
+  out += "\rdisclaimer_02: " + disclaimerFlag_02;
+  out += "\rlogo_anim: " + logo_animFlag;
   out += "\rsubtitles: " + subsLen;
 } catch (err) {
   out = "(metadata unavailable)";

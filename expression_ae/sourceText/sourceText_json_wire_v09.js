@@ -1,5 +1,4 @@
-// sourceText_json_wire
-// v09 (orientation-aware, time-gated, multi-line)
+// sourceText_json_wire v09 (orientation-aware, time-gated, multi-line)
 // JSON → text; orientation-specific global keys + oriented videoIds
 // DATA_KEY: "subtitles" | "claim" | "disclaimer" | "logo"
 // Behavior:
@@ -8,20 +7,24 @@
 // Orientation resolution order: explicit suffix in comp name (_landscape/_portrait) else aspect ratio (>1 landscape, else portrait). Square (1:1) treated as portrait by using >1 test.
 
 var FOOTAGE_NAME = "data.json"; // JSON footage name
-var DATA_KEY = "disclaimer";   // key to pull
+var DATA_KEY = "subtitles";   // key to pull
 var desiredLine = 0;            // 0=time-driven multi; >0 fixed line
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
-// Orientation detection
+// -------- Orientation detection --------
 var compAR = thisComp.width / Math.max(1, thisComp.height);
 var compOrientation = compAR > 1 ? "landscape" : "portrait"; // square -> portrait per requirements
 var nameLower = thisComp.name.toLowerCase();
 if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
 else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";
 
-// Base + oriented videoId patterns
+// -------- VideoId derivation --------
+var token1 = 0 + nameShift;
+var token2 = 1 + nameShift;
+
 function baseVideoId() {
   var p = thisComp.name.split("_");
-  return (p.length >= 2) ? (p[0] + "_" + p[1]) : ""; // Title_15s
+  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // Title_15s
 }
 var baseId = baseVideoId();
 var orientedId = baseId ? (baseId + "_" + compOrientation) : "";

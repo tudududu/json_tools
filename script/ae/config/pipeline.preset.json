@@ -17,14 +17,14 @@
     "PIPELINE_SHOW_LEVELS": true,
     "LOG_MARKER": "*",
 
-    "RUN_open_project": true,
+    "RUN_open_project": false,
     "RUN_link_data": true,
     "RUN_save_as_iso": true,
     "RUN_create_compositions": true,
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -37,13 +37,13 @@
     "DRY_RUN": true
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/HARMAN/JBL/2025/_LIBRARIES/TOUR SERIES 3 BENSON BOONE/PROJECT_FOLDER/POST/WORK/project.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/ronaldo2/POST/WORK/ronaldo2_v05_test.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBL",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -63,7 +63,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": true,
+    "AUTO_FROM_PROJECT_FOOTAGE": false,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",

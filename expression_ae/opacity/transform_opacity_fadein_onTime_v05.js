@@ -20,9 +20,9 @@
 
 // -------- CONFIG --------
 var FOOTAGE_NAME = "data.json";
-var DATA_KEY     = "claim";
-var desiredLine  = 1;
-var FADE_IN      = 1.0;
+var DATA_KEY     = "logo";
+var desiredLine  = 3;
+var FADE_IN      = 0;
 var OPAC_IN      = 0;
 var START_MIN    = 1;          // minimum opacity on first active frame if OPAC_IN == 0
 
@@ -34,9 +34,13 @@ if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
 else if (nameLower.indexOf("_portrait")  >= 0) compOrientation = "portrait";
 
 // -------- VideoId derivation --------
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
+var token1 = 0 + nameShift;
+var token2 = 1 + nameShift;
+
 function baseVideoId(){
   var p = thisComp.name.split("_");
-  return (p.length >= 2) ? (p[0] + "_" + p[1]) : "";
+  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // e.g. Title_30s
 }
 var baseId     = baseVideoId();
 var orientedId = baseId ? (baseId + "_" + compOrientation) : "";
@@ -89,6 +93,7 @@ function collectSegments(videoObj, key){
   return segs;
 }
 
+// Optional: merge overlapping/touching segments for cleaner evaluation
 function mergeSegments(list){
   if (list.length <= 1) return list;
   list.sort(function(a,b){ return a[0]-b[0]; });

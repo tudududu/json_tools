@@ -1,4 +1,4 @@
-// transform_opacity_fadein_onTime_v04 (orientation-aware, SINGLE KEY)
+// transform_opacity_fadein_onTime_v04 251128 (orientation-aware, SINGLE KEY)
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
 // Supported keys: claim | disclaimer | logo | subtitles (timed arrays of objects with in/out; global arrays w/out timing)
@@ -19,8 +19,9 @@
 var FOOTAGE_NAME = "data.json"; // JSON footage item
 var DATA_KEY     = "claim";     // user-defined key
 var desiredLine  = 1;            // 1-based; if subtitles and 0 → all lines
-var FADE_IN      = 1.0;          // fade-in duration (s)
+var FADE_IN      = 0;          // fade-in duration (s)
 var OPAC_IN      = 0;            // starting opacity value
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
 // Adaptive fade tweak (optional)
 var compDur = thisComp.duration;
@@ -34,9 +35,12 @@ if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
 else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";
 
 // -------- VideoId derivation --------
-function baseVideoId() {
+var token1 = 0 + nameShift;
+var token2 = 1 + nameShift;
+
+function baseVideoId(){
   var p = thisComp.name.split("_");
-  return (p.length >= 2) ? (p[0] + "_" + p[1]) : "";
+  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // e.g. Title_30s
 }
 var baseId     = baseVideoId();
 var orientedId = baseId ? (baseId + "_" + compOrientation) : "";
