@@ -206,6 +206,14 @@ Table of contents
 
   #### Step 5 – Add Layers (Template Application)
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
+    Unified flag handling
+    - Flags `disclaimer_flag`, `disclaimer_02_flag`, `subtitle_flag`, and `logo_anim_flag` are parsed via a single helper that reads from the video object or its `metadata` and interprets values against the configured lists (`ON`: y/yes/1, `OFF`: n/no/0).
+    - Unknown or missing values default to OFF. An audit log line notes any unrecognized values once per comp.
+    - AUTO support is currently dormant: values would map to `'auto'` only if enabled, but the pipeline treats flags strictly as ON/OFF for deterministic behavior.
+
+    Advantages of `getModesForVideo`
+    - Centralizes extraction and interpretation, reducing duplication and keeping behavior consistent across copy-skip gates and visibility timing.
+    - Returns both raw and effective modes, making defaults explicit and simplifying downstream usage.
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
   Extras duplication: `EXTRA_TEMPLATES` namespace (allowed AR list, tag tokens, suffix, duration matching overrides). Duplicate comps included downstream.
   Skip logic: `SKIP_COPY_CONFIG` respects JSON flags & token/group filters.

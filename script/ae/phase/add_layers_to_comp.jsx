@@ -210,6 +210,7 @@ function __AddLayers_coreRun(opts) {
         OFF:  ['n', 'no', '0']
     };
 
+
     // Skip-copy configuration (compact)
     var SKIP_COPY_CONFIG = {
         // When true, these layers will not be copied when their flag resolves to OFF
@@ -378,6 +379,63 @@ function __AddLayers_coreRun(opts) {
 
 
     // Helpers ————————————————————————————————————————————————
+
+    // Unified flag helpers (file-scope)
+    function extractFlagFromVideo(videoObj, keyName) {
+        if (!videoObj || !keyName) return null;
+        try {
+            if (videoObj.hasOwnProperty(keyName) && videoObj[keyName] !== undefined && videoObj[keyName] !== null && videoObj[keyName] !== '') {
+                return String(videoObj[keyName]).toLowerCase();
+            }
+            if (videoObj.metadata && videoObj.metadata.hasOwnProperty(keyName) && videoObj.metadata[keyName] !== undefined && videoObj.metadata[keyName] !== null && videoObj.metadata[keyName] !== '') {
+                return String(videoObj.metadata[keyName]).toLowerCase();
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function interpretFlagValue(raw, cfg, opts) {
+        if (!raw) return null;
+        var allowAuto = opts && opts.allowAuto === true;
+        var val = String(raw).toLowerCase();
+        function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++){ if(val===String(list[i]).toLowerCase()) return true; } return false; }
+        if (inList(cfg && cfg.ON)) return 'on';
+        if (inList(cfg && cfg.OFF)) return 'off';
+        if (allowAuto && inList(cfg && cfg.AUTO)) return 'auto';
+        return null;
+    }
+
+    function toEffective(mode, fallback) { return mode || fallback; }
+
+    function logUnrecognizedFlag(flagKey, raw, cfg, ctxName) {
+        if (!raw) return; // only log when there is an unrecognized value
+        var onList = (cfg && cfg.ON) ? cfg.ON.join('/') : '';
+        var offList = (cfg && cfg.OFF) ? cfg.OFF.join('/') : '';
+        log("Flag '"+flagKey+"' value '"+raw+"' not recognized (ON:"+onList+", OFF:"+offList+") for '"+ctxName+"'.");
+    }
+
+    function getModesForVideo(videoObj) {
+        var raw = {
+            disclaimer: extractFlagFromVideo(videoObj, DISCLAIMER_FLAG_KEY),
+            disclaimer02: extractFlagFromVideo(videoObj, DISCLAIMER_02_FLAG_KEY),
+            subtitles: extractFlagFromVideo(videoObj, SUBTITLES_FLAG_KEY),
+            logoAnim: extractFlagFromVideo(videoObj, LOGO_ANIM_FLAG_KEY)
+        };
+        var modes = {
+            disclaimer: interpretFlagValue(raw.disclaimer, FLAG_VALUES, { allowAuto: false }),
+            disclaimer02: interpretFlagValue(raw.disclaimer02, FLAG_VALUES, { allowAuto: false }),
+            subtitles: interpretFlagValue(raw.subtitles, FLAG_VALUES, { allowAuto: false }),
+            logoAnim: interpretFlagValue(raw.logoAnim, FLAG_VALUES, { allowAuto: false })
+        };
+        var eff = {
+            disclaimer: toEffective(modes.disclaimer, 'off'),
+            disclaimer02: toEffective(modes.disclaimer02, 'off'),
+            subtitles: toEffective(modes.subtitles, 'off'),
+            logoAnim: toEffective(modes.logoAnim, 'off')
+        };
+        return { raw: raw, modes: modes, effective: eff };
+    }
+
     // Simple name matching helpers (case-insensitive)
     function _matchesExact(name, list) {
         if (!name || !list || !list.length) return false;
@@ -945,29 +1003,15 @@ function __AddLayers_coreRun(opts) {
             return null;
         }
         // Visibility flags (raw lower-cased values or null)
-        var disclaimerFlag = extractFlag(v, DISCLAIMER_FLAG_KEY);   // raw value; interpret below
-        var disclaimer02Flag = extractFlag(v, DISCLAIMER_02_FLAG_KEY);
-        var subtitlesFlag  = extractFlag(v, SUBTITLES_FLAG_KEY);
-
-        function interpretFlag(raw, cfg, allowAuto) {
-            if (!raw) return null;
-            var val = String(raw).toLowerCase();
-            function inList(list){ if(!list||!list.length) return false; for(var i=0;i<list.length;i++){ if(val===String(list[i]).toLowerCase()) return true; } return false; }
-            if (inList(cfg.ON)) return 'on';
-            if (inList(cfg.OFF)) return 'off';
-            if (allowAuto && inList(cfg.AUTO)) return 'auto';
-            return null; // unrecognized
-        }
-    var disclaimerMode = interpretFlag(disclaimerFlag, FLAG_VALUES, false);  // 'on','off', or null
-    var disclaimer02Mode = interpretFlag(disclaimer02Flag, FLAG_VALUES, false); // 'on','off', or null
-    var subtitlesMode  = interpretFlag(subtitlesFlag, FLAG_VALUES, false);   // 'on','off', or null
-    var logoAnimFlag   = extractFlag(v, LOGO_ANIM_FLAG_KEY);
-    var logoAnimMode   = interpretFlag(logoAnimFlag, FLAG_VALUES, false);    // 'on','off', or null
-    // Defaults when flags are missing: force OFF
-    var effectiveDisclaimerMode = disclaimerMode || 'off';
-    var effectiveDisclaimer02Mode = disclaimer02Mode || 'off';
-    var effectiveSubtitlesMode  = subtitlesMode  || 'off';
-    var effectiveLogoAnimMode   = logoAnimMode   || 'off';
+        var __modes = getModesForVideo(v);
+        var disclaimerFlag = __modes.raw.disclaimer;
+        var disclaimer02Flag = __modes.raw.disclaimer02;
+        var subtitlesFlag = __modes.raw.subtitles;
+        var logoAnimFlag = __modes.raw.logoAnim;
+        var effectiveDisclaimerMode = __modes.effective.disclaimer;
+        var effectiveDisclaimer02Mode = __modes.effective.disclaimer02;
+        var effectiveSubtitlesMode = __modes.effective.subtitles;
+        var effectiveLogoAnimMode = __modes.effective.logoAnim;
         // AUTO regime removed: no need to compute valid disclaimer intervals
         // Matching helpers using LAYER_NAME_CONFIG
         function matchesExact(name, list) {
@@ -1198,9 +1242,7 @@ function __AddLayers_coreRun(opts) {
                     }
                     log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
-                if (!disclaimerMode && disclaimerFlag) {
-                    log("Disclaimer flag value '" + disclaimerFlag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
-                }
+                if (!__modes.modes.disclaimer && disclaimerFlag) { logUnrecognizedFlag(DISCLAIMER_FLAG_KEY, disclaimerFlag, FLAG_VALUES, nm); }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
             // Second disclaimer (no timing array expected; same visibility semantics)
@@ -1210,9 +1252,7 @@ function __AddLayers_coreRun(opts) {
                     ly.enabled = (effectiveDisclaimer02Mode === 'on');
                     log("Set disclaimer_02 visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch(eVisD2){ log("Disclaimer_02 visibility set failed for '"+nm+"': " + eVisD2); }
-                if (!disclaimer02Mode && disclaimer02Flag) {
-                    log("Disclaimer_02 flag value '" + disclaimer02Flag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
-                }
+                if (!__modes.modes.disclaimer02 && disclaimer02Flag) { logUnrecognizedFlag(DISCLAIMER_02_FLAG_KEY, disclaimer02Flag, FLAG_VALUES, nm); }
                 continue;
             }
             // Subtitles visibility flag (no timing applied here)
@@ -1222,9 +1262,7 @@ function __AddLayers_coreRun(opts) {
                     ly.enabled = (effectiveSubtitlesMode === 'on');
                     log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
                 } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
-                if (!subtitlesMode && subtitlesFlag) {
-                    log("Subtitles flag value '" + subtitlesFlag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
-                }
+                if (!__modes.modes.subtitles && subtitlesFlag) { logUnrecognizedFlag(SUBTITLES_FLAG_KEY, subtitlesFlag, FLAG_VALUES, nm); }
             }
         }
         if (!appliedAny) {
@@ -1378,18 +1416,11 @@ function __AddLayers_coreRun(opts) {
             }
             var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
             if (vRec) {
-                var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
-                var df2Raw = _extractFlagLocal(vRec, DISCLAIMER_02_FLAG_KEY);
-                var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
-                var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
-                var dm = _interpret(dfRaw, FLAG_VALUES);
-                var dm2 = _interpret(df2Raw, FLAG_VALUES);
-                var sm = _interpret(sfRaw, FLAG_VALUES);
-                var lm = _interpret(lafRaw, FLAG_VALUES);
-                _discMode = dm || 'off';
-                _disc02Mode = dm2 || 'off';
-                _subtMode = sm || 'off';
-                _logoAnimMode = lm || 'off';
+                var __modes = getModesForVideo(vRec);
+                _discMode = __modes.effective.disclaimer;
+                _disc02Mode = __modes.effective.disclaimer02;
+                _subtMode = __modes.effective.subtitles;
+                _logoAnimMode = __modes.effective.logoAnim;
             }
 
             // Helper: collect current layer references to detect the newly inserted one reliably
