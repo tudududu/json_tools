@@ -200,6 +200,7 @@ function __AddLayers_coreRun(opts) {
     // These keys are looked up first on each video object, then (if not found) under video.metadata.*
     // Change here if the JSON schema evolves.
     var DISCLAIMER_FLAG_KEY = "disclaimer_flag"; // values: 'y','n' (case-insensitive)
+    var DISCLAIMER_02_FLAG_KEY = "disclaimer_02_flag"; // second disclaimer flag (same semantics)
     var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
     var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
     // Configurable acceptable values (all compared case-insensitively)
@@ -213,6 +214,7 @@ function __AddLayers_coreRun(opts) {
     var SKIP_COPY_CONFIG = {
         // When true, these layers will not be copied when their flag resolves to OFF
         disclaimerOff: true,
+        disclaimer02Off: true, // NEW: second disclaimer skip gate
         subtitlesOff: true,
         logoAnimOff:  true,
         // Base logo layers that must always be copied (case-insensitive exact names)
@@ -255,6 +257,10 @@ function __AddLayers_coreRun(opts) {
         },
         disclaimer: {
             exact: ["disclaimer", "Size_Holder_Disclaimer"],
+            contains: []
+        },
+        disclaimer02: {
+            exact: ["disclaimer_02"],
             contains: []
         },
         subtitles: {
@@ -406,7 +412,7 @@ function __AddLayers_coreRun(opts) {
     //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
     //  - A literal layer name (case-insensitive exact) matched directly
     // Disclaimer layers remain handled separately to preserve JSON gating behavior.
-    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info"]; // Add more keys or raw names as needed
+    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info", "disclaimer_02"]; // Added disclaimer_02 for full duration handling
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
@@ -940,6 +946,7 @@ function __AddLayers_coreRun(opts) {
         }
         // Visibility flags (raw lower-cased values or null)
         var disclaimerFlag = extractFlag(v, DISCLAIMER_FLAG_KEY);   // raw value; interpret below
+        var disclaimer02Flag = extractFlag(v, DISCLAIMER_02_FLAG_KEY);
         var subtitlesFlag  = extractFlag(v, SUBTITLES_FLAG_KEY);
 
         function interpretFlag(raw, cfg, allowAuto) {
@@ -952,11 +959,13 @@ function __AddLayers_coreRun(opts) {
             return null; // unrecognized
         }
     var disclaimerMode = interpretFlag(disclaimerFlag, FLAG_VALUES, false);  // 'on','off', or null
+    var disclaimer02Mode = interpretFlag(disclaimer02Flag, FLAG_VALUES, false); // 'on','off', or null
     var subtitlesMode  = interpretFlag(subtitlesFlag, FLAG_VALUES, false);   // 'on','off', or null
     var logoAnimFlag   = extractFlag(v, LOGO_ANIM_FLAG_KEY);
     var logoAnimMode   = interpretFlag(logoAnimFlag, FLAG_VALUES, false);    // 'on','off', or null
     // Defaults when flags are missing: force OFF
     var effectiveDisclaimerMode = disclaimerMode || 'off';
+    var effectiveDisclaimer02Mode = disclaimer02Mode || 'off';
     var effectiveSubtitlesMode  = subtitlesMode  || 'off';
     var effectiveLogoAnimMode   = logoAnimMode   || 'off';
         // AUTO regime removed: no need to compute valid disclaimer intervals
@@ -1194,6 +1203,18 @@ function __AddLayers_coreRun(opts) {
                 }
                 continue; // prevent also treating as subtitles if naming overlaps
             }
+            // Second disclaimer (no timing array expected; same visibility semantics)
+            if (nm.toLowerCase() === 'disclaimer_02') {
+                // full duration already applied earlier via FULL_DURATION_LAYER_GROUPS
+                try {
+                    ly.enabled = (effectiveDisclaimer02Mode === 'on');
+                    log("Set disclaimer_02 visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
+                } catch(eVisD2){ log("Disclaimer_02 visibility set failed for '"+nm+"': " + eVisD2); }
+                if (!disclaimer02Mode && disclaimer02Flag) {
+                    log("Disclaimer_02 flag value '" + disclaimer02Flag + "' not recognized (configured ON:"+FLAG_VALUES.ON.join('/')+", OFF:"+FLAG_VALUES.OFF.join('/')+") for '" + nm + "'.");
+                }
+                continue;
+            }
             // Subtitles visibility flag (no timing applied here)
             if (matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains)) {
                 // Apply default OFF when missing
@@ -1355,15 +1376,18 @@ function __AddLayers_coreRun(opts) {
                 if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
                 return null;
             }
-            var _discMode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
+            var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
             if (vRec) {
                 var dfRaw = _extractFlagLocal(vRec, DISCLAIMER_FLAG_KEY);
+                var df2Raw = _extractFlagLocal(vRec, DISCLAIMER_02_FLAG_KEY);
                 var sfRaw = _extractFlagLocal(vRec, SUBTITLES_FLAG_KEY);
                 var lafRaw = _extractFlagLocal(vRec, LOGO_ANIM_FLAG_KEY);
                 var dm = _interpret(dfRaw, FLAG_VALUES);
+                var dm2 = _interpret(df2Raw, FLAG_VALUES);
                 var sm = _interpret(sfRaw, FLAG_VALUES);
                 var lm = _interpret(lafRaw, FLAG_VALUES);
                 _discMode = dm || 'off';
+                _disc02Mode = dm2 || 'off';
                 _subtMode = sm || 'off';
                 _logoAnimMode = lm || 'off';
             }
@@ -1381,6 +1405,7 @@ function __AddLayers_coreRun(opts) {
                     var isLogoAnim = nameMatchesGroup(lname, 'logoAnim');
                     var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim;
                     var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
+                    var isDisclaimer02 = nameMatchesGroup(lname, 'disclaimer02') || (lname.toLowerCase() === 'disclaimer_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
                     var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
@@ -1389,6 +1414,7 @@ function __AddLayers_coreRun(opts) {
                         if (isLogoGeneric && _logoAnimMode === 'on' && !alwaysCopyBaseLogo) { log("Skip copy: '"+lname+"' (logo generic OFF due to logo_anim ON)" ); skipCopyCount++; continue; }
                     }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimerOff && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimer02Off && isDisclaimer02 && _disc02Mode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer_02 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
                         var groupSkipped = false;
