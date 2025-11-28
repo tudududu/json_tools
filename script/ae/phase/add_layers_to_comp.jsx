@@ -268,22 +268,47 @@ function __AddLayers_coreRun(opts) {
             exact: [],
             contains: ["subtitles"]
         },
+        super_A: {
+            exact: ["super_A", "Size_Holder_Super_A"],
+            contains: ["super_A"]
+        },
         dataJson: {
             exact: ["DATA_JSON", "data.json"],
             contains: []
             },
-            // Auto-center exceptions and alignment rules (case-insensitive exact names)
-            recenterRules: {
-                // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
-                // noRecenter entries will be skipped from auto-centering.
-                // force entries will be auto-centered regardless (useful if default changes in future).
-                // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
-                force: [],        // e.g., ["Logo", "Brand_Safe"]
-                noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
-                alignH: [],       // e.g., ["Claim", "CTA"]
-                alignV: []        // e.g., ["Disclaimer"]
-            }
+        // Auto-center exceptions and alignment rules (case-insensitive exact names)
+        recenterRules: {
+            // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
+            // noRecenter entries will be skipped from auto-centering.
+            // force entries will be auto-centered regardless (useful if default changes in future).
+            // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
+            force: [],        // e.g., ["Logo", "Brand_Safe"]
+            noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
+            alignH: [],       // e.g., ["Claim", "CTA"]
+            alignV: []        // e.g., ["Disclaimer"]
+        }
     };
+
+    // FULL_DURATION_LAYER_GROUPS semantics:
+    // Each entry may be either:
+    //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
+    //  - A literal layer name (case-insensitive exact) matched directly
+    // Disclaimer layers remain handled separately to preserve JSON gating behavior.
+    var FULL_DURATION_LAYER_GROUPS = [
+        "subtitles",
+        "Size_Holder_Subtitles",
+        "dataJson",
+        "DATA_JSON",
+        "data.json",
+        "center",
+        "template_aspect",
+        "info",
+        "disclaimer_02",
+        // New: span super_A layers across full comp duration
+        "super_A",
+        "Size_Holder_Super_A",
+        "Pin"
+    ];
 
 
     // Options overrides
@@ -464,13 +489,6 @@ function __AddLayers_coreRun(opts) {
         }
         return false;
     }
-
-    // FULL_DURATION_LAYER_GROUPS semantics:
-    // Each entry may be either:
-    //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
-    //  - A literal layer name (case-insensitive exact) matched directly
-    // Disclaimer layers remain handled separately to preserve JSON gating behavior.
-    var FULL_DURATION_LAYER_GROUPS = ["subtitles", "Size_Holder_Subtitles", "dataJson", "DATA_JSON", "data.json", "center", "template_aspect", "info", "disclaimer_02"]; // Added disclaimer_02 for full duration handling
 
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
