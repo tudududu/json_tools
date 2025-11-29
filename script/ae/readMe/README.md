@@ -238,6 +238,20 @@ Table of contents
     ```
 
     Preset Options Override (per campaign)
+
+    Options Quick Reference (Step 5)
+    | Option key | Default | Description |
+    |------------|---------|-------------|
+    | `addLayers.TEMPLATE_FOLDER_PATH` | `["project","work","template"]` | Where the template comp lives in the Project panel tree. |
+    | `addLayers.TEMPLATE_MATCH_CONFIG.arTolerance` | `0.001` | Aspect ratio tolerance for template matching. |
+    | `addLayers.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch` | `false` | Require AR match within tolerance. |
+    | `addLayers.TEMPLATE_MATCH_CONFIG.enableDurationMatch` | `false` | Include duration in template selection scoring. |
+    | `addLayers.TEMPLATE_MATCH_CONFIG.requireDurationMatch` | `false` | Require duration within tolerance when enabled. |
+    | `addLayers.TEMPLATE_MATCH_CONFIG.durationToleranceSeconds` | `0.50` | Duration tolerance (seconds). |
+    | `addLayers.TIMING_BEHAVIOR` | map | Per-group/literal timing: `timed` | `span` | `asIs`. Defaults documented above. |
+    | `addLayers.APPLY_INPOINT_TO_LAYER_STARTTIME` | `true` | Align `layer.startTime` to `inPoint` for `timed` layers. |
+    | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names. |
+    | `addLayers.EXTRA_TEMPLATES.*` | various | Controls duplicate “extras” comps (allowed ARs, tags, suffix, duration strictness). |
     ```json
     {
       "addLayers": {
