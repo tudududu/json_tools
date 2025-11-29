@@ -237,6 +237,26 @@ Table of contents
     };
     ```
 
+    Preset Options Override (per campaign)
+    ```json
+    {
+      "addLayers": {
+        "TIMING_BEHAVIOR": {
+          "logo": "timed",
+          "logoAnim": "timed",
+          "claim": "timed",
+          "disclaimer": "span",
+          "disclaimer02": "span",
+          "subtitles": "span",
+          "dataJson": "span",
+          "super_A": "span",
+          "Pin": "span"
+        },
+        "APPLY_INPOINT_TO_LAYER_STARTTIME": true
+      }
+    }
+    ```
+
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
     Unified flag handling
     - Flags `disclaimer_flag`, `disclaimer_02_flag`, `subtitle_flag`, and `logo_anim_flag` are parsed via a single helper that reads from the video object or its `metadata` and interprets values against the configured lists (`ON`: y/yes/1, `OFF`: n/no/0).

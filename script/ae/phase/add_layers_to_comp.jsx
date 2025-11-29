@@ -350,6 +350,14 @@ function __AddLayers_coreRun(opts) {
         if (o) {
             // ENABLE_JSON_TIMING_FOR_DISCLAIMER deprecated: ignore if present
             if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = __toBool(o.ENABLE_AUTOCENTER_ON_AR_MISMATCH, true);
+            // Allow campaigns to override timing behavior map
+            if (o.TIMING_BEHAVIOR && typeof o.TIMING_BEHAVIOR === 'object') {
+                try { TIMING_BEHAVIOR = o.TIMING_BEHAVIOR; } catch(eTB) {}
+            }
+            // Allow campaigns to control startTime alignment globally for timed layers
+            if (o.APPLY_INPOINT_TO_LAYER_STARTTIME !== undefined) {
+                APPLY_INPOINT_TO_LAYER_STARTTIME = __toBool(o.APPLY_INPOINT_TO_LAYER_STARTTIME, true);
+            }
             if (o.TEMPLATE_MATCH_CONFIG) {
                 if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
                 if (typeof o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch = o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch;
