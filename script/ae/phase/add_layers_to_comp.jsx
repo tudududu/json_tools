@@ -10,16 +10,13 @@
 //
 // Configuration notes
 // - TEMPLATE_FOLDER_PATH: where the template comp lives in the Project panel tree
-// - ENABLE_JSON_TIMING_FOR_DISCLAIMER: when false, disclaimer spans full comp; when true, JSON timings are applied
-// - LAYER_NAME_CONFIG: lists of names or substrings to identify logo/claim/disclaimer/subtitles/dataJson layers.
-//   Matching is case-insensitive. For 'logo', contains-matches can be limited to image/bitmap layers.
-//   Edit these arrays to match your template naming conventions.
-// - JSON wiring: For each comp, videoId is derived from name (Title_XXs). Applies in/out for logo/claim; disclaimer optionally by toggle.
-//   New: per-video key `disclaimer_flag` controls disclaimer layer visibility (case-insensitive):
-//     - 'y'   => visible (ON)
-//     - 'n'   => hidden (OFF)
-//     - other/absent => defaults to OFF
-// - DATA_JSON/data.json layers are forced to full comp duration.
+// - TIMING_BEHAVIOR: map choosing 'timed' | 'span' | 'asIs' per group or literal layer name.
+//   Replaces legacy ENABLE_JSON_TIMING_FOR_DISCLAIMER & FULL_DURATION_LAYER_GROUPS.
+//   Default: disclaimer & disclaimer_02 => 'span'; logo/logoAnim/claim => 'timed'; subtitles/dataJson/super_A/info/template_aspect/center => 'span'.
+// - LAYER_NAME_CONFIG: identification lists for logo/claim/disclaimer/subtitles/dataJson/super_A etc.
+// - JSON wiring: videoId derived from comp name; applies min/max for groups with 'timed' behavior.
+//   Visibility flags: disclaimer_flag, disclaimer_02_flag, subtitle_flag, logo_anim_flag (y/n/1/0 values).
+// - DATA_JSON/data.json layers span full duration via TIMING_BEHAVIOR.
 // - TEMPLATE_MATCH_CONFIG: controls picking the best template comp for each target comp (Solution B)
 //   arTolerance: numeric tolerance used to treat two aspect ratios as equal (default: 0.001)
 //   requireAspectRatioMatch: when true, only templates within arTolerance are eligible; if none found, target is skipped
@@ -124,8 +121,7 @@ function __AddLayers_coreRun(opts) {
 
     // Config: set the template folder path here (segments under Project panel Root)
     var TEMPLATE_FOLDER_PATH = ["project", "work", "template"]; // e.g., ["project","work","template"]
-    // Gate for applying JSON disclaimer in/out; when false, disclaimer spans full comp
-    var ENABLE_JSON_TIMING_FOR_DISCLAIMER = false;
+    // (Deprecated) Disclaimer timing toggle removed; use TIMING_BEHAVIOR to control timing.
     // Auto-center un-parented layers when aspect ratio differs from template
     var ENABLE_AUTOCENTER_ON_AR_MISMATCH = true;
     // Template picking config
@@ -253,7 +249,7 @@ function __AddLayers_coreRun(opts) {
             contains: ["logo_anim"]
         },
         claim: {
-            exact: ["claim", "Size_Holder_Claim"],
+            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__"],
             contains: []
         },
         disclaimer: {
@@ -289,27 +285,51 @@ function __AddLayers_coreRun(opts) {
         }
     };
 
-    // FULL_DURATION_LAYER_GROUPS semantics:
-    // Each entry may be either:
-    //  - A key in LAYER_NAME_CONFIG (uses that group's exact/contains lists)
-    //  - A literal layer name (case-insensitive exact) matched directly
-    // Disclaimer layers remain handled separately to preserve JSON gating behavior.
-    var FULL_DURATION_LAYER_GROUPS = [
-        "subtitles",
-        "Size_Holder_Subtitles",
-        "dataJson",
-        "DATA_JSON",
-        "data.json",
-        "center",
-        "template_aspect",
-        "info",
-        "disclaimer_02",
-        // New: span super_A layers across full comp duration
-        "super_A",
-        "Size_Holder_Super_A",
-        "Pin"
-    ];
+    // TIMING_BEHAVIOR: declarative timing control (replaces FULL_DURATION_LAYER_GROUPS & ENABLE_JSON_TIMING_FOR_DISCLAIMER)
+    // Values: 'timed' => apply JSON min/max; 'span' => force full comp duration; 'asIs' => keep template timing.
+    // Keys may be LAYER_NAME_CONFIG group keys OR literal layer names (case-insensitive exact).
+    var TIMING_BEHAVIOR = {
+        // JSON timed groups
+        logo: 'timed',
+        logoAnim: 'timed',
+        claim: 'timed',
+        // Disclaimers default to span (full duration)
+        disclaimer: 'span',
+        disclaimer_02: 'span', // raw name variant
+        disclaimer02: 'span',  // group key variant
+        // Span groups / literals
+        subtitles: 'span',
+        dataJson: 'span',
+        info: 'span',
+        template_aspect: 'span',
+        center: 'span',
+        super_A: 'span',
+        // Literal layer names
+        'Size_Holder_Subtitles': 'span',
+        'DATA_JSON': 'span',
+        'data.json': 'span',
+        'Size_Holder_Super_A': 'span',
+        'Pin': 'span'
+    };
 
+    function resolveTimingBehaviorForLayer(layerName) {
+        if (!layerName) return null;
+        var nmLower = String(layerName).toLowerCase();
+        // Group-based matching first
+        for (var key in TIMING_BEHAVIOR) {
+            if (!TIMING_BEHAVIOR.hasOwnProperty(key)) continue;
+            if (LAYER_NAME_CONFIG[key]) {
+                if (nameMatchesGroup(layerName, key)) return TIMING_BEHAVIOR[key];
+            }
+        }
+        // Literal matching second
+        for (var lkey in TIMING_BEHAVIOR) {
+            if (!TIMING_BEHAVIOR.hasOwnProperty(lkey)) continue;
+            if (LAYER_NAME_CONFIG[lkey]) continue; // skip groups already tested
+            if (nmLower === String(lkey).toLowerCase()) return TIMING_BEHAVIOR[lkey];
+        }
+        return null;
+    }
 
     // Options overrides
     function __toBool(v, defVal) {
@@ -325,7 +345,7 @@ function __AddLayers_coreRun(opts) {
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
-            if (o.ENABLE_JSON_TIMING_FOR_DISCLAIMER !== undefined) ENABLE_JSON_TIMING_FOR_DISCLAIMER = __toBool(o.ENABLE_JSON_TIMING_FOR_DISCLAIMER, false);
+            // ENABLE_JSON_TIMING_FOR_DISCLAIMER deprecated: ignore if present
             if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = __toBool(o.ENABLE_AUTOCENTER_ON_AR_MISMATCH, true);
             if (o.TEMPLATE_MATCH_CONFIG) {
                 if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
@@ -1076,46 +1096,7 @@ function __AddLayers_coreRun(opts) {
             } catch (e) { return false; }
         }
 
-        // Always set full comp duration for configured groups, plus disclaimer when gating is OFF
-        // This replaces the previous hard-coded block with a config-driven iteration.
-        if (FULL_DURATION_LAYER_GROUPS && FULL_DURATION_LAYER_GROUPS.length) {
-            // Precompute raw literal names (those not present as group keys)
-            var rawNameSet = {};
-            for (var fd = 0; fd < FULL_DURATION_LAYER_GROUPS.length; fd++) {
-                var entry = FULL_DURATION_LAYER_GROUPS[fd];
-                if (!LAYER_NAME_CONFIG[entry]) {
-                    rawNameSet[String(entry).toLowerCase()] = true;
-                }
-            }
-            for (var si = 1; si <= comp.numLayers; si++) {
-                var sLay = comp.layer(si);
-                var sName = String(sLay.name || "");
-                var sLower = sName.toLowerCase();
-                var matched = false;
-                // Raw literal match first
-                if (rawNameSet[sLower]) {
-                    setLayerInOut(sLay, 0, comp.duration, comp.duration);
-                    matched = true;
-                } else {
-                    // Group-based match
-                    for (var g = 0; g < FULL_DURATION_LAYER_GROUPS.length && !matched; g++) {
-                        var key = FULL_DURATION_LAYER_GROUPS[g];
-                        var cfg = LAYER_NAME_CONFIG[key];
-                        if (!cfg) continue; // not a group; already covered by rawNameSet check
-                        if (matchesExact(sName, cfg.exact) || matchesContains(sName, cfg.contains)) {
-                            setLayerInOut(sLay, 0, comp.duration, comp.duration);
-                            matched = true;
-                        }
-                    }
-                }
-                // Disclaimer full duration when gating OFF (only if not already matched as some other group)
-                if (!matched && !ENABLE_JSON_TIMING_FOR_DISCLAIMER) {
-                    if (matchesExact(sName, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(sName, LAYER_NAME_CONFIG.disclaimer.contains)) {
-                        setLayerInOut(sLay, 0, comp.duration, comp.duration);
-                    }
-                }
-            }
-        }
+        // Pre-pass removed; timing now controlled per-layer via TIMING_BEHAVIOR inside loop.
 
         // Apply JSON timings
         var appliedAny = false;
@@ -1238,49 +1219,51 @@ function __AddLayers_coreRun(opts) {
                 appliedAny = true;
                 continue;
             }
-            // Claim timing
-            if (claimMM && (matchesExact(nm, LAYER_NAME_CONFIG.claim.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim.contains))) {
+            var timingBeh = resolveTimingBehaviorForLayer(nm) || 'asIs';
+
+            // Claim timing (only when timed behavior)
+            if (timingBeh === 'timed' && claimMM && (matchesExact(nm, LAYER_NAME_CONFIG.claim.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim.contains))) {
                 setLayerInOut(ly, claimMM.tin, claimMM.tout, comp.duration);
                 log("Set claim layer '" + nm + "' to [" + claimMM.tin + ", " + claimMM.tout + ")");
                 appliedAny = true;
-                continue;
             }
-            // Disclaimer timing (gated) + visibility flag
-            if (matchesExact(nm, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(nm, LAYER_NAME_CONFIG.disclaimer.contains)) {
-                if (ENABLE_JSON_TIMING_FOR_DISCLAIMER && disclaimerMM) {
+            // Disclaimer (timed/span/asIs) + visibility
+            var isDisclaimer = (matchesExact(nm, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(nm, LAYER_NAME_CONFIG.disclaimer.contains));
+            if (isDisclaimer) {
+                if (timingBeh === 'timed' && disclaimerMM) {
                     setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
                     log("Set disclaimer layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ")");
-                } // else already set to full duration above when gating off
-                // Apply default OFF when missing
-                try {
-                    if (effectiveDisclaimerMode === 'on') {
-                        ly.enabled = true;
-                    } else {
-                        ly.enabled = false; // default off
-                    }
-                    log("Set disclaimer visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
-                } catch (eVis2) { log("Disclaimer visibility set failed for '"+nm+"': "+eVis2); }
+                    appliedAny = true;
+                } else if (timingBeh === 'span') {
+                    setLayerInOut(ly, 0, comp.duration, comp.duration);
+                    log("Span disclaimer layer '" + nm + "' to full duration.");
+                }
+                try { ly.enabled = (effectiveDisclaimerMode === 'on'); } catch (eVis2) { log("Disclaimer visibility failed for '"+nm+"': " + eVis2); }
                 if (!__modes.modes.disclaimer && disclaimerFlag) { logUnrecognizedFlag(DISCLAIMER_FLAG_KEY, disclaimerFlag, FLAG_VALUES, nm); }
-                continue; // prevent also treating as subtitles if naming overlaps
             }
-            // Second disclaimer (no timing array expected; same visibility semantics)
+            // Second disclaimer
             if (nm.toLowerCase() === 'disclaimer_02') {
-                // full duration already applied earlier via FULL_DURATION_LAYER_GROUPS
-                try {
-                    ly.enabled = (effectiveDisclaimer02Mode === 'on');
-                    log("Set disclaimer_02 visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
-                } catch(eVisD2){ log("Disclaimer_02 visibility set failed for '"+nm+"': " + eVisD2); }
+                if (timingBeh === 'timed' && disclaimerMM) {
+                    setLayerInOut(ly, disclaimerMM.tin, disclaimerMM.tout, comp.duration);
+                    log("Set disclaimer_02 layer '" + nm + "' to [" + disclaimerMM.tin + ", " + disclaimerMM.tout + ") (timed).");
+                    appliedAny = true;
+                } else if (timingBeh === 'span') {
+                    setLayerInOut(ly, 0, comp.duration, comp.duration);
+                    log("Span disclaimer_02 layer '" + nm + "' to full duration.");
+                }
+                try { ly.enabled = (effectiveDisclaimer02Mode === 'on'); } catch(eVisD2){ log("Disclaimer_02 visibility failed for '"+nm+"': " + eVisD2); }
                 if (!__modes.modes.disclaimer02 && disclaimer02Flag) { logUnrecognizedFlag(DISCLAIMER_02_FLAG_KEY, disclaimer02Flag, FLAG_VALUES, nm); }
-                continue;
             }
-            // Subtitles visibility flag (no timing applied here)
+            // Subtitles
             if (matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains)) {
-                // Apply default OFF when missing
-                try {
-                    ly.enabled = (effectiveSubtitlesMode === 'on');
-                    log("Set subtitles visibility '" + nm + "' -> " + (ly.enabled ? "ON" : "OFF"));
-                } catch (eSV) { log("Subtitles visibility set failed for '"+nm+"': "+eSV); }
+                if (timingBeh === 'span') { setLayerInOut(ly, 0, comp.duration, comp.duration); }
+                try { ly.enabled = (effectiveSubtitlesMode === 'on'); } catch (eSV) { log("Subtitles visibility failed for '"+nm+"': " + eSV); }
                 if (!__modes.modes.subtitles && subtitlesFlag) { logUnrecognizedFlag(SUBTITLES_FLAG_KEY, subtitlesFlag, FLAG_VALUES, nm); }
+            }
+            // Generic span for remaining groups/literals (excluding those already processed)
+            if (timingBeh === 'span' && !isDisclaimer && nm.toLowerCase() !== 'disclaimer_02' && !(matchesExact(nm, LAYER_NAME_CONFIG.subtitles.exact) || matchesContains(nm, LAYER_NAME_CONFIG.subtitles.contains))) {
+                setLayerInOut(ly, 0, comp.duration, comp.duration);
+                log("Span layer '" + nm + "' to full duration.");
             }
         }
         if (!appliedAny) {
