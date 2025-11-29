@@ -246,6 +246,11 @@ function __AddLayers_coreRun(opts) {
             contains: ["logo"],
             imageOnlyForContains: false
         },
+        logo_02: {
+            exact: ["Size_Holder_Logo_02", "logo_static"],
+            contains: [],
+            imageOnlyForContains: false
+        },
         // Specific match for animated logo variant to distinguish from generic 'logo'
         logoAnim: {
             exact: ["logo_anim", "Size_Holder_Logo"],
@@ -315,6 +320,18 @@ function __AddLayers_coreRun(opts) {
         'Pin': 'span'
     };
 
+    // TIMING_ITEM_SELECTOR: choose which item in each JSON timing array supplies the timing span when a layer/group is 'timed'.
+    // Supported selector modes per key:
+    //   { mode:'line', value:<lineNumber> }      -> pick object whose .line === value
+    //   { mode:'index', value:<zeroBasedIndex> } -> pick array[value] directly
+    //   { mode:'minMax' }                        -> fallback aggregate min(in)/max(out) (legacy default)
+    // If omitted or invalid, we fallback to minMax aggregation.
+    // Zero-length (in==out) selections are returned as-is (layer trimmed to an instant); callers may ignore if not useful.
+    var TIMING_ITEM_SELECTOR = {
+        // Example (override via options): logo: { mode: 'line', value: 1 }
+        logo: { mode: 'line', value: 1 }
+    };
+
     function resolveTimingBehaviorForLayer(layerName) {
         if (!layerName) return null;
         var nmLower = String(layerName).toLowerCase();
@@ -353,6 +370,10 @@ function __AddLayers_coreRun(opts) {
             // Allow campaigns to override timing behavior map
             if (o.TIMING_BEHAVIOR && typeof o.TIMING_BEHAVIOR === 'object') {
                 try { TIMING_BEHAVIOR = o.TIMING_BEHAVIOR; } catch(eTB) {}
+            }
+            // Override timing item selector map (optional)
+            if (o.TIMING_ITEM_SELECTOR && typeof o.TIMING_ITEM_SELECTOR === 'object') {
+                try { TIMING_ITEM_SELECTOR = o.TIMING_ITEM_SELECTOR; } catch(eTIS) {}
             }
             // Allow campaigns to control startTime alignment globally for timed layers
             if (o.APPLY_INPOINT_TO_LAYER_STARTTIME !== undefined) {
@@ -1011,6 +1032,42 @@ function __AddLayers_coreRun(opts) {
         return { tin: minIn, tout: maxOut };
     }
 
+    // Resolve timing span based on TIMING_ITEM_SELECTOR for a given key on video record.
+    function resolveTimingSpan(videoObj, key, selectorMap) {
+        if (!videoObj || !key) return null;
+        var arr = videoObj[key];
+        if (!arr || !arr.length) return null;
+        var sel = selectorMap && selectorMap[key];
+        if (!sel || typeof sel !== 'object') return minMaxInOut(arr);
+        var mode = sel.mode || 'minMax';
+        if (mode === 'minMax') return minMaxInOut(arr);
+        if (mode === 'line') {
+            var targetLine = sel.value;
+            for (var i = 0; i < arr.length; i++) {
+                var it = arr[i]; if (!it) continue;
+                var ln = (it.line !== undefined) ? parseInt(it.line, 10) : null;
+                if (ln === targetLine) {
+                    var tin = (it['in'] !== undefined) ? parseFloat(it['in']) : null;
+                    var tout = (it['out'] !== undefined) ? parseFloat(it['out']) : null;
+                    if (tin === null || isNaN(tin) || tout === null || isNaN(tout)) return null;
+                    return { tin: tin, tout: tout };
+                }
+            }
+            return null;
+        }
+        if (mode === 'index') {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || idx < 0 || idx >= arr.length) return null;
+            var it2 = arr[idx]; if (!it2) return null;
+            var tin2 = (it2['in'] !== undefined) ? parseFloat(it2['in']) : null;
+            var tout2 = (it2['out'] !== undefined) ? parseFloat(it2['out']) : null;
+            if (tin2 === null || isNaN(tin2) || tout2 === null || isNaN(tout2)) return null;
+            return { tin: tin2, tout: tout2 };
+        }
+        // Unknown mode fallback
+        return minMaxInOut(arr);
+    }
+
     function setLayerInOut(layer, tin, tout, compDuration) {
         if (!layer) return;
         var start = (tin < 0) ? 0 : tin;
@@ -1035,9 +1092,10 @@ function __AddLayers_coreRun(opts) {
             return;
         }
         var videoId = v.videoId || ids.oriented || ids.base;
-        var logoMM = minMaxInOut(v.logo);
-        var claimMM = minMaxInOut(v.claim);
-        var disclaimerMM = minMaxInOut(v.disclaimer);
+        // Resolve timing spans per key (logo/claim/disclaimer) honoring TIMING_ITEM_SELECTOR
+        var logoMM = resolveTimingSpan(v, 'logo', TIMING_ITEM_SELECTOR);
+        var claimMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+        var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
         // Helper to extract flag value given a configured key (checks video then video.metadata)
         function extractFlag(videoObj, keyName) {
             if (!videoObj || !keyName) return null;
