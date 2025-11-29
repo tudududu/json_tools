@@ -205,6 +205,38 @@ Table of contents
   ```
 
   #### Step 5 – Add Layers (Template Application)
+    Timing Behavior Map
+    - `TIMING_BEHAVIOR` controls per-layer timing as one of:
+      - `timed`: apply JSON min/max (in/out) from `data.json`.
+      - `span`: force full composition duration (0 → `comp.duration`).
+      - `asIs`: keep template timing unchanged.
+    - Supports both group keys from `LAYER_NAME_CONFIG` and raw literal layer names (case-insensitive exact).
+    - Defaults:
+      - `logo`, `logoAnim`, `claim`: `timed`
+      - `disclaimer`, `disclaimer_02`: `span`
+      - `subtitles`, `dataJson`, `super_A`, `info`, `template_aspect`, `center`: `span`
+      - Literal names like `Size_Holder_Subtitles`, `DATA_JSON`, `data.json`, `Size_Holder_Super_A`, `Pin`: `span`
+    - Replaces legacy `ENABLE_JSON_TIMING_FOR_DISCLAIMER` and `FULL_DURATION_LAYER_GROUPS`.
+
+    Start Time Alignment
+    - `APPLY_INPOINT_TO_LAYER_STARTTIME` (default: true) aligns `layer.startTime` to the computed `inPoint` whenever `timed` behavior is applied. This helps expressions relying on layer-local time.
+
+    Example `TIMING_BEHAVIOR`
+    ```js
+    var TIMING_BEHAVIOR = {
+      logo: 'timed',
+      logoAnim: 'timed',
+      claim: 'timed',
+      disclaimer: 'span',
+      disclaimer02: 'span',
+      subtitles: 'span',
+      dataJson: 'span',
+      super_A: 'span',
+      'DATA_JSON': 'span',
+      'Size_Holder_Super_A': 'span'
+    };
+    ```
+
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
     Unified flag handling
     - Flags `disclaimer_flag`, `disclaimer_02_flag`, `subtitle_flag`, and `logo_anim_flag` are parsed via a single helper that reads from the video object or its `metadata` and interprets values against the configured lists (`ON`: y/yes/1, `OFF`: n/no/0).

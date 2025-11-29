@@ -166,6 +166,9 @@ function __AddLayers_coreRun(opts) {
     // with its visible inPoint (useful for expressions referencing time / sourceTime inside the logo layer).
     // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
     var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
+    // General startTime alignment: when true, for any timed layer we set layer.startTime
+    // to the computed inPoint (tin). This helps expressions relying on layer time.
+    var APPLY_INPOINT_TO_LAYER_STARTTIME = true;
 
     // Time-stretch configuration for 'logo_anim' layers
     // Enables speeding up the first N seconds of the logo_anim source so that the animation ends around
@@ -249,7 +252,7 @@ function __AddLayers_coreRun(opts) {
             contains: ["logo_anim"]
         },
         claim: {
-            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__"],
+            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"],
             contains: []
         },
         disclaimer: {
@@ -1005,7 +1008,7 @@ function __AddLayers_coreRun(opts) {
         var start = (tin < 0) ? 0 : tin;
         var end = tout;
         if (compDuration && end > compDuration) end = compDuration;
-        try { layer.startTime = 0; } catch (e) {}
+        try { layer.startTime = (APPLY_INPOINT_TO_LAYER_STARTTIME ? start : 0); } catch (e) {}
         try { layer.inPoint = start; } catch (e1) {}
         try { layer.outPoint = end; } catch (e2) {}
     }
