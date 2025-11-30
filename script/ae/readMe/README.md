@@ -461,3 +461,8 @@ Table of contents
   Notes:
   - Batch orchestrator already injects `DATA_JSON_LANG_CODE_MANUAL` when iterating `data_<ISO>_<LANG>.json` files, aligning with this strict policy.
 
+### Create Comps: Motion Blur & Frame Blending
+- Toggles: `createComps.ENABLE_COMP_MOTION_BLUR`, `createComps.ENABLE_COMP_FRAME_BLENDING`.
+- Effect: When enabled, newly created compositions will have `comp.motionBlur` and/or `comp.frameBlending` set to true.
+- Configuration: Set in `config/pipeline.preset.json` under the `createComps` block or pass via `opts.options` when running standalone.
+
