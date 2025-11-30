@@ -207,6 +207,108 @@
                     tokens: [] // e.g., ["template_aspect", "debug"]
                 }
             },
+            APPLY_INPOINT_TO_LAYER_STARTTIME: true,
+            // Config: Layer name configuration (case-insensitive)
+            // - exact: list of layer names to match exactly
+            // - contains: list of substrings; if present in layer name, it's a match
+            // - imageOnlyForContains (logo only): when true, a 'contains' match is valid only for image/bitmap footage layers
+            // Adjust these lists to match your template naming conventions.
+            LAYER_NAME_CONFIG: {
+                info: {
+                    exact: ["info"],
+                    contains: ["info"]
+                },
+                logo: {
+                    exact: ["Size_Holder_Logo"],
+                    contains: ["logo"],
+                    imageOnlyForContains: false
+                },
+                logo_02: {
+                    exact: ["Size_Holder_Logo_02", "logo_static"],
+                    contains: [],
+                    imageOnlyForContains: false
+                },
+                // Specific match for animated logo variant to distinguish from generic 'logo'
+                logoAnim: {
+                    exact: ["logo_anim", "Size_Holder_Logo"],
+                    contains: ["logo_anim"]
+                },
+                claim: {
+                    exact: ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"],
+                    contains: []
+                },
+                disclaimer: {
+                    exact: ["disclaimer", "Size_Holder_Disclaimer"],
+                    contains: []
+                },
+                disclaimer02: {
+                    exact: ["disclaimer_02"],
+                    contains: []
+                },
+                subtitles: {
+                    exact: [],
+                    contains: ["subtitles"]
+                },
+                super_A: {
+                    exact: ["super_A", "Size_Holder_Super_A"],
+                    contains: ["super_A"]
+                },
+                dataJson: {
+                    exact: ["DATA_JSON", "data.json"],
+                    contains: []
+                },
+                // Auto-center exceptions and alignment rules (case-insensitive exact names)
+                recenterRules: {
+                    // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
+                    // noRecenter entries will be skipped from auto-centering.
+                    // force entries will be auto-centered regardless (useful if default changes in future).
+                    // alignH/alignV will align X/Y to center after the re-centering step (or even if re-centering is skipped).
+                    force: [],        // e.g., ["Logo", "Brand_Safe"]
+                    noRecenter: [],   // e.g., ["BG", "DoNotCenter"]
+                    alignH: [],       // e.g., ["Claim", "CTA"]
+                    alignV: []        // e.g., ["Disclaimer"]
+                }
+            },
+
+            // TIMING_BEHAVIOR: declarative timing control (replaces FULL_DURATION_LAYER_GROUPS & ENABLE_JSON_TIMING_FOR_DISCLAIMER)
+            // Values: 'timed' => apply JSON min/max; 'span' => force full comp duration; 'asIs' => keep template timing.
+            // Keys may be LAYER_NAME_CONFIG group keys OR literal layer names (case-insensitive exact).
+            TIMING_BEHAVIOR: {
+                // JSON timed groups
+                logo: 'timed',
+                logoAnim: 'timed',
+                claim: 'timed',
+                // Disclaimers default to span (full duration)
+                disclaimer: 'span',
+                disclaimer_02: 'span', // raw name variant
+                disclaimer02: 'span',  // group key variant
+                // Span groups / literals
+                subtitles: 'span',
+                dataJson: 'span',
+                info: 'span',
+                template_aspect: 'span',
+                center: 'span',
+                super_A: 'span',
+                // Literal layer names
+                'Size_Holder_Subtitles': 'span',
+                'DATA_JSON': 'span',
+                'data.json': 'span',
+                'Size_Holder_Super_A': 'span',
+                'Pin': 'span'
+            },
+
+            // TIMING_ITEM_SELECTOR: choose which item in each JSON timing array supplies the timing span when a layer/group is 'timed'.
+            // Supported selector modes per key:
+            //   { mode:'line', value:<lineNumber> }      -> pick object whose .line === value
+            //   { mode:'index', value:<zeroBasedIndex> } -> pick array[value] directly
+            //   { mode:'minMax' }                        -> fallback aggregate min(in)/max(out) (legacy default)
+            // If omitted or invalid, we fallback to minMax aggregation.
+            // Zero-length (in==out) selections are returned as-is (layer trimmed to an instant); callers may ignore if not useful.
+            TIMING_ITEM_SELECTOR: {
+                // Example (override via options): logo: { mode: 'line', value: 1 }
+                logo: { mode: 'line', value: 1 }
+            },
+
             // One-off parenting debug gate (OFF by default). When enabled, logs all planned and actual
             // child->parent assignments for a comp. You can limit to specific target comp names via
             // DEBUG_PARENTING_DUMP_ONLY_COMPS (exact matches). Optional transform logging is gated too.

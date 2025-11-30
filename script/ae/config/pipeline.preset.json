@@ -107,7 +107,88 @@
     "SIMPLE_PREP_MUTE_FOOTAGE_AUDIO": false,
 
     "ENABLE_AUTOCENTER_ON_AR_MISMATCH": false,
+    
+
     "ENABLE_JSON_TIMING_FOR_DISCLAIMER": false,
+    
+
+    "APPLY_INPOINT_TO_LAYER_STARTTIME": true,
+
+    "LAYER_NAME_CONFIG": {
+        "info": { 
+            "exact": ["info"], 
+            "contains": ["info"] 
+            },
+        "logo": { 
+            "exact": ["Size_Holder_Logo", "logo_static_unreal"], 
+            "contains": [], 
+            "imageOnlyForContains": false 
+            },
+        "logo_02": { 
+            "exact": ["Size_Holder_Logo_02", "logo_static"], 
+            "contains": [], 
+            "imageOnlyForContains": false 
+            },
+        "logoAnim": { 
+            "exact": ["logo_anim", "Size_Holder_Logo"], 
+            "contains": ["logo_anim"] 
+            },
+        "claim": { 
+            "exact": ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"], 
+            "contains": [] 
+            },
+        "disclaimer": { 
+            "exact": ["disclaimer", "Size_Holder_Disclaimer"], 
+            "contains": [] 
+            },
+        "disclaimer02": { 
+            "exact": ["disclaimer_02"], 
+            "contains": [] 
+            },
+        "subtitles": { 
+            "exact": [], 
+            "contains": ["subtitles"] 
+            },
+        "super_A": { 
+            "exact": ["super_A", "Size_Holder_Super_A"], 
+            "contains": ["super_A"] 
+            },
+        "dataJson": { 
+            "exact": ["DATA_JSON", "data.json"], 
+            "contains": [] 
+            },
+        "recenterRules": { 
+            "force": [], 
+            "noRecenter": [], 
+            "alignH": [], 
+            "alignV": [] 
+            }
+    },
+    "TIMING_BEHAVIOR": {
+        "logo": "timed",
+        "logo_02": "timed",
+        "logoAnim": "timed",
+        "claim": "timed",
+        "disclaimer": "span",
+        "disclaimer_02": "span",
+        "disclaimer02": "span",
+        "subtitles": "span",
+        "dataJson": "span",
+        "info": "span",
+        "template_aspect": "span",
+        "center": "span",
+        "super_A": "span",
+        
+        "Size_Holder_Subtitles": "span",
+        "DATA_JSON": "span",
+        "data.json": "span",
+        "Size_Holder_Super_A": "span",
+        "Pin": "span"
+    },
+    "TIMING_ITEM_SELECTOR": {
+        "logo": { "mode": "line", "value": 1 },
+        "logo_02": { "mode": "line", "value": 2 }
+    },
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,
@@ -131,7 +212,7 @@
         
         "REQUIRE_DURATION_MATCH": false,
         "DURATION_TOLERANCE_SECONDS": 0.5
-    }
+        }
     },
 "pack": {
     "PIPELINE_SHOW_CONCISE_LOG": true,
