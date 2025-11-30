@@ -67,7 +67,9 @@
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
-    "INCLUDE_SUBFOLDERS": true
+    "INCLUDE_SUBFOLDERS": true,
+    "ENABLE_COMP_MOTION_BLUR": true,
+    "ENABLE_COMP_FRAME_BLENDING": false
 },
 "insertRelink": { 
     "ENABLE_FILE_LOG": false,

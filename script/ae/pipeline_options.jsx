@@ -106,7 +106,9 @@
             FOOTAGE_PROJECT_PATH: ["project","in","footage"],
             FOOTAGE_DATE_YYMMDD: "", // empty => pick newest YYMMDD folder under FOOTAGE_PROJECT_PATH
             INCLUDE_SUBFOLDERS: true,
-            SKIP_INVALID_DIMENSIONS: false
+            SKIP_INVALID_DIMENSIONS: false,
+            ENABLE_COMP_MOTION_BLUR: false,      // when true, set comp.motionBlur = true for created comps
+	        ENABLE_COMP_FRAME_BLENDING: false    // when true, set comp.frameBlending = true for created comps
         },
         insertRelink: {
             ENABLE_FILE_LOG: true,

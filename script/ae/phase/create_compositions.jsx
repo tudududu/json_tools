@@ -45,6 +45,10 @@ function __CreateComps_coreRun(opts) {
 	var FOOTAGE_DATE_YYMMDD = ""; // empty => pick newest YYMMDD under FOOTAGE_PROJECT_PATH
 	var INCLUDE_SUBFOLDERS = true;
     var SKIP_INVALID_DIMENSIONS = false; // When true, skip items with invalid w/h instead of falling back
+	// New: comp-level switches (Enable Motion Blur / Enable Frame Blending)
+	var ENABLE_COMP_MOTION_BLUR = false;      // when true, set comp.motionBlur = true for created comps
+	var ENABLE_COMP_FRAME_BLENDING = false;   // when true, set comp.frameBlending = true for created comps
+	
 	// Options overrides
 	try {
 		var o = opts && opts.options ? opts.options : null;
@@ -58,6 +62,9 @@ function __CreateComps_coreRun(opts) {
 			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);
 			if (o.INCLUDE_SUBFOLDERS !== undefined) INCLUDE_SUBFOLDERS = !!o.INCLUDE_SUBFOLDERS;
             if (o.SKIP_INVALID_DIMENSIONS !== undefined) SKIP_INVALID_DIMENSIONS = !!o.SKIP_INVALID_DIMENSIONS;
+			// New: comp-level switches overrides
+			if (o.ENABLE_COMP_MOTION_BLUR !== undefined) ENABLE_COMP_MOTION_BLUR = !!o.ENABLE_COMP_MOTION_BLUR;
+			if (o.ENABLE_COMP_FRAME_BLENDING !== undefined) ENABLE_COMP_FRAME_BLENDING = !!o.ENABLE_COMP_FRAME_BLENDING;
 		}
 		// Master switch: disable if top-level pipeline effective has PHASE_FILE_LOGS_MASTER_ENABLE=false
 		try {
@@ -526,6 +533,10 @@ function __CreateComps_coreRun(opts) {
 		var comp = proj.items.addComp(compName, dims.w, dims.h, 1.0, dur, fps);
 		comp.displayStartTime = 0;
 		comp.parentFolder = targetFolder;
+
+		// Apply comp-level switches based on config gates
+		try { comp.motionBlur = !!ENABLE_COMP_MOTION_BLUR; } catch(eMB) {}
+		try { comp.frameBlending = !!ENABLE_COMP_FRAME_BLENDING; } catch(eFB) {}
 
 		// Add layer
 		var layer = comp.layers.add(item);
