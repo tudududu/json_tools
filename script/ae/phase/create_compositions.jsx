@@ -46,7 +46,7 @@ function __CreateComps_coreRun(opts) {
 	var INCLUDE_SUBFOLDERS = true;
     var SKIP_INVALID_DIMENSIONS = false; // When true, skip items with invalid w/h instead of falling back
 	// Gate: allow AE CompItem as source (treated like footage; added as precomp layer)
-	var ENABLE_ACCEPT_COMP_SOURCE = false; // when true, selected CompItems are processed similarly to footage
+	var ENABLE_ACCEPT_COMP_SOURCE = true; // when true, selected CompItems are processed similarly to footage
 	// New: comp-level switches (Enable Motion Blur / Enable Frame Blending)
 	var ENABLE_COMP_MOTION_BLUR = false;      // when true, set comp.motionBlur = true for created comps
 	var ENABLE_COMP_FRAME_BLENDING = false;   // when true, set comp.frameBlending = true for created comps
@@ -465,11 +465,17 @@ function __CreateComps_coreRun(opts) {
 	} else {
 		// Non-auto mode: fallback to manual selection if not provided
 		if (!selection || !selection.length) selection = proj.selection;
+		// Extra fallback: if still empty, try activeItem (comp supported when gate enabled)
+		if ((!selection || !selection.length) && proj.activeItem) {
+			var ai = proj.activeItem;
+			var okAI = (ai instanceof FootageItem) || (ENABLE_ACCEPT_COMP_SOURCE && (ai instanceof CompItem));
+			if (okAI) selection = [ai];
+		}
 		__emitEnvHeader(selection ? selection.length : 0);
 		if (!selection || selection.length === 0) {
-			alertOnce("Select one or more footage items in the Project panel.");
+			alertOnce("Select one or more footage items or comps (gate-enabled) in the Project panel.");
 			app.endUndoGroup();
-			return { created: [], skipped: ["No footage selected"] };
+			return { created: [], skipped: ["No selection"] };
 		}
 	}
 
