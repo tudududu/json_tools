@@ -1184,6 +1184,8 @@ function __AddLayers_coreRun(opts) {
                 // Unified timing via helper to honor APPLY_INPOINT_TO_LAYER_STARTTIME consistently
                 setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
                 log("Set logo_anim layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
+                // Debug: report startTime alignment state immediately after timing application
+                try { log("logo_anim startTime alignment gate=" + (APPLY_INPOINT_TO_LAYER_STARTTIME ? "ON" : "OFF") + " | startTime=" + ly.startTime + " | inPoint=" + ly.inPoint); } catch(eDbgLA) {}
                 // Optional gated stretch: speed up content while keeping outPoint at target time
                 try {
                     if (ENABLE_LOGO_ANIM_TIMESTRETCH === true) {
