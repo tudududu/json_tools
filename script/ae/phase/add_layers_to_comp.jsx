@@ -160,12 +160,9 @@ function __AddLayers_coreRun(opts) {
     var PARENTING_REF_TIME_MODE = 'zero'; // 'zero' | 'current' | 'inPoint' | 'custom'
     var PARENTING_REF_TIME_SECONDS = 0.0; // used when mode='custom'
 
-    // Logo timing behavior toggle:
-    // When true, for logo layers we set BOTH layer.inPoint and layer.startTime to the logo JSON in value (tin),
-    // and layer.outPoint to the logo JSON out value (tout). This causes the layer's internal time zero to align
-    // with its visible inPoint (useful for expressions referencing time / sourceTime inside the logo layer).
-    // When false, we keep the prior behavior (startTime forced to 0; inPoint/outPoint trimmed around tin/tout).
-    var APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME = true;
+    // Logo timing behavior toggle (legacy removed):
+    // Previously `APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME` controlled startTime alignment for logo layers.
+    // This has been unified under the global `APPLY_INPOINT_TO_LAYER_STARTTIME` below.
     // General startTime alignment: when true, for any timed layer we set layer.startTime
     // to the computed inPoint (tin). This helps expressions relying on layer time.
     var APPLY_INPOINT_TO_LAYER_STARTTIME = true;
@@ -1263,7 +1260,7 @@ function __AddLayers_coreRun(opts) {
 
             // Apply for generic 'logo'
             if (logoMM && isGenericLogo) {
-                if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) {
+                if (APPLY_INPOINT_TO_LAYER_STARTTIME) {
                     var tinL = logoMM.tin < 0 ? 0 : logoMM.tin;
                     var toutL = logoMM.tout;
                     if (toutL > comp.duration) toutL = comp.duration;
