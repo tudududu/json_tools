@@ -332,25 +332,6 @@ function __AddLayers_coreRun(opts) {
         logo: { mode: 'line', value: 1 }
     };
 
-    function resolveTimingBehaviorForLayer(layerName) {
-        if (!layerName) return null;
-        var nmLower = String(layerName).toLowerCase();
-        // Group-based matching first
-        for (var key in TIMING_BEHAVIOR) {
-            if (!TIMING_BEHAVIOR.hasOwnProperty(key)) continue;
-            if (LAYER_NAME_CONFIG[key]) {
-                if (nameMatchesGroup(layerName, key)) return TIMING_BEHAVIOR[key];
-            }
-        }
-        // Literal matching second
-        for (var lkey in TIMING_BEHAVIOR) {
-            if (!TIMING_BEHAVIOR.hasOwnProperty(lkey)) continue;
-            if (LAYER_NAME_CONFIG[lkey]) continue; // skip groups already tested
-            if (nmLower === String(lkey).toLowerCase()) return TIMING_BEHAVIOR[lkey];
-        }
-        return null;
-    }
-
     // Options overrides
     function __toBool(v, defVal) {
         if (typeof v === 'boolean') return v;
@@ -456,6 +437,25 @@ function __AddLayers_coreRun(opts) {
 
 
     // Helpers ————————————————————————————————————————————————
+
+    function resolveTimingBehaviorForLayer(layerName) {
+        if (!layerName) return null;
+        var nmLower = String(layerName).toLowerCase();
+        // Group-based matching first
+        for (var key in TIMING_BEHAVIOR) {
+            if (!TIMING_BEHAVIOR.hasOwnProperty(key)) continue;
+            if (LAYER_NAME_CONFIG[key]) {
+                if (nameMatchesGroup(layerName, key)) return TIMING_BEHAVIOR[key];
+            }
+        }
+        // Literal matching second
+        for (var lkey in TIMING_BEHAVIOR) {
+            if (!TIMING_BEHAVIOR.hasOwnProperty(lkey)) continue;
+            if (LAYER_NAME_CONFIG[lkey]) continue; // skip groups already tested
+            if (nmLower === String(lkey).toLowerCase()) return TIMING_BEHAVIOR[lkey];
+        }
+        return null;
+    }
 
     // Unified flag helpers (file-scope)
     function extractFlagFromVideo(videoObj, keyName) {
@@ -1181,18 +1181,9 @@ function __AddLayers_coreRun(opts) {
 
             // Apply for logo_anim first
             if (logoMM && isLogoAnim) {
-                // timing (treat like logo timing)
-                if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) {
-                    var tinA = logoMM.tin < 0 ? 0 : logoMM.tin;
-                    var toutA = logoMM.tout; if (toutA > comp.duration) toutA = comp.duration;
-                    try { ly.startTime = tinA; } catch (eAS) {}
-                    try { ly.inPoint   = tinA; } catch (eAI) {}
-                    try { ly.outPoint  = toutA; } catch (eAO) {}
-                    log("Set logo_anim layer '" + nm + "' (startTime=inPoint mode) to [" + tinA + ", " + toutA + ")");
-                } else {
-                    setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
-                    log("Set logo_anim layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
-                }
+                // Unified timing via helper to honor APPLY_INPOINT_TO_LAYER_STARTTIME consistently
+                setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
+                log("Set logo_anim layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 // Optional gated stretch: speed up content while keeping outPoint at target time
                 try {
                     if (ENABLE_LOGO_ANIM_TIMESTRETCH === true) {
@@ -1225,7 +1216,7 @@ function __AddLayers_coreRun(opts) {
                             // Re-apply endpoints to keep target timing intact
                             try { ly.inPoint = beforeIn; } catch (eRI) {}
                             try { ly.outPoint = beforeOut; } catch (eRO) {}
-                            if (APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME) { try { ly.startTime = beforeIn; } catch (eRS) {} }
+                            if (APPLY_INPOINT_TO_LAYER_STARTTIME) { try { ly.startTime = beforeIn; } catch (eRS) {} }
                             // Readback and log
                             var rb = null; try { rb = (typeof ly.stretch !== 'undefined') ? ly.stretch : ((typeof ly.timeStretch !== 'undefined') ? ly.timeStretch : null); } catch (eRB) { rb = null; }
                             log("Applied gated stretch to '" + nm + "': span=" + span.toFixed(3) + "s, desired=" + desiredPercent.toFixed(2) + "%, final=" + finalPercent.toFixed(2) + "% (base=" + basePercent + "%)" + (rb!==null? (", readback=" + rb + "% via " + (appliedProp||"?")) : ""));

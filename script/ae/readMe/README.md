@@ -1,3 +1,32 @@
+## Timing Item Selector
+- **Purpose:** Choose which item from JSON arrays (e.g., `logo`, `claim`, `disclaimer`) drives timing when a layer/group is `timed`.
+- **Map:** `TIMING_ITEM_SELECTOR` with per-key selectors.
+- **Modes:**
+  - **line:** select object where `line === value`.
+  - **index:** select by zero-based array index.
+  - **minMax:** aggregate min(`in`) to max(`out`) across all valid entries (legacy default).
+- **Zero-length:** If the selected item has `in == out`, we treat it as an instant; layer is trimmed to that moment.
+
+### Defaults
+- No selector configured → uses `minMax` aggregation.
+
+### Example Override
+```json
+{
+  "TIMING_BEHAVIOR": { "logo": "timed", "claim": "timed", "disclaimer": "span" },
+  "APPLY_INPOINT_TO_LAYER_STARTTIME": true,
+  "TIMING_ITEM_SELECTOR": {
+    "logo": { "mode": "line", "value": 1 },
+    "claim": { "mode": "minMax" },
+    "disclaimer": { "mode": "index", "value": 0 }
+  }
+}
+```
+
+### Notes
+- Works with oriented and base `videoId` selection.
+- Selector applies only when `TIMING_BEHAVIOR` resolves to `timed` for that layer.
+- Falls back gracefully to `minMax` when selector is missing or invalid.
 <!-- Executive Summary -->
 Executive summary
 
