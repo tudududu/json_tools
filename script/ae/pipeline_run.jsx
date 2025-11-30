@@ -367,6 +367,27 @@
         return out;
     }
 
+    // Extended selection helper for Step 3: include CompItem when gated
+    function selectedSourceItems(acceptComp) {
+        var out = [];
+        var sel = (proj && proj.selection) ? proj.selection : null;
+        if (sel && sel.length) {
+            for (var i = 0; i < sel.length; i++) {
+                var it = sel[i];
+                if (it instanceof FootageItem) out.push(it);
+                else if (acceptComp && (it instanceof CompItem)) out.push(it);
+            }
+        }
+        // If nothing selected and comp-as-source is allowed, fall back to activeItem when it's a CompItem
+        if (out.length === 0 && acceptComp) {
+            try {
+                var act = (app.project && app.project.activeItem) ? app.project.activeItem : null;
+                if (act && (act instanceof CompItem)) out.push(act);
+            } catch (eAct) {}
+        }
+        return out;
+    }
+
     // Timing helpers
     function nowMs(){ return (new Date()).getTime(); }
     function sec(ms){ return Math.round(ms/10)/100; }
@@ -498,7 +519,16 @@
         log("Step 3 (create_compositions.jsx): SKIPPED by toggle.");
         t1e = nowMs();
     } else {
-        var footageSel = selectedFootageItems();
+        // Respect comp-as-source gate from options (top-level override allowed)
+        var __acceptCompSource = false;
+        try {
+            __acceptCompSource = !!(
+                (OPTS && OPTS.createComps && OPTS.createComps.ENABLE_ACCEPT_COMP_SOURCE === true) ||
+                (OPTS && OPTS.ENABLE_ACCEPT_COMP_SOURCE === true)
+            );
+        } catch (eACS) { __acceptCompSource = false; }
+        // Build selection allowing CompItem when enabled
+        var footageSel = selectedSourceItems(__acceptCompSource);
         // Allow empty selection when AUTO_FROM_PROJECT_FOOTAGE is enabled (top-level or under createComps)
         var __autoCreate = false;
         try {
@@ -509,10 +539,10 @@
             log("Step 3: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
         } else {
             if (!footageSel.length) {
-                alert("Select one or more footage items in the Project panel for Step 3 (create_compositions).");
+                alert("Select one or more footage or comp items in the Project panel (or activate a comp) for Step 3 (create_compositions).");
                 return;
             }
-            log("Step 3: Creating comps from " + footageSel.length + " selected footage item(s).");
+            log("Step 3: Creating comps from " + footageSel.length + " selected item(s).");
         }
 
     // API contract (preferred): AE_CreateComps.run({ selection: FootageItem[], runId: RUN_ID, ... })
