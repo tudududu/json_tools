@@ -1,14 +1,9 @@
 ## Timing Item Selector
-- **Purpose:** Choose which item from JSON arrays (e.g., `logo`, `claim`, `disclaimer`) drives timing when a layer/group is `timed`.
-- **Map:** `TIMING_ITEM_SELECTOR` with per-key selectors.
-- **Modes:**
   - **line:** select object where `line === value`.
   - **index:** select by zero-based array index.
   - **minMax:** aggregate min(`in`) to max(`out`) across all valid entries (legacy default).
-- **Zero-length:** If the selected item has `in == out`, we treat it as an instant; layer is trimmed to that moment.
 
 ### Defaults
-- No selector configured → uses `minMax` aggregation.
 
 ### Example Override
 ```json
@@ -24,14 +19,8 @@
 ```
 
 ### Notes
-- Works with oriented and base `videoId` selection.
-- Selector applies only when `TIMING_BEHAVIOR` resolves to `timed` for that layer.
-- Falls back gracefully to `minMax` when selector is missing or invalid.
 <!-- Executive Summary -->
 Executive summary
-
-- Single-run: open your template under POST/WORK and run `script/ae/pipeline_run.jsx`. It links JSON, saves as `name_<ISO>.aep`, builds comps, applies template layers, sets output paths, and can queue to AME.
-- Batch-run: run `script/ae/batch_orchestrator.jsx` to iterate all `POST/IN/data/data_*.json`. The close policy for every run (and final) is controlled by `batch.SAVE_AFTER_RUN`; the template is reopened between runs.
 - Strict AUTO: set `createComps.AUTO_FROM_PROJECT_FOOTAGE=true` to collect footage only from `project/in/footage/YYMMDD` (no fallbacks to selection or other folders).
 - Logs: unified pipeline log plus optional per‑phase file logs under `POST/WORK/log/`. Set `PHASE_FILE_LOGS_MASTER_ENABLE=false` to silence per‑phase logs.
 - Minimal knobs: `RUN_*` toggles per step; `ame.EXPORT_SUBPATH` for output base; `closeProject.CLOSE_MODE` for single run; `batch.SAVE_AFTER_RUN` for batch closes.
