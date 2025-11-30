@@ -45,6 +45,8 @@ function __CreateComps_coreRun(opts) {
 	var FOOTAGE_DATE_YYMMDD = ""; // empty => pick newest YYMMDD under FOOTAGE_PROJECT_PATH
 	var INCLUDE_SUBFOLDERS = true;
     var SKIP_INVALID_DIMENSIONS = false; // When true, skip items with invalid w/h instead of falling back
+	// Gate: allow AE CompItem as source (treated like footage; added as precomp layer)
+	var ENABLE_ACCEPT_COMP_SOURCE = false; // when true, selected CompItems are processed similarly to footage
 	// New: comp-level switches (Enable Motion Blur / Enable Frame Blending)
 	var ENABLE_COMP_MOTION_BLUR = false;      // when true, set comp.motionBlur = true for created comps
 	var ENABLE_COMP_FRAME_BLENDING = false;   // when true, set comp.frameBlending = true for created comps
@@ -62,6 +64,7 @@ function __CreateComps_coreRun(opts) {
 			if (o.FOOTAGE_DATE_YYMMDD !== undefined) FOOTAGE_DATE_YYMMDD = String(o.FOOTAGE_DATE_YYMMDD);
 			if (o.INCLUDE_SUBFOLDERS !== undefined) INCLUDE_SUBFOLDERS = !!o.INCLUDE_SUBFOLDERS;
             if (o.SKIP_INVALID_DIMENSIONS !== undefined) SKIP_INVALID_DIMENSIONS = !!o.SKIP_INVALID_DIMENSIONS;
+			if (o.ENABLE_ACCEPT_COMP_SOURCE !== undefined) ENABLE_ACCEPT_COMP_SOURCE = !!o.ENABLE_ACCEPT_COMP_SOURCE;
 			// New: comp-level switches overrides
 			if (o.ENABLE_COMP_MOTION_BLUR !== undefined) ENABLE_COMP_MOTION_BLUR = !!o.ENABLE_COMP_MOTION_BLUR;
 			if (o.ENABLE_COMP_FRAME_BLENDING !== undefined) ENABLE_COMP_FRAME_BLENDING = !!o.ENABLE_COMP_FRAME_BLENDING;
@@ -360,11 +363,14 @@ function __CreateComps_coreRun(opts) {
 		return n || "untitled";
 	}
 
-	function footageToCompName(footage) {
-		var base = footage.name;
-		// Remove file extension if present
-		var dot = base.lastIndexOf(".");
-		if (dot > 0) base = base.substring(0, dot);
+	function itemToCompName(item) {
+		if (!item) return "untitled";
+		var base = String(item.name || "untitled");
+		// For FootageItem remove extension; for CompItem keep name as-is
+		if (item instanceof FootageItem) {
+			var dot = base.lastIndexOf('.');
+			if (dot > 0) base = base.substring(0, dot);
+		}
 		return sanitizeName(base);
 	}
 
@@ -475,12 +481,14 @@ function __CreateComps_coreRun(opts) {
 
 	for (var s = 0; s < selection.length; s++) {
 		var item = selection[s];
-		if (!(item instanceof FootageItem)) {
-			skipped.push(item.name + " (not footage)");
+		var isFootage = (item instanceof FootageItem);
+		var isCompSource = (!isFootage && ENABLE_ACCEPT_COMP_SOURCE && (item instanceof CompItem));
+		if (!isFootage && !isCompSource) {
+			skipped.push(item.name + (ENABLE_ACCEPT_COMP_SOURCE ? " (unsupported type)" : " (not footage)") );
 			continue;
 		}
 
-		var compName = footageToCompName(item);
+		var compName = itemToCompName(item);
 
 		// Determine destination folder path under project/work/comps BEFORE creating comp
 		var segs = [];
@@ -508,8 +516,8 @@ function __CreateComps_coreRun(opts) {
 			continue;
 		}
 
-		// Gather footage properties only if we will create
-		var dims = getFootageDimensions(item);
+		// Gather source properties (footage or comp)
+		var dims = isFootage ? getFootageDimensions(item) : { w: item.width, h: item.height };
 		// Validate and normalize dimensions to AE's acceptable range (4..30000)
 		try {
 			var w = (dims && typeof dims.w !== 'undefined') ? Number(dims.w) : 0;
@@ -527,8 +535,8 @@ function __CreateComps_coreRun(opts) {
 				}
 			}
 		} catch(eDims) { dims = { w: 1920, h: 1080 }; }
-		var fps = getFootageFrameRate(item);
-		var dur = getFootageDuration(item);
+		var fps = isFootage ? getFootageFrameRate(item) : (function(){ try { return item.frameRate || 25; } catch(eFR){ return 25; } })();
+		var dur = isFootage ? getFootageDuration(item) : (function(){ try { return item.duration || DEFAULT_STILL_DURATION; } catch(eDR){ return DEFAULT_STILL_DURATION; } })();
 
 		var comp = proj.items.addComp(compName, dims.w, dims.h, 1.0, dur, fps);
 		comp.displayStartTime = 0;
@@ -539,7 +547,7 @@ function __CreateComps_coreRun(opts) {
 		try { comp.frameBlending = !!ENABLE_COMP_FRAME_BLENDING; } catch(eFB) {}
 
 		// Add layer
-		var layer = comp.layers.add(item);
+		var layer = comp.layers.add(item); // adds footage or precomp
 		if (layer && layer.stretch !== undefined) {
 			try { layer.startTime = 0; } catch (e2) {}
 		}

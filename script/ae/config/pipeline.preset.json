@@ -69,7 +69,8 @@
     "FOOTAGE_DATE_YYMMDD": "",
     "INCLUDE_SUBFOLDERS": true,
     "ENABLE_COMP_MOTION_BLUR": true,
-    "ENABLE_COMP_FRAME_BLENDING": false
+    "ENABLE_COMP_FRAME_BLENDING": false,
+    "ENABLE_ACCEPT_COMP_SOURCE": true
 },
 "insertRelink": { 
     "ENABLE_FILE_LOG": false,
