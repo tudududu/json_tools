@@ -276,7 +276,7 @@ function __AddLayers_coreRun(opts) {
         dataJson: {
             exact: ["DATA_JSON", "data.json"],
             contains: []
-            },
+        },
         // Auto-center exceptions and alignment rules (case-insensitive exact names)
         recenterRules: {
             // If all arrays are empty, all un-parented layers will be auto-centered (default behavior).
@@ -348,6 +348,10 @@ function __AddLayers_coreRun(opts) {
             // Allow campaigns to override timing behavior map
             if (o.TIMING_BEHAVIOR && typeof o.TIMING_BEHAVIOR === 'object') {
                 try { TIMING_BEHAVIOR = o.TIMING_BEHAVIOR; } catch(eTB) {}
+            }
+            // Override layer name configuration (optional)
+            if (o.LAYER_NAME_CONFIG && typeof o.LAYER_NAME_CONFIG === 'object') {
+                try { LAYER_NAME_CONFIG = o.LAYER_NAME_CONFIG; } catch(eLNC) {}
             }
             // Override timing item selector map (optional)
             if (o.TIMING_ITEM_SELECTOR && typeof o.TIMING_ITEM_SELECTOR === 'object') {
