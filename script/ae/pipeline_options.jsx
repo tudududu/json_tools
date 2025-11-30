@@ -110,7 +110,7 @@
             ENABLE_COMP_MOTION_BLUR: false,      // when true, set comp.motionBlur = true for created comps
 	        ENABLE_COMP_FRAME_BLENDING: false,    // when true, set comp.frameBlending = true for created comps
             // Gate: allow AE CompItem as source (treated like footage; added as precomp layer)
-            ENABLE_ACCEPT_COMP_SOURCE: false    // when true, selected CompItems are processed similarly to footage
+            ENABLE_ACCEPT_COMP_SOURCE: true    // when true, selected CompItems are processed similarly to footage
         },
         insertRelink: {
             ENABLE_FILE_LOG: true,

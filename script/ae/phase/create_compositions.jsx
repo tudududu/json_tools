@@ -330,11 +330,11 @@ function __CreateComps_coreRun(opts) {
 		return tail;
 	}
 
-	function subpathFromProjectPanelAfterFootage(footageItem) {
+	function subpathFromProjectPanelAfterFootage(item) {
 		// Fallback: derive segments from Project panel folder hierarchy after a folder named 'footage'
-		if (!footageItem || !(footageItem instanceof FootageItem)) return [];
+		if (!item) return [];
 		var segs = [];
-		var f = footageItem.parentFolder;
+		var f = item.parentFolder;
 		var foundFootage = false;
 		while (f && f.parentFolder) { // stop at root
 			var fname = String(f.name || "");
@@ -472,6 +472,10 @@ function __CreateComps_coreRun(opts) {
 			if (okAI) selection = [ai];
 		}
 		__emitEnvHeader(selection ? selection.length : 0);
+		try {
+			var origin = (!selection || !selection.length) ? 'none' : (proj.selection && proj.selection.length ? 'proj.selection' : (proj.activeItem ? 'activeItem' : 'unknown'));
+			log("Selection origin: " + origin + ", count=" + (selection ? selection.length : 0));
+		} catch(eSelLog){}
 		if (!selection || selection.length === 0) {
 			alertOnce("Select one or more footage items or comps (gate-enabled) in the Project panel.");
 			app.endUndoGroup();
