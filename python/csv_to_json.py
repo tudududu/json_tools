@@ -335,7 +335,7 @@ def convert_csv_to_json(
         language_per_country: Dict[str, str] = {}
         videos: Dict[str, Dict[str, Any]] = {}
         video_order: List[str] = []
-        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag)
+        # Per-video, per-country meta_local overrides for certain keys (e.g., disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag, super_B_flag)
         per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
         # Per-country global flags (from meta_global) that can propagate to per-video metadata when meta_local empty
         global_flag_values_per_country: Dict[str, Dict[str, str]] = {}
@@ -370,6 +370,7 @@ def convert_csv_to_json(
         auto_endframe_line_per_video: Dict[str, int] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
         auto_super_a_line_per_video: Dict[str, int] = {}
+        auto_super_b_line_per_video: Dict[str, int] = {}
 
         for r in rows:
             if len(r) < len(headers):
@@ -444,9 +445,9 @@ def convert_csv_to_json(
                             job_number_per_country[c] = "noJobNumber"
                     # Do not store a single global jobNumber in global_meta; it will be injected per country later.
                     continue
-                # Per-country flag keys (disclaimer_flag / disclaimer_02_flag / subtitle_flag / super_A_flag) now can appear as meta_global.
+                # Per-country flag keys (disclaimer_flag / disclaimer_02_flag / subtitle_flag / super_A_flag / super_B_flag) now can appear as meta_global.
                 # Capture per-country values so they can act as defaults for per-video metadata flags.
-                if key_name in ("disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_A_flag"):
+                if key_name in ("disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_A_flag", "super_B_flag"):
                     for c in countries:
                         per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
                         if per_val:
@@ -494,11 +495,11 @@ def convert_csv_to_json(
                 if not key_name or not video_id:
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
                     video_order.append(video_id)
                 key_lower = key_name.lower()
                 # Special per-country meta_local keys: collect values per country instead of a single shared one
-                if key_lower in {"disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_a_flag", "logo_anim_flag"}:
+                if key_lower in {"disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_a_flag", "super_b_flag", "logo_anim_flag"}:
                     if video_id not in per_video_meta_local_country:
                         per_video_meta_local_country[video_id] = {}
                     # For each country, pick per-country landscape/portrait cell (first non-empty among them)
@@ -700,7 +701,7 @@ def convert_csv_to_json(
                     # Skip if no video id
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
                     video_order.append(video_id)
                 if video_id not in auto_sub_line_per_video:
                     auto_sub_line_per_video[video_id] = start_line_index
@@ -736,6 +737,29 @@ def convert_csv_to_json(
                     # Explicit line number provided; sync counter for next auto line
                     auto_super_a_line_per_video[video_id] = line_num + 1
                 videos[video_id]["super_a_rows"].append({
+                    "line": line_num,
+                    "start": start_tc,
+                    "end": end_tc,
+                    "texts": texts,
+                    "texts_portrait": texts_portrait,
+                })
+                continue
+
+            # Super_B rows (follows super_A pattern exactly)
+            if rt == "super_b":
+                if not video_id:
+                    continue
+                if video_id not in videos:
+                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                    video_order.append(video_id)
+                if video_id not in auto_super_b_line_per_video:
+                    auto_super_b_line_per_video[video_id] = start_line_index
+                if line_num is None:
+                    line_num = auto_super_b_line_per_video[video_id]
+                    auto_super_b_line_per_video[video_id] += 1
+                else:
+                    auto_super_b_line_per_video[video_id] = line_num + 1
+                videos[video_id]["super_b_rows"].append({
                     "line": line_num,
                     "start": start_tc,
                     "end": end_tc,
@@ -933,6 +957,41 @@ def convert_csv_to_json(
                 merged.append(prev)
             vdata["super_a_rows"] = merged
 
+        # Merge super_B rows with same line (per video) if enabled
+        for vid, vdata in videos.items():
+            if not merge_subtitles:
+                continue
+            merged: List[Dict[str, Any]] = []
+            prev: Optional[Dict[str, Any]] = None
+            for row in vdata.get("super_b_rows", []):
+                if prev and row["line"] == prev["line"] and (
+                    (row["start"] is None and row["end"] is None) or (
+                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                    )
+                ):
+                    for c in countries:
+                        t = row["texts"][c]
+                        if t:
+                            if prev["texts"][c]:
+                                prev["texts"][c] += "\n" + t
+                            else:
+                                prev["texts"][c] = t
+                        t_p = row.get("texts_portrait", {}).get(c, "")
+                        if t_p:
+                            if prev.get("texts_portrait", {}).get(c, ""):
+                                prev["texts_portrait"][c] += "\n" + t_p
+                            else:
+                                if "texts_portrait" not in prev:
+                                    prev["texts_portrait"] = {}
+                                prev["texts_portrait"][c] = t_p
+                else:
+                    if prev:
+                        merged.append(prev)
+                    prev = row
+            if prev:
+                merged.append(prev)
+            vdata["super_b_rows"] = merged
+
         # Deduplicate non-contiguous duplicate subtitle & super_A rows by (line,start,end)
         for vid, vdata in videos.items():
             # Subtitles
@@ -1005,6 +1064,41 @@ def convert_csv_to_json(
                                     if extra_p not in existing_p.split("\n"):
                                         grouped_sa[key]["texts_portrait"][c] += "\n" + extra_p
                 vdata["super_a_rows"] = [grouped_sa[k] for k in order_sa]
+
+            # super_B
+            if vdata.get("super_b_rows"):
+                grouped_sb: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                order_sb: List[Tuple[int, Optional[float], Optional[float]]] = []
+                for row in vdata["super_b_rows"]:
+                    key = (row["line"], row["start"], row["end"])
+                    if key not in grouped_sb:
+                        grouped_sb[key] = {
+                            "line": row["line"],
+                            "start": row["start"],
+                            "end": row["end"],
+                            "texts": {c: row["texts"].get(c, "") for c in countries},
+                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        }
+                        order_sb.append(key)
+                    else:
+                        for c in countries:
+                            extra_l = row["texts"].get(c, "")
+                            if extra_l:
+                                existing = grouped_sb[key]["texts"][c]
+                                if not existing:
+                                    grouped_sb[key]["texts"][c] = extra_l
+                                else:
+                                    if extra_l not in existing.split("\n"):
+                                        grouped_sb[key]["texts"][c] += "\n" + extra_l
+                            extra_p = row.get("texts_portrait", {}).get(c, "")
+                            if extra_p:
+                                existing_p = grouped_sb[key]["texts_portrait"][c]
+                                if not existing_p:
+                                    grouped_sb[key]["texts_portrait"][c] = extra_p
+                                else:
+                                    if extra_p not in existing_p.split("\n"):
+                                        grouped_sb[key]["texts_portrait"][c] += "\n" + extra_p
+                vdata["super_b_rows"] = [grouped_sb[k] for k in order_sb]
 
         # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
@@ -1163,6 +1257,9 @@ def convert_csv_to_json(
                 # Super_A processing (follows subtitle pattern exactly)
                 super_a_land: List[Dict[str, Any]] = []
                 super_a_port: List[Dict[str, Any]] = []
+                super_b_land: List[Dict[str, Any]] = []  # ensure defined even if no rows
+                super_b_port: List[Dict[str, Any]] = []
+
                 for sarow in vdata.get("super_a_rows", []):
                     txt_l = (sarow["texts"].get(c, "") or "").rstrip()
                     txt_p = (sarow.get("texts_portrait", {}).get(c, "") or "").rstrip()
@@ -1185,6 +1282,28 @@ def convert_csv_to_json(
                         "out": fmt_time(sarow["end"]),
                         "text": txt_port_final,
                     })
+                # Super_B processing (mirrors super_A)
+                for sbrow in vdata.get("super_b_rows", []):
+                    txt_l = (sbrow["texts"].get(c, "") or "").rstrip()
+                    txt_p = (sbrow.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                    # Keep row if either orientation has text; skip only if both empty when skipping empties
+                    if skip_empty_text and not txt_l and not txt_p:
+                        continue
+                    if sbrow["start"] is None or sbrow["end"] is None:
+                        continue
+                    super_b_land.append({
+                        "line": sbrow["line"],
+                        "in": fmt_time(sbrow["start"]),
+                        "out": fmt_time(sbrow["end"]),
+                        "text": txt_l,
+                    })
+                    txt_port_final_b = txt_p if txt_p else txt_l
+                    super_b_port.append({
+                        "line": sbrow["line"],
+                        "in": fmt_time(sbrow["start"]),
+                        "out": fmt_time(sbrow["end"]),
+                        "text": txt_port_final_b,
+                    })
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject logo_anim_flag per video based on its duration (string match)
                 if logo_anim_flag_by_duration:
@@ -1196,7 +1315,7 @@ def convert_csv_to_json(
                             country_specific = per_map.get(c)
                             value_to_use = country_specific if country_specific else logo_anim_flag_by_duration[dur_key]
                             base_meta["logo_anim_flag"] = value_to_use
-                # Inject per-country meta_local overrides (disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag) if present
+                # Inject per-country meta_local overrides (disclaimer_flag, disclaimer_02_flag, subtitle_flag, super_A_flag, super_B_flag) if present
                 # Precedence: meta_local value (if present) > meta_global per-country flag value > nothing
                 # First apply global per-country flags as defaults
                 if c in global_flag_values_per_country:
@@ -1216,12 +1335,14 @@ def convert_csv_to_json(
                     "metadata": land_meta,
                     "subtitles": subs_land,
                     "super_A": super_a_land,
+                    "super_B": super_b_land,
                 })
                 videos_list.append({
                     "videoId": f"{vid}_portrait",
                     "metadata": port_meta,
                     "subtitles": subs_port,
                     "super_A": super_a_port,
+                    "super_B": super_b_port,
                 })
 
             # Attach per-video claim/disclaimer with timings and choose text (prefer local if requested)
@@ -1235,8 +1356,8 @@ def convert_csv_to_json(
             global_disc_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
             global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
             # For disclaimer_02, same as disclaimer
-            global_disc_02_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
-            global_disc_02_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in disclaimers_02_rows_merged]
+            global_disc_02_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_02_rows_merged]
+            global_disc_02_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_02_rows_merged]
             # For logos, typically one line; use index-based fallback as well
             global_logo_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
             global_logo_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in logo_rows_raw]
@@ -1571,6 +1692,7 @@ def convert_csv_to_json(
                     "metadata": meta_cast,
                     "subtitles": vobj["subtitles"],
                     "super_A": vobj.get("super_A", []),
+                    "super_B": vobj.get("super_B", []),
                     "disclaimer": vobj.get("disclaimer", []),
                     "disclaimer_02": vobj.get("disclaimer_02", []),
                     "logo": vobj.get("logo", []),
