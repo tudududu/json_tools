@@ -1,4 +1,4 @@
-// transform_opacity_fadein_onTime_v04 251128 (orientation-aware, SINGLE KEY)
+// transform_opacity_fadein_onTime_v04 251202 (orientation-aware, SINGLE KEY)
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
 // Supported keys: claim | disclaimer | logo | subtitles (timed arrays of objects with in/out; global arrays w/out timing)
@@ -17,8 +17,8 @@
 
 // -------- CONFIG --------
 var FOOTAGE_NAME = "data.json"; // JSON footage item
-var DATA_KEY     = "claim";     // user-defined key
-var desiredLine  = 1;            // 1-based; if subtitles and 0 → all lines
+var DATA_KEY     = "super_B";     // user-defined key
+var desiredLine  = 0;            // 1-based; 0 = all lines
 var FADE_IN      = 0;          // fade-in duration (s)
 var OPAC_IN      = 0;            // starting opacity value
 var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
@@ -74,7 +74,7 @@ function collectSegments(videoObj, key) {
   if (!videoObj) return segs;
   var arr = videoObj[key];
   if (!arr) return segs;
-  if (key === "subtitles" && desiredLine === 0) {
+  if (desiredLine === 0) {
     for (var i = 0; i < arr.length; i++) {
       var it = arr[i]; if (!it) continue;
       var s = Number(it["in"]), e = Number(it["out"]);

@@ -89,6 +89,8 @@ try {
   var subsFlag = toStr(safe(vMeta, ["subtitle_flag"], "-"));
   var disclaimerFlag = toStr(safe(vMeta, ["disclaimer_flag"], "-"));
   var disclaimerFlag_02 = toStr(safe(vMeta, ["disclaimer_02_flag"], "-"));
+  var super_A_flag = toStr(safe(vMeta, ["super_A_flag"], "-"));
+  var super_B_flag = toStr(safe(vMeta, ["super_B_flag"], "-"));
   var logo_animFlag = toStr(safe(vMeta, ["logo_anim_flag"], "-"));
   var subsLen  = video && video.subtitles instanceof Array ? (video.subtitles.length+"") : (video ? "0" : "-");
         
@@ -104,7 +106,8 @@ try {
   out += "\rtitle: " + vTitle;
   out += "\rsubtitles: " + subsFlag;
   out += "\rdisclaimer: " + disclaimerFlag;
-  out += "\rdisclaimer_02: " + disclaimerFlag_02;
+  out += "\rsuper_A: " + super_A_flag;
+  out += "\rsuper_B: " + super_B_flag;
   out += "\rlogo_anim: " + logo_animFlag;
   out += "\rsubtitles: " + subsLen;
 } catch (err) {
