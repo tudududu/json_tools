@@ -86,9 +86,9 @@
     "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": false
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": false,
+    "PIPELINE_SHOW_VERBOSE_LOG": true,
     
     "DEBUG_PARENTING_DUMP": false,
     "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
@@ -123,21 +123,33 @@
             "contains": ["info"] 
             },
         "logo": { 
-            "exact": ["Size_Holder_Logo", "logo_static_unreal"], 
+            "exact": ["logo_static", "logo_01_unreal", "Size_Holder_Logo"], 
             "contains": [], 
             "imageOnlyForContains": false 
             },
         "logo_02": { 
-            "exact": ["Size_Holder_Logo_02", "logo_static"], 
+            "exact": ["logo_02", "Size_Holder_Logo_02"], 
             "contains": [], 
             "imageOnlyForContains": false 
             },
         "logoAnim": { 
             "exact": ["logo_anim", "Size_Holder_Logo"], 
-            "contains": ["logo_anim"] 
+            "contains": [] 
+            },
+        "logo_03": { 
+            "exact": ["logo_03_location_pin"], 
+            "contains": ["logo_03"] 
+            },
+        "logo_04": { 
+            "exact": ["logo_04_Formula_1"], 
+            "contains": ["logo_04"] 
+            },
+        "logo_05": { 
+            "exact": ["logo_05_F1"], 
+            "contains": ["logo_05"] 
             },
         "claim": { 
-            "exact": ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"], 
+            "exact": ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
             "contains": [] 
             },
         "disclaimer": { 
@@ -171,6 +183,9 @@
         "logo": "timed",
         "logo_02": "timed",
         "logoAnim": "timed",
+        "logo_03": "span",
+        "logo_04": "span",
+        "logo_05": "span",
         "claim": "timed",
         "disclaimer": "span",
         "disclaimer_02": "span",
@@ -190,22 +205,28 @@
     },
     "TIMING_ITEM_SELECTOR": {
         "logo": { "mode": "line", "value": 1 },
-        "logo_02": { "mode": "line", "value": 2 }
+        "logo_02": { "mode": "line", "value": 2 },
+        "logo_04": { "mode": "line", "value": 4 },
+        "claim": { "mode": "line", "value": 1 }
     },
+    "SKIP_COPY_CONFIG": { 
+        "disclaimerOff":true, 
+        "disclaimer02Off": true,
+        "subtitlesOff":true, 
+        "logoAnimOff":true,
+        "logo02Off": true,
+        "claim01Off": true,
+        "claim02Off": true,
+        "groups":{"enabled":false,"keys":[]}, 
+        "adHoc":{"enabled":false,"tokens":[]}, 
+        "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
+        },
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,
         "enableDurationMatch": true,
         "requireDurationMatch": false,
         "durationToleranceSeconds": 0.5
-        },
-    "SKIP_COPY_CONFIG": { 
-        "disclaimerOff":true, 
-        "subtitlesOff":true, 
-        "logoAnimOff":true, 
-        "groups":{"enabled":false,"keys":[]}, 
-        "adHoc":{"enabled":false,"tokens":[]}, 
-        "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
     "EXTRA_TEMPLATES": {
         "ENABLE_EXTRA_TEMPLATES": true,

@@ -148,7 +148,7 @@
             // When false, no auto-centering is attempted unless explicitly forced by recenterRules (see LAYER_NAME_CONFIG in the script).
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
             // Disclaimer timing: when true, use JSON disclaimer in/out; when false, set disclaimer layers to full comp duration.
-            ENABLE_JSON_TIMING_FOR_DISCLAIMER: false,
+            // ENABLE_JSON_TIMING_FOR_DISCLAIMER: false,
             // Template picking configuration (Solutions A/B/C)
             //  A) Single template: keep a single template comp under TEMPLATE_FOLDER_PATH (implicit)
             //  B) Multiple templates — match AR: the picker prefers AR within tolerance; optionally require AR match
@@ -192,12 +192,13 @@
             // Skip-copy behavior for template layers. When a flag resolves to OFF for a target, the matching template layers
             // are not copied into the target. Also supports group-based and ad-hoc token-based skips.
             SKIP_COPY_CONFIG: {
-                // When true, disclaimer-related layers will be skipped if the JSON flag resolves to OFF for the video.
-                disclaimerOff: true,
-                // When true, subtitle-related layers will be skipped if the JSON flag resolves to OFF for the video.
+                disclaimerOff: true, 
+                disclaimer02Off: true,
                 subtitlesOff: true,
-                // When true, animated-logo variant layers (logo_anim) will be skipped if JSON logo_anim_flag resolves to OFF.
                 logoAnimOff: true,
+                logo02Off: true,
+                claim01Off: true,
+                claim02Off: true,
                 // Base logo layers that must always be copied regardless of flags (case-insensitive exact names).
                 alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
                 // Group-based skip using LAYER_NAME_CONFIG keys. When enabled, any layers matching these groups are skipped.
@@ -238,7 +239,7 @@
                     contains: ["logo_anim"]
                 },
                 claim: {
-                    exact: ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"],
+                    exact: ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
                     contains: []
                 },
                 disclaimer: {

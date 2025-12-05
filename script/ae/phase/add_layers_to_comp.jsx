@@ -199,6 +199,10 @@ function __AddLayers_coreRun(opts) {
     var DISCLAIMER_02_FLAG_KEY = "disclaimer_02_flag"; // second disclaimer flag (same semantics)
     var SUBTITLES_FLAG_KEY = "subtitle_flag";   // values: 'y','n' (case-insensitive)
     var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
+    // New per-video flags for skip-copy behavior
+    var LOGO_02_FLAG_KEY = "logo_02_flag";      // controls 'logo_02' layer visibility
+    var CLAIM_01_FLAG_KEY = "claim_01_flag";    // controls 'claim_01' layer visibility
+    var CLAIM_02_FLAG_KEY = "claim_02_flag";    // controls 'claim_02' layer visibility
     // Configurable acceptable values (all compared case-insensitively)
     // Extend these arrays if JSON may contain alternative tokens (e.g. Yes/No / 1/0)
     var FLAG_VALUES = {
@@ -211,9 +215,12 @@ function __AddLayers_coreRun(opts) {
     var SKIP_COPY_CONFIG = {
         // When true, these layers will not be copied when their flag resolves to OFF
         disclaimerOff: true,
-        disclaimer02Off: true, // NEW: second disclaimer skip gate
+        disclaimer02Off: true,
         subtitlesOff: true,
         logoAnimOff:  true,
+        logo02Off: true,
+        claim01Off: true,
+        claim02Off: true,
         // Base logo layers that must always be copied (case-insensitive exact names)
         alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
         // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
@@ -497,19 +504,28 @@ function __AddLayers_coreRun(opts) {
             disclaimer: extractFlagFromVideo(videoObj, DISCLAIMER_FLAG_KEY),
             disclaimer02: extractFlagFromVideo(videoObj, DISCLAIMER_02_FLAG_KEY),
             subtitles: extractFlagFromVideo(videoObj, SUBTITLES_FLAG_KEY),
-            logoAnim: extractFlagFromVideo(videoObj, LOGO_ANIM_FLAG_KEY)
+            logoAnim: extractFlagFromVideo(videoObj, LOGO_ANIM_FLAG_KEY),
+            logo02: extractFlagFromVideo(videoObj, LOGO_02_FLAG_KEY),
+            claim01: extractFlagFromVideo(videoObj, CLAIM_01_FLAG_KEY),
+            claim02: extractFlagFromVideo(videoObj, CLAIM_02_FLAG_KEY)
         };
         var modes = {
             disclaimer: interpretFlagValue(raw.disclaimer, FLAG_VALUES, { allowAuto: false }),
             disclaimer02: interpretFlagValue(raw.disclaimer02, FLAG_VALUES, { allowAuto: false }),
             subtitles: interpretFlagValue(raw.subtitles, FLAG_VALUES, { allowAuto: false }),
-            logoAnim: interpretFlagValue(raw.logoAnim, FLAG_VALUES, { allowAuto: false })
+            logoAnim: interpretFlagValue(raw.logoAnim, FLAG_VALUES, { allowAuto: false }),
+            logo02: interpretFlagValue(raw.logo02, FLAG_VALUES, { allowAuto: false }),
+            claim01: interpretFlagValue(raw.claim01, FLAG_VALUES, { allowAuto: false }),
+            claim02: interpretFlagValue(raw.claim02, FLAG_VALUES, { allowAuto: false })
         };
         var eff = {
             disclaimer: toEffective(modes.disclaimer, 'off'),
             disclaimer02: toEffective(modes.disclaimer02, 'off'),
             subtitles: toEffective(modes.subtitles, 'off'),
-            logoAnim: toEffective(modes.logoAnim, 'off')
+            logoAnim: toEffective(modes.logoAnim, 'off'),
+            logo02: toEffective(modes.logo02, 'off'),
+            claim01: toEffective(modes.claim01, 'off'),
+            claim02: toEffective(modes.claim02, 'off')
         };
         return { raw: raw, modes: modes, effective: eff };
     }
@@ -1478,13 +1494,16 @@ function __AddLayers_coreRun(opts) {
                 if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
                 return null;
             }
-            var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off';
+            var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
             if (vRec) {
                 var __modes = getModesForVideo(vRec);
                 _discMode = __modes.effective.disclaimer;
                 _disc02Mode = __modes.effective.disclaimer02;
                 _subtMode = __modes.effective.subtitles;
                 _logoAnimMode = __modes.effective.logoAnim;
+                _logo02Mode = __modes.effective.logo02;
+                _claim01Mode = __modes.effective.claim01;
+                _claim02Mode = __modes.effective.claim02;
             }
 
             // Helper: collect current layer references to detect the newly inserted one reliably
@@ -1501,6 +1520,9 @@ function __AddLayers_coreRun(opts) {
                     var isLogoGeneric = nameMatchesGroup(lname, 'logo') && !isLogoAnim;
                     var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
                     var isDisclaimer02 = nameMatchesGroup(lname, 'disclaimer02') || (lname.toLowerCase() === 'disclaimer_02');
+                    var isLogo02 = nameMatchesGroup(lname, 'logo_02') || (lname.toLowerCase() === 'logo_02');
+                    var isClaim01 = (lname.toLowerCase() === 'claim_01');
+                    var isClaim02 = (lname.toLowerCase() === 'claim_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
                     var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
@@ -1511,6 +1533,9 @@ function __AddLayers_coreRun(opts) {
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimerOff && isDisclaimer && _discMode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimer02Off && isDisclaimer02 && _disc02Mode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer_02 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo02Off && isLogo02 && _logo02Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_02 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim01Off && isClaim01 && _claim01Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_01 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim02Off && isClaim02 && _claim02Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_02 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
                         var groupSkipped = false;
                         for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
