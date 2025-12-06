@@ -1105,6 +1105,41 @@ function __AddLayers_coreRun(opts) {
         return minMaxInOut(arr);
     }
 
+    // Resolve timing span on a specific array using an explicit selector object.
+    function resolveTimingSpanOnArray(videoObj, arrayKey, selector) {
+        if (!videoObj || !arrayKey) return null;
+        var arr = videoObj[arrayKey];
+        if (!arr || !arr.length) return null;
+        var sel = selector;
+        if (!sel || typeof sel !== 'object') return minMaxInOut(arr);
+        var mode = sel.mode || 'minMax';
+        if (mode === 'minMax') return minMaxInOut(arr);
+        if (mode === 'line') {
+            var targetLine = sel.value;
+            for (var i = 0; i < arr.length; i++) {
+                var it = arr[i]; if (!it) continue;
+                var ln = (it.line !== undefined) ? parseInt(it.line, 10) : null;
+                if (ln === targetLine) {
+                    var tin = (it['in'] !== undefined) ? parseFloat(it['in']) : null;
+                    var tout = (it['out'] !== undefined) ? parseFloat(it['out']) : null;
+                    if (tin === null || isNaN(tin) || tout === null || isNaN(tout)) return null;
+                    return { tin: tin, tout: tout };
+                }
+            }
+            return null;
+        }
+        if (mode === 'index') {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || idx < 0 || idx >= arr.length) return null;
+            var it2 = arr[idx]; if (!it2) return null;
+            var tin2 = (it2['in'] !== undefined) ? parseFloat(it2['in']) : null;
+            var tout2 = (it2['out'] !== undefined) ? parseFloat(it2['out']) : null;
+            if (tin2 === null || isNaN(tin2) || tout2 === null || isNaN(tout2)) return null;
+            return { tin: tin2, tout: tout2 };
+        }
+        return minMaxInOut(arr);
+    }
+
     function setLayerInOut(layer, tin, tout, compDuration) {
         if (!layer) return;
         var start = (tin < 0) ? 0 : tin;
@@ -1131,9 +1166,13 @@ function __AddLayers_coreRun(opts) {
         var videoId = v.videoId || ids.oriented || ids.base;
         // Resolve timing spans per key (logo/claim/disclaimer) honoring TIMING_ITEM_SELECTOR
         var logoMM = resolveTimingSpan(v, 'logo', TIMING_ITEM_SELECTOR);
-        // Support separate timing group for logo_02; fallback to logo when missing
+        // Support separate timing group for logo_02; when array is missing, use logo array with logo_02 selector; then fallback to logo
         var logo02MM = resolveTimingSpan(v, 'logo_02', TIMING_ITEM_SELECTOR);
-        if (!logo02MM) { logo02MM = logoMM; }
+        if (!logo02MM) {
+            var selLogo02 = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['logo_02']) ? TIMING_ITEM_SELECTOR['logo_02'] : null;
+            if (selLogo02) logo02MM = resolveTimingSpanOnArray(v, 'logo', selLogo02);
+            if (!logo02MM) logo02MM = logoMM;
+        }
         var claimMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
         // Helper to extract flag value given a configured key (checks video then video.metadata)
