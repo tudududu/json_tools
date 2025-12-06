@@ -246,12 +246,7 @@ function __AddLayers_coreRun(opts) {
             contains: ["info"]
         },
         logo: {
-            exact: ["Size_Holder_Logo"],
-            contains: ["logo"],
-            imageOnlyForContains: false
-        },
-        logo_02: {
-            exact: ["Size_Holder_Logo_02", "logo_static"],
+            exact: ["logo_01", "Size_Holder_Logo"],
             contains: [],
             imageOnlyForContains: false
         },
@@ -260,8 +255,28 @@ function __AddLayers_coreRun(opts) {
             exact: ["logo_anim", "Size_Holder_Logo"],
             contains: ["logo_anim"]
         },
+        logo_02: {
+            exact: ["logo_02", "Size_Holder_Logo_02"],
+            contains: []
+        },
+        logo_03: {
+            exact: ["logo_03"],
+            contains: []
+        },
+        logo_04: {
+            exact: ["logo_04"],
+            contains: []
+        },
+        logo_04: {
+            exact: ["logo_04"],
+            contains: []
+        },
+        logo_05: {
+            exact: ["logo_05"],
+            contains: []
+        },
         claim: {
-            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__", "__scaler__nullComp__", "__scaler__null__"],
+            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
             contains: []
         },
         disclaimer: {
@@ -304,12 +319,15 @@ function __AddLayers_coreRun(opts) {
         // JSON timed groups
         logo: 'timed',
         logoAnim: 'timed',
+        logo_02: 'timed',
         claim: 'timed',
-        // Disclaimers default to span (full duration)
+        // Span groups / literals
+        logo_03: 'span',
+        logo_04: 'span',
+        logo_05: 'span',
         disclaimer: 'span',
         disclaimer_02: 'span', // raw name variant
         disclaimer02: 'span',  // group key variant
-        // Span groups / literals
         subtitles: 'span',
         dataJson: 'span',
         info: 'span',
@@ -320,8 +338,7 @@ function __AddLayers_coreRun(opts) {
         'Size_Holder_Subtitles': 'span',
         'DATA_JSON': 'span',
         'data.json': 'span',
-        'Size_Holder_Super_A': 'span',
-        'Pin': 'span'
+        'Size_Holder_Super_A': 'span'
     };
 
     // TIMING_ITEM_SELECTOR: choose which item in each JSON timing array supplies the timing span when a layer/group is 'timed'.
@@ -333,7 +350,10 @@ function __AddLayers_coreRun(opts) {
     // Zero-length (in==out) selections are returned as-is (layer trimmed to an instant); callers may ignore if not useful.
     var TIMING_ITEM_SELECTOR = {
         // Example (override via options): logo: { mode: 'line', value: 1 }
-        logo: { mode: 'line', value: 1 }
+        logo: { mode: 'line', value: 1 },
+        logoAnim: { mode: 'line', value: 1 },
+        logo_02: { mode: 'line', value: 2 },
+        claim: { mode: 'line', value: 1 }
     };
 
     // Options overrides
@@ -1111,6 +1131,9 @@ function __AddLayers_coreRun(opts) {
         var videoId = v.videoId || ids.oriented || ids.base;
         // Resolve timing spans per key (logo/claim/disclaimer) honoring TIMING_ITEM_SELECTOR
         var logoMM = resolveTimingSpan(v, 'logo', TIMING_ITEM_SELECTOR);
+        // Support separate timing group for logo_02; fallback to logo when missing
+        var logo02MM = resolveTimingSpan(v, 'logo_02', TIMING_ITEM_SELECTOR);
+        if (!logo02MM) { logo02MM = logoMM; }
         var claimMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
         // Helper to extract flag value given a configured key (checks video then video.metadata)
@@ -1195,6 +1218,8 @@ function __AddLayers_coreRun(opts) {
             var logoContains = matchesContains(nm, LAYER_NAME_CONFIG.logo.contains);
             var logoContainsOk = logoContains && (!LAYER_NAME_CONFIG.logo.imageOnlyForContains || isImageFootageLayer(ly));
             var isGenericLogo = (logoExact || logoContainsOk) && !isLogoAnim;
+            // Dedicated match for logo_02 group
+            var isLogo02 = (matchesExact(nm, (LAYER_NAME_CONFIG.logo_02 && LAYER_NAME_CONFIG.logo_02.exact) ? LAYER_NAME_CONFIG.logo_02.exact : []) || matchesContains(nm, (LAYER_NAME_CONFIG.logo_02 && LAYER_NAME_CONFIG.logo_02.contains) ? LAYER_NAME_CONFIG.logo_02.contains : []));
 
             // Apply for logo_anim first
             if (logoMM && isLogoAnim) {
@@ -1276,6 +1301,11 @@ function __AddLayers_coreRun(opts) {
                 } catch (eSh) { log("Start shift failed for '"+nm+"': " + eSh); }
                 appliedAny = true;
                 continue;
+            }
+            // Apply timing for logo_02 group/layers (if configured as 'timed')
+            if (logo02MM && isLogo02) {
+                setLayerInOut(ly, logo02MM.tin, logo02MM.tout, comp.duration);
+                log("Set logo_02 layer '" + nm + "' to [" + logo02MM.tin + ", " + logo02MM.tout + ")");
             }
 
             // Apply for generic 'logo'
