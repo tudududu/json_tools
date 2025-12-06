@@ -246,7 +246,7 @@ function __AddLayers_coreRun(opts) {
             contains: ["info"]
         },
         logo: {
-            exact: ["logo_01", "Size_Holder_Logo"],
+            exact: ["logo_01", "logo_static", "Size_Holder_Logo"],
             contains: [],
             imageOnlyForContains: false
         },
@@ -260,19 +260,15 @@ function __AddLayers_coreRun(opts) {
             contains: []
         },
         logo_03: {
-            exact: ["logo_03"],
+            exact: ["logo_03_location_pin"],
             contains: []
         },
         logo_04: {
-            exact: ["logo_04"],
-            contains: []
-        },
-        logo_04: {
-            exact: ["logo_04"],
+            exact: ["logo_04_Formula_1"],
             contains: []
         },
         logo_05: {
-            exact: ["logo_05"],
+            exact: ["logo_05_F1"],
             contains: []
         },
         claim: {
@@ -1168,10 +1164,17 @@ function __AddLayers_coreRun(opts) {
         var logoMM = resolveTimingSpan(v, 'logo', TIMING_ITEM_SELECTOR);
         // Support separate timing group for logo_02; when array is missing, use logo array with logo_02 selector; then fallback to logo
         var logo02MM = resolveTimingSpan(v, 'logo_02', TIMING_ITEM_SELECTOR);
-        if (!logo02MM) {
+        var __logo02Origin = null; // 'logo_02' | "logo[selector]" | "logo[fallback]"
+        var __logo02SelectorUsed = null; // cache selector used for alias logging
+        if (logo02MM) {
+            __logo02Origin = 'logo_02';
+        } else {
             var selLogo02 = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['logo_02']) ? TIMING_ITEM_SELECTOR['logo_02'] : null;
-            if (selLogo02) logo02MM = resolveTimingSpanOnArray(v, 'logo', selLogo02);
-            if (!logo02MM) logo02MM = logoMM;
+            if (selLogo02) {
+                logo02MM = resolveTimingSpanOnArray(v, 'logo', selLogo02);
+                if (logo02MM) { __logo02Origin = "logo[selector]"; __logo02SelectorUsed = selLogo02; }
+            }
+            if (!logo02MM) { logo02MM = logoMM; if (logo02MM) __logo02Origin = "logo[fallback]"; }
         }
         var claimMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
@@ -1345,6 +1348,16 @@ function __AddLayers_coreRun(opts) {
             if (logo02MM && isLogo02) {
                 setLayerInOut(ly, logo02MM.tin, logo02MM.tout, comp.duration);
                 log("Set logo_02 layer '" + nm + "' to [" + logo02MM.tin + ", " + logo02MM.tout + ")");
+                // Concise timing origin line when alias path or fallback was used
+                if (__logo02Origin === "logo[selector]" && __logo02SelectorUsed) {
+                    try {
+                        var mm = String(__logo02SelectorUsed.mode||'');
+                        var vv = (typeof __logo02SelectorUsed.value !== 'undefined') ? __logo02SelectorUsed.value : '';
+                        log("logo_02 timing: aliased from 'logo' via " + mm + "=" + vv);
+                    } catch(eAli) {}
+                } else if (__logo02Origin === "logo[fallback]") {
+                    log("logo_02 timing: used 'logo' fallback (no dedicated selector/array)");
+                }
             }
 
             // Apply for generic 'logo'
