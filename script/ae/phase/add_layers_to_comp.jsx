@@ -271,8 +271,12 @@ function __AddLayers_coreRun(opts) {
             exact: ["logo_05_F1"],
             contains: []
         },
-        claim: {
+        claim_01: {
             exact: ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
+            contains: []
+        },
+        claim_02: {
+            exact: ["claim_02", "Size_Holder_Claim_02", "web", "__scaler__null__"],
             contains: []
         },
         disclaimer: {
@@ -316,7 +320,8 @@ function __AddLayers_coreRun(opts) {
         logo: 'timed',
         logoAnim: 'timed',
         logo_02: 'timed',
-        claim: 'timed',
+        claim_01: 'timed',
+        claim_02: 'timed',
         // Span groups / literals
         logo_03: 'span',
         logo_04: 'span',
@@ -349,7 +354,8 @@ function __AddLayers_coreRun(opts) {
         logo: { mode: 'line', value: 1 },
         logoAnim: { mode: 'line', value: 1 },
         logo_02: { mode: 'line', value: 2 },
-        claim: { mode: 'line', value: 1 }
+        claim_01: { mode: 'line', value: 1 },
+        claim_02: { mode: 'line', value: 1 }
     };
 
     // Options overrides
@@ -1176,7 +1182,19 @@ function __AddLayers_coreRun(opts) {
             }
             if (!logo02MM) { logo02MM = logoMM; if (logo02MM) __logo02Origin = "logo[fallback]"; }
         }
-        var claimMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+        // Claim timing: rename group to claim_01; JSON key remains 'claim'
+        var claim01MM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+        // Support separate timing group for claim_02 via alias from 'claim' array using selector; fallback to claim_01
+        var claim02MM = null;
+        var __claim02Origin = null; // 'claim_02' | "claim[selector]" | "claim[fallback]"
+        var __claim02SelectorUsed = null;
+        // There is no dedicated JSON array for claim_02, we alias from 'claim' using TIMING_ITEM_SELECTOR['claim_02']
+        var selClaim02 = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['claim_02']) ? TIMING_ITEM_SELECTOR['claim_02'] : null;
+        if (selClaim02) {
+            claim02MM = resolveTimingSpanOnArray(v, 'claim', selClaim02);
+            if (claim02MM) { __claim02Origin = "claim[selector]"; __claim02SelectorUsed = selClaim02; }
+        }
+        if (!claim02MM && claim01MM) { claim02MM = claim01MM; __claim02Origin = "claim[fallback]"; }
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
         // Helper to extract flag value given a configured key (checks video then video.metadata)
         function extractFlag(videoObj, keyName) {
@@ -1382,10 +1400,26 @@ function __AddLayers_coreRun(opts) {
             }
             var timingBeh = resolveTimingBehaviorForLayer(nm) || 'asIs';
 
-            // Claim timing (only when timed behavior)
-            if (timingBeh === 'timed' && claimMM && (matchesExact(nm, LAYER_NAME_CONFIG.claim.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim.contains))) {
-                setLayerInOut(ly, claimMM.tin, claimMM.tout, comp.duration);
-                log("Set claim layer '" + nm + "' to [" + claimMM.tin + ", " + claimMM.tout + ")");
+            // Claim_01 timing (only when timed behavior)
+            if (timingBeh === 'timed' && claim01MM && (matchesExact(nm, LAYER_NAME_CONFIG.claim_01.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim_01.contains))) {
+                setLayerInOut(ly, claim01MM.tin, claim01MM.tout, comp.duration);
+                log("Set claim_01 layer '" + nm + "' to [" + claim01MM.tin + ", " + claim01MM.tout + ")");
+                appliedAny = true;
+            }
+            // Claim_02 timing (alias from 'claim' JSON via TIMING_ITEM_SELECTOR['claim_02'])
+            var isClaim02 = (matchesExact(nm, (LAYER_NAME_CONFIG.claim_02 && LAYER_NAME_CONFIG.claim_02.exact) ? LAYER_NAME_CONFIG.claim_02.exact : []) || matchesContains(nm, (LAYER_NAME_CONFIG.claim_02 && LAYER_NAME_CONFIG.claim_02.contains) ? LAYER_NAME_CONFIG.claim_02.contains : []));
+            if (timingBeh === 'timed' && claim02MM && isClaim02) {
+                setLayerInOut(ly, claim02MM.tin, claim02MM.tout, comp.duration);
+                log("Set claim_02 layer '" + nm + "' to [" + claim02MM.tin + ", " + claim02MM.tout + ")");
+                if (__claim02Origin === "claim[selector]" && __claim02SelectorUsed) {
+                    try {
+                        var mm2 = String(__claim02SelectorUsed.mode||'minMax');
+                        var vv2 = (__claim02SelectorUsed.value!==undefined && __claim02SelectorUsed.value!==null) ? String(__claim02SelectorUsed.value) : "-";
+                        log("claim_02 timing: aliased from 'claim' via " + mm2 + "=" + vv2);
+                    } catch(eAliC) {}
+                } else if (__claim02Origin === "claim[fallback]") {
+                    log("claim_02 timing: used 'claim' fallback (no dedicated selector)");
+                }
                 appliedAny = true;
             }
             // Disclaimer (timed/span/asIs) + visibility
