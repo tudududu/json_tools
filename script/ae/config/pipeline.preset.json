@@ -123,18 +123,13 @@
             "contains": ["info"] 
             },
         "logo": { 
-            "exact": ["logo_static", "Size_Holder_Logo"], 
+            "exact": ["logo_01", "logo_static", "Size_Holder_Logo"], 
             "contains": [], 
             "imageOnlyForContains": false 
         },
         "logoAnim": { 
             "exact": ["logo_anim", "Size_Holder_Logo"], 
             "contains": [] 
-            },
-        "logo_01": { 
-            "exact": ["logo_01", "Size_Holder_Logo"], 
-            "contains": [], 
-            "imageOnlyForContains": false 
             },
         "logo_02": { 
             "exact": ["logo_02", "Size_Holder_Logo_02"], 
@@ -153,8 +148,16 @@
             "exact": ["logo_05_F1"], 
             "contains": ["logo_05"] 
             },
-        "claim": { 
-            "exact": ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
+        "claim_01": { 
+            "exact": ["claim", "Size_Holder_Claim"],
+            "contains": [] 
+            },
+        "claim_02": { 
+            "exact": ["claim_02", "Size_Holder_Claim_02"],
+            "contains": [] 
+            },
+        "claim_auxiliary": { 
+            "exact": ["web", "__scaler__null__"],
             "contains": [] 
             },
         "disclaimer": { 
@@ -187,12 +190,14 @@
     "TIMING_BEHAVIOR": {
         "logo": "timed",
         "logoAnim": "timed",
-        "logo_01": "timed",
         "logo_02": "timed",
+        "claim_01": "timed",
+        "claim_02": "timed",
+        "claim_auxiliary": "timed",
+
         "logo_03": "span",
         "logo_04": "span",
         "logo_05": "span",
-        "claim": "timed",
         "disclaimer": "span",
         "disclaimer_02": "span",
         "disclaimer02": "span",
@@ -210,10 +215,12 @@
         "Pin": "span"
     },
     "TIMING_ITEM_SELECTOR": {
-        "logo_01": { "mode": "line", "value": 1 },
+        "logo": { "mode": "line", "value": 1 },
+        "logoAnim": { "mode": "line", "value": 1 },
         "logo_02": { "mode": "line", "value": 2 },
-        "logo_04": { "mode": "line", "value": 4 },
-        "claim": { "mode": "line", "value": 1 }
+        
+        "claim_01": { "mode": "line", "value": 1 },
+        "claim_02": { "mode": "line", "value": 2 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff":true, 

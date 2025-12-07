@@ -279,6 +279,11 @@ function __AddLayers_coreRun(opts) {
             exact: ["claim_02", "Size_Holder_Claim_02"],
             contains: []
         },
+        // Auxiliary claim group: timed from 'claim' but excluded from claim_01/02 skip-copy flags
+        claim_auxiliary: {
+            exact: ["web", "__scaler__null__"],
+            contains: []
+        },
         disclaimer: {
             exact: ["disclaimer", "Size_Holder_Disclaimer"],
             contains: []
@@ -322,7 +327,8 @@ function __AddLayers_coreRun(opts) {
         logo_02: 'timed',
         claim_01: 'timed',
         claim_02: 'timed',
-        // Span groups / literals
+        claim_auxiliary: 'timed',
+        // Span groups
         logo_03: 'span',
         logo_04: 'span',
         logo_05: 'span',
@@ -355,7 +361,8 @@ function __AddLayers_coreRun(opts) {
         logoAnim: { mode: 'line', value: 1 },
         logo_02: { mode: 'line', value: 2 },
         claim_01: { mode: 'line', value: 1 },
-        claim_02: { mode: 'line', value: 1 }
+        claim_02: { mode: 'line', value: 1 },
+        claim_auxiliary: { mode: 'line', value: 1 }
     };
 
     // Options overrides
@@ -1292,6 +1299,7 @@ function __AddLayers_coreRun(opts) {
             var isGenericLogo = (logoExact || logoContainsOk) && !isLogoAnim;
             // Dedicated match for logo_02 group
             var isLogo02 = (matchesExact(nm, (LAYER_NAME_CONFIG.logo_02 && LAYER_NAME_CONFIG.logo_02.exact) ? LAYER_NAME_CONFIG.logo_02.exact : []) || matchesContains(nm, (LAYER_NAME_CONFIG.logo_02 && LAYER_NAME_CONFIG.logo_02.contains) ? LAYER_NAME_CONFIG.logo_02.contains : []));
+            var isClaimAux = (matchesExact(nm, (LAYER_NAME_CONFIG.claim_auxiliary && LAYER_NAME_CONFIG.claim_auxiliary.exact) ? LAYER_NAME_CONFIG.claim_auxiliary.exact : []) || matchesContains(nm, (LAYER_NAME_CONFIG.claim_auxiliary && LAYER_NAME_CONFIG.claim_auxiliary.contains) ? LAYER_NAME_CONFIG.claim_auxiliary.contains : []));
 
             // Apply for logo_anim first
             if (logoMM && isLogoAnim) {
@@ -1442,6 +1450,17 @@ function __AddLayers_coreRun(opts) {
                     log("claim_02 timing: used 'claim' fallback (no dedicated selector)");
                 }
                 appliedAny = true;
+            }
+            // Claim auxiliary timing: source from 'claim' timing, but do NOT participate in claim_01/02 skip-copy logic
+            if (timingBeh === 'timed' && isClaimAux) {
+                var auxMM = null;
+                // Prefer claim_01 selector resolution if available, else generic claim resolution
+                if (claim01MM) auxMM = claim01MM; else auxMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+                if (auxMM) {
+                    setLayerInOut(ly, auxMM.tin, auxMM.tout, comp.duration);
+                    log("Set claim_auxiliary layer '" + nm + "' to [" + auxMM.tin + ", " + auxMM.tout + ") (sourced from 'claim')");
+                    appliedAny = true;
+                }
             }
             // Disclaimer (timed/span/asIs) + visibility
             var isDisclaimer = (matchesExact(nm, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(nm, LAYER_NAME_CONFIG.disclaimer.contains));
