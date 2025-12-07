@@ -225,7 +225,7 @@ function __AddLayers_coreRun(opts) {
         alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
         // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
         groups: {
-            enabled: true,
+            enabled: false,
             keys: ["info"/* e.g., "claim" */]
         },
         // Ad-hoc skip list (name tokens); case-insensitive contains match
@@ -272,11 +272,11 @@ function __AddLayers_coreRun(opts) {
             contains: []
         },
         claim_01: {
-            exact: ["claim", "Size_Holder_Claim", "web", "__scaler__null__"],
+            exact: ["claim", "Size_Holder_Claim"],
             contains: []
         },
         claim_02: {
-            exact: ["claim_02", "Size_Holder_Claim_02", "web", "__scaler__null__"],
+            exact: ["claim_02", "Size_Holder_Claim_02"],
             contains: []
         },
         disclaimer: {
@@ -1658,8 +1658,9 @@ function __AddLayers_coreRun(opts) {
                     var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
                     var isDisclaimer02 = nameMatchesGroup(lname, 'disclaimer02') || (lname.toLowerCase() === 'disclaimer_02');
                     var isLogo02 = nameMatchesGroup(lname, 'logo_02') || (lname.toLowerCase() === 'logo_02');
-                    var isClaim01 = (lname.toLowerCase() === 'claim_01');
-                    var isClaim02 = (lname.toLowerCase() === 'claim_02');
+                    // Use group-based matching so flags apply to all configured names
+                    var isClaim01 = nameMatchesGroup(lname, 'claim_01') || (lname.toLowerCase() === 'claim_01');
+                    var isClaim02 = nameMatchesGroup(lname, 'claim_02') || (lname.toLowerCase() === 'claim_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
                     var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
