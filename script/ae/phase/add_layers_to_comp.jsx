@@ -1185,9 +1185,17 @@ function __AddLayers_coreRun(opts) {
         // Claim timing: rename group to claim_01; JSON key remains 'claim'
         // Honor TIMING_ITEM_SELECTOR['claim_01'] explicitly on the 'claim' array; fallback to generic resolution
         var claim01MM = null;
+        var __claim01Origin = null; // "claim_01" | "claim[selector]" | "claim[minMax]"
+        var __claim01SelectorUsed = null;
         var selClaim01 = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['claim_01']) ? TIMING_ITEM_SELECTOR['claim_01'] : null;
-        if (selClaim01) { claim01MM = resolveTimingSpanOnArray(v, 'claim', selClaim01); }
-        if (!claim01MM) { claim01MM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR); }
+        if (selClaim01) {
+            claim01MM = resolveTimingSpanOnArray(v, 'claim', selClaim01);
+            if (claim01MM) { __claim01Origin = "claim[selector]"; __claim01SelectorUsed = selClaim01; }
+        }
+        if (!claim01MM) {
+            claim01MM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+            if (claim01MM) { __claim01Origin = "claim[minMax]"; }
+        }
         // Support separate timing group for claim_02 via alias from 'claim' array using selector; fallback to claim_01
         var claim02MM = null;
         var __claim02Origin = null; // 'claim_02' | "claim[selector]" | "claim[fallback]"
@@ -1408,6 +1416,15 @@ function __AddLayers_coreRun(opts) {
             if (timingBeh === 'timed' && claim01MM && (matchesExact(nm, LAYER_NAME_CONFIG.claim_01.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim_01.contains))) {
                 setLayerInOut(ly, claim01MM.tin, claim01MM.tout, comp.duration);
                 log("Set claim_01 layer '" + nm + "' to [" + claim01MM.tin + ", " + claim01MM.tout + ")");
+                if (__claim01Origin === "claim[selector]" && __claim01SelectorUsed) {
+                    try {
+                        var mm1 = String(__claim01SelectorUsed.mode||'minMax');
+                        var vv1 = (__claim01SelectorUsed.value!==undefined && __claim01SelectorUsed.value!==null) ? String(__claim01SelectorUsed.value) : "-";
+                        log("claim_01 timing: aliased from 'claim' via " + mm1 + "=" + vv1);
+                    } catch(eAliC1) {}
+                } else if (__claim01Origin === "claim[minMax]") {
+                    log("claim_01 timing: used minMax aggregation on 'claim' array");
+                }
                 appliedAny = true;
             }
             // Claim_02 timing (alias from 'claim' JSON via TIMING_ITEM_SELECTOR['claim_02'])
