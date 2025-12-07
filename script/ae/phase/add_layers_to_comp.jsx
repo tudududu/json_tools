@@ -1183,7 +1183,11 @@ function __AddLayers_coreRun(opts) {
             if (!logo02MM) { logo02MM = logoMM; if (logo02MM) __logo02Origin = "logo[fallback]"; }
         }
         // Claim timing: rename group to claim_01; JSON key remains 'claim'
-        var claim01MM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
+        // Honor TIMING_ITEM_SELECTOR['claim_01'] explicitly on the 'claim' array; fallback to generic resolution
+        var claim01MM = null;
+        var selClaim01 = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['claim_01']) ? TIMING_ITEM_SELECTOR['claim_01'] : null;
+        if (selClaim01) { claim01MM = resolveTimingSpanOnArray(v, 'claim', selClaim01); }
+        if (!claim01MM) { claim01MM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR); }
         // Support separate timing group for claim_02 via alias from 'claim' array using selector; fallback to claim_01
         var claim02MM = null;
         var __claim02Origin = null; // 'claim_02' | "claim[selector]" | "claim[fallback]"
