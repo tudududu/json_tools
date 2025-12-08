@@ -1,5 +1,4 @@
-// sourceText_json_wire
-// v05 (orientation update)
+// sourceText_json_wire v05 (orientation update)
 // Rewired for new JSON shape with orientation-specific top-level keys:
 //   claim: { landscape:[...], portrait:[...] }
 //   disclaimer: { landscape:[...], portrait:[...] }

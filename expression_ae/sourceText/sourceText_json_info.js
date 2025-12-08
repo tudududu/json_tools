@@ -1,4 +1,4 @@
-// sourceText_json_info v02 251128 (per-video metadata inspector)
+// sourceText_json_info v03 251208 (per-video metadata inspector)
 // Builds an informational multiline string combining global metadata and the resolved video object's metadata.
 // Intended for a debug / QA text layer inside AE.
 // Output example:
@@ -92,6 +92,9 @@ try {
   var super_A_flag = toStr(safe(vMeta, ["super_A_flag"], "-"));
   var super_B_flag = toStr(safe(vMeta, ["super_B_flag"], "-"));
   var logo_animFlag = toStr(safe(vMeta, ["logo_anim_flag"], "-"));
+  var logo_02_flag = toStr(safe(vMeta, ["logo_02_flag"], "-"));
+  var claim_01_flag = toStr(safe(vMeta, ["claim_01_flag"], "-"));
+  var claim_02_flag = toStr(safe(vMeta, ["claim_02_flag"], "-"));
   var subsLen  = video && video.subtitles instanceof Array ? (video.subtitles.length+"") : (video ? "0" : "-");
         
   out  = "client: " + client;
@@ -109,6 +112,9 @@ try {
   out += "\rsuper_A: " + super_A_flag;
   out += "\rsuper_B: " + super_B_flag;
   out += "\rlogo_anim: " + logo_animFlag;
+  out += "\rlogo_02: " + logo_02_flag;
+  out += "\rclaim_01: " + claim_01_flag;
+  out += "\rclaim_02: " + claim_02_flag;
   out += "\rsubtitles: " + subsLen;
 } catch (err) {
   out = "(metadata unavailable)";

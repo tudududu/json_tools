@@ -1,8 +1,6 @@
-// sourceText_json_wire
-// v09 (ticket 13)
+// sourceText_json_wire v09 (ticket 13)
 // Style-preserving
 // -----------------------
-
 // JSON → text; match video by comp name and gate by time (exclusive out)
 // Supports keys: "subtitles", "claim", "disclaimer"
 // - "subtitles": shows ALL items whose [in, out) contains time (stacked)
