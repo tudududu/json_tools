@@ -1682,7 +1682,7 @@ function __AddLayers_coreRun(opts) {
                 if (inList(FLAG_VALUES.OFF) && cfg===FLAG_VALUES) return 'off';
                 return null;
             }
-            var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
+            var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _logo03Mode = 'off', _logo04Mode = 'off', _logo05Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
             if (vRec) {
                 var __modes = getModesForVideo(vRec);
                 _discMode = __modes.effective.disclaimer;
@@ -1690,6 +1690,9 @@ function __AddLayers_coreRun(opts) {
                 _subtMode = __modes.effective.subtitles;
                 _logoAnimMode = __modes.effective.logoAnim;
                 _logo02Mode = __modes.effective.logo02;
+                _logo03Mode = __modes.effective.logo03;
+                _logo04Mode = __modes.effective.logo04;
+                _logo05Mode = __modes.effective.logo05;
                 _claim01Mode = __modes.effective.claim01;
                 _claim02Mode = __modes.effective.claim02;
             }
@@ -1709,6 +1712,9 @@ function __AddLayers_coreRun(opts) {
                     var isDisclaimer = nameMatchesGroup(lname, 'disclaimer');
                     var isDisclaimer02 = nameMatchesGroup(lname, 'disclaimer02') || (lname.toLowerCase() === 'disclaimer_02');
                     var isLogo02 = nameMatchesGroup(lname, 'logo_02') || (lname.toLowerCase() === 'logo_02');
+                    var isLogo03 = nameMatchesGroup(lname, 'logo_03') || (lname.toLowerCase() === 'logo_03');
+                    var isLogo04 = nameMatchesGroup(lname, 'logo_04') || (lname.toLowerCase() === 'logo_04');
+                    var isLogo05 = nameMatchesGroup(lname, 'logo_05') || (lname.toLowerCase() === 'logo_05');
                     // Use group-based matching so flags apply to all configured names
                     var isClaim01 = nameMatchesGroup(lname, 'claim_01') || (lname.toLowerCase() === 'claim_01');
                     var isClaim02 = nameMatchesGroup(lname, 'claim_02') || (lname.toLowerCase() === 'claim_02');
@@ -1723,6 +1729,9 @@ function __AddLayers_coreRun(opts) {
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.disclaimer02Off && isDisclaimer02 && _disc02Mode !== 'on') { log("Skip copy: '"+lname+"' (disclaimer_02 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.subtitlesOff && isSubtitles && _subtMode !== 'on') { log("Skip copy: '"+lname+"' (subtitles OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo02Off && isLogo02 && _logo02Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_02 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo03Off && isLogo03 && _logo03Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_03 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo04Off && isLogo04 && _logo04Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_04 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo05Off && isLogo05 && _logo05Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_05 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim01Off && isClaim01 && _claim01Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_01 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim02Off && isClaim02 && _claim02Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_02 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
