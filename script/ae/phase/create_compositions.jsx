@@ -421,6 +421,8 @@ function __CreateComps_coreRun(opts) {
 	// Selection build
 	var selection = (opts && opts.selection && opts.selection.length) ? opts.selection : null;
 	var __autoErrorReason = null;
+	var __collectedFootageCount = 0;
+	var __collectedCompCount = 0;
 	if (AUTO_FROM_PROJECT_FOOTAGE === true && (!selection || !selection.length)) {
 		try {
 			var targetPathStr = FOOTAGE_PROJECT_PATH.join("/");
@@ -446,10 +448,20 @@ function __CreateComps_coreRun(opts) {
 					if (__verbose) dumpFolderChildren(dateFolder, dateFolder.name, 60);
 					var coll = [];
 					collectFootageRecursive(dateFolder, INCLUDE_SUBFOLDERS, coll);
-					log("Auto footage: collected items count = " + coll.length + ", includeSubfolders=" + (INCLUDE_SUBFOLDERS?"true":"false"));
+					// Count item types for summary and log
+					__collectedFootageCount = 0; __collectedCompCount = 0;
+					for (var ci = 0; ci < coll.length; ci++) {
+						var it2 = coll[ci];
+						if (it2 instanceof FootageItem) __collectedFootageCount++;
+						else if (it2 instanceof CompItem) __collectedCompCount++;
+					}
+					log("Auto footage: collected items count = " + coll.length + 
+						", footage=" + __collectedFootageCount + 
+						", comps=" + __collectedCompCount + 
+						", includeSubfolders=" + (INCLUDE_SUBFOLDERS?"true":"false"));
 					if (coll.length) {
 						selection = coll;
-						log("Auto footage: using " + coll.length + " footage item(s) from '" + dateFolder.name + "'.");
+						log("Auto footage: using " + coll.length + " item(s) from '" + dateFolder.name + "'.");
 					} else {
 						__autoErrorReason = "Auto footage: no footage items found under '" + dateFolder.name + "'.";
 						log(__autoErrorReason);
@@ -619,6 +631,11 @@ function __CreateComps_coreRun(opts) {
 		lines.push('--- Summary ---');
 		lines.push('createdCount=' + createdCount);
 		lines.push('skippedCount=' + skipped.length);
+		if (AUTO_FROM_PROJECT_FOOTAGE) {
+			lines.push('collected.total=' + (selection ? selection.length : 0));
+			lines.push('collected.footage=' + __collectedFootageCount);
+			lines.push('collected.comps=' + __collectedCompCount);
+		}
 		if (createdList.length) {
 			lines.push('Created Names:');
 			for (var cn=0; cn<createdList.length; cn++) lines.push('  - ' + createdList[cn].name);
