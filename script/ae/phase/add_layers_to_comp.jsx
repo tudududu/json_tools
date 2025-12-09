@@ -201,6 +201,9 @@ function __AddLayers_coreRun(opts) {
     var LOGO_ANIM_FLAG_KEY = "logo_anim_flag";  // values: 'y','n' (case-insensitive); controls 'logo_anim' vs 'logo' visibility
     // New per-video flags for skip-copy behavior
     var LOGO_02_FLAG_KEY = "logo_02_flag";      // controls 'logo_02' layer visibility
+    var LOGO_03_FLAG_KEY = "logo_03_flag";      // controls 'logo_03' layer visibility
+    var LOGO_04_FLAG_KEY = "logo_04_flag";      // controls 'logo_04' layer visibility
+    var LOGO_05_FLAG_KEY = "logo_05_flag";      // controls 'logo_05' layer visibility
     var CLAIM_01_FLAG_KEY = "claim_01_flag";    // controls 'claim_01' layer visibility
     var CLAIM_02_FLAG_KEY = "claim_02_flag";    // controls 'claim_02' layer visibility
     // Configurable acceptable values (all compared case-insensitively)
@@ -219,6 +222,9 @@ function __AddLayers_coreRun(opts) {
         subtitlesOff: true,
         logoAnimOff:  true,
         logo02Off: true,
+        logo03Off: true,
+        logo04Off: true,
+        logo05Off: true,
         claim01Off: true,
         claim02Off: true,
         // Base logo layers that must always be copied (case-insensitive exact names)
@@ -535,6 +541,9 @@ function __AddLayers_coreRun(opts) {
             subtitles: extractFlagFromVideo(videoObj, SUBTITLES_FLAG_KEY),
             logoAnim: extractFlagFromVideo(videoObj, LOGO_ANIM_FLAG_KEY),
             logo02: extractFlagFromVideo(videoObj, LOGO_02_FLAG_KEY),
+            logo03: extractFlagFromVideo(videoObj, LOGO_03_FLAG_KEY),
+            logo04: extractFlagFromVideo(videoObj, LOGO_04_FLAG_KEY),
+            logo05: extractFlagFromVideo(videoObj, LOGO_05_FLAG_KEY),
             claim01: extractFlagFromVideo(videoObj, CLAIM_01_FLAG_KEY),
             claim02: extractFlagFromVideo(videoObj, CLAIM_02_FLAG_KEY)
         };
@@ -544,6 +553,9 @@ function __AddLayers_coreRun(opts) {
             subtitles: interpretFlagValue(raw.subtitles, FLAG_VALUES, { allowAuto: false }),
             logoAnim: interpretFlagValue(raw.logoAnim, FLAG_VALUES, { allowAuto: false }),
             logo02: interpretFlagValue(raw.logo02, FLAG_VALUES, { allowAuto: false }),
+            logo03: interpretFlagValue(raw.logo03, FLAG_VALUES, { allowAuto: false }),
+            logo04: interpretFlagValue(raw.logo04, FLAG_VALUES, { allowAuto: false }),
+            logo05: interpretFlagValue(raw.logo05, FLAG_VALUES, { allowAuto: false }),
             claim01: interpretFlagValue(raw.claim01, FLAG_VALUES, { allowAuto: false }),
             claim02: interpretFlagValue(raw.claim02, FLAG_VALUES, { allowAuto: false })
         };
@@ -553,6 +565,9 @@ function __AddLayers_coreRun(opts) {
             subtitles: toEffective(modes.subtitles, 'off'),
             logoAnim: toEffective(modes.logoAnim, 'off'),
             logo02: toEffective(modes.logo02, 'off'),
+            logo03: toEffective(modes.logo03, 'off'),
+            logo04: toEffective(modes.logo04, 'off'),
+            logo05: toEffective(modes.logo05, 'off'),
             claim01: toEffective(modes.claim01, 'off'),
             claim02: toEffective(modes.claim02, 'off')
         };
