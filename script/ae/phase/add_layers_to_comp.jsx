@@ -1214,6 +1214,17 @@ function __AddLayers_coreRun(opts) {
             if (claim02MM) { __claim02Origin = "claim[selector]"; __claim02SelectorUsed = selClaim02; }
         }
         if (!claim02MM && claim01MM) { claim02MM = claim01MM; __claim02Origin = "claim[fallback]"; }
+        // Auxiliary claim timing: allow separate selector on 'claim' array; fallback to claim_01, then generic 'claim'
+        var claimAuxMM = null;
+        var __claimAuxOrigin = null; // "claim[selector]" | "claim_01" | "claim[minMax]"
+        var __claimAuxSelectorUsed = null;
+        var selClaimAux = (TIMING_ITEM_SELECTOR && TIMING_ITEM_SELECTOR['claim_auxiliary']) ? TIMING_ITEM_SELECTOR['claim_auxiliary'] : null;
+        if (selClaimAux) {
+            claimAuxMM = resolveTimingSpanOnArray(v, 'claim', selClaimAux);
+            if (claimAuxMM) { __claimAuxOrigin = "claim[selector]"; __claimAuxSelectorUsed = selClaimAux; }
+        }
+        if (!claimAuxMM && claim01MM) { claimAuxMM = claim01MM; __claimAuxOrigin = 'claim_01'; }
+        if (!claimAuxMM) { claimAuxMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR); if (claimAuxMM) __claimAuxOrigin = 'claim[minMax]'; }
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
         // Helper to extract flag value given a configured key (checks video then video.metadata)
         function extractFlag(videoObj, keyName) {
@@ -1451,16 +1462,22 @@ function __AddLayers_coreRun(opts) {
                 }
                 appliedAny = true;
             }
-            // Claim auxiliary timing: source from 'claim' timing, but do NOT participate in claim_01/02 skip-copy logic
-            if (timingBeh === 'timed' && isClaimAux) {
-                var auxMM = null;
-                // Prefer claim_01 selector resolution if available, else generic claim resolution
-                if (claim01MM) auxMM = claim01MM; else auxMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR);
-                if (auxMM) {
-                    setLayerInOut(ly, auxMM.tin, auxMM.tout, comp.duration);
-                    log("Set claim_auxiliary layer '" + nm + "' to [" + auxMM.tin + ", " + auxMM.tout + ") (sourced from 'claim')");
-                    appliedAny = true;
+            // Claim auxiliary timing: source via its own selector on 'claim' (or fallback), not controlled by claim_01/02 flags
+            if (timingBeh === 'timed' && isClaimAux && claimAuxMM) {
+                setLayerInOut(ly, claimAuxMM.tin, claimAuxMM.tout, comp.duration);
+                log("Set claim_auxiliary layer '" + nm + "' to [" + claimAuxMM.tin + ", " + claimAuxMM.tout + ")");
+                if (__claimAuxOrigin === "claim[selector]" && __claimAuxSelectorUsed) {
+                    try {
+                        var mmA = String(__claimAuxSelectorUsed.mode||'minMax');
+                        var vvA = (__claimAuxSelectorUsed.value!==undefined && __claimAuxSelectorUsed.value!==null) ? String(__claimAuxSelectorUsed.value) : "-";
+                        log("claim_auxiliary timing: aliased from 'claim' via " + mmA + "=" + vvA);
+                    } catch(eAliAux) {}
+                } else if (__claimAuxOrigin === 'claim_01') {
+                    log("claim_auxiliary timing: used claim_01 resolved span");
+                } else if (__claimAuxOrigin === 'claim[minMax]') {
+                    log("claim_auxiliary timing: used minMax aggregation on 'claim' array");
                 }
+                appliedAny = true;
             }
             // Disclaimer (timed/span/asIs) + visibility
             var isDisclaimer = (matchesExact(nm, LAYER_NAME_CONFIG.disclaimer.exact) || matchesContains(nm, LAYER_NAME_CONFIG.disclaimer.contains));
