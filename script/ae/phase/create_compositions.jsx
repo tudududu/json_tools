@@ -40,7 +40,7 @@ function __CreateComps_coreRun(opts) {
 	var MAX_LOG_LINES = 2000;          // Safety cap to avoid runaway file growth
 	var __logLineCount = 0;            // Internal counter
 	// New: automatic footage scan mode (project panel path)
-	var AUTO_FROM_PROJECT_FOOTAGE = false;
+	var AUTO_FROM_PROJECT_FOOTAGE = true;
 	var FOOTAGE_PROJECT_PATH = ["project","in","footage"]; // Folder chain in AE Project panel
 	var FOOTAGE_DATE_YYMMDD = ""; // empty => pick newest YYMMDD under FOOTAGE_PROJECT_PATH
 	var INCLUDE_SUBFOLDERS = true;
@@ -258,11 +258,17 @@ function __CreateComps_coreRun(opts) {
 	}
 
 	function collectFootageRecursive(folderItem, includeSubfolders, outArr) {
+		// Collect FootageItems; when gate-enabled, also collect CompItems as sources
 		if (!folderItem) return;
 		for (var i = 1; i <= folderItem.numItems; i++) {
 			var it = folderItem.items[i];
-			if (it instanceof FootageItem) outArr.push(it);
-			else if (includeSubfolders && it instanceof FolderItem) collectFootageRecursive(it, includeSubfolders, outArr);
+			if (it instanceof FootageItem) {
+				outArr.push(it);
+			} else if (ENABLE_ACCEPT_COMP_SOURCE && it instanceof CompItem) {
+				outArr.push(it);
+			} else if (includeSubfolders && it instanceof FolderItem) {
+				collectFootageRecursive(it, includeSubfolders, outArr);
+			}
 		}
 	}
 
@@ -440,7 +446,7 @@ function __CreateComps_coreRun(opts) {
 					if (__verbose) dumpFolderChildren(dateFolder, dateFolder.name, 60);
 					var coll = [];
 					collectFootageRecursive(dateFolder, INCLUDE_SUBFOLDERS, coll);
-					log("Auto footage: collected FootageItems count = " + coll.length + ", includeSubfolders=" + (INCLUDE_SUBFOLDERS?"true":"false"));
+					log("Auto footage: collected items count = " + coll.length + ", includeSubfolders=" + (INCLUDE_SUBFOLDERS?"true":"false"));
 					if (coll.length) {
 						selection = coll;
 						log("Auto footage: using " + coll.length + " footage item(s) from '" + dateFolder.name + "'.");
