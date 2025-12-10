@@ -291,7 +291,6 @@
                 // addLayers
                 if (OPTS.addLayers) {
                     v.push("  addLayers.ENABLE_FILE_LOG=" + (OPTS.addLayers.ENABLE_FILE_LOG !== false));
-                    v.push("  addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER=" + (OPTS.addLayers.ENABLE_JSON_TIMING_FOR_DISCLAIMER === true));
                     var tmc = OPTS.addLayers.TEMPLATE_MATCH_CONFIG || {};
                     v.push("  addLayers.TEMPLATE_MATCH_CONFIG.arTolerance=" + (tmc.arTolerance!==undefined?tmc.arTolerance:"") );
                     v.push("  addLayers.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch=" + (tmc.requireAspectRatioMatch===true));

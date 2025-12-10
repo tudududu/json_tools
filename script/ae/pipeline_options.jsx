@@ -147,8 +147,6 @@
             // Auto-center any un-parented layers when the target AR differs from the template.
             // When false, no auto-centering is attempted unless explicitly forced by recenterRules (see LAYER_NAME_CONFIG in the script).
             ENABLE_AUTOCENTER_ON_AR_MISMATCH: true,
-            // Disclaimer timing: when true, use JSON disclaimer in/out; when false, set disclaimer layers to full comp duration.
-            // ENABLE_JSON_TIMING_FOR_DISCLAIMER: false,
             // Template picking configuration (Solutions A/B/C)
             //  A) Single template: keep a single template comp under TEMPLATE_FOLDER_PATH (implicit)
             //  B) Multiple templates — match AR: the picker prefers AR within tolerance; optionally require AR match
@@ -275,7 +273,7 @@
                 }
             },
 
-            // TIMING_BEHAVIOR: declarative timing control (replaces FULL_DURATION_LAYER_GROUPS & ENABLE_JSON_TIMING_FOR_DISCLAIMER)
+            // TIMING_BEHAVIOR: declarative timing control
             // Values: 'timed' => apply JSON min/max; 'span' => force full comp duration; 'asIs' => keep template timing.
             // Keys may be LAYER_NAME_CONFIG group keys OR literal layer names (case-insensitive exact).
             TIMING_BEHAVIOR: {

@@ -11,7 +11,6 @@
 // Configuration notes
 // - TEMPLATE_FOLDER_PATH: where the template comp lives in the Project panel tree
 // - TIMING_BEHAVIOR: map choosing 'timed' | 'span' | 'asIs' per group or literal layer name.
-//   Replaces legacy ENABLE_JSON_TIMING_FOR_DISCLAIMER & FULL_DURATION_LAYER_GROUPS.
 //   Default: disclaimer & disclaimer_02 => 'span'; logo/logoAnim/claim => 'timed'; subtitles/dataJson/super_A/info/template_aspect/center => 'span'.
 // - LAYER_NAME_CONFIG: identification lists for logo/claim/disclaimer/subtitles/dataJson/super_A etc.
 // - JSON wiring: videoId derived from comp name; applies min/max for groups with 'timed' behavior.
@@ -323,7 +322,7 @@ function __AddLayers_coreRun(opts) {
         }
     };
 
-    // TIMING_BEHAVIOR: declarative timing control (replaces FULL_DURATION_LAYER_GROUPS & ENABLE_JSON_TIMING_FOR_DISCLAIMER)
+    // TIMING_BEHAVIOR: declarative timing control
     // Values: 'timed' => apply JSON min/max; 'span' => force full comp duration; 'asIs' => keep template timing.
     // Keys may be LAYER_NAME_CONFIG group keys OR literal layer names (case-insensitive exact).
     var TIMING_BEHAVIOR = {
@@ -385,7 +384,6 @@ function __AddLayers_coreRun(opts) {
     try {
         var o = opts && opts.options ? opts.options : null;
         if (o) {
-            // ENABLE_JSON_TIMING_FOR_DISCLAIMER deprecated: ignore if present
             if (o.ENABLE_AUTOCENTER_ON_AR_MISMATCH !== undefined) ENABLE_AUTOCENTER_ON_AR_MISMATCH = __toBool(o.ENABLE_AUTOCENTER_ON_AR_MISMATCH, true);
             // Allow campaigns to override timing behavior map
             if (o.TIMING_BEHAVIOR && typeof o.TIMING_BEHAVIOR === 'object') {
