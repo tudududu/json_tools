@@ -31,6 +31,7 @@ Meaning:
   * `disclaimer_02` – secondary disclaimer rows (same behavior as `disclaimer`)
   * `sub` – subtitle rows (must have `video_id` + start/end)
   * `super_a` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_A`)
+  * `super_b` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_B`)
 * `video_id`: identifies the target video for `sub` and `meta_local` rows
 * `line`: optional manual line index; auto-assigned when missing
 * `start` / `end`: timecodes (may be empty for continuation lines of disclaimers/disclaimer_02 or untimed claim segments)
@@ -50,11 +51,13 @@ Meaning:
 | disclaimer_02 | Appended / merged into per‑country `disclaimer_02[]` blocks |
 | sub           | Appended to `videos[].subtitles[]` for the given `video_id` |
 | super_a       | Appended to `videos[].super_A[]` for the given `video_id` |
+| super_b       | Appended to `videos[].super_B[]` for the given `video_id` |
 | endFrame      | Appended to `videos[].endFrame[]` (timed segments; mirrors logo behavior per video) |
 
 ### Merging Behaviors
 * Subtitle continuation lines (same `line` + same timing OR untimed continuation) concatenate text with newline unless `--no-merge-subtitles`.
 * `super_A` continuation lines follow the exact same logic as subtitles.
+* `super_B` continuation lines follow the exact same logic as subtitles.
 * Disclaimer continuation lines (untimed lines after a timed starter) do NOT merge by default. Enable merging with `--merge-disclaimer`.
 * Disclaimer_02 continuation lines follow identical behavior: non‑merging by default; enable with `--merge-disclaimer-02`.
 * Claim rows with identical timing are combined (newline joined) when `--join-claim` is used.
@@ -62,36 +65,45 @@ Meaning:
 * Local claim/disclaimer/disclaimer_02 override is ON by default. A portrait line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
 
-### Sample CSV (super_A + flags)
+### Sample CSV (super_A / super_B + flags)
 
-Semicolon‑delimited minimal unified CSV showing `super_a` rows and `super_A_flag` usage:
+Semicolon‑delimited minimal unified CSV showing `super_a` / `super_b` rows and `super_A_flag` / `super_B_flag` usage:
 
 ```
 record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL
 meta_global;;;;;briefVersion;Y;ALL;25;
 meta_global;;;;;fps;Y;ALL;25;
 meta_global;;;;;super_A_flag;Y;ALL;enabled;
+meta_global;;;;;super_B_flag;Y;ALL;enabled;
 meta_local;VID_A;;;;title;N;ALL;Test Video;
 sub;VID_A;1;00:00:00:00;00:00:02:00;;;;;Hello world;
 super_a;VID_A;1;00:00:05:00;00:00:07:00;;;;;EVENT ONE;
 super_a;VID_A;2;00:00:08:00;00:00:09:12;;;;;EVENT TWO;
+super_b;VID_A;1;00:00:10:00;00:00:12:00;;;;;EVENT B ONE;
+super_b;VID_A;2;00:00:12:08;00:00:13:12;;;;;EVENT B TWO;
 ```
 
 ```json
 {
   "videos": [{
     "videoId": "VID_001_landscape",
-    "metadata": {"super_A_flag": "enabled"},
+    "metadata": {"super_A_flag": "enabled", "super_B_flag": "enabled"},
     "super_A": [
       {"line": 1, "in": 1.0, "out": 3.0, "text": "Super A Text"}
+    ],
+    "super_B": [
+      {"line": 1, "in": 10.0, "out": 12.0, "text": "Super B Text"}
     ]
   }]
 }
 ```
 Notes:
 - The `super_a` rows are emitted under each video as `super_A` arrays (duplicated to portrait; portrait text mirrors landscape when its cell is empty).
+- The `super_b` rows are emitted under each video as `super_B` arrays (duplicated to portrait; portrait text mirrors landscape when its cell is empty).
 - `super_A_flag` from `meta_global` is injected into per‑video metadata by country; a per‑video `meta_local.super_A_flag` (when provided per country) overrides the global value.
+- `super_B_flag` from `meta_global` is injected into per‑video metadata by country; a per‑video `meta_local.super_B_flag` (when provided per country) overrides the global value.
 - No automatic inheritance: if only some videos have `super_a` rows, other videos simply emit `"super_A": []`.
+  The same non‑inheritance applies to `super_b` rows (other videos emit `"super_B": []`).
 
 ### Per-Country Output Structure
 
@@ -129,7 +141,8 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
        "disclaimer_02": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer 02 block"} ],
        "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ]
-       ,"super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
+      ,"super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
+      ,"super_B": [ {"line":1,"in":10.0,"out":12.0,"text":"Aux B line 1"} ]
      },
      {
        "videoId": "WTA_30s_portrait",
@@ -139,7 +152,8 @@ Top-level `claim`, `disclaimer`, and `logo` are orientation objects with `landsc
        "disclaimer": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer block"} ],
        "disclaimer_02": [ {"line":1,"in":0.0,"out":29.5,"text":"Disclaimer 02 block"} ],
        "logo": [ {"line":1,"in":29.5,"out":30.0,"text":"Logo text"} ],
-       "super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ]
+      "super_A": [ {"line":1,"in":5.0,"out":7.5,"text":"Aux line 1"} ],
+      "super_B": [ {"line":1,"in":10.0,"out":12.0,"text":"Aux B line 1"} ]
      }
   ]
 }
@@ -160,7 +174,9 @@ Top-level values are simple arrays and only the landscape set is emitted. Video 
      {
        "videoId": "WTA_30s",
        "metadata": {"duration":30},
-       "subtitles": [ {"line":1, "in":0.0, "out":2.4, "text":"Hello"} ]
+       "subtitles": [ {"line":1, "in":0.0, "out":2.4, "text":"Hello"} ],
+       "super_A": [],
+       "super_B": []
      }
   ]
 }

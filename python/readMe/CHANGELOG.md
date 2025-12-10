@@ -1,3 +1,17 @@
+# 1.5.6 - 2025-12-10
+
+Added (CSV to JSON 191–192):
+- New timed collection `super_B` with behavior identical to `super_A`:
+	* Recognized via `record_type=super_b`; parsed per video and emitted under `videos[].super_B[]`.
+	* Orientation mirroring: portrait text falls back to landscape when empty; arrays exist for both duplicated videos.
+	* Continuation merging: follows subtitle rules (contiguous lines combine unless `--no-merge-subtitles`).
+	* Non‑contiguous dedup: rows sharing `(line,start,end)` are grouped; identical duplicates collapse, distinct texts concatenate in stable order.
+	* Flag precedence: `super_B_flag` supports `meta_global` per‑country defaults overridden by `meta_local` per‑country values.
+	* Legacy mode (`--no-orientation`): `super_B` remains per‑video arrays; empty arrays are emitted for videos without `super_b` rows.
+
+Docs:
+- README updated to include `record_type=super_b`, mapping to `videos[].super_B[]`, merging/dedup rules, sample CSV/JSON, and `super_B_flag` precedence.
+
 # 1.5.5 - 2025-11-26
 
 Changed (CSV to JSON 186):
