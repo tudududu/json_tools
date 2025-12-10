@@ -24,8 +24,8 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
-    "RUN_close_project": false,
+    "RUN_set_ame_output_paths": true,
+    "RUN_close_project": true,
 
 "batch": {
     "DATA_FS_SUBPATH": ["IN", "data"],
@@ -289,7 +289,7 @@
     "USE_LANGUAGE_SUBFOLDER": false,
     "EXPORT_SUBPATH": ["OUT","DELIVERIES"],
     "EXTRA_EXPORT_SUBFOLDER": true,
-    "ENABLE_DURATION_SUBFOLDER": false,
+    "ENABLE_DURATION_SUBFOLDER": true,
     "APPLY_TEMPLATES": false,
     "AUTO_DISABLE_REAPPLY_ON_MISSING": true,
     "DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES": false,
