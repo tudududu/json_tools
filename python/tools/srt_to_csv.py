@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+SRT → CSV converter
+
+Converts a SubRip (.srt) subtitle file into a simple CSV with columns:
+"Start Time","End Time","Text"
+
+Options:
+- --fps <float>             Input frame rate for HH:MM:SS:FF output (default 25)
+- --out-format <format>     Output format: 'frames' (HH:MM:SS:FF) or 'ms' (HH:MM:SS,SSS) [default: frames]
+- --encoding <name>         Input file encoding (default: utf-8-sig)
+
+Example:
+    python python/tools/srt_to_csv.py input.srt output.csv --fps 25 --out-format frames
+    python python/tools/srt_to_csv.py input.srt output.csv --out-format ms
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import re
+from typing import List, Tuple
+
+TIME_RE = re.compile(
+    r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*" 
+    r"(?P<h2>\d{2}):(?P<m2>\d{2}):(?P<s2>\d{2})[,.](?P<ms2>\d{3})\s*$"
+)
+
+
+def parse_srt(lines: List[str]) -> List[Tuple[float, float, str]]:
+    """Parse SRT lines into a list of (start_seconds, end_seconds, text)."""
+    records: List[Tuple[float, float, str]] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i].strip("\r\n")
+        m = TIME_RE.match(line)
+        if not m:
+            i += 1
+            continue
+        # Parse times
+        h1 = int(m.group("h1")); m1 = int(m.group("m1")); s1 = int(m.group("s1")); ms1 = int(m.group("ms1"))
+        h2 = int(m.group("h2")); m2 = int(m.group("m2")); s2 = int(m.group("s2")); ms2 = int(m.group("ms2"))
+        start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000.0
+        end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000.0
+        # Collect following text lines until blank line
+        i += 1
+        text_lines: List[str] = []
+        while i < n:
+            lt = lines[i].rstrip("\r\n")
+            if lt.strip() == "":
+                break
+            # Skip the optional numeric index line when encountered before time line; here we are past time line.
+            text_lines.append(lt)
+            i += 1
+        # Move past the blank separator line (if present)
+        while i < n and lines[i].strip() == "":
+            i += 1
+        text = "\n".join(text_lines)
+        records.append((start, end, text))
+    return records
+
+
+def format_time_frames(seconds: float, fps: float) -> str:
+    """Format time as HH:MM:SS:FF using nearest-frame rounding."""
+    if fps <= 0:
+        raise ValueError("fps must be > 0 for frames output")
+    sec_int = int(seconds)
+    frac = seconds - sec_int
+    frames = int(round(frac * fps))
+    # Carry over if frames equals fps due to rounding
+    if frames >= int(fps):
+        sec_int += 1
+        frames -= int(fps)
+    h = sec_int // 3600
+    rem = sec_int % 3600
+    m = rem // 60
+    s = rem % 60
+    return f"{h:02d}:{m:02d}:{s:02d}:{frames:02d}"
+
+
+def format_time_ms(seconds: float) -> str:
+    """Format time as HH:MM:SS,SSS with millisecond rounding."""
+    sec_int = int(seconds)
+    frac = seconds - sec_int
+    ms = int(round(frac * 1000))
+    if ms >= 1000:
+        sec_int += 1
+        ms -= 1000
+    h = sec_int // 3600
+    rem = sec_int % 3600
+    m = rem // 60
+    s = rem % 60
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encoding: str) -> None:
+    with open(in_path, "r", encoding=encoding) as f:
+        # Preserve lines; splitlines handles CRLF/CR/LF
+        lines = f.read().splitlines()
+    records = parse_srt(lines)
+
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Start Time", "End Time", "Text"])
+        for start, end, text in records:
+            if out_format == "frames":
+                start_str = format_time_frames(start, fps)
+                end_str = format_time_frames(end, fps)
+            elif out_format == "ms":
+                start_str = format_time_ms(start)
+                end_str = format_time_ms(end)
+            else:
+                raise ValueError("out_format must be 'frames' or 'ms'")
+            writer.writerow([start_str, end_str, text])
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Convert SRT subtitles to CSV")
+    p.add_argument("input", help="Path to input .srt file")
+    p.add_argument("output", help="Path to output .csv file")
+    p.add_argument("--fps", type=float, default=25.0, help="Input frame rate for frames output (default 25)")
+    p.add_argument("--out-format", choices=["frames", "ms"], default="frames", help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)")
+    p.add_argument("--encoding", default="utf-8-sig", help="Input file encoding (default utf-8-sig)")
+    args = p.parse_args()
+
+    srt_to_csv(args.input, args.output, fps=args.fps, out_format=args.out_format, encoding=args.encoding)
+
+
+if __name__ == "__main__":
+    main()
