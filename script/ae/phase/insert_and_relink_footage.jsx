@@ -257,18 +257,21 @@ function __InsertRelink_coreRun(opts) {
         return x;
     }
 
-    function getTokenPairFromCompName(name) {
-        // Extract title (first token) and a duration token like '15s' from comp name
+    function getTokenTripleFromCompName(name) {
+        // Extract two title tokens immediately before duration and the duration token: token01_token02_duration
         var base = String(name || "");
         var parts = base.split(/[_\s]+/);
         if (!parts.length) return null;
-        var title = parts[0];
-        var duration = null;
-        for (var i = 1; i < parts.length; i++) {
-            if (/^\d{1,4}s$/i.test(parts[i])) { duration = parts[i]; break; }
+        var durIdx = -1;
+        for (var i = 0; i < parts.length; i++) {
+            if (/^\d{1,4}s$/i.test(parts[i])) { durIdx = i; break; }
         }
-        if (!title || !duration) return null;
-        return title + "_" + duration;
+        if (durIdx === -1) return null;
+        var duration = parts[durIdx];
+        var t2 = (durIdx - 1 >= 0) ? parts[durIdx - 1] : null; // token right before duration
+        var t1 = (durIdx - 2 >= 0) ? parts[durIdx - 2] : null; // token before t2
+        if (!t1 || !t2 || !duration) return null;
+        return t1 + "_" + t2 + "_" + duration;
     }
 
     function parseDurationToken(tok) {
@@ -278,46 +281,36 @@ function __InsertRelink_coreRun(opts) {
         return parseInt(m[1], 10);
     }
 
-    function pickBestAudioMatch(items, tokenPair) {
-        // Filter items whose names contain tokenPair (case-insensitive) and that have audio
+    function pickBestAudioMatch(items, tokenTriple) {
+        // Filter items whose names contain both title tokens before the same duration (case-insensitive) and that have audio
         var matches = [];
-        var normPair = normalizeForMatch(tokenPair);
-        var t1 = null, t2 = null;
-        var usIdx = tokenPair.indexOf('_');
-        if (usIdx > 0) {
-            t1 = tokenPair.substring(0, usIdx);
-            t2 = tokenPair.substring(usIdx + 1);
-        }
-        var normT1 = t1 ? normalizeForMatch(t1) : null;
-        var normT2 = t2 ? normalizeForMatch(t2) : null;
-        var t2Num = parseDurationToken(t2);
+        var parts = String(tokenTriple||"").split('_');
+        if (parts.length !== 3) return null;
+        var t1 = parts[0], tMid = parts[1], tDur = parts[2];
+        var normT1 = normalizeForMatch(t1);
+        var normTMid = normalizeForMatch(tMid);
+        var normTDur = normalizeForMatch(tDur);
+        var durNum = parseDurationToken(tDur);
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var nameNorm = normalizeForMatch(it.name);
-            // Primary: direct tokenPair match (accent/case-insensitive)
-            var primaryHit = (nameNorm.indexOf(normPair) !== -1);
-            // Secondary: mixed token scenario token1 ... token2 in order
-            var secondaryHit = false;
-            if (!primaryHit && normT1) {
-                var p1 = nameNorm.indexOf(normT1);
-                if (p1 !== -1) {
-                    var tail = nameNorm.substring(p1 + normT1.length);
-                    if (normT2) {
-                        // Exact t2 token order check
-                        if (tail.indexOf(normT2) !== -1) secondaryHit = true;
-                    }
-                    if (!secondaryHit && t2Num !== null) {
-                        // Accept any duration token NN..Ns after t1 with same numeric value (ignores leading zeros)
-                        var re = /(\d{1,4})s/g;
-                        var m;
-                        while ((m = re.exec(tail)) !== null) {
-                            var nn = parseInt(m[1], 10);
-                            if (nn === t2Num) { secondaryHit = true; break; }
-                        }
+            // Require t1 followed by tMid followed by the same duration value
+            var hit = false;
+            var p1 = nameNorm.indexOf(normT1);
+            if (p1 !== -1) {
+                var tail1 = nameNorm.substring(p1 + normT1.length);
+                var pMid = tail1.indexOf(normTMid);
+                if (pMid !== -1) {
+                    var tail2 = tail1.substring(pMid + normTMid.length);
+                    var re = /(\d{1,4})s/gi;
+                    var m;
+                    while ((m = re.exec(tail2)) !== null) {
+                        var nn = parseInt(m[1], 10);
+                        if (!isNaN(nn) && nn === durNum) { hit = true; break; }
                     }
                 }
             }
-            if (primaryHit || secondaryHit) {
+            if (hit) {
                 // Prefer actual audio: hasAudio true OR extension in known audio list
                 var ext = nameNorm.replace(/^.*\./, "");
                 var isAudio = false;
@@ -762,14 +755,14 @@ function __InsertRelink_coreRun(opts) {
 
     for (var ci = 0; ci < comps.length; ci++) {
         var comp = comps[ci];
-        var tokenPair = getTokenPairFromCompName(comp.name);
-        if (!tokenPair) {
+        var tokenTriple = getTokenTripleFromCompName(comp.name);
+        if (!tokenTriple) {
             missed.push(comp.name + " (no tokens)");
             continue;
         }
-    var match = pickBestAudioMatch(allFootage, tokenPair);
+        var match = pickBestAudioMatch(allFootage, tokenTriple);
         if (!match) {
-            missed.push(comp.name + " (no audio for '" + tokenPair + "')");
+            missed.push(comp.name + " (no audio for '" + tokenTriple + "')");
             continue;
         }
         // Optional: validate ISO token in audio filename

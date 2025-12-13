@@ -271,6 +271,12 @@ pytest -n auto --cov=python --cov-branch --cov-config=.coveragerc  # coverage (p
 python3 python/run_tests.py --coverage  # wrapper + badge
 ```
 
+## Tools
+
+Helper utilities live under `python/tools/`.
+
+- `srt_to_csv.py`: Convert SubRip (`.srt`) files to a simple CSV with `Start Time, End Time, Text` columns. Supports output in frames (`HH:MM:SS:FF`) or milliseconds (`HH:MM:SS,SSS`). See `python/tools/README.md` for usage and examples.
+
 ### Parallel Test Execution (xdist)
 
 Pytest-xdist is included for optional speed-ups on multi-core machines. The `-n auto` flag chooses a worker count based on CPU cores; `--dist=loadfile` groups tests by file to reduce fixture thrashing.

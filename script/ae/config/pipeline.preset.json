@@ -25,7 +25,7 @@
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
     "RUN_set_ame_output_paths": true,
-    "RUN_close_project": true,
+    "RUN_close_project": false,
 
 "batch": {
     "DATA_FS_SUBPATH": ["IN", "data"],
@@ -37,7 +37,7 @@
     "DRY_RUN": true
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/ronaldo2/POST/WORK/ronaldo2_v05_test.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/CR7W02/POST/work/ronaldoW2_v03.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -88,7 +88,7 @@
 "addLayers": {
     "ENABLE_FILE_LOG": true,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": false,
+    "PIPELINE_SHOW_VERBOSE_LOG": true,
     
     "DEBUG_PARENTING_DUMP": false,
     "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
@@ -144,7 +144,7 @@
             "contains": ["logo_05"] 
             },
         "claim_01": { 
-            "exact": ["claim", "Size_Holder_Claim"],
+            "exact": ["claim", "Size_Holder_Claim", "web"],
             "contains": [] 
             },
         "claim_02": { 
@@ -152,7 +152,7 @@
             "contains": [] 
             },
         "claim_auxiliary": { 
-            "exact": ["web", "__scaler__null__"],
+            "exact": ["__scaler__null__"],
             "contains": [] 
             },
         "disclaimer": { 
@@ -215,16 +215,17 @@
         "logo_02": { "mode": "line", "value": 2 },
         
         "claim_01": { "mode": "line", "value": 1 },
-        "claim_02": { "mode": "line", "value": 2 }
+        "claim_02": { "mode": "line", "value": 2 },
+        "claim_auxiliary": { "mode": "line", "value": 2 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff":true, 
         "disclaimer02Off": true,
         "subtitlesOff":true, 
         "logoAnimOff":true,
-        "logo02Off": true,
-        "claim01Off": true,
-        "claim02Off": true,
+        "logo02Off": false,
+        "claim01Off": false,
+        "claim02Off": false,
         "groups":{"enabled":false,"keys":[]}, 
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
