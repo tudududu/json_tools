@@ -91,6 +91,10 @@ function __InsertRelink_coreRun(opts) {
     var SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = false;
     // Flat-mode strict: if no top-level files and ISO subfolder is not available, abort pipeline
     var SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER = false;
+    // New: configurable title token count (1–4) required immediately before duration for audio matching
+    var AUDIO_TITLE_TOKEN_COUNT = 2; // default keeps backward compatibility (token01_token02_duration)
+    // New: optional strict adjacency for tokens (require tokens to appear contiguously with underscores before duration)
+    var AUDIO_TOKENS_REQUIRE_ADJACENT = false; // default false preserves lenient matching
 
     // Options overrides
     try {
@@ -106,8 +110,24 @@ function __InsertRelink_coreRun(opts) {
             if (o.SOUND_USE_ISO_SUBFOLDER !== undefined) SOUND_USE_ISO_SUBFOLDER = !!o.SOUND_USE_ISO_SUBFOLDER;
             if (o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER !== undefined) SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER = !!o.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER;
             if (o.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER !== undefined) SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER = !!o.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER;
+            if (typeof o.AUDIO_TITLE_TOKEN_COUNT === 'number') {
+                var nt = Math.floor(o.AUDIO_TITLE_TOKEN_COUNT);
+                if (nt < 1) nt = 1; if (nt > 4) nt = 4; AUDIO_TITLE_TOKEN_COUNT = nt;
+            }
+            if (o.AUDIO_TOKENS_REQUIRE_ADJACENT !== undefined) AUDIO_TOKENS_REQUIRE_ADJACENT = !!o.AUDIO_TOKENS_REQUIRE_ADJACENT;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
+        // Allow pipeline-global override for token count and adjacency when provided
+        try {
+            if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
+                var pe = __AE_PIPE__.optionsEffective;
+                if (typeof pe.AUDIO_TITLE_TOKEN_COUNT === 'number') {
+                    var nt2 = Math.floor(pe.AUDIO_TITLE_TOKEN_COUNT);
+                    if (nt2 < 1) nt2 = 1; if (nt2 > 4) nt2 = 4; AUDIO_TITLE_TOKEN_COUNT = nt2;
+                }
+                if (pe.AUDIO_TOKENS_REQUIRE_ADJACENT !== undefined) AUDIO_TOKENS_REQUIRE_ADJACENT = !!pe.AUDIO_TOKENS_REQUIRE_ADJACENT;
+            }
+        } catch(ePipeTok) {}
     } catch (eOpt) {}
 
     function ensureProjectPath(segments) {
@@ -257,21 +277,23 @@ function __InsertRelink_coreRun(opts) {
         return x;
     }
 
-    function getTokenTripleFromCompName(name) {
-        // Extract two title tokens immediately before duration and the duration token: token01_token02_duration
+    function getTokensBeforeDuration(name, count) {
+        // Extract N title tokens immediately before duration and the duration token
         var base = String(name || "");
         var parts = base.split(/[_\s]+/);
         if (!parts.length) return null;
         var durIdx = -1;
-        for (var i = 0; i < parts.length; i++) {
-            if (/^\d{1,4}s$/i.test(parts[i])) { durIdx = i; break; }
-        }
+        for (var i = 0; i < parts.length; i++) { if (/^\d{1,4}s$/i.test(parts[i])) { durIdx = i; break; } }
         if (durIdx === -1) return null;
         var duration = parts[durIdx];
-        var t2 = (durIdx - 1 >= 0) ? parts[durIdx - 1] : null; // token right before duration
-        var t1 = (durIdx - 2 >= 0) ? parts[durIdx - 2] : null; // token before t2
-        if (!t1 || !t2 || !duration) return null;
-        return t1 + "_" + t2 + "_" + duration;
+        var need = Math.max(1, Math.min(4, Math.floor(count||1)));
+        var tokens = [];
+        for (var k = 1; k <= need; k++) {
+            var idx = durIdx - k;
+            if (idx < 0) { return null; }
+            tokens.unshift(parts[idx]);
+        }
+        return { tokens: tokens, duration: duration };
     }
 
     function parseDurationToken(tok) {
@@ -281,33 +303,37 @@ function __InsertRelink_coreRun(opts) {
         return parseInt(m[1], 10);
     }
 
-    function pickBestAudioMatch(items, tokenTriple) {
-        // Filter items whose names contain both title tokens before the same duration (case-insensitive) and that have audio
+    function pickBestAudioMatch(items, tok) {
+        // Filter items whose names contain N title tokens in order before the same duration (case-insensitive) and that have audio
         var matches = [];
-        var parts = String(tokenTriple||"").split('_');
-        if (parts.length !== 3) return null;
-        var t1 = parts[0], tMid = parts[1], tDur = parts[2];
-        var normT1 = normalizeForMatch(t1);
-        var normTMid = normalizeForMatch(tMid);
-        var normTDur = normalizeForMatch(tDur);
-        var durNum = parseDurationToken(tDur);
+        if (!tok || !tok.tokens || !tok.tokens.length || !tok.duration) return null;
+        var durNum = parseDurationToken(tok.duration);
+        if (durNum === null) return null;
+        var norms = [];
+        for (var ni=0; ni<tok.tokens.length; ni++) norms.push(normalizeForMatch(tok.tokens[ni]));
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var nameNorm = normalizeForMatch(it.name);
-            // Require t1 followed by tMid followed by the same duration value
             var hit = false;
-            var p1 = nameNorm.indexOf(normT1);
-            if (p1 !== -1) {
-                var tail1 = nameNorm.substring(p1 + normT1.length);
-                var pMid = tail1.indexOf(normTMid);
-                if (pMid !== -1) {
-                    var tail2 = tail1.substring(pMid + normTMid.length);
-                    var re = /(\d{1,4})s/gi;
-                    var m;
-                    while ((m = re.exec(tail2)) !== null) {
-                        var nn = parseInt(m[1], 10);
-                        if (!isNaN(nn) && nn === durNum) { hit = true; break; }
-                    }
+            var pos = 0; var ok = true;
+            for (var ti=0; ti<norms.length; ti++) {
+                var tnorm = norms[ti];
+                var found = nameNorm.indexOf(tnorm, pos);
+                if (found === -1) { ok = false; break; }
+                if (AUDIO_TOKENS_REQUIRE_ADJACENT && ti < norms.length - 1) {
+                    var after = found + tnorm.length;
+                    if (nameNorm.charAt(after) !== '_') { ok = false; break; }
+                    pos = after + 1;
+                } else {
+                    pos = found + tnorm.length;
+                }
+            }
+            if (ok) {
+                var tail = nameNorm.substring(pos);
+                var re = /(\d{1,4})s/gi; var m;
+                while ((m = re.exec(tail)) !== null) {
+                    var nn = parseInt(m[1], 10);
+                    if (!isNaN(nn) && nn === durNum) { hit = true; break; }
                 }
             }
             if (hit) {
@@ -755,14 +781,17 @@ function __InsertRelink_coreRun(opts) {
 
     for (var ci = 0; ci < comps.length; ci++) {
         var comp = comps[ci];
-        var tokenTriple = getTokenTripleFromCompName(comp.name);
-        if (!tokenTriple) {
+        var tokStruct = getTokensBeforeDuration(comp.name, AUDIO_TITLE_TOKEN_COUNT);
+        if (!tokStruct) {
             missed.push(comp.name + " (no tokens)");
+            try { log("[debug] insert_relink: expected title tokens before duration: " + AUDIO_TITLE_TOKEN_COUNT + " (comp '" + comp.name + "')"); } catch(eDbg1) {}
             continue;
         }
-        var match = pickBestAudioMatch(allFootage, tokenTriple);
+        try { log("[debug] insert_relink: matching tokens '" + tokStruct.tokens.join(',') + "' + duration '" + tokStruct.duration + "' (N=" + tokStruct.tokens.length + ") for comp '" + comp.name + "'"); } catch(eDbg2) {}
+        var match = pickBestAudioMatch(allFootage, tokStruct);
         if (!match) {
-            missed.push(comp.name + " (no audio for '" + tokenTriple + "')");
+            missed.push(comp.name + " (no audio for '" + tokStruct.tokens[0] + "_" + tokStruct.duration + "')");
+            try { log("[debug] insert_relink: no audio for tokens=[" + tokStruct.tokens.join(',') + "], duration=" + tokStruct.duration + " (comp '" + comp.name + "')"); } catch(eDbg3) {}
             continue;
         }
         // Optional: validate ISO token in audio filename
