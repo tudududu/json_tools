@@ -262,6 +262,12 @@ Table of contents
       - 3 tokens: `BrandA_CampaignX_Saudi_30s_en.wav` → tokens: `BrandA`, `CampaignX`, `Saudi`
       - 4 tokens: `BrandA_CampaignX_Saudi_Trailer_30s_en.wav` → tokens: `BrandA`, `CampaignX`, `Saudi`, `Trailer`
 
+  Gotchas (separators & markers)
+  - Non-ASCII separators: characters like en-dash/em-dash or localized separators may cause token detection to fail. Use plain ASCII underscores `_` between tokens for strict mode, hyphens `-` only in lenient mode.
+  - Pre-duration markers (e.g., `NEW`): if placed before the duration, they become part of the token area. Strict adjacency will reject `BrandA_NEW_Saudi_30s` because `NEW` breaks contiguous tokens. Prefer placing such markers after duration or inside the ISO/LANG segment: `BrandA_Saudi_30s_en_NEW.wav`.
+  - Spaces: `BrandA Saudi_30s` will match only in lenient mode; strict mode requires `BrandA_Saudi_30s`.
+  - Mixed separators: `BrandA-Saudi_Trailer_30s` is lenient-only. For strict, normalize to `BrandA_Saudi_Trailer_30s`.
+
 
 
 
