@@ -436,16 +436,14 @@ function __InsertRelink_coreRun(opts) {
 
     var inFolder = new Folder(joinPath(postFolder.fsName, joinPath("IN", "SOUND")));
     if (!inFolder.exists) {
-        alertOnce("SOUND folder not found: " + inFolder.fsName);
-        app.endUndoGroup();
-        return;
+        try { log("SOUND folder not found: " + inFolder.fsName + " - proceeding with no audio import"); } catch(__lfMsg1) {}
+        // Treat as empty: continue without importing audio
     }
 
     var dateFolder = newestYYMMDDSubfolder(inFolder);
     if (!dateFolder) {
-        alertOnce("No YYMMDD folder found in: " + inFolder.fsName);
-        app.endUndoGroup();
-        return;
+        try { log("No YYMMDD folder found in: " + inFolder.fsName + " - proceeding with no audio import"); } catch(__lfMsg2) {}
+        // Treat as empty: continue without importing audio
     }
 
     // Audit hint: echo expected audio token
@@ -462,6 +460,9 @@ function __InsertRelink_coreRun(opts) {
 
     // Determine actual folder to import (optionally pick ISO[/LANG] subfolder)
     var soundImportFolder = dateFolder;
+    if (!inFolder.exists || !dateFolder) {
+        soundImportFolder = null;
+    }
     if (SOUND_USE_ISO_SUBFOLDER) {
         var __projISO = null, __projLANG = null;
         try { if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) __projISO = String(__AE_PIPE__.results.linkData.iso).toUpperCase(); } catch(ePI) {}
@@ -496,7 +497,11 @@ function __InsertRelink_coreRun(opts) {
     // One-line summary to tighten audit trail right after expectation line
     try { log("Using SOUND folder: " + (soundImportFolder ? soundImportFolder.fsName : "(unknown)")); } catch(__lfAny) {}
 
-    log("Importing SOUND folder: " + soundImportFolder.fsName);
+    if (!soundImportFolder) {
+        log("[warn] No SOUND folder to import; treating as empty and continuing.");
+    } else {
+        log("Importing SOUND folder: " + soundImportFolder.fsName);
+    }
 
     // Optional Step 0: Clear existing AE project folder project/in/sound/ before new import
     if (CLEAR_EXISTING_PROJECT_SOUND_FOLDER) {
@@ -515,7 +520,11 @@ function __InsertRelink_coreRun(opts) {
     // - Otherwise (true), import the folder recursively (existing behavior).
     var importedFolderItem = null;
     var __didImportAny = false;
-    if (!SOUND_USE_ISO_SUBFOLDER) {
+    if (!soundImportFolder) {
+        // Skip import entirely; behave as if no audio was found
+        importedFolderItem = null;
+        __didImportAny = false;
+    } else if (!SOUND_USE_ISO_SUBFOLDER) {
         // Flat import (no subfolders)
         var destFlat = ensureProjectPath(["project", "in", "sound"]);
         var flatContainer = createChildFolder(destFlat, soundImportFolder.name);
