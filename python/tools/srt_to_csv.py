@@ -12,9 +12,13 @@ Options:
 - --quote-all                 Always quote all CSV fields (default OFF; minimal quoting otherwise)
 - --delimiter <name>          Output delimiter: 'comma' or 'semicolon' (default 'comma')
 
-Example:
+Examples:
+    # Single file
     python python/tools/srt_to_csv.py input.srt output.csv --fps 25 --out-format frames
     python python/tools/srt_to_csv.py input.srt output.csv --out-format ms
+
+    # Batch mode: iterate all .srt in an input folder and write .csv to an output folder
+    python python/tools/srt_to_csv.py --input-dir in_srt/ --output-dir out_csv/ --fps 25 --out-format frames
 """
 from __future__ import annotations
 
@@ -121,8 +125,10 @@ def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encodin
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Convert SRT subtitles to CSV")
-    p.add_argument("input", help="Path to input .srt file")
-    p.add_argument("output", help="Path to output .csv file")
+    p.add_argument("input", nargs="?", help="Path to input .srt file (omit when using --input-dir)")
+    p.add_argument("output", nargs="?", help="Path to output .csv file (omit when using --output-dir)")
+    p.add_argument("--input-dir", help="Directory containing .srt files to convert (batch mode)")
+    p.add_argument("--output-dir", help="Directory to write .csv files in batch mode")
     p.add_argument("--fps", type=float, default=25.0, help="Input frame rate for frames output (default 25)")
     p.add_argument("--out-format", choices=["frames", "ms"], default="frames", help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)")
     p.add_argument("--encoding", default="utf-8-sig", help="Input file encoding (default utf-8-sig)")
@@ -130,15 +136,42 @@ def main() -> None:
     p.add_argument("--delimiter", choices=["comma", "semicolon"], default="comma", help="Output delimiter (default comma)")
     args = p.parse_args()
 
-    srt_to_csv(
-        args.input,
-        args.output,
-        fps=args.fps,
-        out_format=args.out_format,
-        encoding=args.encoding,
-        quote_all=args.quote_all,
-        delimiter_name=args.delimiter,
-    )
+    # Determine mode: single file or batch directory
+    import os
+    if args.input_dir:
+        in_dir = args.input_dir
+        out_dir = args.output_dir or args.input_dir
+        if not os.path.isdir(in_dir):
+            raise SystemExit(f"Input directory not found: {in_dir}")
+        os.makedirs(out_dir, exist_ok=True)
+        for name in sorted(os.listdir(in_dir)):
+            if not name.lower().endswith('.srt'):
+                continue
+            in_path = os.path.join(in_dir, name)
+            base = os.path.splitext(name)[0]
+            out_name = base + '.csv'
+            out_path = os.path.join(out_dir, out_name)
+            srt_to_csv(
+                in_path,
+                out_path,
+                fps=args.fps,
+                out_format=args.out_format,
+                encoding=args.encoding,
+                quote_all=args.quote_all,
+                delimiter_name=args.delimiter,
+            )
+    else:
+        if not args.input or not args.output:
+            raise SystemExit("Provide input and output paths, or use --input-dir/--output-dir for batch mode")
+        srt_to_csv(
+            args.input,
+            args.output,
+            fps=args.fps,
+            out_format=args.out_format,
+            encoding=args.encoding,
+            quote_all=args.quote_all,
+            delimiter_name=args.delimiter,
+        )
 
 
 if __name__ == "__main__":
