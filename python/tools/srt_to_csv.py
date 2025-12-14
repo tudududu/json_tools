@@ -19,6 +19,9 @@ Examples:
 
     # Batch mode: iterate all .srt in an input folder and write .csv to an output folder
     python python/tools/srt_to_csv.py --input-dir in_srt/ --output-dir out_csv/ --fps 25 --out-format frames
+
+    # Batch join: iterate all .srt in an input folder and write a single combined .csv
+    python python/tools/srt_to_csv.py --input-dir in_srt/ joined.csv --join-output --fps 25 --out-format frames
 """
 from __future__ import annotations
 
@@ -129,6 +132,7 @@ def main() -> None:
     p.add_argument("output", nargs="?", help="Path to output .csv file (omit when using --output-dir)")
     p.add_argument("--input-dir", help="Directory containing .srt files to convert (batch mode)")
     p.add_argument("--output-dir", help="Directory to write .csv files in batch mode")
+    p.add_argument("--join-output", action="store_true", help="In batch mode, join all inputs into a single output CSV (provide output file path)")
     p.add_argument("--fps", type=float, default=25.0, help="Input frame rate for frames output (default 25)")
     p.add_argument("--out-format", choices=["frames", "ms"], default="frames", help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)")
     p.add_argument("--encoding", default="utf-8-sig", help="Input file encoding (default utf-8-sig)")
@@ -140,26 +144,50 @@ def main() -> None:
     import os
     if args.input_dir:
         in_dir = args.input_dir
-        out_dir = args.output_dir or args.input_dir
         if not os.path.isdir(in_dir):
             raise SystemExit(f"Input directory not found: {in_dir}")
-        os.makedirs(out_dir, exist_ok=True)
-        for name in sorted(os.listdir(in_dir)):
-            if not name.lower().endswith('.srt'):
-                continue
-            in_path = os.path.join(in_dir, name)
-            base = os.path.splitext(name)[0]
-            out_name = base + '.csv'
-            out_path = os.path.join(out_dir, out_name)
-            srt_to_csv(
-                in_path,
-                out_path,
-                fps=args.fps,
-                out_format=args.out_format,
-                encoding=args.encoding,
-                quote_all=args.quote_all,
-                delimiter_name=args.delimiter,
-            )
+        names = [n for n in sorted(os.listdir(in_dir)) if n.lower().endswith('.srt')]
+        if args.join_output:
+            # Write a single combined CSV to args.output
+            if not args.output:
+                raise SystemExit("Provide an output file path for --join-output mode")
+            # Choose delimiter
+            delimiter = "," if args.delimiter == "comma" else ";"
+            with open(args.output, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f, delimiter=delimiter, quoting=(csv.QUOTE_ALL if args.quote_all else csv.QUOTE_MINIMAL))
+                writer.writerow(["Start Time", "End Time", "Text"])
+                for name in names:
+                    in_path = os.path.join(in_dir, name)
+                    # Marker row: include filename to separate sections
+                    writer.writerow(["", "", name])
+                    # Convert and append rows
+                    with open(in_path, "r", encoding=args.encoding) as sf:
+                        lines = sf.read().splitlines()
+                    for start, end, text in parse_srt(lines):
+                        if args.out_format == "frames":
+                            start_str = format_time_frames(start, args.fps)
+                            end_str = format_time_frames(end, args.fps)
+                        else:
+                            start_str = format_time_ms(start)
+                            end_str = format_time_ms(end)
+                        writer.writerow([start_str, end_str, text])
+        else:
+            out_dir = args.output_dir or args.input_dir
+            os.makedirs(out_dir, exist_ok=True)
+            for name in names:
+                in_path = os.path.join(in_dir, name)
+                base = os.path.splitext(name)[0]
+                out_name = base + '.csv'
+                out_path = os.path.join(out_dir, out_name)
+                srt_to_csv(
+                    in_path,
+                    out_path,
+                    fps=args.fps,
+                    out_format=args.out_format,
+                    encoding=args.encoding,
+                    quote_all=args.quote_all,
+                    delimiter_name=args.delimiter,
+                )
     else:
         if not args.input or not args.output:
             raise SystemExit("Provide input and output paths, or use --input-dir/--output-dir for batch mode")
