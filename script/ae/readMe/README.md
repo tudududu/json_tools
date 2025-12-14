@@ -240,35 +240,28 @@ Table of contents
   - Default, balanced matching:
     - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 2`
     - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = false`
+    - Example filename (matches lenient, also matches strict if tokens adjacent):
+      - `Alula_Saudi_30s_eng_NEW.wav` → tokens: `Alula`, `Saudi`; duration: `30s`
+      - `Alula-Saudi_30s_eng.wav` → lenient matches (`-` between tokens allowed); strict does NOT match
   - Strict title adjacency for tightly controlled naming:
     - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 2`
     - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = true`
+    - Example filename (requires contiguous underscores before duration):
+      - `Alula_Saudi_30s_ar.wav` → matches
+      - `Alula-Saudi_30s_ar.wav` → does NOT match (non-underscore separator)
   - Single-token titles (legacy projects):
     - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 1`
     - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = false`
+    - Example filename:
+      - `Saudi_30s_en.wav` → token: `Saudi`; duration: `30s`
+      - Note: Higher collision risk; prefer 2 tokens where possible.
   - Three/four tokens for highly specific titles:
     - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 3 // or 4`
     - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = true // recommended`
+    - Example filenames:
+      - 3 tokens: `BrandA_CampaignX_Saudi_30s_en.wav` → tokens: `BrandA`, `CampaignX`, `Saudi`
+      - 4 tokens: `BrandA_CampaignX_Saudi_Trailer_30s_en.wav` → tokens: `BrandA`, `CampaignX`, `Saudi`, `Trailer`
 
-  AUDIO_TOKENS_REQUIRE_ADJACENT controls how tightly the N title tokens must appear before the duration in the audio filename.
-
-  When true (strict):
-
-  Tokens must be contiguous and separated by underscores, immediately before the duration token.
-  Example (N=2): token01_token02_30s_webMix.wav
-  Not allowed: token01XYZtoken02_30s…, token01 token02 30s…, token01__token02-30s…
-  When false (lenient):
-
-  Tokens must appear in order before the duration, but they can be separated by other characters or text. We still enforce order and same duration.
-  Examples that match (N=2):
-  token01-token02 30s webMix.wav
-  token01Xtoken02Y 30s v02.wav
-  token01 token02 someExtra_30s.wav
-  Still not allowed:
-  Tokens out of order: token02 … token01 … 30s
-  Missing one of the required tokens
-  Duration mismatch (e.g., 15s when comp says 30s)
-  Use strict if your audio naming is consistently tokenized with underscores. Use lenient if names may include extra descriptors between tokens but keep their order and the correct duration.
 
 
 
