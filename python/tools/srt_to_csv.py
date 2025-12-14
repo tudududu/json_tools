@@ -6,9 +6,11 @@ Converts a SubRip (.srt) subtitle file into a simple CSV with columns:
 "Start Time","End Time","Text"
 
 Options:
-- --fps <float>             Input frame rate for HH:MM:SS:FF output (default 25)
-- --out-format <format>     Output format: 'frames' (HH:MM:SS:FF) or 'ms' (HH:MM:SS,SSS) [default: frames]
-- --encoding <name>         Input file encoding (default: utf-8-sig)
+- --fps <float>               Input frame rate for HH:MM:SS:FF output (default 25)
+- --out-format <format>       Output format: 'frames' (HH:MM:SS:FF) or 'ms' (HH:MM:SS,SSS) [default: frames]
+- --encoding <name>           Input file encoding (default: utf-8-sig)
+- --quote-all                 Always quote all CSV fields (default OFF; minimal quoting otherwise)
+- --delimiter <name>          Output delimiter: 'comma' or 'semicolon' (default 'comma')
 
 Example:
     python python/tools/srt_to_csv.py input.srt output.csv --fps 25 --out-format frames
@@ -94,14 +96,16 @@ def format_time_ms(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encoding: str) -> None:
+def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encoding: str, quote_all: bool, delimiter_name: str) -> None:
     with open(in_path, "r", encoding=encoding) as f:
         # Preserve lines; splitlines handles CRLF/CR/LF
         lines = f.read().splitlines()
     records = parse_srt(lines)
 
+    # Choose delimiter
+    delimiter = "," if delimiter_name == "comma" else ";"
     with open(out_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, delimiter=delimiter, quoting=(csv.QUOTE_ALL if quote_all else csv.QUOTE_MINIMAL))
         writer.writerow(["Start Time", "End Time", "Text"])
         for start, end, text in records:
             if out_format == "frames":
@@ -122,9 +126,19 @@ def main() -> None:
     p.add_argument("--fps", type=float, default=25.0, help="Input frame rate for frames output (default 25)")
     p.add_argument("--out-format", choices=["frames", "ms"], default="frames", help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)")
     p.add_argument("--encoding", default="utf-8-sig", help="Input file encoding (default utf-8-sig)")
+    p.add_argument("--quote-all", action="store_true", help="Always quote all CSV fields (default OFF)")
+    p.add_argument("--delimiter", choices=["comma", "semicolon"], default="comma", help="Output delimiter (default comma)")
     args = p.parse_args()
 
-    srt_to_csv(args.input, args.output, fps=args.fps, out_format=args.out_format, encoding=args.encoding)
+    srt_to_csv(
+        args.input,
+        args.output,
+        fps=args.fps,
+        out_format=args.out_format,
+        encoding=args.encoding,
+        quote_all=args.quote_all,
+        delimiter_name=args.delimiter,
+    )
 
 
 if __name__ == "__main__":
