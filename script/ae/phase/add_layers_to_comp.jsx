@@ -47,37 +47,24 @@ function __AddLayers_coreRun(opts) {
 
     function __findOrCreateLogFolder(){
         if(!ENABLE_FILE_LOG) return null;
+        // Create only on disk; do not create AE FolderItems for logging structure
         try {
-            if(!app.project || !app.project.rootFolder) return null;
-            var cur = app.project.rootFolder;
-            // Walk down segments, creating if necessary
-            for(var i=0;i<LOG_PATH_SEGMENTS.length;i++){
-                var seg = LOG_PATH_SEGMENTS[i]; if(!seg) continue;
-                var found=null;
-                for(var j=1;j<=cur.numItems;j++){ var it=cur.items[j]; if(it instanceof FolderItem && String(it.name)===seg){ found=it; break; } }
-                if(!found){ try { found = app.project.items.addFolder(seg); found.parentFolder = cur; } catch(eC) { found=null; } }
-                if(!found) return null; // fail early
-                cur = found;
-            }
-            // cur now represents an AE FolderItem; convert to disk folder relative to project file if possible
-            // We'll attempt to use the project file path; if project unsaved fallback to desktop
             var baseFolder = null;
-            try { if(app.project.file && app.project.file.parent) baseFolder = app.project.file.parent; } catch(ePF) {}
-            if(baseFolder){
-                // Build physical path .../<projectDir>/work/log or nested chain after removing initial 'project'
-                var phys = baseFolder.fsName; // project folder path
-                // If first segment is 'project', skip it for disk path (since project.file.parent already is that folder)
-                var startIdx = 0; if(LOG_PATH_SEGMENTS.length && LOG_PATH_SEGMENTS[0]==='project') startIdx = 1;
-                for(var si=startIdx; si<LOG_PATH_SEGMENTS.length; si++){
-                    phys += '/' + LOG_PATH_SEGMENTS[si];
-                    var testF = new Folder(phys); if(!testF.exists) { try { testF.create(); } catch(eMk) {} }
-                }
-                var finalF = new Folder(phys);
-                if(finalF.exists) return finalF;
+            try { if(app.project && app.project.file && app.project.file.parent) baseFolder = app.project.file.parent; } catch(ePF) {}
+            // If project path unavailable, fallback to Desktop, then Temp
+            if(!baseFolder){ try { baseFolder = Folder.desktop; } catch(eD) {} }
+            if(!baseFolder){ try { baseFolder = Folder.temp; } catch(eT) {} }
+            if(!baseFolder) return null;
+            var phys = baseFolder.fsName;
+            // If first segment is 'project', skip it for disk path (project folder already represents that segment)
+            var startIdx = 0; if(LOG_PATH_SEGMENTS.length && LOG_PATH_SEGMENTS[0]==='project') startIdx = 1;
+            for(var si=startIdx; si<LOG_PATH_SEGMENTS.length; si++){
+                phys += '/' + LOG_PATH_SEGMENTS[si];
+                var testF = new Folder(phys); if(!testF.exists) { try { testF.create(); } catch(eMk) {} }
             }
+            var finalF = new Folder(phys);
+            if(finalF.exists) return finalF;
         } catch(eF) {}
-        try { return Folder.desktop; } catch(eD) {}
-        try { return Folder.temp; } catch(eT) {}
         return null;
     }
 
