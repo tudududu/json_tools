@@ -129,7 +129,7 @@ def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encodin
 def main() -> None:
     p = argparse.ArgumentParser(description="Convert SRT subtitles to CSV")
     p.add_argument("input", nargs="?", help="Path to input .srt file (omit when using --input-dir)")
-    p.add_argument("output", nargs="?", help="Path to output .csv file (omit when using --output-dir)")
+    p.add_argument("output", nargs="?", help="Path to output .csv file (omit when using --output-dir; in --join-output mode this can be the joined output file path)")
     p.add_argument("--input-dir", help="Directory containing .srt files to convert (batch mode)")
     p.add_argument("--output-dir", help="Directory to write .csv files in batch mode")
     p.add_argument("--join-output", action="store_true", help="In batch mode, join all inputs into a single output CSV (provide output file path)")
@@ -148,12 +148,22 @@ def main() -> None:
             raise SystemExit(f"Input directory not found: {in_dir}")
         names = [n for n in sorted(os.listdir(in_dir)) if n.lower().endswith('.srt')]
         if args.join_output:
-            # Write a single combined CSV to args.output
-            if not args.output:
-                raise SystemExit("Provide an output file path for --join-output mode")
+            # Resolve output file path: allow positional output OR positional input token used as output OR --output-dir as file path
+            out_path = None
+            if args.output:
+                out_path = args.output
+            elif args.input:
+                # Users might place the output file path in the positional 'input' when using --input-dir
+                out_path = args.input
+            elif args.output_dir:
+                out_path = args.output_dir
+            if not out_path:
+                raise SystemExit("Provide an output file path for --join-output mode (positional after --input-dir or via --output-dir)")
             # Choose delimiter
             delimiter = "," if args.delimiter == "comma" else ";"
-            with open(args.output, "w", newline="", encoding="utf-8") as f:
+            # Ensure parent directory exists
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            with open(out_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f, delimiter=delimiter, quoting=(csv.QUOTE_ALL if args.quote_all else csv.QUOTE_MINIMAL))
                 writer.writerow(["Start Time", "End Time", "Text"])
                 for name in names:
