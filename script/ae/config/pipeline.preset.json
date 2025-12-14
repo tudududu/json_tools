@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -83,7 +83,9 @@
     "CHECK_AUDIO_ISO_STRICT": false,
     "SOUND_USE_ISO_SUBFOLDER": false,
     "SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER": true,
-    "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": false
+    "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": false,
+    "AUDIO_TITLE_TOKEN_COUNT": 2,
+    "AUDIO_TOKENS_REQUIRE_ADJACENT": false
     },
 "addLayers": {
     "ENABLE_FILE_LOG": true,

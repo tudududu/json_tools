@@ -127,7 +127,11 @@
             // Flat-mode soft fallback: if no top-level files in YYMMDD and this is true, use ISO-named subfolder instead
             SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER: false,
             // Flat-mode strict behavior: when no top-level files and ISO subfolder is not available, abort pipeline (set fatal)
-            SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false
+            SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false,
+            AUDIO_TITLE_TOKEN_COUNT: 2, // default keeps backward compatibility (token01_token02_duration)
+            // New: optional strict adjacency for tokens (require tokens to appear contiguously with underscores before duration)
+            AUDIO_TOKENS_REQUIRE_ADJACENT: false // default false preserves lenient matching
+
         },
         addLayers: {
             // Simple mode: instead of copying individual layers from the template into targets,

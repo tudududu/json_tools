@@ -127,6 +127,11 @@ Table of contents
   Abort reasons logged (path missing / no YYMMDD / empty). No fallback to selection or other folders.
   Validation: width/height must be 4–30000; invalid dims log WARN and fallback to 1920×1080 unless `createComps.SKIP_INVALID_DIMENSIONS=true` (skip instead).
 
+  ### Create Comps: Motion Blur & Frame Blending
+  - Toggles: `createComps.ENABLE_COMP_MOTION_BLUR`, `createComps.ENABLE_COMP_FRAME_BLENDING`.
+  - Effect: When enabled, newly created compositions will have `comp.motionBlur` and/or `comp.frameBlending` set to true.
+  - Configuration: Set in `config/pipeline.preset.json` under the `createComps` block or pass via `opts.options` when running standalone.
+
   #### Step 4 – Insert & Relink Footage
   Adds footage layers to created comps. Optional audio ISO filename check:
   - `insertRelink.ENABLE_CHECK_AUDIO_ISO` + `insertRelink.CHECK_AUDIO_ISO_STRICT` to abort or warn on mismatch.
@@ -389,28 +394,13 @@ Table of contents
   ### 11. Changelog (Recent Highlights)
   See prior integration notes for full history. Key additions: Strict AUTO footage mode; template duration matching; extras duplication & routing; unified save policy in Batch Mode; global log marker; dimension validation; early Step 0 bootstrap; dynamic AME template mapping.
 
-  #### Integration 182–189 – Step 4 Audio Hardening
-  Goals: Make SOUND imports deterministic, safer, and self-documenting.
-  Changes:
-  - Audit: Added single-line summary after expectation — `Using SOUND folder: <path>`.
-  - Import type: Forced `importAs=FOOTAGE` for audio to avoid AE guessing.
-  - Token-based filtering: During import, only bring in files whose names match expected `ISO` or `ISO_LANG` tokens immediately after duration (prevents wrong-country audio landing in comps).
-  - Strict ISO-only (ISO without language): For projects with ISO only, import-time filtering accepts only `ISO` (no `LANG`) by default. A lenient path still exists when non‑strict.
-  - Lenient fallbacks (non‑strict):
-    - Flat mode: If no top-level audio matched, optionally fall back to an `ISO[_LANG]` subfolder; if absent and abort disabled, prefer `GBL`, then the single/first viable subfolder with audio.
-    - Recursive mode: If nothing matched the token filter and strict check is off, import all audio recursively (mismatch warnings are emitted on insert).
-  - Subfolder selection fix: Corrected fallback ISO variable typo in ISO-subfolder selection.
-  - Safety: Replaced folder `ImportOptions(Folder)` with manual recursive scan to avoid first‑run cold‑start issues in AE; added `__didImportAny` guard so the script only moves/labels imported folders when something was actually imported.
+  ### 12. Design Principles
+  Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
+    - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
 
-  #### Integration 190 – Step 4 Audio Validation Pass
-  Outcome: Verified behaviors above with additional scenarios; no functional changes beyond logging refinements.
 
-  #### Integration 191 – Data.json Relink Removal from Step 4
-  Rationale: Centralize JSON linking in Step 1 for single source of truth.
-  Changes:
-  - Removed all `data.json` relink logic and settings from Step 4.
-  - Step 4 now relies on tokens provided by Step 1 (`linkData.iso` / `linkData.lang`).
-  - Standalone runs (outside pipeline) can set manual fallbacks: `AUDIO_ISO_MANUAL` and `AUDIO_LANG_MANUAL` for import-time filtering and validation.
+
+
 
   #### Integration 165 – Multi-Language Countries (MLC) Foundation
   Goal: Introduce minimal options to support campaigns where a single country ISO may have multiple language JSON variants without exploding configuration surface.
@@ -436,9 +426,6 @@ Table of contents
   - Language-aware audio ISO checks (currently only country vs audio ISO).
 
 
-  ### 12. Design Principles
-  Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
-    - With duration subfolders OFF: `<date>/<AR>_<extraName>/...`
 
   #### Integration 176 – MLC Cleanup: Manual-only Language, No Fallbacks
   #### Integration 179 – Multi-Language Audio Matching (Step 4)
@@ -461,8 +448,29 @@ Table of contents
   Notes:
   - Batch orchestrator already injects `DATA_JSON_LANG_CODE_MANUAL` when iterating `data_<ISO>_<LANG>.json` files, aligning with this strict policy.
 
-### Create Comps: Motion Blur & Frame Blending
-- Toggles: `createComps.ENABLE_COMP_MOTION_BLUR`, `createComps.ENABLE_COMP_FRAME_BLENDING`.
-- Effect: When enabled, newly created compositions will have `comp.motionBlur` and/or `comp.frameBlending` set to true.
-- Configuration: Set in `config/pipeline.preset.json` under the `createComps` block or pass via `opts.options` when running standalone.
+  
+  #### Integration 182–189 – Step 4 Audio Hardening
+  Goals: Make SOUND imports deterministic, safer, and self-documenting.
+  Changes:
+  - Audit: Added single-line summary after expectation — `Using SOUND folder: <path>`.
+  - Import type: Forced `importAs=FOOTAGE` for audio to avoid AE guessing.
+  - Token-based filtering: During import, only bring in files whose names match expected `ISO` or `ISO_LANG` tokens immediately after duration (prevents wrong-country audio landing in comps).
+  - Strict ISO-only (ISO without language): For projects with ISO only, import-time filtering accepts only `ISO` (no `LANG`) by default. A lenient path still exists when non‑strict.
+  - Lenient fallbacks (non‑strict):
+    - Flat mode: If no top-level audio matched, optionally fall back to an `ISO[_LANG]` subfolder; if absent and abort disabled, prefer `GBL`, then the single/first viable subfolder with audio.
+    - Recursive mode: If nothing matched the token filter and strict check is off, import all audio recursively (mismatch warnings are emitted on insert).
+  - Subfolder selection fix: Corrected fallback ISO variable typo in ISO-subfolder selection.
+  - Safety: Replaced folder `ImportOptions(Folder)` with manual recursive scan to avoid first‑run cold‑start issues in AE; added `__didImportAny` guard so the script only moves/labels imported folders when something was actually imported.
+
+  #### Integration 190 – Step 4 Audio Validation Pass
+  Outcome: Verified behaviors above with additional scenarios; no functional changes beyond logging refinements.
+
+  #### Integration 191 – Data.json Relink Removal from Step 4
+  Rationale: Centralize JSON linking in Step 1 for single source of truth.
+  Changes:
+  - Removed all `data.json` relink logic and settings from Step 4.
+  - Step 4 now relies on tokens provided by Step 1 (`linkData.iso` / `linkData.lang`).
+  - Standalone runs (outside pipeline) can set manual fallbacks: `AUDIO_ISO_MANUAL` and `AUDIO_LANG_MANUAL` for import-time filtering and validation.
+
+
 
