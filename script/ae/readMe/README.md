@@ -127,6 +127,10 @@ Table of contents
   Abort reasons logged (path missing / no YYMMDD / empty). No fallback to selection or other folders.
   Validation: width/height must be 4–30000; invalid dims log WARN and fallback to 1920×1080 unless `createComps.SKIP_INVALID_DIMENSIONS=true` (skip instead).
 
+  Recent additions (Integration 196–199):
+  - Comp-as-source in AUTO: when `createComps.ENABLE_ACCEPT_COMP_SOURCE=true`, AUTO collection now includes `CompItem` sources from the project path (added as precomp layers).
+  - AUTO collection audit: summary now logs total collected items and breakdown by type (footage vs comps).
+
   ### Create Comps: Motion Blur & Frame Blending
   - Toggles: `createComps.ENABLE_COMP_MOTION_BLUR`, `createComps.ENABLE_COMP_FRAME_BLENDING`.
   - Effect: When enabled, newly created compositions will have `comp.motionBlur` and/or `comp.frameBlending` set to true.
@@ -227,6 +231,47 @@ Table of contents
   }
   ```
 
+  Title token matching (audio pairing)
+  - Universal N-token support: audio selection now matches 1–4 title tokens immediately before the duration, configurable via `insertRelink.AUDIO_TITLE_TOKEN_COUNT` (default `2`).
+  - Lenient vs strict adjacency: `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT=false` (default) requires tokens in order before duration but allows extra characters between them; `true` requires contiguous underscore-separated tokens directly before duration (e.g., `token01_token02_30s`).
+  - Debug logs: non-breaking `[debug]` lines note expected token count, the tokens used, and detailed miss context; primary miss messages remain unchanged to preserve downstream parsers.
+
+  Quick config snippets (typical values)
+  - Default, balanced matching:
+    - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 2`
+    - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = false`
+  - Strict title adjacency for tightly controlled naming:
+    - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 2`
+    - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = true`
+  - Single-token titles (legacy projects):
+    - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 1`
+    - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = false`
+  - Three/four tokens for highly specific titles:
+    - `insertRelink.AUDIO_TITLE_TOKEN_COUNT = 3 // or 4`
+    - `insertRelink.AUDIO_TOKENS_REQUIRE_ADJACENT = true // recommended`
+
+  AUDIO_TOKENS_REQUIRE_ADJACENT controls how tightly the N title tokens must appear before the duration in the audio filename.
+
+  When true (strict):
+
+  Tokens must be contiguous and separated by underscores, immediately before the duration token.
+  Example (N=2): token01_token02_30s_webMix.wav
+  Not allowed: token01XYZtoken02_30s…, token01 token02 30s…, token01__token02-30s…
+  When false (lenient):
+
+  Tokens must appear in order before the duration, but they can be separated by other characters or text. We still enforce order and same duration.
+  Examples that match (N=2):
+  token01-token02 30s webMix.wav
+  token01Xtoken02Y 30s v02.wav
+  token01 token02 someExtra_30s.wav
+  Still not allowed:
+  Tokens out of order: token02 … token01 … 30s
+  Missing one of the required tokens
+  Duration mismatch (e.g., 15s when comp says 30s)
+  Use strict if your audio naming is consistently tokenized with underscores. Use lenient if names may include extra descriptors between tokens but keep their order and the correct duration.
+
+
+
   #### Step 5 – Add Layers (Template Application)
     Timing Behavior Map
     - `TIMING_BEHAVIOR` controls per-layer timing as one of:
@@ -306,6 +351,10 @@ Table of contents
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
   Extras duplication: `EXTRA_TEMPLATES` namespace (allowed AR list, tag tokens, suffix, duration matching overrides). Duplicate comps included downstream.
   Skip logic: `SKIP_COPY_CONFIG` respects JSON flags & token/group filters.
+
+  Recent additions (Integration 195–199):
+  - New per-video flags: `logo_03_flag`, `logo_04_flag`, `logo_05_flag` parsed and honored in `SKIP_COPY_CONFIG` (`logo03Off`, `logo04Off`, `logo05Off`).
+  - Group-based detection aligned: skip-copy gates for `logo_03`, `logo_04`, `logo_05` now use `nameMatchesGroup` consistently with claim groups.
 
   #### Step 6 – Pack Output Comps
   Derives stable videoId (token-before-duration heuristic). Overrides MEDIA token for extras (suffix → `MEDIA=<EXTRA>`). Optional dev self-test (`DEV_VIDEOID_SELF_TEST`).
@@ -392,7 +441,11 @@ Table of contents
   VideoId: Canonical identifier derived from comp naming tokens prior to duration (fallback scans applied).
 
   ### 11. Changelog (Recent Highlights)
-  See prior integration notes for full history. Key additions: Strict AUTO footage mode; template duration matching; extras duplication & routing; unified save policy in Batch Mode; global log marker; dimension validation; early Step 0 bootstrap; dynamic AME template mapping.
+  See prior integration notes for full history. Highlights since Integration 195:
+  - Step 3 (Create Comps): AUTO now accepts `CompItem` sources via `ENABLE_ACCEPT_COMP_SOURCE`; collection summary includes item type counts.
+  - Step 4 (Insert & Relink): Audio pairing generalized to N (1–4) title tokens before duration with `AUDIO_TITLE_TOKEN_COUNT`; optional strict adjacency via `AUDIO_TOKENS_REQUIRE_ADJACENT`; added debug-only audit without breaking existing parsers.
+  - Step 5 (Add Layers): Added `logo_03/04/05` flags and wired skip-copy gates using group-based detection.
+  - Logging: Per-phase file logs remain consistent; additional concise debug lines aid auditing while keeping primary summaries stable.
 
   ### 12. Design Principles
   Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
