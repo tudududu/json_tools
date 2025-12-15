@@ -1,4 +1,5 @@
 // sourceText_json_wire_simple (not-time-gated) 251215
+// orientation-aware/override
 // ------------------------------------------------------------------------------
 // based on v05
 // Rewired for new JSON shape with orientation-specific top-level keys:
@@ -12,17 +13,27 @@
 
 var FOOTAGE_NAME = "data.json";  // JSON footage name in Project panel
 var DATA_KEY     = "claim";       // "claim" | "disclaimer" | "logo"
-var desiredLine  = 1;             // 1-based
+var desiredLine = 1;             // 1-based
+// Orientation override: "Auto" | "Landscape" | "Portrait"
+var ORIENT_MODE = "Auto";
 var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
+// -------- Orientation detection / override -------- 
 // Determine compOrientation from comp aspect ratio OR from comp name suffix if present
-var compAR = (thisComp.width / Math.max(1, thisComp.height));
-var compOrientation = compAR > 1 ? "landscape" : "portrait";
-
-// Allow explicit override if comp name contains _landscape or _portrait
+var compOrientation;
 var nameLower = thisComp.name.toLowerCase();
-if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
-else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";
+if (ORIENT_MODE === "Landscape") {
+  compOrientation = "landscape";
+} else if (ORIENT_MODE === "Portrait") {
+  compOrientation = "portrait";
+} else {
+  // Auto: aspect-based with suffix override
+  var compAR = (thisComp.width / Math.max(1, thisComp.height));
+  compOrientation = compAR > 1 ? "landscape" : "portrait"; // square -> portrait
+  // Explicit override if comp name contains _landscape or _portrait
+  if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
+  else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";
+}
 
 // -------- VideoId derivation --------
 // Derive base video id from comp name: "Title_15s_*" → "Title_15s"; oriented id adds suffix
