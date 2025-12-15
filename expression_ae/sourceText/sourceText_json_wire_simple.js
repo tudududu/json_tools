@@ -1,8 +1,8 @@
-// sourceText_json_wire v05 (orientation update)
+// sourceText_json_wire_simple (not-time-gated) 251215
+// ------------------------------------------------------------------------------
+// based on v05
 // Rewired for new JSON shape with orientation-specific top-level keys:
 //   claim: { landscape:[...], portrait:[...] }
-//   disclaimer: { landscape:[...], portrait:[...] }
-//   logo: { landscape:[...], portrait:[...] }
 // Video objects duplicated per orientation with videoId suffixed: e.g. WTAVL_120s_landscape
 // ------------------------------------------------------------------------------
 // Usage:
@@ -13,6 +13,7 @@
 var FOOTAGE_NAME = "data.json";  // JSON footage name in Project panel
 var DATA_KEY     = "claim";       // "claim" | "disclaimer" | "logo"
 var desiredLine  = 1;             // 1-based
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
 // Determine compOrientation from comp aspect ratio OR from comp name suffix if present
 var compAR = (thisComp.width / Math.max(1, thisComp.height));
@@ -23,13 +24,20 @@ var nameLower = thisComp.name.toLowerCase();
 if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
 else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";
 
+// -------- VideoId derivation --------
 // Derive base video id from comp name: "Title_15s_*" → "Title_15s"; oriented id adds suffix
-var parts = thisComp.name.split("_");
-var baseVideoId = (parts.length >= 2) ? (parts[0] + "_" + parts[1]) : ""; // Title_15s
-var orientedVideoId = baseVideoId ? (baseVideoId + "_" + compOrientation) : ""; // Title_15s_landscape
+var token1 = 0 + nameShift;
+var token2 = 1 + nameShift;
+
+function baseVideoId() {
+  var p = thisComp.name.split("_");
+  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // Title_15s
+}
+var baseId = baseVideoId();
+var orientedId = baseId ? (baseId + "_" + compOrientation) : ""; // Title_15s_landscape
 
 // If comp name already equals a videoId exactly, use it directly
-var directVideoId = thisComp.name; // fallback candidate
+var directId = thisComp.name; // fallback candidate
 
 function pickFromArray(arr, lineNum) {
   if (!arr || arr.length === 0) return "";
@@ -89,7 +97,7 @@ function getText(data, orientedId, baseId, directId, key, lineNum, compOrientati
 
 try {
   var data = footage(FOOTAGE_NAME).sourceData;
-  getText(data, orientedVideoId, baseVideoId, directVideoId, DATA_KEY, desiredLine, compOrientation);
+  getText(data, orientedId, baseId, directId, DATA_KEY, desiredLine, compOrientation);
 } catch (e) {
   "";
 }
