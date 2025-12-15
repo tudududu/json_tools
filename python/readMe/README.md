@@ -275,7 +275,17 @@ python3 python/run_tests.py --coverage  # wrapper + badge
 
 Helper utilities live under `python/tools/`.
 
-- `srt_to_csv.py`: Convert SubRip (`.srt`) files to a simple CSV with `Start Time, End Time, Text` columns. Supports output in frames (`HH:MM:SS:FF`) or milliseconds (`HH:MM:SS,SSS`). See `python/tools/README.md` for usage and examples.
+- `srt_to_csv.py`: Convert SubRip (`.srt`) files to a simple CSV with `Start Time, End Time, Text` columns. Supports output in frames (`HH:MM:SS:FF`) or milliseconds (`HH:MM:SS,SSS`). Also supports batch directory mode (`--input-dir` + `--output-dir`) and a joined-output mode (`--join-output`) to combine multiple `.srt` files into one `.csv` with filename markers.
+  See `python/tools/README.md` for usage, flags like `--quote-all` and `--delimiter`, and examples.
+
+  Common invocations:
+  ```sh
+  # Batch: convert all .srt → separate .csv files
+  python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/ --fps 25 --out-format frames
+
+  # Batch join: combine all .srt → one .csv with filename markers
+  python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/joined.csv --join-output --fps 25 --out-format frames
+  ```
 
 ### Parallel Test Execution (xdist)
 
