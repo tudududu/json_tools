@@ -894,29 +894,33 @@ function __Pack_coreRun(opts) {
                     var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
                     var extraPathSegs = EXTRA_OUTPUTS_USE_DATE_SUBFOLDER ? [dateYYMMDD, arSeg] : [arSeg];
                     var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(outputRoot, extraPathSegs);
-                    var desiredName = buildOutputCompName(exportComp, jsonData);
-                    // BuildOutputCompName uses comp properties; set temp name later for uniqueness
-                    if (!desiredName) desiredName = baseOutputName(exportComp.name);
-                    // Create extra comp
-                    if (DRY_RUN_MODE) {
-                        log("DRY-RUN: would create EXTRA comp '" + desiredName + "' at " + extraPathSegs.join('/'));
-                        __createdNames.push(desiredName);
-                        continue;
-                    }
+                    // Compute desired name for extra based on target WxH and duration
                     var fps2 = exportComp.frameRate || 25;
                     var pa2 = 1.0; try { if (exportComp.pixelAspect) pa2 = exportComp.pixelAspect; } catch(ePA2) {}
-                    var outName2 = makeUniqueName(desiredName);
+                    if (DRY_RUN_MODE) {
+                        var tempCtxComp = { name: exportComp.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
+                        var wouldName = buildOutputCompName(tempCtxComp, jsonData) || baseOutputName(exportComp.name);
+                        log("DRY-RUN: would create EXTRA comp '" + wouldName + "' at " + extraPathSegs.join('/'));
+                        __createdNames.push(wouldName);
+                        continue;
+                    }
+                    // Create with provisional unique name, then rename after we can compute final tokens on the actual comp
+                    var provisionalName = makeUniqueName(exportComp.name + "_EXTRA");
                     var extraComp = null;
-                    try { extraComp = proj.items.addComp(outName2, ex.width, ex.height, pa2, ex.seconds, fps2); } catch(eAddEx) { var rsnEx = exportComp.name + " (extra create failed)"; skipped.push(rsnEx); __skippedNames.push(rsnEx); recordSkip(rsnEx); log("Extra create failed for '"+exportComp.name+"': "+eAddEx); continue; }
+                    try { extraComp = proj.items.addComp(provisionalName, ex.width, ex.height, pa2, ex.seconds, fps2); } catch(eAddEx) { var rsnEx = exportComp.name + " (extra create failed)"; skipped.push(rsnEx); __skippedNames.push(rsnEx); recordSkip(rsnEx); log("Extra create failed for '"+exportComp.name+"': "+eAddEx); continue; }
                     try { extraComp.displayStartTime = exportComp.displayStartTime; } catch(eDST2) {}
                     // Add base export comp as layer and scale-to-fit
                     var lyr = null; try { lyr = extraComp.layers.add(exportComp); } catch(eLEx) { log("Extra layer add failed for " + outName2 + ": " + eLEx); }
                     if (lyr) { scaleLayerToFit(lyr, ex.width, ex.height, exportComp.width, exportComp.height); try { lyr.inPoint = 0; lyr.outPoint = ex.seconds; } catch(eIO) {} }
                     // Assign destination
                     try { extraComp.parentFolder = extraDest; } catch(ePDF2) {}
+                    // Compute final name using the actual extra comp properties (ensures RESOLUTION/DURATION reflect target)
+                    var desiredName = buildOutputCompName(extraComp, jsonData) || baseOutputName(exportComp.name);
+                    var finalName = makeUniqueName(desiredName);
+                    try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
-                    __createdNames.push(extraComp.name);
-                    log("Created EXTRA comp '" + extraComp.name + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + extraPathSegs.join('/') + ")");
+                    __createdNames.push(finalName);
+                    log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + extraPathSegs.join('/') + ")");
                 }
             }
         }
