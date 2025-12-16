@@ -78,6 +78,10 @@ function __Pack_coreRun(opts) {
     // Extra outputs naming integration: override MEDIA token for extras (e.g., TikTok)
     var ENABLE_EXTRA_MEDIA_OVERRIDE = true;        // When true, MEDIA token will be replaced by extra tag for extra outputs
     var EXTRA_OUTPUT_SUFFIX = "_tiktok";          // Suffix appended to extra duplicate comp names in Step 5 (case-insensitive)
+    // Extra output comps (alternate resolutions)
+    var ENABLE_EXTRA_OUTPUT_COMPS = false;          // Master toggle
+    var EXTRA_OUTPUT_COMPS = {};                    // Map: "AR|NNs" -> "WxH" string
+    var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = true;    // Place extras under out/YYMMDD/AR_WxH
     
 
     // Options overrides
@@ -105,6 +109,9 @@ function __Pack_coreRun(opts) {
             if (o.DEV_VIDEOID_SELF_TEST_USE_SELECTION !== undefined) DEV_VIDEOID_SELF_TEST_USE_SELECTION = !!o.DEV_VIDEOID_SELF_TEST_USE_SELECTION;
             if (o.ENABLE_EXTRA_MEDIA_OVERRIDE !== undefined) ENABLE_EXTRA_MEDIA_OVERRIDE = !!o.ENABLE_EXTRA_MEDIA_OVERRIDE;
             if (o.EXTRA_OUTPUT_SUFFIX !== undefined) EXTRA_OUTPUT_SUFFIX = o.EXTRA_OUTPUT_SUFFIX;
+            if (o.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!o.ENABLE_EXTRA_OUTPUT_COMPS;
+            if (o.EXTRA_OUTPUT_COMPS !== undefined) EXTRA_OUTPUT_COMPS = o.EXTRA_OUTPUT_COMPS || {};
+            if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
@@ -116,6 +123,9 @@ function __Pack_coreRun(opts) {
                     var ex = __AE_PIPE__.optionsEffective.addLayers && __AE_PIPE__.optionsEffective.addLayers.EXTRA_TEMPLATES;
                     if (ex && ex.OUTPUT_NAME_SUFFIX) EXTRA_OUTPUT_SUFFIX = ex.OUTPUT_NAME_SUFFIX;
                 } catch(eEx) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.ENABLE_EXTRA_OUTPUT_COMPS === true) { ENABLE_EXTRA_OUTPUT_COMPS = true; } } catch(eP1) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS) { EXTRA_OUTPUT_COMPS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS; } } catch(eP2) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -485,6 +495,51 @@ function __Pack_coreRun(opts) {
     function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=a%b; a=b; b=t;} return a||1; }
     function aspectRatioString(w,h){ if(!w||!h) return ''; var g=gcd(w,h); var aw=w/g; var ah=h/g; return aw + 'x' + ah; }
 
+    // -------- Extra outputs helpers --------
+    function __normalizeDurToken(tok){
+        if(!tok) return null;
+        var m = String(tok).match(/^(\d{1,4})s$/i);
+        if(m) { var nn = parseInt(m[1],10); return (nn<10?('0'+nn):(''+nn)) + 's'; }
+        var m2 = String(tok).match(/(\d{1,4})s/i);
+        if(m2) { var nn2 = parseInt(m2[1],10); return (nn2<10?('0'+nn2):(''+nn2)) + 's'; }
+        return null;
+    }
+    function __parseWxH(val){
+        if(!val) return null;
+        var s = String(val);
+        var m = s.match(/^(\d{2,5})x(\d{2,5})$/);
+        if(!m) return null;
+        var w = parseInt(m[1],10), h = parseInt(m[2],10);
+        if(isNaN(w) || isNaN(h) || w<=0 || h<=0) return null;
+        return {w:w, h:h};
+    }
+    function parseExtraOutputConfig(map){
+        var out = [];
+        try {
+            for (var k in map) {
+                if (!map.hasOwnProperty(k)) continue;
+                var parts = String(k).split('|');
+                if (parts.length !== 2) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
+                var arKey = String(parts[0]);
+                var durTok = __normalizeDurToken(parts[1]);
+                if (!durTok) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
+                var dim = __parseWxH(map[k]);
+                if (!dim) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
+                var seconds = parseInt(durTok,10);
+                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h });
+            }
+        } catch(eCfg) { /* ignore */ }
+        return out;
+    }
+    function scaleLayerToFit(layer, targetW, targetH, sourceW, sourceH){
+        try {
+            var k = Math.min(targetW/sourceW, targetH/sourceH) * 100.0; // allow upscaling
+            var cx = targetW/2.0, cy = targetH/2.0;
+            layer.property('Position').setValue([cx, cy]);
+            var sc = layer.property('Scale'); if (sc && sc.numProperties === undefined) { sc.setValue([k, k]); }
+        } catch(eSc) {}
+    }
+
     // Build base videoId ("<title>_<NNs>") by taking the token immediately BEFORE the first duration token.
     // This allows arbitrary leading tokens (e.g., token1_token2_title_30s_...).
     // Fallback: if no standalone duration token is found, scan from the end for any token containing /\d{1,4}s/ and use that.
@@ -824,6 +879,47 @@ function __Pack_coreRun(opts) {
         created++;
         __createdNames.push(exportComp.name);
         log("Created export comp '" + exportComp.name + "' -> " + destFolder.name + (relSegs.length ? (" (" + relSegs.join("/") + ")") : ""));
+
+        // ---- Extra output comps (alternate resolutions) ----
+        if (ENABLE_EXTRA_OUTPUT_COMPS) {
+            var extras = parseExtraOutputConfig(EXTRA_OUTPUT_COMPS);
+            if (extras && extras.length) {
+                // Match rule: AR and DURATION token of base comp
+                var baseAR = aspectRatioString(item.width, item.height);
+                var baseDurTok = buildTokenValue('DURATION', { comp: item, meta: (jsonData && (jsonData.metadataGlobal||jsonData.meta_global)) ? (jsonData.metadataGlobal||jsonData.meta_global) : null, video: null });
+                for (var exi=0; exi<extras.length; exi++) {
+                    var ex = extras[exi];
+                    if (ex.arKey !== baseAR || ex.durToken !== baseDurTok) continue;
+                    var dateYYMMDD = buildTokenValue('DATE', { comp: exportComp, meta: (jsonData && (jsonData.metadataGlobal||jsonData.meta_global)) ? (jsonData.metadataGlobal||jsonData.meta_global) : null, video: null });
+                    var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
+                    var extraPathSegs = EXTRA_OUTPUTS_USE_DATE_SUBFOLDER ? [dateYYMMDD, arSeg] : [arSeg];
+                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(outputRoot, extraPathSegs);
+                    var desiredName = buildOutputCompName(exportComp, jsonData);
+                    // BuildOutputCompName uses comp properties; set temp name later for uniqueness
+                    if (!desiredName) desiredName = baseOutputName(exportComp.name);
+                    // Create extra comp
+                    if (DRY_RUN_MODE) {
+                        log("DRY-RUN: would create EXTRA comp '" + desiredName + "' at " + extraPathSegs.join('/'));
+                        __createdNames.push(desiredName);
+                        continue;
+                    }
+                    var fps2 = exportComp.frameRate || 25;
+                    var pa2 = 1.0; try { if (exportComp.pixelAspect) pa2 = exportComp.pixelAspect; } catch(ePA2) {}
+                    var outName2 = makeUniqueName(desiredName);
+                    var extraComp = null;
+                    try { extraComp = proj.items.addComp(outName2, ex.width, ex.height, pa2, ex.seconds, fps2); } catch(eAddEx) { var rsnEx = exportComp.name + " (extra create failed)"; skipped.push(rsnEx); __skippedNames.push(rsnEx); recordSkip(rsnEx); log("Extra create failed for '"+exportComp.name+"': "+eAddEx); continue; }
+                    try { extraComp.displayStartTime = exportComp.displayStartTime; } catch(eDST2) {}
+                    // Add base export comp as layer and scale-to-fit
+                    var lyr = null; try { lyr = extraComp.layers.add(exportComp); } catch(eLEx) { log("Extra layer add failed for " + outName2 + ": " + eLEx); }
+                    if (lyr) { scaleLayerToFit(lyr, ex.width, ex.height, exportComp.width, exportComp.height); try { lyr.inPoint = 0; lyr.outPoint = ex.seconds; } catch(eIO) {} }
+                    // Assign destination
+                    try { extraComp.parentFolder = extraDest; } catch(ePDF2) {}
+                    created++;
+                    __createdNames.push(extraComp.name);
+                    log("Created EXTRA comp '" + extraComp.name + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + extraPathSegs.join('/') + ")");
+                }
+            }
+        }
     }
 
     var summary = "Created " + created + " export comp(s).";

@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
     "RUN_close_project": false,
 
 "batch": {
@@ -43,7 +43,7 @@
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "GBL",
+    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -88,9 +88,9 @@
     "AUDIO_TOKENS_REQUIRE_ADJACENT": false
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": true,
+    "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
     
     "DEBUG_PARENTING_DUMP": false,
     "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
@@ -271,7 +271,13 @@
     "ENSURE_UNIQUE_NAME": true,
     "SKIP_IF_ALREADY_IN_OUTPUT": true,
     "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
-    "DATA_JSON_PRIMARY_NAME": "data.json"
+    "DATA_JSON_PRIMARY_NAME": "data.json",
+    "ENABLE_EXTRA_OUTPUT_COMPS": true,
+    "EXTRA_OUTPUT_COMPS": {
+        "1x1|30s": "640x640",
+        "1x1|45s": "1440x1440"
+    },
+    "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": true
     },
 "ame": {
     "ENABLE_FILE_LOG": false,

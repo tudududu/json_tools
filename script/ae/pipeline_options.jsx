@@ -358,7 +358,11 @@
             DATA_JSON_PRIMARY_NAME: 'data.json',      // Primary expected data JSON name (moved here so ordering stays logical)
             // Pipeline log controls for Step 4
             PIPELINE_SHOW_CONCISE_LOG: true,
-            PIPELINE_SHOW_VERBOSE_LOG: false
+            PIPELINE_SHOW_VERBOSE_LOG: false,
+                // Extra output comps (alternate resolutions)
+            ENABLE_EXTRA_OUTPUT_COMPS: false,         // Master toggle
+            EXTRA_OUTPUT_COMPS: {},                   // Map: "AR|NNs" -> "WxH" string
+            EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true    // Place extras under out/YYMMDD/AR_WxH
         },
         ame: {
             ENABLE_FILE_LOG: true,
