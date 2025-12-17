@@ -275,9 +275,10 @@
     "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "EXTRA_OUTPUT_COMPS": {
         "1x1|30s": "640x640",
-        "1x1|45s": "1440x1440"
+        "1x1|45s": "1440x1440",
+        "9x16|30s": "720x1280"
     },
-    "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": true
+    "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false
     },
 "ame": {
     "ENABLE_FILE_LOG": false,

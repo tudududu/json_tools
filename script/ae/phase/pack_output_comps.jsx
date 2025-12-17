@@ -81,7 +81,7 @@ function __Pack_coreRun(opts) {
     // Extra output comps (alternate resolutions)
     var ENABLE_EXTRA_OUTPUT_COMPS = false;          // Master toggle
     var EXTRA_OUTPUT_COMPS = {};                    // Map: "AR|NNs" -> "WxH" string
-    var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = true;    // Place extras under out/YYMMDD/AR_WxH
+    var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     
 
     // Options overrides
@@ -890,37 +890,37 @@ function __Pack_coreRun(opts) {
                 for (var exi=0; exi<extras.length; exi++) {
                     var ex = extras[exi];
                     if (ex.arKey !== baseAR || ex.durToken !== baseDurTok) continue;
-                    var dateYYMMDD = buildTokenValue('DATE', { comp: exportComp, meta: (jsonData && (jsonData.metadataGlobal||jsonData.meta_global)) ? (jsonData.metadataGlobal||jsonData.meta_global) : null, video: null });
                     var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
-                    var extraPathSegs = EXTRA_OUTPUTS_USE_DATE_SUBFOLDER ? [dateYYMMDD, arSeg] : [arSeg];
-                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(outputRoot, extraPathSegs);
-                    // Compute desired name for extra based on target WxH and duration
-                    var fps2 = exportComp.frameRate || 25;
-                    var pa2 = 1.0; try { if (exportComp.pixelAspect) pa2 = exportComp.pixelAspect; } catch(ePA2) {}
+                    // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH
+                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSeg]);
+                    // Compute desired name for extra based on target WxH and duration, using PRIMARY comp context to preserve MEDIA
+                    var fps2 = item.frameRate || 25;
+                    var pa2 = 1.0; try { if (item.pixelAspect) pa2 = item.pixelAspect; } catch(ePA2) {}
                     if (DRY_RUN_MODE) {
-                        var tempCtxComp = { name: exportComp.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
-                        var wouldName = buildOutputCompName(tempCtxComp, jsonData) || baseOutputName(exportComp.name);
-                        log("DRY-RUN: would create EXTRA comp '" + wouldName + "' at " + extraPathSegs.join('/'));
+                        var tempCtxComp = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
+                        var wouldName = buildOutputCompName(tempCtxComp, jsonData) || baseOutputName(item.name);
+                        log("DRY-RUN: would create EXTRA comp '" + wouldName + "' at " + arSeg);
                         __createdNames.push(wouldName);
                         continue;
                     }
-                    // Create with provisional unique name, then rename after we can compute final tokens on the actual comp
-                    var provisionalName = makeUniqueName(exportComp.name + "_EXTRA");
+                    // Create with provisional unique name derived from primary comp
+                    var provisionalName = makeUniqueName(item.name + "_EXTRA");
                     var extraComp = null;
-                    try { extraComp = proj.items.addComp(provisionalName, ex.width, ex.height, pa2, ex.seconds, fps2); } catch(eAddEx) { var rsnEx = exportComp.name + " (extra create failed)"; skipped.push(rsnEx); __skippedNames.push(rsnEx); recordSkip(rsnEx); log("Extra create failed for '"+exportComp.name+"': "+eAddEx); continue; }
-                    try { extraComp.displayStartTime = exportComp.displayStartTime; } catch(eDST2) {}
-                    // Add base export comp as layer and scale-to-fit
-                    var lyr = null; try { lyr = extraComp.layers.add(exportComp); } catch(eLEx) { log("Extra layer add failed for " + outName2 + ": " + eLEx); }
-                    if (lyr) { scaleLayerToFit(lyr, ex.width, ex.height, exportComp.width, exportComp.height); try { lyr.inPoint = 0; lyr.outPoint = ex.seconds; } catch(eIO) {} }
+                    try { extraComp = proj.items.addComp(provisionalName, ex.width, ex.height, pa2, ex.seconds, fps2); } catch(eAddEx) { var rsnEx = item.name + " (extra create failed)"; skipped.push(rsnEx); __skippedNames.push(rsnEx); recordSkip(rsnEx); log("Extra create failed for '"+item.name+"': "+eAddEx); continue; }
+                    try { extraComp.displayStartTime = item.displayStartTime; } catch(eDST2) {}
+                    // Add PRIMARY comp as layer and scale-to-fit
+                    var lyr = null; try { lyr = extraComp.layers.add(item); } catch(eLEx) { log("Extra layer add failed for " + provisionalName + ": " + eLEx); }
+                    if (lyr) { scaleLayerToFit(lyr, ex.width, ex.height, item.width, item.height); try { lyr.inPoint = 0; lyr.outPoint = ex.seconds; } catch(eIO) {} }
                     // Assign destination
                     try { extraComp.parentFolder = extraDest; } catch(ePDF2) {}
-                    // Compute final name using the actual extra comp properties (ensures RESOLUTION/DURATION reflect target)
-                    var desiredName = buildOutputCompName(extraComp, jsonData) || baseOutputName(exportComp.name);
+                    // Compute final name using a naming context that preserves MEDIA from the primary comp
+                    var namingCtx = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
+                    var desiredName = buildOutputCompName(namingCtx, jsonData) || baseOutputName(item.name);
                     var finalName = makeUniqueName(desiredName);
                     try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
                     __createdNames.push(finalName);
-                    log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + extraPathSegs.join('/') + ")");
+                    log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + arSeg + ")");
                 }
             }
         }
