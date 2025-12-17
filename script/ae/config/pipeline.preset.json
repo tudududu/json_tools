@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -251,9 +251,9 @@
     },
 "pack": {
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": false,
+    "PIPELINE_SHOW_VERBOSE_LOG": true,
 
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
     "DRY_RUN_MODE": false,
     "ENABLE_DETAILED_FILE_LOG": false,
     "DEV_VIDEOID_SELF_TEST": false,

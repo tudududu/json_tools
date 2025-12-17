@@ -621,10 +621,63 @@ function __Pack_coreRun(opts) {
         for(var i=0;i<videos.length;i++){ if(String(videos[i].videoId) === orientedId){ candidate = videos[i]; break; } }
         if(candidate) return candidate; // oriented match first
         // Fallback exact baseId (for future JSON variant without orientation)
+    function __sanitizeMediaLabel(lbl){
+        if(lbl === undefined || lbl === null) return null;
+        var s = String(lbl);
+        // trim
+        s = s.replace(/^\s+|\s+$/g, '');
+        if(!s) return null;
+        // replace all whitespace with underscores, preserve case
+        s = s.replace(/\s+/g, '_');
+        // replace filesystem-problematic chars
+        s = s.replace(/[\\\/:*?"<>|]/g, '_');
+        // collapse multiple underscores
+        s = s.replace(/__+/g, '_');
+        return s;
+    }
         for(var j=0;j<videos.length;j++){ if(String(videos[j].videoId) === baseId){ return videos[j]; } }
         // Fallback: first video whose id starts with baseId
         for(var k=0;k<videos.length;k++){ var vid = String(videos[k].videoId||''); if(vid.indexOf(baseId)===0){ return videos[k]; } }
-        return null;
+            for (var k in map) {
+                if(!map.hasOwnProperty(k)) continue;
+                var keyStr = String(k);
+                // key format: "AR|NNs"
+                var parts = keyStr.split('|');
+                if(parts.length !== 2) continue;
+                var arKey = String(parts[0]);
+                var durTokRaw = String(parts[1]);
+                var durTok = __normalizeDurToken(durTokRaw);
+                if(!durTok) continue;
+                var seconds = parseInt(String(durTok).replace(/s$/i,''),10);
+                if(isNaN(seconds) || seconds<=0) continue;
+
+                var val = map[k];
+                var mediaLabel = null;
+                var dim = null;
+                if (val && typeof val === 'object') {
+                    // Object form: { size: "WxH", media: "TikTok" } or { w:720, h:1280, media: "TikTok" }
+                    if (val.size) dim = __parseWxH(val.size);
+                    if (!dim && (val.w || val.h)) {
+                        var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
+                        if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
+                    }
+                    mediaLabel = __sanitizeMediaLabel(val.media || val.label);
+                } else if (typeof val === 'string') {
+                    // String form: "WxH" or compact "WxH@Media"
+                    var sVal = String(val);
+                    var atIdx = sVal.indexOf('@');
+                    if (atIdx !== -1) {
+                        var sizePart = sVal.substring(0, atIdx);
+                        var mediaPart = sVal.substring(atIdx+1);
+                        dim = __parseWxH(sizePart);
+                        mediaLabel = __sanitizeMediaLabel(mediaPart);
+                    } else {
+                        dim = __parseWxH(sVal);
+                    }
+                }
+                if(!dim) continue;
+                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel });
+            }
     }
 
     function __isTokenEnabled(key){
@@ -891,15 +944,20 @@ function __Pack_coreRun(opts) {
                     var ex = extras[exi];
                     if (ex.arKey !== baseAR || ex.durToken !== baseDurTok) continue;
                     var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
-                    // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH
-                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSeg]);
+                    // Determine media label: prefer config value, else fallback to suffix-derived label
+                    var cfgMedia = ex.mediaLabel;
+                    var fallbackMedia = getExtraMediaLabelForComp(item);
+                    var mediaSeg = cfgMedia ? cfgMedia : (fallbackMedia ? __sanitizeMediaLabel(fallbackMedia) : null);
+                    var arSegWithMedia = mediaSeg ? (arSeg + '_' + mediaSeg) : arSeg;
+                    // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH[_MEDIA]
+                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSegWithMedia]);
                     // Compute desired name for extra based on target WxH and duration, using PRIMARY comp context to preserve MEDIA
                     var fps2 = item.frameRate || 25;
                     var pa2 = 1.0; try { if (item.pixelAspect) pa2 = item.pixelAspect; } catch(ePA2) {}
                     if (DRY_RUN_MODE) {
                         var tempCtxComp = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
                         var wouldName = buildOutputCompName(tempCtxComp, jsonData) || baseOutputName(item.name);
-                        log("DRY-RUN: would create EXTRA comp '" + wouldName + "' at " + arSeg);
+                        log("DRY-RUN: would create EXTRA comp '" + wouldName + "' at " + arSegWithMedia);
                         __createdNames.push(wouldName);
                         continue;
                     }
@@ -920,7 +978,7 @@ function __Pack_coreRun(opts) {
                     try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
                     __createdNames.push(finalName);
-                    log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + arSeg + ")");
+                    log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + arSegWithMedia + ")");
                 }
             }
         }
