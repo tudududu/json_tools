@@ -635,6 +635,20 @@ function __Pack_coreRun(opts) {
         s = s.replace(/__+/g, '_');
         return s;
     }
+    function __safeSanMedia(lbl){
+        try { return __sanitizeMediaLabel(lbl); } catch(e) {
+            try {
+                if(lbl === undefined || lbl === null) return null;
+                var s = String(lbl);
+                s = s.replace(/^\s+|\s+$/g, '');
+                if(!s) return null;
+                s = s.replace(/\s+/g, '_');
+                s = s.replace(/[\\\/:*?"<>|]/g, '_');
+                s = s.replace(/__+/g, '_');
+                return s;
+            } catch(e2) { return null; }
+        }
+    }
         for(var j=0;j<videos.length;j++){ if(String(videos[j].videoId) === baseId){ return videos[j]; } }
         // Fallback: first video whose id starts with baseId
         for(var k=0;k<videos.length;k++){ var vid = String(videos[k].videoId||''); if(vid.indexOf(baseId)===0){ return videos[k]; } }
@@ -661,7 +675,7 @@ function __Pack_coreRun(opts) {
                         var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
                         if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
                     }
-                    mediaLabel = __sanitizeMediaLabel(val.media || val.label);
+                    try { mediaLabel = __sanitizeMediaLabel(val.media || val.label); } catch(eSan1) { mediaLabel = __safeSanMedia(val.media || val.label); }
                 } else if (typeof val === 'string') {
                     // String form: "WxH" or compact "WxH@Media"
                     var sVal = String(val);
@@ -670,7 +684,7 @@ function __Pack_coreRun(opts) {
                         var sizePart = sVal.substring(0, atIdx);
                         var mediaPart = sVal.substring(atIdx+1);
                         dim = __parseWxH(sizePart);
-                        mediaLabel = __sanitizeMediaLabel(mediaPart);
+                        try { mediaLabel = __sanitizeMediaLabel(mediaPart); } catch(eSan2) { mediaLabel = __safeSanMedia(mediaPart); }
                     } else {
                         dim = __parseWxH(sVal);
                     }
