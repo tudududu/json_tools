@@ -963,7 +963,22 @@ function __Pack_coreRun(opts) {
                     // Determine media label: prefer config value, else fallback to suffix-derived label
                     var cfgMedia = ex.mediaLabel;
                     var fallbackMedia = getExtraMediaLabelForComp(item);
-                    var mediaSeg = cfgMedia ? cfgMedia : (fallbackMedia ? __safeSanMedia(fallbackMedia) : null);
+                    var mediaSeg = cfgMedia ? cfgMedia : (fallbackMedia ? (function(x){
+                        try {
+                            // Prefer defined sanitizer if available
+                            if (typeof __sanitizeMediaLabel === 'function') return __sanitizeMediaLabel(x);
+                        } catch(eSanAvail) {}
+                        try {
+                            if(x === undefined || x === null) return null;
+                            var s = String(x);
+                            s = s.replace(/^\s+|\s+$/g, '');
+                            if(!s) return null;
+                            s = s.replace(/\s+/g, '_');
+                            s = s.replace(/[\\\/:*?"<>|]/g, '_');
+                            s = s.replace(/__+/g, '_');
+                            return s;
+                        } catch(eSan) { return null; }
+                    })(fallbackMedia) : null);
                     var arSegWithMedia = mediaSeg ? (arSeg + '_' + mediaSeg) : arSeg;
                     // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH[_MEDIA]
                     var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSegWithMedia]);
