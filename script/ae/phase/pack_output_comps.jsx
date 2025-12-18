@@ -653,7 +653,6 @@ function __Pack_coreRun(opts) {
         // Fallback: first video whose id starts with baseId
         for(var k=0;k<videos.length;k++){ var vid = String(videos[k].videoId||''); if(vid.indexOf(baseId)===0){ return videos[k]; } }
             for (var k in map) {
-                if(!map.hasOwnProperty(k)) continue;
                 var keyStr = String(k);
                 // key format: "AR|NNs"
                 var parts = keyStr.split('|');

@@ -255,7 +255,7 @@
 
     "ENABLE_FILE_LOG": true,
     "DRY_RUN_MODE": false,
-    "ENABLE_DETAILED_FILE_LOG": false,
+    "ENABLE_DETAILED_FILE_LOG": true,
     "DEV_VIDEOID_SELF_TEST": false,
     "DEV_VIDEOID_SELF_TEST_USE_SELECTION": false,
     "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,
@@ -275,8 +275,7 @@
     "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "EXTRA_OUTPUT_COMPS": {
         "1x1|30s": { "size": "640x640", "media": "TikTok" },
-        "1x1|45s": { "size": "1440x1440", "media": "Meta InFeed" },
-        "9x16|30s": { "size": "720x1280", "media": "TikTok" }
+        "1x1|45s": { "size": "1440x1440", "media": "Meta InFeed" }
     },
     "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false
     },
