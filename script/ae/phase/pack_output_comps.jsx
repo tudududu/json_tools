@@ -949,19 +949,21 @@ function __Pack_coreRun(opts) {
 
         // ---- Extra output comps (alternate resolutions) ----
         if (ENABLE_EXTRA_OUTPUT_COMPS) {
+            try {
             var extras = parseExtraOutputConfig(EXTRA_OUTPUT_COMPS);
             if (extras && extras.length) {
                 // Match rule: AR and DURATION token of base comp
                 var baseAR = aspectRatioString(item.width, item.height);
                 var baseDurTok = buildTokenValue('DURATION', { comp: item, meta: (jsonData && (jsonData.metadataGlobal||jsonData.meta_global)) ? (jsonData.metadataGlobal||jsonData.meta_global) : null, video: null });
                 for (var exi=0; exi<extras.length; exi++) {
+                    try {
                     var ex = extras[exi];
                     if (ex.arKey !== baseAR || ex.durToken !== baseDurTok) continue;
                     var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
                     // Determine media label: prefer config value, else fallback to suffix-derived label
                     var cfgMedia = ex.mediaLabel;
                     var fallbackMedia = getExtraMediaLabelForComp(item);
-                    var mediaSeg = cfgMedia ? cfgMedia : (fallbackMedia ? __sanitizeMediaLabel(fallbackMedia) : null);
+                    var mediaSeg = cfgMedia ? cfgMedia : (fallbackMedia ? __safeSanMedia(fallbackMedia) : null);
                     var arSegWithMedia = mediaSeg ? (arSeg + '_' + mediaSeg) : arSeg;
                     // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH[_MEDIA]
                     var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSegWithMedia]);
@@ -987,14 +989,18 @@ function __Pack_coreRun(opts) {
                     try { extraComp.parentFolder = extraDest; } catch(ePDF2) {}
                     // Compute final name using a naming context that preserves MEDIA from the primary comp
                     var namingCtx = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
-                    var desiredName = buildOutputCompName(namingCtx, jsonData) || baseOutputName(item.name);
+                    var desiredName = null;
+                    try { desiredName = buildOutputCompName(namingCtx, jsonData); } catch(eNm) { desiredName = null; }
+                    if (!desiredName) desiredName = baseOutputName(item.name);
                     var finalName = makeUniqueName(desiredName);
                     try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
                     __createdNames.push(finalName);
                     log("Created EXTRA comp '" + finalName + "' -> " + (extraDest ? extraDest.name : '(unknown)') + " (" + arSegWithMedia + ")");
+                    } catch(eExOne) { try { log("EXTRA creation error for '" + item.name + "' ("+ (ex ? ex.arKey+'|'+ex.durToken : '?') + "): " + eExOne); } catch(ee) {} }
                 }
             }
+            } catch(eEx) { try { log("EXTRA block error (parse or loop): " + eEx); } catch(ee2) {} }
         }
     }
 
