@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
     "RUN_close_project": false,
 
 "batch": {
@@ -43,7 +43,7 @@
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBL",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -228,7 +228,7 @@
         "logo02Off": false,
         "claim01Off": false,
         "claim02Off": false,
-        "groups":{"enabled":false,"keys":[]}, 
+        "groups":{"enabled":true,"keys":["info"]}, 
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
@@ -274,13 +274,15 @@
     "DATA_JSON_PRIMARY_NAME": "data.json",
     "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "EXTRA_OUTPUT_COMPS": {
-        "1x1|30s": { "size": "640x640", "media": "TikTok" },
-        "1x1|45s": { "size": "1440x1440", "media": "Meta InFeed" }
+        "1x1|30s": "640x640",
+        "1x1|45s": "1440x1440",
+        "9x16|30s": "720x1280"
     },
     "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false
     },
 "ame": {
     "ENABLE_FILE_LOG": false,
+    "FILE_LOG_APPEND_MODE": false,
     "VERBOSE_DEBUG": false,
     "COMPACT_ITEM_DETAIL": true,
     "PROCESS_SELECTION": true,
@@ -289,7 +291,6 @@
     "AME_MAX_QUEUE_ATTEMPTS": 3,
     "AME_RETRY_DELAY_MS": 650,
     "USE_OM_FILENAME_AS_BASE": false,
-    "FILE_LOG_APPEND_MODE": true,
     "USE_LANGUAGE_SUBFOLDER": false,
     "EXPORT_SUBPATH": ["OUT","DELIVERIES"],
     "EXTRA_EXPORT_SUBFOLDER": true,
@@ -308,7 +309,9 @@
     "OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION": {
         "1x1|06s": "Short_1x1",
         "1x1|15s": "Short_1x1_15"
-        }
+        },
+    "MIMIC_PROJECT_FOLDER_STRUCTURE": false,
+    "PROJECT_FOLDER_ANCHOR_NAME": "out"
     },
 "closeProject": {
     "CLOSE_MODE": "force-save"

@@ -70,7 +70,7 @@ function __AME_coreRun(opts) {
     // (Removed legacy JSON country key path; ISO now derived only from file name or disk scan)
 
     // 4c. File logging options (applies only if file logging enabled later)
-    var FILE_LOG_APPEND_MODE = true;          // When true, append to a single persistent file (set_ame_output_paths.log)
+    var FILE_LOG_APPEND_MODE = false;          // When true, append to a single persistent file (set_ame_output_paths.log)
     var FILE_LOG_PRUNE_ENABLED = true;         // When true, prune old log files (pattern set_ame_output_paths_*.log) beyond max
     var FILE_LOG_MAX_FILES = 12;               // Keep at most this many timestamped log files (ignored if append mode only and no rotation needed)
     var LOG_ENV_HEADER = true;                 // Write environment header (project, counts baseline) at start of each run (or section marker if append)
@@ -103,6 +103,12 @@ function __AME_coreRun(opts) {
     // 5d. Language-level subfolder toggle (Integration 166)
     var USE_LANGUAGE_SUBFOLDER = false;             // When true, insert <LANG> subfolder under <date[_ISO]> when language is known
     var USE_OM_FILENAME_AS_BASE = true;             // When true, reuse existing OM file base as baseName; when false, always use compName
+
+    // 5e. Mimic AE project panel folder structure under date folder
+    // Derive physical export path segments from the comp's Project panel path AFTER the anchor folder name
+    // Example: project/out/4x5/06s/MyComp -> physical: <date>/4x5/06s/MyComp.ext
+    var MIMIC_PROJECT_FOLDER_STRUCTURE = true;
+    var PROJECT_FOLDER_ANCHOR_NAME = "out"; // anchor folder name to cut at (case-insensitive)
 
     // Options overrides
     try {
@@ -139,6 +145,9 @@ function __AME_coreRun(opts) {
             if (o.ENABLE_DURATION_SUBFOLDER !== undefined) ENABLE_DURATION_SUBFOLDER = !!o.ENABLE_DURATION_SUBFOLDER;
             if (o.USE_LANGUAGE_SUBFOLDER !== undefined) USE_LANGUAGE_SUBFOLDER = !!o.USE_LANGUAGE_SUBFOLDER;
             if (o.USE_OM_FILENAME_AS_BASE !== undefined) USE_OM_FILENAME_AS_BASE = !!o.USE_OM_FILENAME_AS_BASE;
+            // 5e. Mimic AE project panel folder structure
+            if (o.MIMIC_PROJECT_FOLDER_STRUCTURE !== undefined) MIMIC_PROJECT_FOLDER_STRUCTURE = !!o.MIMIC_PROJECT_FOLDER_STRUCTURE;
+            if (o.PROJECT_FOLDER_ANCHOR_NAME !== undefined) PROJECT_FOLDER_ANCHOR_NAME = String(o.PROJECT_FOLDER_ANCHOR_NAME);
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
@@ -216,6 +225,30 @@ function __AME_coreRun(opts) {
         var mDur = String(nameBase).match(/(?:^|[_\-\s])(\d{1,4}s)(?:$|[_\-\s])/i);
         if (mDur) dur = normalizeDuration(mDur[1]);
         return { ar: ar, duration: dur };
+    }
+
+    // Project panel path helpers: derive folder segments after an anchor (e.g., 'out')
+    function collectAncestorNames(item) {
+        var names = [];
+        try {
+            var f = item && item.parentFolder ? item.parentFolder : null;
+            while (f && f !== app.project.rootFolder) {
+                names.unshift(String(f.name || ''));
+                f = f.parentFolder;
+            }
+        } catch (e) {}
+        return names;
+    }
+    function relativeSegmentsAfterAnchor(item, anchorLower) {
+        var ancestors = collectAncestorNames(item);
+        var idx = -1;
+        for (var i = 0; i < ancestors.length; i++) {
+            if (String(ancestors[i]).toLowerCase() === anchorLower) { idx = i; break; }
+        }
+        if (idx < 0) return [];
+        var out = [];
+        for (var j = idx + 1; j < ancestors.length; j++) out.push(ancestors[j]);
+        return out;
     }
 
     function pickOutputModuleTemplate(tokens) {
@@ -513,6 +546,7 @@ function __AME_coreRun(opts) {
                 log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
                 log("ExportSubpath=" + __exportSegs.join("/"));
+                log("MimicProjectFolders=" + MIMIC_PROJECT_FOLDER_STRUCTURE + (MIMIC_PROJECT_FOLDER_STRUCTURE? (" (anchor='" + PROJECT_FOLDER_ANCHOR_NAME + "')") : ""));
                 log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
                 log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
@@ -866,6 +900,27 @@ function __AME_coreRun(opts) {
 
             // 1) Create folders and set output path FIRST (independent of templates)
             var destParent = dateFolder;
+            // Option A: mimic AE project folder structure under the date folder
+            var usedMimic = false;
+            if (MIMIC_PROJECT_FOLDER_STRUCTURE) {
+                try {
+                    var segs = relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase());
+                    if (segs && segs.length) {
+                        var cur = dateFolder;
+                        for (var ms=0; ms<segs.length; ms++) {
+                            var segName = segs[ms]; if (!segName) continue;
+                            var nF = new Folder(joinPath(cur.fsName, segName));
+                            ensureFolderExists(nF);
+                            __markTouched(nF.fsName);
+                            cur = nF;
+                        }
+                        destParent = cur;
+                        usedMimic = true;
+                        pushDetail("MIMIC PATH -> " + cur.fsName);
+                    }
+                } catch(eMimic) { pushDetail("MIMIC error -> " + safeErrStr(eMimic)); }
+            }
+            if (!usedMimic) {
             if (ENABLE_DURATION_SUBFOLDER) {
                 // Require both AR and duration when nesting by duration
                 if (tokens.ar && tokens.duration) {
@@ -923,6 +978,7 @@ function __AME_coreRun(opts) {
                     unsorted++;
                 }
             }
+            } // end non-mimic path builder
             var destPath = joinPath(destParent.fsName, baseName + ext);
             pushDetail("DEST -> " + destPath);
             var originalPath = curFile && curFile.fsName ? String(curFile.fsName) : null;
