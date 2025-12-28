@@ -1020,18 +1020,7 @@ function __Pack_coreRun(opts) {
                     var desiredName = null;
                     try { desiredName = buildOutputCompName(namingCtx, jsonData); } catch(eNm) { desiredName = null; }
                     if (!desiredName) desiredName = baseOutputName(item.name);
-                    // Option B: append EXTRA_OUTPUT_SUFFIX when media label present
-                    try {
-                        var suf = EXTRA_OUTPUT_SUFFIX ? String(EXTRA_OUTPUT_SUFFIX) : '';
-                        var hasMedia = !!(cfgMedia || fallbackMedia);
-                        if (ENABLE_EXTRA_MEDIA_OVERRIDE && hasMedia && suf) {
-                            var lowerName = String(desiredName).toLowerCase();
-                            var lowerSuf = suf.toLowerCase();
-                            if (lowerName.indexOf(lowerSuf, lowerName.length - lowerSuf.length) === -1) {
-                                desiredName = desiredName + suf;
-                            }
-                        }
-                    } catch(eSuf) {}
+                    // No extra suffix appended to names; MEDIA token reflects config when enabled
                     var finalName = makeUniqueName(desiredName);
                     try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
