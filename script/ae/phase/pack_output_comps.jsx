@@ -88,54 +88,6 @@ function __Pack_coreRun(opts) {
     };
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     
-
-    // Options overrides
-    try {
-        var o = opts && opts.options ? opts.options : null;
-        if (o) {
-            if (o.OUTPUT_ROOT_PATH !== undefined) OUTPUT_ROOT_PATH = o.OUTPUT_ROOT_PATH;
-            if (o.ANCHOR_SOURCE_FOLDER !== undefined) ANCHOR_SOURCE_FOLDER = o.ANCHOR_SOURCE_FOLDER;
-            if (o.SKIP_IF_ALREADY_IN_OUTPUT !== undefined) SKIP_IF_ALREADY_IN_OUTPUT = !!o.SKIP_IF_ALREADY_IN_OUTPUT;
-            if (o.APPEND_SUFFIX !== undefined) APPEND_SUFFIX = !!o.APPEND_SUFFIX;
-            if (o.ENABLE_SUFFIX_APPEND !== undefined) ENABLE_SUFFIX_APPEND = !!o.ENABLE_SUFFIX_APPEND;
-            if (o.ENSURE_UNIQUE_NAME !== undefined) ENSURE_UNIQUE_NAME = !!o.ENSURE_UNIQUE_NAME;
-            if (o.SKIP_IF_OUTPUT_ALREADY_EXISTS !== undefined) SKIP_IF_OUTPUT_ALREADY_EXISTS = !!o.SKIP_IF_OUTPUT_ALREADY_EXISTS;
-            if (o.DATA_JSON_PRIMARY_NAME !== undefined) DATA_JSON_PRIMARY_NAME = o.DATA_JSON_PRIMARY_NAME;
-            
-            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
-            if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
-            if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
-            if (o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN !== undefined) SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = !!o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN;
-            if (o.DEBUG_NAMING !== undefined) DEBUG_NAMING = !!o.DEBUG_NAMING;
-            if (o.DEBUG_EXTRAS !== undefined) DEBUG_EXTRAS = !!o.DEBUG_EXTRAS;
-            if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
-            if (o.USE_PROJECT_LOG_FOLDER !== undefined) USE_PROJECT_LOG_FOLDER = !!o.USE_PROJECT_LOG_FOLDER;
-            if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
-            if (o.DEV_VIDEOID_SELF_TEST !== undefined) DEV_VIDEOID_SELF_TEST = !!o.DEV_VIDEOID_SELF_TEST;
-            if (o.DEV_VIDEOID_SELF_TEST_USE_SELECTION !== undefined) DEV_VIDEOID_SELF_TEST_USE_SELECTION = !!o.DEV_VIDEOID_SELF_TEST_USE_SELECTION;
-            if (o.ENABLE_EXTRA_MEDIA_OVERRIDE !== undefined) ENABLE_EXTRA_MEDIA_OVERRIDE = !!o.ENABLE_EXTRA_MEDIA_OVERRIDE;
-            if (o.EXTRA_OUTPUT_SUFFIX !== undefined) EXTRA_OUTPUT_SUFFIX = o.EXTRA_OUTPUT_SUFFIX;
-            if (o.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!o.ENABLE_EXTRA_OUTPUT_COMPS;
-            if (o.EXTRA_OUTPUT_COMPS !== undefined) EXTRA_OUTPUT_COMPS = o.EXTRA_OUTPUT_COMPS || {};
-            if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
-        }
-        try {
-            if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
-                if (__AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; }
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST === true) { DEV_VIDEOID_SELF_TEST = true; } } catch(ePack) {}
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST_USE_SELECTION === true) { DEV_VIDEOID_SELF_TEST_USE_SELECTION = true; } } catch(ePack2) {}
-                // Borrow extras suffix from addLayers options if available
-                try {
-                    var ex = __AE_PIPE__.optionsEffective.addLayers && __AE_PIPE__.optionsEffective.addLayers.EXTRA_TEMPLATES;
-                    if (ex && ex.OUTPUT_NAME_SUFFIX) EXTRA_OUTPUT_SUFFIX = ex.OUTPUT_NAME_SUFFIX;
-                } catch(eEx) {}
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.ENABLE_EXTRA_OUTPUT_COMPS === true) { ENABLE_EXTRA_OUTPUT_COMPS = true; } } catch(eP1) {}
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS) { EXTRA_OUTPUT_COMPS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS; } } catch(eP2) {}
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
-            }
-        } catch(eMSPK) {}
-    } catch(eOpt){}
-
     // --------------------------------------------------------------
     // OUTPUT NAME CONFIG (modular token-based name builder)
     // Order of tokens here defines default ordering. You can enable/disable tokens individually.
@@ -185,6 +137,55 @@ function __Pack_coreRun(opts) {
         appendSuffix: true      // append APPEND_SUFFIX to the built name (if not already there)
     };
 
+
+    // Options overrides
+    try {
+        var o = opts && opts.options ? opts.options : null;
+        if (o) {
+            if (o.OUTPUT_ROOT_PATH !== undefined) OUTPUT_ROOT_PATH = o.OUTPUT_ROOT_PATH;
+            if (o.ANCHOR_SOURCE_FOLDER !== undefined) ANCHOR_SOURCE_FOLDER = o.ANCHOR_SOURCE_FOLDER;
+            if (o.SKIP_IF_ALREADY_IN_OUTPUT !== undefined) SKIP_IF_ALREADY_IN_OUTPUT = !!o.SKIP_IF_ALREADY_IN_OUTPUT;
+            if (o.APPEND_SUFFIX !== undefined) APPEND_SUFFIX = !!o.APPEND_SUFFIX;
+            if (o.ENABLE_SUFFIX_APPEND !== undefined) ENABLE_SUFFIX_APPEND = !!o.ENABLE_SUFFIX_APPEND;
+            if (o.ENSURE_UNIQUE_NAME !== undefined) ENSURE_UNIQUE_NAME = !!o.ENSURE_UNIQUE_NAME;
+            if (o.SKIP_IF_OUTPUT_ALREADY_EXISTS !== undefined) SKIP_IF_OUTPUT_ALREADY_EXISTS = !!o.SKIP_IF_OUTPUT_ALREADY_EXISTS;
+            if (o.DATA_JSON_PRIMARY_NAME !== undefined) DATA_JSON_PRIMARY_NAME = o.DATA_JSON_PRIMARY_NAME;
+            
+            if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
+            if (o.DRY_RUN_MODE !== undefined) DRY_RUN_MODE = !!o.DRY_RUN_MODE;
+            if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
+            if (o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN !== undefined) SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = !!o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN;
+            if (o.DEBUG_NAMING !== undefined) DEBUG_NAMING = !!o.DEBUG_NAMING;
+            if (o.DEBUG_EXTRAS !== undefined) DEBUG_EXTRAS = !!o.DEBUG_EXTRAS;
+            if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
+            if (o.USE_PROJECT_LOG_FOLDER !== undefined) USE_PROJECT_LOG_FOLDER = !!o.USE_PROJECT_LOG_FOLDER;
+            if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
+            if (o.DEV_VIDEOID_SELF_TEST !== undefined) DEV_VIDEOID_SELF_TEST = !!o.DEV_VIDEOID_SELF_TEST;
+            if (o.DEV_VIDEOID_SELF_TEST_USE_SELECTION !== undefined) DEV_VIDEOID_SELF_TEST_USE_SELECTION = !!o.DEV_VIDEOID_SELF_TEST_USE_SELECTION;
+            if (o.ENABLE_EXTRA_MEDIA_OVERRIDE !== undefined) ENABLE_EXTRA_MEDIA_OVERRIDE = !!o.ENABLE_EXTRA_MEDIA_OVERRIDE;
+            if (o.EXTRA_OUTPUT_SUFFIX !== undefined) EXTRA_OUTPUT_SUFFIX = o.EXTRA_OUTPUT_SUFFIX;
+            if (o.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!o.ENABLE_EXTRA_OUTPUT_COMPS;
+            if (o.EXTRA_OUTPUT_COMPS !== undefined) EXTRA_OUTPUT_COMPS = o.EXTRA_OUTPUT_COMPS || {};
+            if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
+        }
+        try {
+            if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
+                if (__AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; }
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST === true) { DEV_VIDEOID_SELF_TEST = true; } } catch(ePack) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.DEV_VIDEOID_SELF_TEST_USE_SELECTION === true) { DEV_VIDEOID_SELF_TEST_USE_SELECTION = true; } } catch(ePack2) {}
+                // Borrow extras suffix from addLayers options if available
+                try {
+                    var ex = __AE_PIPE__.optionsEffective.addLayers && __AE_PIPE__.optionsEffective.addLayers.EXTRA_TEMPLATES;
+                    if (ex && ex.OUTPUT_NAME_SUFFIX) EXTRA_OUTPUT_SUFFIX = ex.OUTPUT_NAME_SUFFIX;
+                } catch(eEx) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.ENABLE_EXTRA_OUTPUT_COMPS === true) { ENABLE_EXTRA_OUTPUT_COMPS = true; } } catch(eP1) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS) { EXTRA_OUTPUT_COMPS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS; } } catch(eP2) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
+            }
+        } catch(eMSPK) {}
+    } catch(eOpt){}
+
+    // Logging setup ----------------------------------------
     var __timestamp = buildTimestamp();
     var __logBaseFolder = resolveLogBaseFolder();
     var __detailedLogFile = null;
