@@ -526,9 +526,9 @@ function __Pack_coreRun(opts) {
         var s = String(lbl);
         s = s.replace(/^\s+|\s+$/g, '');
         if(!s) return null;
-        s = s.replace(/\s+/g, '_');
-        s = s.replace(/[\\\/:*?"<>|]/g, '_');
-        s = s.replace(/__+/g, '_');
+        s = s.replace(/\s+/g, '');
+        s = s.replace(/[\\\/:*?"<>|]/g, '');
+        s = s.replace(/__+/g, '');
         return s;
     }
     function __safeSanMedia(lbl){
