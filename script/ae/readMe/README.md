@@ -356,13 +356,46 @@ Table of contents
   - Group-based detection aligned: skip-copy gates for `logo_03`, `logo_04`, `logo_05` now use `nameMatchesGroup` consistently with claim groups.
 
   #### Step 6 – Pack Output Comps
-  Derives stable videoId (token-before-duration heuristic). Overrides MEDIA token for extras (suffix → `MEDIA=<EXTRA>`). Optional dev self-test (`DEV_VIDEOID_SELF_TEST`).
+  Derives stable videoId (token-before-duration heuristic). Optional dev self-test (`DEV_VIDEOID_SELF_TEST`).
+  Extras parsing & MEDIA override
+  - `EXTRA_OUTPUT_COMPS` supports multiple value forms per `AR|duration` key:
+    - String size: `"WxH"` (e.g., `"1080x1350"`).
+    - Compact: `"WxH@Label"` (e.g., `"1080x1920@TT"`).
+    - Object: `{ size: "WxH", media: "Label" }` or `{ w: 1080, h: 1920, media|label: "TT" }`.
+    - Array: combine several entries for the same key (produces multiple extras).
+  - Gates: `ENABLE_EXTRA_OUTPUT_COMPS=true` enables extras; `ENABLE_EXTRA_MEDIA_OVERRIDE=true` injects `MEDIA=<Label>` from extras config. Suffix-based name appends are no longer used in Step 6.
+  - Naming: When the override gate is on and a `media`/`label` is provided, the `MEDIA` token uses that label; otherwise it falls back to the existing logic (e.g., default `OLV`).
+  - Logging: `DEBUG_EXTRAS=true` outputs a one-time parsed extras dump for auditing.
+
+  Options Quick Reference (Step 6)
+  | Option key | Default | Description |
+  |------------|---------|-------------|
+  | `ENABLE_EXTRA_OUTPUT_COMPS` | — | Enable creation of extras from `EXTRA_OUTPUT_COMPS` map. |
+  | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` with values in string/compact/object/array forms to produce extras. |
+  | `ENABLE_EXTRA_MEDIA_OVERRIDE` | — | Use `media`/`label` from extras config to override the `MEDIA` token. |
+  | `DEBUG_EXTRAS` | — | Emit a one-time parsed extras dump for audit. |
+  | `DEV_VIDEOID_SELF_TEST` | — | Development-only self-test for videoId derivation. |
 
   #### Step 7 – AME Output Paths & Queue
   Path base: `ame.EXPORT_SUBPATH` under `POST/`. Duration subfolder toggle: `ENABLE_DURATION_SUBFOLDER`.
-  Extras routing: `EXTRA_EXPORT_SUBFOLDER=true` yields `<date>/<AR>_<extraName>/...` (respecting duration subfolder toggle).
+  Project-folder mimic: When `MIMIC_PROJECT_FOLDER_STRUCTURE=true`, AME paths mirror Project panel segments following an anchor (default `PROJECT_FOLDER_ANCHOR_NAME="out"`). Pure six-digit date segments (`YYMMDD`) found after the anchor are filtered to avoid duplicating the date folder under `YYMMDD_ISO`.
+  Extras routing: `EXTRA_EXPORT_SUBFOLDER=true` yields `<date>/<AR>_<extraName>/...` (respects the duration subfolder toggle) in addition to any mimic segments.
   Template mapping: `APPLY_TEMPLATES`, `OUTPUT_MODULE_TEMPLATE`, AR maps, AR+duration maps, dynamic selection & optional reapply (`DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES`).
   Logging density: `VERBOSE_DEBUG`, `COMPACT_ITEM_DETAIL` (caps detail at 80 lines with “… (X more) …”).
+
+  Options Quick Reference (Step 7)
+  | Option key | Default | Description |
+  |------------|---------|-------------|
+  | `ame.EXPORT_SUBPATH` | — | Path segments under `POST/` forming the output base (e.g., `OUT/PREVIEWS`). |
+  | `ENABLE_DURATION_SUBFOLDER` | — | Place outputs under duration subfolders (e.g., `30s/`). |
+  | `MIMIC_PROJECT_FOLDER_STRUCTURE` | — | Mirror Project panel segments after anchor; filters pure `YYMMDD` segments found post-anchor. |
+  | `PROJECT_FOLDER_ANCHOR_NAME` | — | Anchor name for mimic start (default convention: `out`). |
+  | `EXTRA_EXPORT_SUBFOLDER` | — | Route extras into `<AR>_<extraName>/` subfolders (respects duration subfolder toggle). |
+  | `APPLY_TEMPLATES` | — | Apply AME output module templates based on AR/duration maps. |
+  | `OUTPUT_MODULE_TEMPLATE` | — | Base template name applied to items being queued. |
+  | `DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES` | — | Reapply template selection to stabilize overrides when needed. |
+  | `VERBOSE_DEBUG` | — | Increase logging detail for pathing and template application. |
+  | `COMPACT_ITEM_DETAIL` | — | Cap per-item log lines with concise summaries. |
 
   #### Step 8 – Close Project (optional)
   `closeProject.CLOSE_MODE`: `prompt` | `force-save` | `force-no-save`. Pipeline-level; Batch Mode applies policy after each run & final run via its own flag.
@@ -425,6 +458,29 @@ Table of contents
   }
   ```
 
+  Pack extras parsing & AME mimic (advanced):
+  ```json
+  {
+    "ENABLE_EXTRA_OUTPUT_COMPS": true,
+    "ENABLE_EXTRA_MEDIA_OVERRIDE": true,
+    "EXTRA_OUTPUT_COMPS": {
+      "16x9|30s": [
+        "1920x1080@OLV",
+        { "size": "1080x1920", "media": "TT" },
+        { "w": 1080, "h": 1350, "label": "IG" }
+      ],
+      "9x16|15s": "1080x1920@TT"
+    },
+    "ame": {
+      "EXPORT_SUBPATH": ["OUT","PREVIEWS"],
+      "MIMIC_PROJECT_FOLDER_STRUCTURE": true,
+      "PROJECT_FOLDER_ANCHOR_NAME": "out",
+      "EXTRA_EXPORT_SUBFOLDER": true,
+      "ENABLE_DURATION_SUBFOLDER": true
+    }
+  }
+  ```
+
   ### 9. Troubleshooting
   Preset loader alert (“Save the project under POST/WORK…”): ensure current project is saved under `POST/WORK/` or enable `.use_dev_preset` for DEV override.
   “Object is invalid”: occurs when phases access project before Step 0 open; fixed by early bootstrap logic in `pipeline_run.jsx`.
@@ -436,7 +492,8 @@ Table of contents
   ISO: 3-letter country/language code from data filename (`data_ENG.json`) or JSON.
   YYMMDD: Date folder naming convention for footage & sound (e.g., `250910`).
   AR: Aspect Ratio token expressed as `w:h` normalized (e.g., `16x9`, `9x16`).
-  Extras: Duplicate variant (e.g., TikTok) generated via `EXTRA_TEMPLATES`. Suffix (e.g., `_tiktok`) signals routing & MEDIA override.
+  Extras: Additional output variants produced either by Step 5 `EXTRA_TEMPLATES` duplicates or Step 6 `EXTRA_OUTPUT_COMPS` entries (string/compact/object/array). Extras may be routed into dedicated subfolders; naming can include a `MEDIA` token label when enabled.
+  MEDIA: Naming token representing media/placement. Defaults to `OLV` when no explicit label is provided. When `ENABLE_EXTRA_MEDIA_OVERRIDE=true`, the label from extras config (`media`/`label`) overrides `MEDIA` in names; suffix-based appends are not used in Step 6.
   VideoId: Canonical identifier derived from comp naming tokens prior to duration (fallback scans applied).
 
   ### 11. Changelog (Recent Highlights)
@@ -445,6 +502,10 @@ Table of contents
   - Step 4 (Insert & Relink): Audio pairing generalized to N (1–4) title tokens before duration with `AUDIO_TITLE_TOKEN_COUNT`; optional strict adjacency via `AUDIO_TOKENS_REQUIRE_ADJACENT`; added debug-only audit without breaking existing parsers.
   - Step 5 (Add Layers): Added `logo_03/04/05` flags and wired skip-copy gates using group-based detection.
   - Logging: Per-phase file logs remain consistent; additional concise debug lines aid auditing while keeping primary summaries stable.
+
+  Recent additions (Integration 202+ / Packs 28–35):
+  - Step 6 (Pack Output Comps): Extras parsing expanded — `EXTRA_OUTPUT_COMPS` now supports string, compact (`WxH@Label`), object (`{size|w/h, media|label}`), and arrays (multiple extras per key). MEDIA token can be overridden from extras config when `ENABLE_EXTRA_MEDIA_OVERRIDE=true`; suffix-based appends removed in Step 6.
+  - Step 7 (AME Output Paths): Project-panel mimic added with anchor support — `MIMIC_PROJECT_FOLDER_STRUCTURE=true` mirrors segments after `PROJECT_FOLDER_ANCHOR_NAME` (default `out`); pure `YYMMDD` segments after the anchor are filtered to avoid duplicating the date folder under `YYMMDD_ISO`.
 
   ### 12. Design Principles
   Idempotent phases (safe re-run). Deterministic naming & logging (capped sections with reliable overflow markers). Single merged options object for predictability. Fail-fast on strict mismatches (audio ISO, extras duration strictness) with clear fatal summaries.
