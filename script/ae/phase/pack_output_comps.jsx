@@ -70,7 +70,7 @@ function __Pack_coreRun(opts) {
     var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
     var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true; // If true, disables detailed file log when DRY_RUN_MODE == false
     var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
-    var DEBUG_EXTRAS = false;                      // When true: dump normalized extras once
+    var DEBUG_EXTRAS = true;                      // When true: dump normalized extras once
     var ENABLE_SUMMARY_LOG = true;                 // Produce a summary-only log (names list)
     var USE_PROJECT_LOG_FOLDER = true;             // Try to write logs under project ./log/ folder
     var PROJECT_LOG_SUBFOLDER = "log";             // Subfolder name
@@ -812,6 +812,8 @@ function __Pack_coreRun(opts) {
         var video = jsonData ? findVideoRecord(jsonData, comp) : null;
         if(!video){ log("No video metadata match for comp '" + comp.name + "' (will fallback)" ); }
         var ctx = { comp: comp, meta: meta, video: video };
+        // Allow extras to inject media label via a synthetic property on the comp-like context
+        try { if (comp && comp.extraMediaLabel) ctx.extraMediaLabel = comp.extraMediaLabel; } catch(eEML) {}
         var parts = [];
         for(var i=0;i<OUTPUT_NAME_TOKENS.length;i++){
             var tk = OUTPUT_NAME_TOKENS[i];
