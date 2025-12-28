@@ -82,7 +82,7 @@ function __Pack_coreRun(opts) {
     // Extra output comps (alternate resolutions)
     var ENABLE_EXTRA_OUTPUT_COMPS = true;         // Master toggle
     var EXTRA_OUTPUT_COMPS = {                     // Map: "AR|NNs" -> "WxH" string
-        "1x1|06s": { "size": "640x640", "media": "TikTok" },
+        "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
         "1x1|15s": "1440x1440",
         "9x16|06s": "720x1280@TikTok",
     };
@@ -561,34 +561,67 @@ function __Pack_coreRun(opts) {
                 if(isNaN(seconds) || seconds<=0) { recordSkip("EXTRA config '"+k+"' (duration invalid)"); continue; }
 
                 var val = map[k];
-                var mediaLabel = null;
-                var dim = null;
-                if (val && typeof val === 'object' && !val.length) {
-                    // Object form: { size: "WxH", media: "TikTok" } or { w:720, h:1280, media: "TikTok" }
-                    if (val.size) dim = __parseWxH(val.size);
-                    if (!dim && (val.w || val.h)) {
-                        var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
-                        if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
-                    }
-                    try { mediaLabel = __sanitizeMediaLabel(val.media || val.label); } catch(eSan1) { mediaLabel = __safeSanMedia(val.media || val.label); }
-                } else if (typeof val === 'string') {
-                    // String form: "WxH" or compact "WxH@Media"
-                    var sVal = String(val);
-                    var atIdx = sVal.indexOf('@');
-                    if (atIdx !== -1) {
-                        var sizePart = sVal.substring(0, atIdx);
-                        var mediaPart = sVal.substring(atIdx+1);
-                        dim = __parseWxH(sizePart);
-                        try { mediaLabel = __sanitizeMediaLabel(mediaPart); } catch(eSan2) { mediaLabel = __safeSanMedia(mediaPart); }
-                    } else {
-                        dim = __parseWxH(sVal);
+                // Allow arrays of values per key; flatten to multiple entries
+                if (val && (val instanceof Array)) {
+                    for (var ai = 0; ai < val.length; ai++) {
+                        var elem = val[ai];
+                        var mediaLabel = null;
+                        var dim = null;
+                        if (elem && typeof elem === 'object' && !(elem instanceof Array)) {
+                            if (elem.size) dim = __parseWxH(elem.size);
+                            if (!dim && (elem.w || elem.h)) {
+                                var wNumA = parseInt(elem.w,10), hNumA = parseInt(elem.h,10);
+                                if(!isNaN(wNumA) && !isNaN(hNumA) && wNumA>0 && hNumA>0) dim = { w: wNumA, h: hNumA };
+                            }
+                            try { mediaLabel = __sanitizeMediaLabel(elem.media || elem.label); } catch(eSanArr) { mediaLabel = __safeSanMedia(elem.media || elem.label); }
+                        } else if (typeof elem === 'string') {
+                            var sValA = String(elem);
+                            var atIdxA = sValA.indexOf('@');
+                            if (atIdxA !== -1) {
+                                var sizePartA = sValA.substring(0, atIdxA);
+                                var mediaPartA = sValA.substring(atIdxA+1);
+                                dim = __parseWxH(sizePartA);
+                                try { mediaLabel = __sanitizeMediaLabel(mediaPartA); } catch(eSanArr2) { mediaLabel = __safeSanMedia(mediaPartA); }
+                            } else {
+                                dim = __parseWxH(sValA);
+                            }
+                        } else {
+                            recordSkip("EXTRA config '"+k+"' (array element unsupported)");
+                            continue;
+                        }
+                        if(!dim) { recordSkip("EXTRA config '"+k+"' (array element size invalid)"); continue; }
+                        out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
                     }
                 } else {
-                    recordSkip("EXTRA config '"+k+"' (unsupported value type)");
-                    continue;
+                    var mediaLabel = null;
+                    var dim = null;
+                    if (val && typeof val === 'object' && !(val instanceof Array)) {
+                        // Object form: { size: "WxH", media: "TikTok" } or { w:720, h:1280, media: "TikTok" }
+                        if (val.size) dim = __parseWxH(val.size);
+                        if (!dim && (val.w || val.h)) {
+                            var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
+                            if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
+                        }
+                        try { mediaLabel = __sanitizeMediaLabel(val.media || val.label); } catch(eSan1) { mediaLabel = __safeSanMedia(val.media || val.label); }
+                    } else if (typeof val === 'string') {
+                        // String form: "WxH" or compact "WxH@Media"
+                        var sVal = String(val);
+                        var atIdx = sVal.indexOf('@');
+                        if (atIdx !== -1) {
+                            var sizePart = sVal.substring(0, atIdx);
+                            var mediaPart = sVal.substring(atIdx+1);
+                            dim = __parseWxH(sizePart);
+                            try { mediaLabel = __sanitizeMediaLabel(mediaPart); } catch(eSan2) { mediaLabel = __safeSanMedia(mediaPart); }
+                        } else {
+                            dim = __parseWxH(sVal);
+                        }
+                    } else {
+                        recordSkip("EXTRA config '"+k+"' (unsupported value type)");
+                        continue;
+                    }
+                    if(!dim) { recordSkip("EXTRA config '"+k+"' (size invalid)"); continue; }
+                    out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
                 }
-                if(!dim) { recordSkip("EXTRA config '"+k+"' (size invalid)"); continue; }
-                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel });
             }
         } catch(eCfg) { /* ignore */ }
         return out;
@@ -962,7 +995,8 @@ function __Pack_coreRun(opts) {
                     if (extras && extras.length) {
                         for (var di=0; di<extras.length; di++) {
                             var e1 = extras[di];
-                            log("  ex["+di+"] => AR="+e1.arKey+", DUR="+e1.durToken+", size="+e1.width+"x"+e1.height+", media="+(e1.mediaLabel||'-'));
+                            var keyInfo = e1.sourceKey ? (" key="+e1.sourceKey) : "";
+                            log("  ex["+di+"]"+keyInfo+" => AR="+e1.arKey+", DUR="+e1.durToken+", size="+e1.width+"x"+e1.height+", media="+(e1.mediaLabel||'-'));
                         }
                     }
                 }
