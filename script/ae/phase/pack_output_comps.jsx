@@ -70,6 +70,7 @@ function __Pack_coreRun(opts) {
     var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
     var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true; // If true, disables detailed file log when DRY_RUN_MODE == false
     var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
+    var DEBUG_EXTRAS = false;                      // When true: dump normalized extras once
     var ENABLE_SUMMARY_LOG = true;                 // Produce a summary-only log (names list)
     var USE_PROJECT_LOG_FOLDER = true;             // Try to write logs under project ./log/ folder
     var PROJECT_LOG_SUBFOLDER = "log";             // Subfolder name
@@ -77,10 +78,14 @@ function __Pack_coreRun(opts) {
     var DEV_VIDEOID_SELF_TEST_USE_SELECTION = false; // When true, also log mappings for selected/auto-selected comps
     // Extra outputs naming integration: override MEDIA token for extras (e.g., TikTok)
     var ENABLE_EXTRA_MEDIA_OVERRIDE = true;        // When true, MEDIA token will be replaced by extra tag for extra outputs
-    var EXTRA_OUTPUT_SUFFIX = "_tiktok";          // Suffix appended to extra duplicate comp names in Step 5 (case-insensitive)
+    var EXTRA_OUTPUT_SUFFIX = "_tiktok";           // Suffix appended to extra duplicate comp names in Step 5 (case-insensitive)
     // Extra output comps (alternate resolutions)
-    var ENABLE_EXTRA_OUTPUT_COMPS = false;          // Master toggle
-    var EXTRA_OUTPUT_COMPS = {};                    // Map: "AR|NNs" -> "WxH" string
+    var ENABLE_EXTRA_OUTPUT_COMPS = true;         // Master toggle
+    var EXTRA_OUTPUT_COMPS = {                     // Map: "AR|NNs" -> "WxH" string
+        "1x1|06s": { "size": "640x640", "media": "TikTok" },
+        "1x1|15s": "1440x1440",
+        "9x16|06s": "720x1280@TikTok",
+    };
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     
 
@@ -102,6 +107,7 @@ function __Pack_coreRun(opts) {
             if (o.ENABLE_DETAILED_FILE_LOG !== undefined) ENABLE_DETAILED_FILE_LOG = !!o.ENABLE_DETAILED_FILE_LOG;
             if (o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN !== undefined) SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = !!o.SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN;
             if (o.DEBUG_NAMING !== undefined) DEBUG_NAMING = !!o.DEBUG_NAMING;
+            if (o.DEBUG_EXTRAS !== undefined) DEBUG_EXTRAS = !!o.DEBUG_EXTRAS;
             if (o.ENABLE_SUMMARY_LOG !== undefined) ENABLE_SUMMARY_LOG = !!o.ENABLE_SUMMARY_LOG;
             if (o.USE_PROJECT_LOG_FOLDER !== undefined) USE_PROJECT_LOG_FOLDER = !!o.USE_PROJECT_LOG_FOLDER;
             if (o.PROJECT_LOG_SUBFOLDER !== undefined) PROJECT_LOG_SUBFOLDER = o.PROJECT_LOG_SUBFOLDER;
@@ -513,20 +519,75 @@ function __Pack_coreRun(opts) {
         if(isNaN(w) || isNaN(h) || w<=0 || h<=0) return null;
         return {w:w, h:h};
     }
+    // Sanitize media label to be filesystem-safe while preserving case
+    function __sanitizeMediaLabel(lbl){
+        if(lbl === undefined || lbl === null) return null;
+        var s = String(lbl);
+        s = s.replace(/^\s+|\s+$/g, '');
+        if(!s) return null;
+        s = s.replace(/\s+/g, '_');
+        s = s.replace(/[\\\/:*?"<>|]/g, '_');
+        s = s.replace(/__+/g, '_');
+        return s;
+    }
+    function __safeSanMedia(lbl){
+        try { return __sanitizeMediaLabel(lbl); } catch(e) {
+            try {
+                if(lbl === undefined || lbl === null) return null;
+                var s = String(lbl);
+                s = s.replace(/^\s+|\s+$/g, '');
+                if(!s) return null;
+                s = s.replace(/\s+/g, '_');
+                s = s.replace(/[\\\/:*?"<>|]/g, '_');
+                s = s.replace(/__+/g, '_');
+                return s;
+            } catch(e2) { return null; }
+        }
+    }
     function parseExtraOutputConfig(map){
         var out = [];
         try {
+            if (!map) return out;
             for (var k in map) {
                 if (!map.hasOwnProperty(k)) continue;
-                var parts = String(k).split('|');
+                var keyStr = String(k);
+                var parts = keyStr.split('|');
                 if (parts.length !== 2) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
                 var arKey = String(parts[0]);
                 var durTok = __normalizeDurToken(parts[1]);
                 if (!durTok) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
-                var dim = __parseWxH(map[k]);
-                if (!dim) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
-                var seconds = parseInt(durTok,10);
-                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h });
+                var seconds = parseInt(String(durTok).replace(/s$/i,''),10);
+                if(isNaN(seconds) || seconds<=0) { recordSkip("EXTRA config '"+k+"' (duration invalid)"); continue; }
+
+                var val = map[k];
+                var mediaLabel = null;
+                var dim = null;
+                if (val && typeof val === 'object' && !val.length) {
+                    // Object form: { size: "WxH", media: "TikTok" } or { w:720, h:1280, media: "TikTok" }
+                    if (val.size) dim = __parseWxH(val.size);
+                    if (!dim && (val.w || val.h)) {
+                        var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
+                        if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
+                    }
+                    try { mediaLabel = __sanitizeMediaLabel(val.media || val.label); } catch(eSan1) { mediaLabel = __safeSanMedia(val.media || val.label); }
+                } else if (typeof val === 'string') {
+                    // String form: "WxH" or compact "WxH@Media"
+                    var sVal = String(val);
+                    var atIdx = sVal.indexOf('@');
+                    if (atIdx !== -1) {
+                        var sizePart = sVal.substring(0, atIdx);
+                        var mediaPart = sVal.substring(atIdx+1);
+                        dim = __parseWxH(sizePart);
+                        try { mediaLabel = __sanitizeMediaLabel(mediaPart); } catch(eSan2) { mediaLabel = __safeSanMedia(mediaPart); }
+                    } else {
+                        dim = __parseWxH(sVal);
+                    }
+                } else {
+                    recordSkip("EXTRA config '"+k+"' (unsupported value type)");
+                    continue;
+                }
+                if(!dim) { recordSkip("EXTRA config '"+k+"' (size invalid)"); continue; }
+                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel });
             }
         } catch(eCfg) { /* ignore */ }
         return out;
@@ -621,76 +682,10 @@ function __Pack_coreRun(opts) {
         for(var i=0;i<videos.length;i++){ if(String(videos[i].videoId) === orientedId){ candidate = videos[i]; break; } }
         if(candidate) return candidate; // oriented match first
         // Fallback exact baseId (for future JSON variant without orientation)
-    function __sanitizeMediaLabel(lbl){
-        if(lbl === undefined || lbl === null) return null;
-        var s = String(lbl);
-        // trim
-        s = s.replace(/^\s+|\s+$/g, '');
-        if(!s) return null;
-        // replace all whitespace with underscores, preserve case
-        s = s.replace(/\s+/g, '_');
-        // replace filesystem-problematic chars
-        s = s.replace(/[\\\/:*?"<>|]/g, '_');
-        // collapse multiple underscores
-        s = s.replace(/__+/g, '_');
-        return s;
-    }
-    function __safeSanMedia(lbl){
-        try { return __sanitizeMediaLabel(lbl); } catch(e) {
-            try {
-                if(lbl === undefined || lbl === null) return null;
-                var s = String(lbl);
-                s = s.replace(/^\s+|\s+$/g, '');
-                if(!s) return null;
-                s = s.replace(/\s+/g, '_');
-                s = s.replace(/[\\\/:*?"<>|]/g, '_');
-                s = s.replace(/__+/g, '_');
-                return s;
-            } catch(e2) { return null; }
-        }
-    }
         for(var j=0;j<videos.length;j++){ if(String(videos[j].videoId) === baseId){ return videos[j]; } }
         // Fallback: first video whose id starts with baseId
         for(var k=0;k<videos.length;k++){ var vid = String(videos[k].videoId||''); if(vid.indexOf(baseId)===0){ return videos[k]; } }
-            for (var k in map) {
-                var keyStr = String(k);
-                // key format: "AR|NNs"
-                var parts = keyStr.split('|');
-                if(parts.length !== 2) continue;
-                var arKey = String(parts[0]);
-                var durTokRaw = String(parts[1]);
-                var durTok = __normalizeDurToken(durTokRaw);
-                if(!durTok) continue;
-                var seconds = parseInt(String(durTok).replace(/s$/i,''),10);
-                if(isNaN(seconds) || seconds<=0) continue;
-
-                var val = map[k];
-                var mediaLabel = null;
-                var dim = null;
-                if (val && typeof val === 'object') {
-                    // Object form: { size: "WxH", media: "TikTok" } or { w:720, h:1280, media: "TikTok" }
-                    if (val.size) dim = __parseWxH(val.size);
-                    if (!dim && (val.w || val.h)) {
-                        var wNum = parseInt(val.w,10), hNum = parseInt(val.h,10);
-                        if(!isNaN(wNum) && !isNaN(hNum) && wNum>0 && hNum>0) dim = { w: wNum, h: hNum };
-                    }
-                    try { mediaLabel = __sanitizeMediaLabel(val.media || val.label); } catch(eSan1) { mediaLabel = __safeSanMedia(val.media || val.label); }
-                } else if (typeof val === 'string') {
-                    // String form: "WxH" or compact "WxH@Media"
-                    var sVal = String(val);
-                    var atIdx = sVal.indexOf('@');
-                    if (atIdx !== -1) {
-                        var sizePart = sVal.substring(0, atIdx);
-                        var mediaPart = sVal.substring(atIdx+1);
-                        dim = __parseWxH(sizePart);
-                        try { mediaLabel = __sanitizeMediaLabel(mediaPart); } catch(eSan2) { mediaLabel = __safeSanMedia(mediaPart); }
-                    } else {
-                        dim = __parseWxH(sVal);
-                    }
-                }
-                if(!dim) continue;
-                out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel });
-            }
+        return null;
     }
 
     function __isTokenEnabled(key){
@@ -748,7 +743,14 @@ function __Pack_coreRun(opts) {
                 var dn = parseInt(d,10); if(isNaN(dn)) return '';
                 return (dn < 10 ? '0'+dn : ''+dn) + 's';
             case 'MEDIA':
-                // Override for extras (e.g., TikTok) based on duplicate suffix
+                // Prefer explicit extra media label provided by caller when enabled
+                try {
+                    if (ENABLE_EXTRA_MEDIA_OVERRIDE && ctx && ctx.extraMediaLabel) {
+                        var ml = __sanitizeMediaLabel(ctx.extraMediaLabel);
+                        if (ml) return ml;
+                    }
+                } catch(eML) {}
+                // Fallback: derive from comp name suffix
                 var extraLbl = getExtraMediaLabelForComp(comp);
                 if (extraLbl) return extraLbl;
                 return 'OLV'; // default placeholder until wired to data
@@ -950,6 +952,18 @@ function __Pack_coreRun(opts) {
         if (ENABLE_EXTRA_OUTPUT_COMPS) {
             try {
             var extras = parseExtraOutputConfig(EXTRA_OUTPUT_COMPS);
+            // Optional DEBUG: dump normalized extras once
+            try {
+                if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) {
+                    log("Extras parsed: count=" + (extras ? extras.length : 0));
+                    if (extras && extras.length) {
+                        for (var di=0; di<extras.length; di++) {
+                            var e1 = extras[di];
+                            log("  ex["+di+"] => AR="+e1.arKey+", DUR="+e1.durToken+", size="+e1.width+"x"+e1.height+", media="+(e1.mediaLabel||'-'));
+                        }
+                    }
+                }
+            } catch(eDbgEx) {}
             if (extras && extras.length) {
                 // Match rule: AR and DURATION token of base comp
                 var baseAR = aspectRatioString(item.width, item.height);
@@ -1002,10 +1016,22 @@ function __Pack_coreRun(opts) {
                     // Assign destination
                     try { extraComp.parentFolder = extraDest; } catch(ePDF2) {}
                     // Compute final name using a naming context that preserves MEDIA from the primary comp
-                    var namingCtx = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2 };
+                    var namingCtx = { name: item.name, width: ex.width, height: ex.height, duration: ex.seconds, frameRate: fps2, pixelAspect: pa2, extraMediaLabel: (cfgMedia || fallbackMedia || null) };
                     var desiredName = null;
                     try { desiredName = buildOutputCompName(namingCtx, jsonData); } catch(eNm) { desiredName = null; }
                     if (!desiredName) desiredName = baseOutputName(item.name);
+                    // Option B: append EXTRA_OUTPUT_SUFFIX when media label present
+                    try {
+                        var suf = EXTRA_OUTPUT_SUFFIX ? String(EXTRA_OUTPUT_SUFFIX) : '';
+                        var hasMedia = !!(cfgMedia || fallbackMedia);
+                        if (ENABLE_EXTRA_MEDIA_OVERRIDE && hasMedia && suf) {
+                            var lowerName = String(desiredName).toLowerCase();
+                            var lowerSuf = suf.toLowerCase();
+                            if (lowerName.indexOf(lowerSuf, lowerName.length - lowerSuf.length) === -1) {
+                                desiredName = desiredName + suf;
+                            }
+                        }
+                    } catch(eSuf) {}
                     var finalName = makeUniqueName(desiredName);
                     try { extraComp.name = finalName; } catch(eRN) {}
                     created++;
