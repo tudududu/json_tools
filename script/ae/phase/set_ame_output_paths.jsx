@@ -247,7 +247,15 @@ function __AME_coreRun(opts) {
         }
         if (idx < 0) return [];
         var out = [];
-        for (var j = idx + 1; j < ancestors.length; j++) out.push(ancestors[j]);
+        // Skip pure YYMMDD date segments after the anchor; the physical path already
+        // uses the YYMMDD_ISO date folder at the root (e.g., '251219_GBL').
+        var reDate6 = /^\d{6}$/;
+        for (var j = idx + 1; j < ancestors.length; j++) {
+            var seg = ancestors[j];
+            if (!seg) continue;
+            if (reDate6.test(String(seg))) continue; // drop duplicate short date folders like '251216'
+            out.push(seg);
+        }
         return out;
     }
 
