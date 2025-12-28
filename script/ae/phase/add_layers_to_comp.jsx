@@ -403,6 +403,7 @@ function __AddLayers_coreRun(opts) {
             var __EXTRA_ALLOWED_AR = [];
             var __EXTRA_TAG_TOKENS = [];
             var __EXTRA_SUFFIX = "_extra";
+            var __EXTRA_USE_DEDICATED_FOLDERS = false;
             var __EXTRA_REQUIRE_DUR = null;      // null => inherit TEMPLATE_MATCH_CONFIG
             var __EXTRA_DUR_TOL = null;          // null => inherit TEMPLATE_MATCH_CONFIG
             var __EXTRA_FALLBACK = true;
@@ -413,6 +414,7 @@ function __AddLayers_coreRun(opts) {
                     if (E.ALLOWED_AR instanceof Array) __EXTRA_ALLOWED_AR = E.ALLOWED_AR;
                     if (E.TAG_TOKENS instanceof Array) __EXTRA_TAG_TOKENS = E.TAG_TOKENS;
                     if (typeof E.OUTPUT_NAME_SUFFIX === 'string' && E.OUTPUT_NAME_SUFFIX) __EXTRA_SUFFIX = E.OUTPUT_NAME_SUFFIX;
+                    if (typeof E.USE_DEDICATED_TARGET_FOLDERS !== 'undefined') __EXTRA_USE_DEDICATED_FOLDERS = __toBool(E.USE_DEDICATED_TARGET_FOLDERS, false);
                     if (typeof E.REQUIRE_DURATION_MATCH === 'boolean') __EXTRA_REQUIRE_DUR = E.REQUIRE_DURATION_MATCH;
                     if (typeof E.DURATION_TOLERANCE_SECONDS === 'number') __EXTRA_DUR_TOL = E.DURATION_TOLERANCE_SECONDS;
                     if (typeof E.FALLBACK_WHEN_NO_EXTRA !== 'undefined') __EXTRA_FALLBACK = __toBool(E.FALLBACK_WHEN_NO_EXTRA, true);
@@ -423,6 +425,7 @@ function __AddLayers_coreRun(opts) {
             var EXTRA_ALLOWED_AR = __EXTRA_ALLOWED_AR;
             var EXTRA_TAG_TOKENS = __EXTRA_TAG_TOKENS;
             var EXTRA_OUTPUT_SUFFIX = __EXTRA_SUFFIX;
+            var EXTRA_USE_DEDICATED_TARGET_FOLDERS = __EXTRA_USE_DEDICATED_FOLDERS;
             var EXTRA_REQUIRE_DURATION = __EXTRA_REQUIRE_DUR;
             var EXTRA_DURATION_TOL = __EXTRA_DUR_TOL;
             var EXTRA_FALLBACK = __EXTRA_FALLBACK;
@@ -588,6 +591,19 @@ function __AddLayers_coreRun(opts) {
         return false;
     }
 
+    function findFirstMatchingToken(name, tokens) {
+        try {
+            if (!name || !tokens || !tokens.length) return null;
+            var n = String(name).toLowerCase();
+            for (var i = 0; i < tokens.length; i++) {
+                var t = String(tokens[i]).toLowerCase();
+                if (!t) continue;
+                if (n.indexOf(t) !== -1) return t;
+            }
+        } catch (eFMT) {}
+        return null;
+    }
+
     function findChildFolderByName(parent, name) {
         for (var i = 1; i <= parent.numItems; i++) {
             var it = parent.items[i];
@@ -604,6 +620,30 @@ function __AddLayers_coreRun(opts) {
             cur = f;
         }
         return cur;
+    }
+
+    function ensureChildFolder(parent, name) {
+        try {
+            if (!parent || !name) return null;
+            var existing = findChildFolderByName(parent, name);
+            if (existing) return existing;
+            var newF = app.project.items.addFolder(String(name));
+            try { newF.parentFolder = parent; } catch (ePF) {}
+            return newF;
+        } catch (eECF) {}
+        return null;
+    }
+
+    function __normalizeExtraTag(tag) {
+        try {
+            var s = String(tag||"");
+            s = s.replace(/^[_\-\s]+/, ""); // strip leading separators/spaces
+            s = s.toLowerCase();
+            s = s.replace(/\s+/g, "_");
+            s = s.replace(/[^a-z0-9_\-]/g, "");
+            if (!s) s = "extra";
+            return s;
+        } catch (eNT) { return "extra"; }
     }
 
     function pathToString(segments) {
@@ -2058,6 +2098,20 @@ function __AddLayers_coreRun(opts) {
                 if (extraTpl) {
                     if (SIMPLE_INSERT_TEMPLATE_AS_LAYER) { __doSimpleInsert(extraTpl, dup); }
                     else { __doCopy(extraTpl, dup); }
+                    // Dedicated foldering for extras (optional gate)
+                    try {
+                        if (EXTRA_USE_DEDICATED_TARGET_FOLDERS === true) {
+                            var arKey = getARKeyFromComp(dup);
+                            var tagFromTpl = findFirstMatchingToken(extraTpl.name, (typeof EXTRA_TAG_TOKENS !== 'undefined') ? EXTRA_TAG_TOKENS : []);
+                            var tagFallback = __normalizeExtraTag((typeof EXTRA_OUTPUT_SUFFIX === 'string') ? EXTRA_OUTPUT_SUFFIX : '_extra');
+                            var extraTag = __normalizeExtraTag(tagFromTpl ? tagFromTpl : tagFallback);
+                            var targetName = arKey ? (arKey + '_' + extraTag) : ('extra_' + extraTag);
+                            var baseARFolder = comp.parentFolder;
+                            var anchorParent = (baseARFolder && baseARFolder.parentFolder) ? baseARFolder.parentFolder : proj.rootFolder;
+                            var targetFolder = ensureChildFolder(anchorParent, targetName);
+                            if (targetFolder) { try { dup.parentFolder = targetFolder; } catch (eSetPF) {} }
+                        }
+                    } catch (eDF) {}
                     extraCreatedComps.push(dup);
                     createdExtra = true;
                 } else {

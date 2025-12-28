@@ -176,6 +176,7 @@
             EXTRA_TEMPLATES: {
                 // Master enable for creating extra outputs.
                 ENABLE_EXTRA_TEMPLATES: false,
+                USE_DEDICATED_TARGET_FOLDERS: false,  // When true, only targets in EXTRA_TEMPLATE_TARGET_FOLDERS are considered for extras
                 // Restrict extras to specific AR keys. Empty array => allow all. Keys typically: "1x1","4x5","9x16","16x9".
                 ALLOWED_AR: ["9x16"],
                 // Case-insensitive tokens that mark a template comp as an "extra" variant (any token match qualifies).

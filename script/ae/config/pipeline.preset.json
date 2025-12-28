@@ -23,8 +23,8 @@
     "RUN_create_compositions": true,
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
-    "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_pack_output_comps": false,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -63,7 +63,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": true,
+    "AUTO_FROM_PROJECT_FOOTAGE": false,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
@@ -241,6 +241,7 @@
         },
     "EXTRA_TEMPLATES": {
         "ENABLE_EXTRA_TEMPLATES": true,
+        "USE_DEDICATED_TARGET_FOLDERS": true,
         "ALLOWED_AR": ["9x16"],
         "TAG_TOKENS": ["TIKTOK"],
         "OUTPUT_NAME_SUFFIX": "_tiktok",
