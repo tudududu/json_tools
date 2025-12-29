@@ -42,6 +42,28 @@ Options:
 - `--output-dir`: Batch mode — directory to write separate `.csv` files (defaults to `--input-dir`)
 - `--join-output`: Batch join — write a single combined CSV (provide an output file path either positionally after `--input-dir` or via `--output-dir`)
 
+## csv_json_media.py
+
+Converts a semicolon-delimited media deliverables CSV into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
+
+- Input columns: `AspectRatio;Dimensions;Creative;Media;Template;Template_name`
+- Key rules:
+  - Duration from `Creative` with `C1…C5` removed and zero-padded (e.g., `6sC1` → `06s`).
+  - Append `_<Template_name>` to the AR part only when `Template == extra` (spaces/underscores removed; case preserved).
+  - Example keys: `1x1|06s`, `9x16_tiktok|15s`.
+- Values: `{ "size": <Dimensions>, "media": <Media> }` with surrounding whitespace trimmed, case preserved.
+- Deduplication: for consecutive rows that differ only by the creative number (C2–C5) while other columns and base duration match, only the first is kept.
+
+Usage:
+```sh
+python python/tools/csv_json_media.py input.csv output.json
+```
+
+Options:
+- `--delimiter <char>`: CSV delimiter (default: `;`)
+- `--trim` / `--no-trim`: Trim surrounding whitespace on fields (default: trim)
+- `--dry-run`: Parse only and print a brief summary; no file written
+
 ### Changes since CSV to JSON 198 (SRT to CSV script)
 - Added quoting control: `--quote-all` to force quoting on all fields; default remains minimal quoting per RFC 4180.
 - Added delimiter selection: `--delimiter semicolon` to reduce quoting in text-heavy CSV; default `comma` retained.
