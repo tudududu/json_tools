@@ -86,9 +86,12 @@ function __Pack_coreRun(opts) {
         "1x1|15s": "1440x1440",
         "9x16|06s": "720x1280@TikTok",
         "9x16|15s": [ { "size":"720x1280", "media":"rTikTok" }, { "size":"720x1280", "media":"rMetaInFeed" } ],
-        "9x16_tiktok|15s": [ { "size":"720x1280", "media":"TikTok" }, { "size":"720x1280", "media":"MetaInFeed" } ],
+        "9x16_tiktok|15s": [ { "size":"720x1280", "media":"TikTok" }, { "size":"720x1280", "media":"MetaInFeed" } ]
     };
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
+    // Subfolder names for separating regular vs extras when ENABLE_EXTRA_OUTPUT_COMPS is true
+    var OUTPUT_ESSENTIALS_DIRNAME = 'essentials';
+    var OUTPUT_EXTRAS_DIRNAME = 'extras';
     
     // --------------------------------------------------------------
     // OUTPUT NAME CONFIG (modular token-based name builder)
@@ -169,6 +172,8 @@ function __Pack_coreRun(opts) {
             if (o.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!o.ENABLE_EXTRA_OUTPUT_COMPS;
             if (o.EXTRA_OUTPUT_COMPS !== undefined) EXTRA_OUTPUT_COMPS = o.EXTRA_OUTPUT_COMPS || {};
             if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
+            if (o.OUTPUT_ESSENTIALS_DIRNAME !== undefined) OUTPUT_ESSENTIALS_DIRNAME = o.OUTPUT_ESSENTIALS_DIRNAME;
+            if (o.OUTPUT_EXTRAS_DIRNAME !== undefined) OUTPUT_EXTRAS_DIRNAME = o.OUTPUT_EXTRAS_DIRNAME;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
@@ -183,6 +188,8 @@ function __Pack_coreRun(opts) {
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.ENABLE_EXTRA_OUTPUT_COMPS === true) { ENABLE_EXTRA_OUTPUT_COMPS = true; } } catch(eP1) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS) { EXTRA_OUTPUT_COMPS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS; } } catch(eP2) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME) { OUTPUT_ESSENTIALS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME; } } catch(eP4) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME) { OUTPUT_EXTRAS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME; } } catch(eP5) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -941,10 +948,15 @@ function __Pack_coreRun(opts) {
         // Destination folder (avoid mutating project in dry-run)
         var destFolder = null;
         if(DRY_RUN_MODE){
-            // Attempt to locate existing folder chain without creating
             destFolder = outputRoot; // best-effort: we won't traverse creation to avoid complexity
         } else {
-            destFolder = relSegs.length ? ensurePath(outputRoot, relSegs) : outputRoot;
+            // Insert 'essentials' when extras are enabled; place after YYMMDD when present
+            var firstSegIsDate = (relSegs.length > 0) && /^\d{6}$/.test(String(relSegs[0]));
+            var segsEss = relSegs;
+            if (ENABLE_EXTRA_OUTPUT_COMPS) {
+                segsEss = firstSegIsDate ? [relSegs[0], OUTPUT_ESSENTIALS_DIRNAME].concat(relSegs.slice(1)) : [OUTPUT_ESSENTIALS_DIRNAME].concat(relSegs);
+            }
+            destFolder = segsEss.length ? ensurePath(outputRoot, segsEss) : outputRoot;
         }
         var expectedBaseName = buildOutputCompName(item, jsonData);
         if(!expectedBaseName){
@@ -1033,6 +1045,11 @@ function __Pack_coreRun(opts) {
                     var arMatch = String(ex.arKey).toLowerCase() === String(baseAR).toLowerCase();
                     var durMatch = String(ex.durToken).toLowerCase() === String(baseDurTok).toLowerCase();
                     if (!arMatch || !durMatch) continue;
+                    // Hardened rule: regular entries (no ex.extraKey) must NOT match extra-sourced comps
+                    if (!ex.extraKey && srcExtraKey) {
+                        try { if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) log("[debug] extras: skip regular entry for extra source '" + srcExtraKey + "' (" + ex.sourceKey + ")"); } catch(eDbgSkip) {}
+                        continue;
+                    }
                     if (ex.extraKey) {
                         var exKeyLower = String(ex.extraKey).toLowerCase();
                         if (!srcExtraKey || srcExtraKey !== exKeyLower) continue;
@@ -1060,8 +1077,17 @@ function __Pack_coreRun(opts) {
                         } catch(eSan) { return null; }
                     })(fallbackMedia) : null);
                     var arSegWithMedia = mediaSeg ? (arSeg + '_' + mediaSeg) : arSeg;
-                    // Ignore EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: place extras under the same destFolder/AR_WxH[_MEDIA]
-                    var extraDest = DRY_RUN_MODE ? destFolder : ensurePath(destFolder, [arSegWithMedia]);
+                    // Place extras under outputRoot with mirrored segments, inserting 'extras' after date when present
+                    var extraDest = null;
+                    if (DRY_RUN_MODE) {
+                        // Do not create folders in dry-run; only compute names
+                        extraDest = destFolder;
+                    } else {
+                        var firstSegIsDateEx = (relSegs.length > 0) && /^\d{6}$/.test(String(relSegs[0]));
+                        var segsEx = firstSegIsDateEx ? [relSegs[0], OUTPUT_EXTRAS_DIRNAME].concat(relSegs.slice(1)) : [OUTPUT_EXTRAS_DIRNAME].concat(relSegs);
+                        var extrasBase = segsEx.length ? ensurePath(outputRoot, segsEx) : ensureChildFolder(outputRoot, OUTPUT_EXTRAS_DIRNAME);
+                        extraDest = ensurePath(extrasBase, [arSegWithMedia]);
+                    }
                     // Compute desired name for extra based on target WxH and duration, using PRIMARY comp context to preserve MEDIA
                     var fps2 = item.frameRate || 25;
                     var pa2 = 1.0; try { if (item.pixelAspect) pa2 = item.pixelAspect; } catch(ePA2) {}
