@@ -85,6 +85,8 @@ function __Pack_coreRun(opts) {
         "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
         "1x1|15s": "1440x1440",
         "9x16|06s": "720x1280@TikTok",
+        "9x16|15s": [ { "size":"720x1280", "media":"rTikTok" }, { "size":"720x1280", "media":"rMetaInFeed" } ],
+        "9x16_tiktok|15s": [ { "size":"720x1280", "media":"TikTok" }, { "size":"720x1280", "media":"MetaInFeed" } ],
     };
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     
@@ -545,6 +547,16 @@ function __Pack_coreRun(opts) {
             } catch(e2) { return null; }
         }
     }
+    // Normalize extra key (from config or source suffix) for case-insensitive matching and filesystem-safe usage
+    function __normalizeExtraKey(k){
+        if(k === undefined || k === null) return null;
+        var s = String(k);
+        // strip leading separators/spaces
+        s = s.replace(/^[\s_\-]+/, '');
+        try { s = __sanitizeMediaLabel(s); } catch(eNK) { s = __safeSanMedia(s); }
+        if(!s) return null;
+        return s.toLowerCase();
+    }
     function parseExtraOutputConfig(map){
         var out = [];
         try {
@@ -554,7 +566,14 @@ function __Pack_coreRun(opts) {
                 var keyStr = String(k);
                 var parts = keyStr.split('|');
                 if (parts.length !== 2) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
-                var arKey = String(parts[0]);
+                var arKeyRaw = String(parts[0]);
+                var extraKey = null;
+                var arKey = arKeyRaw;
+                var usIdx = arKeyRaw.indexOf('_');
+                if (usIdx !== -1) {
+                    arKey = arKeyRaw.substring(0, usIdx);
+                    extraKey = __normalizeExtraKey(arKeyRaw.substring(usIdx + 1));
+                }
                 var durTok = __normalizeDurToken(parts[1]);
                 if (!durTok) { recordSkip("EXTRA config '"+k+"' (config invalid)"); continue; }
                 var seconds = parseInt(String(durTok).replace(/s$/i,''),10);
@@ -590,7 +609,7 @@ function __Pack_coreRun(opts) {
                             continue;
                         }
                         if(!dim) { recordSkip("EXTRA config '"+k+"' (array element size invalid)"); continue; }
-                        out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
+                        out.push({ arKey: arKey, extraKey: extraKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
                     }
                 } else {
                     var mediaLabel = null;
@@ -620,7 +639,7 @@ function __Pack_coreRun(opts) {
                         continue;
                     }
                     if(!dim) { recordSkip("EXTRA config '"+k+"' (size invalid)"); continue; }
-                    out.push({ arKey: arKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
+                    out.push({ arKey: arKey, extraKey: extraKey, durToken: durTok, seconds: seconds, width: dim.w, height: dim.h, mediaLabel: mediaLabel, sourceKey: keyStr });
                 }
             }
         } catch(eCfg) { /* ignore */ }
@@ -991,12 +1010,14 @@ function __Pack_coreRun(opts) {
             // Optional DEBUG: dump normalized extras once
             try {
                 if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) {
+                    var __srcExtraKeyOnce = __normalizeExtraKey(getExtraMediaLabelForComp(item));
+                    if (__srcExtraKeyOnce) { log("[debug] extras: extraKey filtering active: source=" + __srcExtraKeyOnce); }
                     log("Extras parsed: count=" + (extras ? extras.length : 0));
                     if (extras && extras.length) {
                         for (var di=0; di<extras.length; di++) {
                             var e1 = extras[di];
                             var keyInfo = e1.sourceKey ? (" key="+e1.sourceKey) : "";
-                            log("  ex["+di+"]"+keyInfo+" => AR="+e1.arKey+", DUR="+e1.durToken+", size="+e1.width+"x"+e1.height+", media="+(e1.mediaLabel||'-'));
+                            log("  ex["+di+"]"+keyInfo+" => AR="+e1.arKey+", DUR="+e1.durToken+", size="+e1.width+"x"+e1.height+", media="+(e1.mediaLabel||'-')+", extraKey="+(e1.extraKey||'-'));
                         }
                     }
                 }
@@ -1005,11 +1026,20 @@ function __Pack_coreRun(opts) {
                 // Match rule: AR and DURATION token of base comp
                 var baseAR = aspectRatioString(item.width, item.height);
                 var baseDurTok = buildTokenValue('DURATION', { comp: item, meta: (jsonData && (jsonData.metadataGlobal||jsonData.meta_global)) ? (jsonData.metadataGlobal||jsonData.meta_global) : null, video: null });
+                var srcExtraKey = __normalizeExtraKey(getExtraMediaLabelForComp(item));
                 for (var exi=0; exi<extras.length; exi++) {
                     try {
                     var ex = extras[exi];
-                    if (ex.arKey !== baseAR || ex.durToken !== baseDurTok) continue;
-                    var arSeg = ex.arKey + '_' + ex.width + 'x' + ex.height;
+                    var arMatch = String(ex.arKey).toLowerCase() === String(baseAR).toLowerCase();
+                    var durMatch = String(ex.durToken).toLowerCase() === String(baseDurTok).toLowerCase();
+                    if (!arMatch || !durMatch) continue;
+                    if (ex.extraKey) {
+                        var exKeyLower = String(ex.extraKey).toLowerCase();
+                        if (!srcExtraKey || srcExtraKey !== exKeyLower) continue;
+                    }
+                    var arPrefix = ex.arKey;
+                    if (srcExtraKey) arPrefix = ex.arKey + '_' + srcExtraKey;
+                    var arSeg = arPrefix + '_' + ex.width + 'x' + ex.height;
                     // Determine media label: prefer config value, else fallback to suffix-derived label
                     var cfgMedia = ex.mediaLabel;
                     var fallbackMedia = getExtraMediaLabelForComp(item);
