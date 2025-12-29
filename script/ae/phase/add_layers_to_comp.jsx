@@ -668,6 +668,20 @@ function __AddLayers_coreRun(opts) {
         return false;
     }
 
+    function findAncestorFolderByName(item, name) {
+        try {
+            if (!item || !name) return null;
+            var target = String(name);
+            var f = item.parentFolder;
+            while (f) {
+                if (String(f.name) === target) return f;
+                if (f === proj.rootFolder) break;
+                f = f.parentFolder;
+            }
+        } catch (eFA) {}
+        return null;
+    }
+
     function collectCompsRecursive(folder, outArr) {
         for (var i = 1; i <= folder.numItems; i++) {
             var it = folder.items[i];
@@ -2106,8 +2120,9 @@ function __AddLayers_coreRun(opts) {
                             var tagFallback = __normalizeExtraTag((typeof EXTRA_OUTPUT_SUFFIX === 'string') ? EXTRA_OUTPUT_SUFFIX : '_extra');
                             var extraTag = __normalizeExtraTag(tagFromTpl ? tagFromTpl : tagFallback);
                             var targetName = arKey ? (arKey + '_' + extraTag) : ('extra_' + extraTag);
-                            var baseARFolder = comp.parentFolder;
-                            var anchorParent = (baseARFolder && baseARFolder.parentFolder) ? baseARFolder.parentFolder : proj.rootFolder;
+                            // Find the AR folder among ancestors (exact name match arKey). Anchor is its parent.
+                            var arAncestor = arKey ? findAncestorFolderByName(dup, arKey) : null;
+                            var anchorParent = (arAncestor && arAncestor.parentFolder) ? arAncestor.parentFolder : ((comp.parentFolder && comp.parentFolder.parentFolder) ? comp.parentFolder.parentFolder : proj.rootFolder);
                             var targetFolder = ensureChildFolder(anchorParent, targetName);
                             if (targetFolder) { try { dup.parentFolder = targetFolder; } catch (eSetPF) {} }
                         }
