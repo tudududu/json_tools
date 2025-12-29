@@ -63,6 +63,7 @@ Options:
 - `--delimiter <char>`: CSV delimiter (default: `;`)
 - `--trim` / `--no-trim`: Trim surrounding whitespace on fields (default: trim)
 - `--dry-run`: Parse only and print a brief summary; no file written
+- `--compact`: Write JSON with inline array items (objects on a single line inside arrays)
 
 ### Changes since CSV to JSON 198 (SRT to CSV script)
 - Added quoting control: `--quote-all` to force quoting on all fields; default remains minimal quoting per RFC 4180.

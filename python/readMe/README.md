@@ -287,6 +287,14 @@ Helper utilities live under `python/tools/`.
   python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/joined.csv --join-output --fps 25 --out-format frames
   ```
 
+- `csv_json_media.py`: Convert media deliverables CSV (`AspectRatio;Dimensions;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Handles consecutive C2–C5 dedup and trims surrounding whitespace. See `python/tools/README.md` for rules and options.
+
+  Common invocation:
+  ```sh
+  python -m python.tools.csv_json_media path/to/input.csv out/media_outputs.json
+  ```
+  Note: add `--compact` to write JSON with inline array items.
+
 ### Parallel Test Execution (xdist)
 
 Pytest-xdist is included for optional speed-ups on multi-core machines. The `-n auto` flag chooses a worker count based on CPU cores; `--dist=loadfile` groups tests by file to reduce fixture thrashing.

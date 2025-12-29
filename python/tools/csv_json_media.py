@@ -31,6 +31,7 @@ Options:
   --delimiter <char>   CSV delimiter (default ';')
   --trim / --no-trim   Trim surrounding whitespace on fields (default: trim)
   --dry-run            Parse only; print summary and do not write output
+  --compact            Write JSON with inline array items (e.g., { "size":"..", "media":".." })
 """
 
 from __future__ import annotations
@@ -158,9 +159,30 @@ def read_csv(path: str, delimiter: str = ";") -> List[dict]:
   raise ValueError("Missing required headers; tried delimiters: " + ", ".join(delims_to_try))
 
 
-def write_json(path: str, data: dict) -> None:
+def write_json(path: str, data: dict, compact: bool = False) -> None:
   with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False, indent=2)
+    if not compact:
+      json.dump(data, f, ensure_ascii=False, indent=2)
+      return
+    # Compact formatter: keep arrays multiline but items inline
+    f.write("{\n")
+    items = list(data.items())
+    for ki, (key, arr) in enumerate(items):
+      f.write(f"  \"{key}\": [ \n")
+      for ai, it in enumerate(arr):
+        size_js = json.dumps(it.get("size", ""), ensure_ascii=False)
+        media_js = json.dumps(it.get("media", ""), ensure_ascii=False)
+        f.write(f"    {{ \"size\":{size_js}, \"media\":{media_js} }}")
+        if ai < len(arr) - 1:
+          f.write(",\n")
+        else:
+          f.write("\n")
+      f.write("  ]")
+      if ki < len(items) - 1:
+        f.write(",\n")
+      else:
+        f.write("\n")
+    f.write("}\n")
 
 
 def main() -> None:
@@ -173,6 +195,7 @@ def main() -> None:
   grp.add_argument("--no-trim", dest="trim", action="store_false", help="Disable whitespace trimming")
   p.set_defaults(trim=True)
   p.add_argument("--dry-run", action="store_true", help="Parse only and print summary; do not write JSON")
+  p.add_argument("--compact", action="store_true", help="Write JSON with inline array items")
   args = p.parse_args()
 
   rows = read_csv(args.input, delimiter=args.delimiter)
@@ -187,7 +210,7 @@ def main() -> None:
     return
 
   os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-  write_json(args.output, result)
+  write_json(args.output, result, compact=args.compact)
 
 
 if __name__ == "__main__":

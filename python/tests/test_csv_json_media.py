@@ -76,3 +76,27 @@ def test_output_shape_multiple_keys_and_pairs_no_duplicates():
     assert len(data['9x16|15s']) == 1
     # 1x1|06s present
     assert '1x1|06s' in data
+
+
+def test_compact_output_inline_items():
+    csv_text = textwrap.dedent(
+        """
+        AspectRatio;Dimensions;Creative;Media;Template;Template_name
+        1x1;640x640;6sC1;TikTok;regular;
+        1x1;1440x1440;6sC1;Meta InFeed;regular;
+        """
+    )
+    # Write compact output to a temp file and inspect text
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    with open(path_in, 'w', encoding='utf-8') as f:
+        f.write(csv_text)
+    args = [sys.executable, SCRIPT, path_in, path_out, '--compact']
+    proc = subprocess.run(args, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    txt = open(path_out, 'r', encoding='utf-8').read()
+    os.remove(path_in); os.remove(path_out)
+    # Expect inline items pattern in compact mode
+    assert '{ "size"' in txt and '"media"' in txt
+    # Objects should be single-line entries inside array
+    assert '"size": "640x640"' in txt or '"size":"640x640"' in txt
