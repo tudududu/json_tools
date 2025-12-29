@@ -319,6 +319,7 @@ Table of contents
     | `addLayers.APPLY_INPOINT_TO_LAYER_STARTTIME` | `true` | Align `layer.startTime` to `inPoint` for `timed` layers. |
     | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names. |
     | `addLayers.EXTRA_TEMPLATES.*` | various | Controls duplicate “extras” comps (allowed ARs, tags, suffix, duration strictness). |
+    | `addLayers.EXTRA_TEMPLATES.USE_DEDICATED_TARGET_FOLDERS` | `false` | Place extras in sibling `<AR>_<extraTag>` folders and create `<NNs>` duration subfolders under them. |
     ```json
     {
       "addLayers": {
@@ -350,6 +351,10 @@ Table of contents
   Simple mode: `SIMPLE_INSERT_TEMPLATE_AS_LAYER` + related prep toggles for muted/solo/footage disable.
   Extras duplication: `EXTRA_TEMPLATES` namespace (allowed AR list, tag tokens, suffix, duration matching overrides). Duplicate comps included downstream.
   Skip logic: `SKIP_COPY_CONFIG` respects JSON flags & token/group filters.
+  Dedicated extras foldering
+  - Gate: `addLayers.EXTRA_TEMPLATES.USE_DEDICATED_TARGET_FOLDERS` (default false).
+  - Behavior: extra-template comps are placed into a sibling folder named `<AR>_<extraTag>` (e.g., `9x16_tiktok`) alongside the base `<AR>` folder.
+  - Duration subfolders: a `<NNs>` duration subfolder (e.g., `30s`) is created under the dedicated folder when a duration token can be parsed from the comp name; otherwise extras land at the dedicated folder root.
 
   Recent additions (Integration 195–199):
   - New per-video flags: `logo_03_flag`, `logo_04_flag`, `logo_05_flag` parsed and honored in `SKIP_COPY_CONFIG` (`logo03Off`, `logo04Off`, `logo05Off`).
