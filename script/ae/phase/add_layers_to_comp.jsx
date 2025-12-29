@@ -646,6 +646,24 @@ function __AddLayers_coreRun(opts) {
         } catch (eNT) { return "extra"; }
     }
 
+    function __extractDurationTokenFromName(name) {
+        try {
+            if (!name) return null;
+            var n = String(name);
+            var parts = n.split(/[_\s]+/);
+            for (var i = 0; i < parts.length; i++) {
+                var p = parts[i];
+                if (/^\d{1,4}s$/i.test(p)) return String(p).toLowerCase();
+            }
+            // Fallback: find last token containing a duration-like substring
+            for (var j = parts.length - 1; j >= 0; j--) {
+                var m = String(parts[j]).match(/(\d{1,4})s/i);
+                if (m) return String(m[1]).toLowerCase() + 's';
+            }
+        } catch (eDT) {}
+        return null;
+    }
+
     function pathToString(segments) {
         var s = "./";
         for (var i = 0; i < segments.length; i++) {
@@ -2124,7 +2142,18 @@ function __AddLayers_coreRun(opts) {
                             var arAncestor = arKey ? findAncestorFolderByName(dup, arKey) : null;
                             var anchorParent = (arAncestor && arAncestor.parentFolder) ? arAncestor.parentFolder : ((comp.parentFolder && comp.parentFolder.parentFolder) ? comp.parentFolder.parentFolder : proj.rootFolder);
                             var targetFolder = ensureChildFolder(anchorParent, targetName);
-                            if (targetFolder) { try { dup.parentFolder = targetFolder; } catch (eSetPF) {} }
+                            if (targetFolder) {
+                                // Duration subfolder under dedicated AR_extra folder
+                                var durTok = __extractDurationTokenFromName(comp.name);
+                                if (!durTok) durTok = __extractDurationTokenFromName(dup.name);
+                                if (durTok) {
+                                    var durFolder = ensureChildFolder(targetFolder, durTok);
+                                    if (durFolder) { try { dup.parentFolder = durFolder; } catch (eSetPFD) {} }
+                                    else { try { dup.parentFolder = targetFolder; } catch (eSetPF) {} }
+                                } else {
+                                    try { dup.parentFolder = targetFolder; } catch (eSetPF2) {}
+                                }
+                            }
                         }
                     } catch (eDF) {}
                     extraCreatedComps.push(dup);

@@ -63,7 +63,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": false,
+    "AUTO_FROM_PROJECT_FOOTAGE": true,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
