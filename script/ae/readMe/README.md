@@ -76,7 +76,7 @@ Table of contents
   | 3 | `create_compositions.jsx` | Build comps from footage (AUTO or selection). |
   | 4 | `insert_and_relink_footage.jsx` | Insert footage into comps, optional audio ISO & SOUND imports. |
   | 5 | `add_layers_to_comp.jsx` | Copy template layers / apply extras / parenting / simple mode. |
-  | 6 | `pack_output_comps.jsx` | Prepare outputs (naming, videoId, extras MEDIA override). |
+  | 6 | `pack_output_comps.jsx` | Prepare outputs (naming, videoId); extras MEDIA override; split regular vs extras into configurable subfolders. |
   | 7 | `set_ame_output_paths.jsx` | Set output paths & queue to AME (templates & extras routing). |
   | 8 | `close_project.jsx` | Close project with selected mode. |
 
@@ -372,13 +372,23 @@ Table of contents
   - Naming: When the override gate is on and a `media`/`label` is provided, the `MEDIA` token uses that label; otherwise it falls back to the existing logic (e.g., default `OLV`).
   - Logging: `DEBUG_EXTRAS=true` outputs a one-time parsed extras dump for auditing.
 
+  Extras source differentiation & foldering
+  - Keys: Backward-compatible. Regular entries continue to use `AR|NNs` (e.g., `9x16|15s`). Extra-template entries can optionally use `AR_<extra>|NNs` (e.g., `9x16_tiktok|15s`). The `<extra>` tag is normalized (case-insensitive; sanitized) for matching.
+  - Matching: Regular entries only match regular source comps (no extra suffix). Extra-template entries only match extra-sourced comps whose suffix-derived tag equals `<extra>` (case-insensitive).
+  - Folder naming for extras: When a source comp is extra-template based, the extras destination AR segment includes the extra tag: `AR_<extra>_WxH[_MEDIA]`. Regular-sourced extras use `AR_WxH[_MEDIA]`.
+  - Essentials vs Extras split: When `ENABLE_EXTRA_OUTPUT_COMPS=true`, regular output comps are placed under an `essentials` subfolder and extra output comps under an `extras` subfolder within the mirrored output path. If the first mirrored segment is a six-digit date (`YYMMDD`), the subfolder is inserted directly after it; otherwise at the start of the mirrored segments.
+  - Configurable names: `OUTPUT_ESSENTIALS_DIRNAME` (default `essentials`) and `OUTPUT_EXTRAS_DIRNAME` (default `extras`). When `ENABLE_EXTRA_OUTPUT_COMPS=false`, the `essentials` subfolder is not created and regular outputs use the original mirrored path.
+  - Debugging: With `DEBUG_EXTRAS=true`, logs include the parsed `extraKey` per entry and a concise note when regular entries are skipped for extra-sourced comps.
+
   Options Quick Reference (Step 6)
   | Option key | Default | Description |
   |------------|---------|-------------|
   | `ENABLE_EXTRA_OUTPUT_COMPS` | — | Enable creation of extras from `EXTRA_OUTPUT_COMPS` map. |
-  | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` with values in string/compact/object/array forms to produce extras. |
+  | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` (regular) and optionally `AR_<extra>|NNs` (extra-template), with values in string/compact/object/array forms to produce extras. |
   | `ENABLE_EXTRA_MEDIA_OVERRIDE` | — | Use `media`/`label` from extras config to override the `MEDIA` token. |
   | `DEBUG_EXTRAS` | — | Emit a one-time parsed extras dump for audit. |
+  | `OUTPUT_ESSENTIALS_DIRNAME` | `essentials` | Name of the subfolder for regular outputs when extras are enabled; inserted after `YYMMDD` when present. |
+  | `OUTPUT_EXTRAS_DIRNAME` | `extras` | Name of the subfolder for extra outputs; inserted after `YYMMDD` when present. |
   | `DEV_VIDEOID_SELF_TEST` | — | Development-only self-test for videoId derivation. |
 
   #### Step 7 – AME Output Paths & Queue
@@ -468,13 +478,19 @@ Table of contents
   {
     "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "ENABLE_EXTRA_MEDIA_OVERRIDE": true,
+    "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
+    "OUTPUT_EXTRAS_DIRNAME": "extras",
     "EXTRA_OUTPUT_COMPS": {
       "16x9|30s": [
         "1920x1080@OLV",
         { "size": "1080x1920", "media": "TT" },
         { "w": 1080, "h": 1350, "label": "IG" }
       ],
-      "9x16|15s": "1080x1920@TT"
+      "9x16|15s": "1080x1920@TT",
+      "9x16_tiktok|15s": [
+        { "size": "720x1280", "media": "TikTok" },
+        { "size": "720x1280", "media": "MetaInFeed" }
+      ]
     },
     "ame": {
       "EXPORT_SUBPATH": ["OUT","PREVIEWS"],
@@ -509,6 +525,11 @@ Table of contents
   - Logging: Per-phase file logs remain consistent; additional concise debug lines aid auditing while keeping primary summaries stable.
 
   Recent additions (Integration 202+ / Packs 28–35):
+    Recent additions (Packs 40–45):
+    - Step 6 (Pack Output Comps): Extras config keys now accept `AR_<extra>|NNs` to target extra-template sourced comps distinctly from regular `AR|NNs`. Matching is case-insensitive and normalized; regular entries never apply to extra-sourced comps.
+    - Step 6: Extras folder naming reflects source type — extra-sourced use `AR_<extra>_WxH[_MEDIA]`, regular-sourced use `AR_WxH[_MEDIA]`.
+    - Step 6: Essentials vs Extras split — when `ENABLE_EXTRA_OUTPUT_COMPS=true`, regular outputs are placed under `essentials/` and extra outputs under `extras/` within the mirrored path (after `YYMMDD` when present). Names are configurable via `OUTPUT_ESSENTIALS_DIRNAME` and `OUTPUT_EXTRAS_DIRNAME`. When extras are disabled, `essentials/` is not created.
+    - Step 6: Debugging improvements — parsed extras dump includes the normalized `extraKey`; logs note when regular entries are skipped for extra-sourced comps.
   - Step 6 (Pack Output Comps): Extras parsing expanded — `EXTRA_OUTPUT_COMPS` now supports string, compact (`WxH@Label`), object (`{size|w/h, media|label}`), and arrays (multiple extras per key). MEDIA token can be overridden from extras config when `ENABLE_EXTRA_MEDIA_OVERRIDE=true`; suffix-based appends removed in Step 6.
   - Step 7 (AME Output Paths): Project-panel mimic added with anchor support — `MIMIC_PROJECT_FOLDER_STRUCTURE=true` mirrors segments after `PROJECT_FOLDER_ANCHOR_NAME` (default `out`); pure `YYMMDD` segments after the anchor are filtered to avoid duplicating the date folder under `YYMMDD_ISO`.
 
