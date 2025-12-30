@@ -67,8 +67,8 @@ function __Pack_coreRun(opts) {
     // Logging configuration (detailed + summary + suppression + timestamped filenames)
     var ENABLE_FILE_LOG = true;                    // Per-phase master switch for any file logs
     var DRY_RUN_MODE = false;                      // When true: do NOT create folders or comps; only log what would happen
-    var ENABLE_DETAILED_FILE_LOG = false;          // Master flag for detailed log
-    var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = true; // If true, disables detailed file log when DRY_RUN_MODE == false
+    var ENABLE_DETAILED_FILE_LOG = true;          // Master flag for detailed log
+    var SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN = false; // If true, disables detailed file log when DRY_RUN_MODE == false
     var DEBUG_NAMING = false;                      // When true: verbose logging for each token (detailed log only)
     var DEBUG_EXTRAS = true;                      // When true: dump normalized extras once
     var ENABLE_SUMMARY_LOG = true;                 // Produce a summary-only log (names list)
@@ -82,11 +82,6 @@ function __Pack_coreRun(opts) {
     // Extra output comps (alternate resolutions)
     var ENABLE_EXTRA_OUTPUT_COMPS = true;         // Master toggle
     var EXTRA_OUTPUT_COMPS = {                     // Map: "AR|NNs" -> "WxH" string
-        "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
-        "1x1|15s": "1440x1440",
-        "9x16|06s": "720x1280@TikTok",
-        "9x16|15s": [ { "size":"720x1280", "media":"rTikTok" }, { "size":"720x1280", "media":"rMetaInFeed" } ],
-        "9x16_tiktok|15s": [ { "size":"720x1280", "media":"TikTok" }, { "size":"720x1280", "media":"MetaInFeed" } ]
     };
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     // Subfolder names for separating regular vs extras when ENABLE_EXTRA_OUTPUT_COMPS is true
@@ -507,8 +502,13 @@ function __Pack_coreRun(opts) {
             var flagName = EXTRA_OUTPUTS_DEV_FLAG_FILE ? String(EXTRA_OUTPUTS_DEV_FLAG_FILE) : ".use_dev_extra_outputs";
             var flag = new File(__joinFs(cfgDir.fsName, flagName));
             if (!flag.exists) return null;
-            var devRel = (EXTRA_OUTPUTS_DEV_REL_PATH && EXTRA_OUTPUTS_DEV_REL_PATH.length) ? EXTRA_OUTPUTS_DEV_REL_PATH.join("/") : "extra_outputs.json";
-            var f = new File(__joinFs(cfgDir.fsName, devRel));
+            // Resolve dev extras path RELATIVE TO script/ae to avoid double 'config' joining
+            var devSegs = (EXTRA_OUTPUTS_DEV_REL_PATH && EXTRA_OUTPUTS_DEV_REL_PATH.length) ? EXTRA_OUTPUTS_DEV_REL_PATH : ["config","extra_outputs.json"];
+            var devRel = devSegs.join("/");
+            var baseRel = aeFolder ? aeFolder.fsName : cfgDir.fsName; // prefer script/ae root
+            var fullPath = __joinFs(baseRel, devRel);
+            var f = new File(fullPath);
+            if (!f.exists) { try { log("Extras config: DEV flag present, missing file at " + fullPath); } catch(eL) {} }
             return (f && f.exists) ? f : null;
         } catch(e){ return null; }
     }
