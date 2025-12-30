@@ -397,6 +397,19 @@ Table of contents
   | `OUTPUT_EXTRAS_DIRNAME` | `extras` | Name of the subfolder for extra outputs; inserted after `YYMMDD` when present. |
   | `DEV_VIDEOID_SELF_TEST` | — | Development-only self-test for videoId derivation. |
 
+  External extras config (extra_outputs.json)
+  - Precedence (first match wins):
+    1) DEV flag in repo: `.use_dev_extra_outputs` under `script/ae/config/` enables loading from `script/ae/<EXTRA_OUTPUTS_DEV_REL_PATH>` (default `config/extra_outputs.json`).
+    2) Project POST path: `POST/<EXTRA_OUTPUTS_POST_SUBPATH>` (default `IN/data/config/extra_outputs.json`).
+    3) Fallback to preset in `pack.EXTRA_OUTPUT_COMPS` (or optional prompt when enabled).
+  - Controls:
+    - `pack.EXTRA_OUTPUTS_LOAD_FROM_FS` (bool): enable FS loading.
+    - `pack.EXTRA_OUTPUTS_DEV_FLAG_FILE` (string): dev flag filename (default `.use_dev_extra_outputs`).
+    - `pack.EXTRA_OUTPUTS_DEV_REL_PATH` (segments): path relative to `script/ae/` (default `["config","extra_outputs.json"]`).
+    - `pack.EXTRA_OUTPUTS_POST_SUBPATH` (segments): path under project `POST/` (default `["IN","data","config","extra_outputs.json"]`).
+    - `pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING` (bool): if true, prompt to pick a JSON when neither DEV nor POST paths exist.
+  - Debug: with `pack.DEBUG_EXTRAS=true`, logs include `Extras config: DEV -> ...` or `Extras config: POST -> ...`, and `[debug] extras: source=fs` vs `source=preset`.
+
   #### Step 7 – AME Output Paths & Queue
   Path base: `ame.EXPORT_SUBPATH` under `POST/`. Duration subfolder toggle: `ENABLE_DURATION_SUBFOLDER`.
   Project-folder mimic: When `MIMIC_PROJECT_FOLDER_STRUCTURE=true`, AME paths mirror Project panel segments following an anchor (default `PROJECT_FOLDER_ANCHOR_NAME="out"`). Pure six-digit date segments (`YYMMDD`) found after the anchor are filtered to avoid duplicating the date folder under `YYMMDD_ISO`.
