@@ -97,6 +97,12 @@ Table of contents
   - Primitives: replace.
   Reserved (`__presetMeta`, `__sticky`) are loader metadata.
 
+  Preset loading vs Defaults (precedence)
+  - Defaults: defined in [`script/ae/pipeline_options.jsx`](script/ae/pipeline_options.jsx). Provides stable baseline and schema.
+  - Preset JSON: loaded by `pipeline_preset_loader.jsx` (dev repo, project `POST/IN/data/config`, or prompt) and merged over Defaults.
+  - Runtime overrides: any per-run `opts.options` passed to phase scripts (or additional pipeline-level overrides) overlay the merged result last.
+  Outcome: Effective options = Defaults → preset JSON → runtime overrides. Phases read from the single merged object.
+
   ### 5. Global Toggles & Logging
   - `RUN_*` booleans gate each phase (default: true).
   - `PHASE_FILE_LOGS_MASTER_ENABLE=false` disables per-phase file logs.

@@ -1,0 +1,66 @@
+{
+  "16x9|30s": [ 
+    { "size":"1920x1080", "media":"Sky" },
+    { "size":"1920x1080", "media":"Netflix" },
+    { "size":"1920x1080", "media":"Amazon Prime" },
+    { "size":"1920x1080", "media":"Comcast" },
+    { "size":"1920x1080", "media":"Disney" },
+    { "size":"1920x1080", "media":"Google DV360" }
+  ],
+  "1x1|15s": [ 
+    { "size":"1440x1440", "media":"Meta InFeed" },
+    { "size":"640x640", "media":"TikTok" }
+  ],
+  "1x1|06s": [ 
+    { "size":"1440x1440", "media":"Meta InFeed" },
+    { "size":"640x640", "media":"TikTok" }
+  ],
+  "4x5|15s": [ 
+    { "size":"1440x1800", "media":"Meta InFeed" },
+    { "size":"1440x1800", "media":"IG InFeed" }
+  ],
+  "4x5|06s": [ 
+    { "size":"1440x1800", "media":"Meta InFeed" },
+    { "size":"1440x1800", "media":"IG InFeed" }
+  ],
+  "9x16|15s": [ 
+    { "size":"1440x2560", "media":"Meta Reels" },
+    { "size":"1440x2560", "media":"Meta Stories" },
+    { "size":"1440x2560", "media":"IG Reels" },
+    { "size":"1440x2560", "media":"IG Stories" },
+    { "size":"1080x1920", "media":"Snapchat Ads" },
+    { "size":"1080x1920", "media":"Snapchat Story" }
+  ],
+  "9x16|06s": [ 
+    { "size":"1440x2560", "media":"Meta Reels" },
+    { "size":"1440x2560", "media":"Meta Stories" },
+    { "size":"1440x2560", "media":"IG Reels" },
+    { "size":"1440x2560", "media":"IG Stories" },
+    { "size":"1080x1920", "media":"Snapchat Ads" },
+    { "size":"1080x1920", "media":"Snapchat Story" }
+  ],
+  "16x9|15s": [ 
+    { "size":"1920x1080", "media":"Meta Instream" },
+    { "size":"1280x720", "media":"TikTok" },
+    { "size":"1920x1080", "media":"X Website" },
+    { "size":"1920x1080", "media":"Google DV360" },
+    { "size":"1920x1080", "media":"YouTube Masthead" },
+    { "size":"1920x1080", "media":"YouTube Instream" },
+    { "size":"1920x1080", "media":"Google Demand Gen" }
+  ],
+  "16x9|06s": [ 
+    { "size":"1920x1080", "media":"Meta Instream" },
+    { "size":"1280x720", "media":"TikTok" },
+    { "size":"1920x1080", "media":"X Website" },
+    { "size":"1920x1080", "media":"Google DV360" },
+    { "size":"1920x1080", "media":"YouTube Shorts" }
+  ],
+  "9x16_tiktok|15s": [ 
+    { "size":"540x960", "media":"TikTok" },
+    { "size":"720x1280", "media":"TikTok" }
+  ],
+  "9x16_tiktok|06s": [ 
+    { "size":"540x960", "media":"TikTok" },
+    { "size":"720x1280", "media":"TikTok" }
+  ]
+}
