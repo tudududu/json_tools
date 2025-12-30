@@ -261,6 +261,7 @@
     "DEV_VIDEOID_SELF_TEST_USE_SELECTION": false,
     "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,
     "DEBUG_NAMING": false,
+    "DEBUG_EXTRAS": true,
     "ENABLE_SUMMARY_LOG": true,
     "USE_PROJECT_LOG_FOLDER": true,
     "PROJECT_LOG_SUBFOLDER": "log",
@@ -281,7 +282,15 @@
         "9x16|15s": [ { "size":"720x1280", "media":"rTikTok" }, { "size":"720x1280", "media":"rMetaInFeed" } ],
         "9x16_tiktok|15s": [ { "size":"720x1280", "media":"TikTok" }, { "size":"720x1280", "media":"MetaInFeed" } ]
     },
-    "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false
+    "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false,
+
+    "EXTRA_OUTPUTS_LOAD_FROM_FS": true,
+    "EXTRA_OUTPUTS_POST_SUBPATH": ["IN","data","config","extra_outputs.json"],
+    "EXTRA_OUTPUTS_DEV_FLAG_FILE": ".use_dev_extra_outputs",
+    "EXTRA_OUTPUTS_DEV_REL_PATH": ["config","extra_outputs.json"],
+    "EXTRA_OUTPUTS_PROMPT_IF_MISSING": false,
+    "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
+    "OUTPUT_EXTRAS_DIRNAME": "extras"
     },
 "ame": {
     "ENABLE_FILE_LOG": false,

@@ -92,6 +92,12 @@ function __Pack_coreRun(opts) {
     // Subfolder names for separating regular vs extras when ENABLE_EXTRA_OUTPUT_COMPS is true
     var OUTPUT_ESSENTIALS_DIRNAME = 'essentials';
     var OUTPUT_EXTRAS_DIRNAME = 'extras';
+    // FS-based external extras map loading (dev override -> POST path -> prompt)
+    var EXTRA_OUTPUTS_LOAD_FROM_FS = true;
+    var EXTRA_OUTPUTS_POST_SUBPATH = ["IN","data","config","extra_outputs.json"];
+    var EXTRA_OUTPUTS_DEV_FLAG_FILE = ".use_dev_extra_outputs";
+    var EXTRA_OUTPUTS_DEV_REL_PATH = ["config","extra_outputs.json"];
+    var EXTRA_OUTPUTS_PROMPT_IF_MISSING = false;
     
     // --------------------------------------------------------------
     // OUTPUT NAME CONFIG (modular token-based name builder)
@@ -174,6 +180,11 @@ function __Pack_coreRun(opts) {
             if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
             if (o.OUTPUT_ESSENTIALS_DIRNAME !== undefined) OUTPUT_ESSENTIALS_DIRNAME = o.OUTPUT_ESSENTIALS_DIRNAME;
             if (o.OUTPUT_EXTRAS_DIRNAME !== undefined) OUTPUT_EXTRAS_DIRNAME = o.OUTPUT_EXTRAS_DIRNAME;
+            if (o.EXTRA_OUTPUTS_LOAD_FROM_FS !== undefined) EXTRA_OUTPUTS_LOAD_FROM_FS = !!o.EXTRA_OUTPUTS_LOAD_FROM_FS;
+            if (o.EXTRA_OUTPUTS_POST_SUBPATH !== undefined) EXTRA_OUTPUTS_POST_SUBPATH = o.EXTRA_OUTPUTS_POST_SUBPATH;
+            if (o.EXTRA_OUTPUTS_DEV_FLAG_FILE !== undefined) EXTRA_OUTPUTS_DEV_FLAG_FILE = o.EXTRA_OUTPUTS_DEV_FLAG_FILE;
+            if (o.EXTRA_OUTPUTS_DEV_REL_PATH !== undefined) EXTRA_OUTPUTS_DEV_REL_PATH = o.EXTRA_OUTPUTS_DEV_REL_PATH;
+            if (o.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!o.EXTRA_OUTPUTS_PROMPT_IF_MISSING;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
@@ -190,6 +201,11 @@ function __Pack_coreRun(opts) {
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME) { OUTPUT_ESSENTIALS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME; } } catch(eP4) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME) { OUTPUT_EXTRAS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME; } } catch(eP5) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_FS !== undefined) { EXTRA_OUTPUTS_LOAD_FROM_FS = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_FS; } } catch(eP6) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_POST_SUBPATH) { EXTRA_OUTPUTS_POST_SUBPATH = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_POST_SUBPATH; } } catch(eP7) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE) { EXTRA_OUTPUTS_DEV_FLAG_FILE = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE; } } catch(eP8) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH) { EXTRA_OUTPUTS_DEV_REL_PATH = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH; } } catch(eP9) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) { EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING; } } catch(eP10) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -478,6 +494,70 @@ function __Pack_coreRun(opts) {
         var txt = readTextFile(f);
         if (!txt) return null;
         return parseJSONSafe(txt);
+    }
+
+    // -------- FS-based extra_outputs.json loader (dev -> POST -> optional prompt) --------
+    function __joinFs(a,b){ if(!a) return b||""; if(!b) return a||""; var sep = (/\\$/.test(a)||/\/$/.test(a))?"":"/"; return a+sep+b; }
+    function __resolveDevExtrasFile(){
+        try {
+            var here = File($.fileName).parent;                 // .../script/ae/phase
+            var aeFolder = here ? here.parent : null;           // .../script/ae
+            var cfgDir = aeFolder ? new Folder(__joinFs(aeFolder.fsName, "config")) : null;
+            if (!cfgDir || !cfgDir.exists) return null;
+            var flagName = EXTRA_OUTPUTS_DEV_FLAG_FILE ? String(EXTRA_OUTPUTS_DEV_FLAG_FILE) : ".use_dev_extra_outputs";
+            var flag = new File(__joinFs(cfgDir.fsName, flagName));
+            if (!flag.exists) return null;
+            var devRel = (EXTRA_OUTPUTS_DEV_REL_PATH && EXTRA_OUTPUTS_DEV_REL_PATH.length) ? EXTRA_OUTPUTS_DEV_REL_PATH.join("/") : "extra_outputs.json";
+            var f = new File(__joinFs(cfgDir.fsName, devRel));
+            return (f && f.exists) ? f : null;
+        } catch(e){ return null; }
+    }
+    function __resolvePostExtrasFile(){
+        try {
+            var proj = app.project;
+            if (!proj || !proj.file) return null;
+            var work = proj.file.parent, post = work ? work.parent : null;
+            if (!post || !post.exists) return null;
+            var segs = (EXTRA_OUTPUTS_POST_SUBPATH && EXTRA_OUTPUTS_POST_SUBPATH.length) ? EXTRA_OUTPUTS_POST_SUBPATH : ["IN","data","config","extra_outputs.json"];
+            var p = post.fsName;
+            for (var i=0;i<segs.length;i++) p = __joinFs(p, segs[i]);
+            var f = new File(p);
+            return (f && f.exists) ? f : null;
+        } catch(e){ return null; }
+    }
+    function __readTextFileSafe(file){
+        if (!file || !file.exists) return null;
+        var txt = null;
+        try { if (file.open('r')) { txt = file.read(); file.close(); } } catch(e){ try{ file.close(); }catch(e2){} }
+        return txt;
+    }
+    function loadExtrasMapFromFs(){
+        try {
+            if (!EXTRA_OUTPUTS_LOAD_FROM_FS) return null;
+            var devF = __resolveDevExtrasFile();
+            if (devF) {
+                var txtD = __readTextFileSafe(devF);
+                var objD = parseJSONSafe(txtD);
+                if (objD && typeof objD === 'object') { try{ log("Extras config: DEV -> " + devF.fsName); }catch(eL){} return objD; }
+            }
+            var postF = __resolvePostExtrasFile();
+            if (postF) {
+                var txtP = __readTextFileSafe(postF);
+                var objP = parseJSONSafe(txtP);
+                if (objP && typeof objP === 'object') { try{ log("Extras config: POST -> " + postF.fsName); }catch(eL2){} return objP; }
+            }
+            if (EXTRA_OUTPUTS_PROMPT_IF_MISSING) {
+                try {
+                    var picked = File.openDialog("Select extra_outputs.json", "JSON:*.json");
+                    if (picked) {
+                        var txtX = __readTextFileSafe(picked);
+                        var objX = parseJSONSafe(txtX);
+                        if (objX && typeof objX === 'object') { try{ log("Extras config: Prompt -> " + picked.fsName); }catch(eL3){} return objX; }
+                    }
+                } catch(ePd){}
+            }
+        } catch(eL){ try{ log("Extras config: FS load error: " + eL); }catch(eLog){} }
+        return null;
     }
 
     function tryLoadAnyDataJSON() {
@@ -1018,10 +1098,13 @@ function __Pack_coreRun(opts) {
         // ---- Extra output comps (alternate resolutions) ----
         if (ENABLE_EXTRA_OUTPUT_COMPS) {
             try {
-            var extras = parseExtraOutputConfig(EXTRA_OUTPUT_COMPS);
+            var extrasMapEffective = loadExtrasMapFromFs();
+            if (!extrasMapEffective) extrasMapEffective = EXTRA_OUTPUT_COMPS || {};
+            var extras = parseExtraOutputConfig(extrasMapEffective);
             // Optional DEBUG: dump normalized extras once
             try {
                 if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) {
+                    try { log("[debug] extras: source=" + (extrasMapEffective === EXTRA_OUTPUT_COMPS ? "preset" : "fs")); } catch(eSrc) {}
                     var __srcExtraKeyOnce = __normalizeExtraKey(getExtraMediaLabelForComp(item));
                     if (__srcExtraKeyOnce) { log("[debug] extras: extraKey filtering active: source=" + __srcExtraKeyOnce); }
                     log("Extras parsed: count=" + (extras ? extras.length : 0));

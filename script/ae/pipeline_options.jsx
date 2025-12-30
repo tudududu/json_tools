@@ -343,6 +343,7 @@
             ENABLE_DETAILED_FILE_LOG: false,    // Master flag for detailed log
             SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN: true, // If true, disables detailed file log when DRY_RUN_MODE == false
             DEBUG_NAMING: false,                      // When true: verbose logging for each token (detailed log only)
+            DEBUG_EXTRAS: false,                      // When true: dump normalized extras once
             ENABLE_SUMMARY_LOG: true,   // Produce a summary-only log (names list)
             USE_PROJECT_LOG_FOLDER: true,             // Try to write logs under project ./log/ folder
             PROJECT_LOG_SUBFOLDER: "log",             // Subfolder name
@@ -363,7 +364,16 @@
                 // Extra output comps (alternate resolutions)
             ENABLE_EXTRA_OUTPUT_COMPS: false,         // Master toggle
             EXTRA_OUTPUT_COMPS: {},                   // Map: "AR|NNs" -> "WxH" string
-            EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true    // Place extras under out/YYMMDD/AR_WxH
+            EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true,   // Place extras under out/YYMMDD/AR_WxH
+            // External extras map loading (FS-based): dev override then POST path, else preset map
+            EXTRA_OUTPUTS_LOAD_FROM_FS: true,
+            EXTRA_OUTPUTS_POST_SUBPATH: ["IN","data","config","extra_outputs.json"],
+            EXTRA_OUTPUTS_DEV_FLAG_FILE: ".use_dev_extra_outputs",
+            EXTRA_OUTPUTS_DEV_REL_PATH: ["config","extra_outputs.json"],
+            EXTRA_OUTPUTS_PROMPT_IF_MISSING: false,
+            // Optional subfolder names when extras are enabled (also defaulted in Step 6 script)
+            OUTPUT_ESSENTIALS_DIRNAME: "essentials",
+            OUTPUT_EXTRAS_DIRNAME: "extras"
         },
         ame: {
             ENABLE_FILE_LOG: true,
