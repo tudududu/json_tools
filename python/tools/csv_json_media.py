@@ -42,7 +42,7 @@ import json
 import os
 import re
 from collections import OrderedDict
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, DefaultDict
 
 
 CREATIVE_RE = re.compile(r"^(?P<dur>[0-9]+s)(?:C(?P<idx>[1-5]))?\s*$", re.I)
@@ -129,6 +129,74 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
   return out
 
 
+def group_by_country_language(
+  rows: Iterable[dict],
+  country_col: str = "Country",
+  language_col: str = "Language",
+  trim: bool = True,
+) -> Dict[Tuple[str, str], List[dict]]:
+  groups: DefaultDict[Tuple[str, str], List[dict]] = OrderedDict()  # preserve insertion order
+  for row in rows:
+    country = row.get(country_col, "")
+    language = row.get(language_col, "")
+    if trim:
+      country = (country or "").strip()
+      language = (language or "").strip()
+    key = (country, language)
+    groups.setdefault(key, []).append(row)
+  return groups
+
+
+def _sanitize_token_for_filename(token: str) -> str:
+  if token is None:
+    return ""
+  s = token.strip()
+  # Replace spaces with underscores, drop non-filename-safe chars
+  s = re.sub(r"\s+", "_", s)
+  s = re.sub(r"[^A-Za-z0-9_\-]", "", s)
+  return s
+
+
+def expand_output_pattern(pattern: str, country: str, language: str) -> str:
+  """
+  Expand a filename pattern with tokens and optional segments:
+  Tokens supported:
+    {country}, {COUNTRY} → raw or uppercased country
+    {lang}, {LANG}       → raw or uppercased language
+  Optional segments may be wrapped in square brackets: [ ... ]
+  A bracketed segment is included only if any token inside it expands to a non-empty value.
+  """
+  country_raw = _sanitize_token_for_filename(country or "")
+  language_raw = _sanitize_token_for_filename(language or "")
+  mapping = {
+    "country": country_raw,
+    "COUNTRY": country_raw.upper(),
+    "lang": language_raw,
+    "LANG": language_raw.upper(),
+  }
+
+  # Handle optional bracketed segments first
+  def repl_optional(m: re.Match) -> str:
+    inner = m.group(1)
+    # Include segment only if any token inside has a non-empty value
+    tokens_in_inner = re.findall(r"\{(country|COUNTRY|lang|LANG)\}", inner)
+    should_include = any(mapping[t] for t in tokens_in_inner)
+    if not should_include:
+      return ""
+    expanded = inner
+    for k, v in mapping.items():
+      expanded = expanded.replace("{" + k + "}", v)
+    return expanded
+
+  pat = re.sub(r"\[([^\]]+)\]", repl_optional, pattern)
+  for k, v in mapping.items():
+    pat = pat.replace("{" + k + "}", v)
+  # Ensure .json extension present
+  if not pat.lower().endswith(".json"):
+    pat = pat + ".json"
+  return pat
+
+
 def read_csv(path: str, delimiter: str = ";") -> List[dict]:
   # Read entire file to allow simple header-based delimiter detection fallback
   with open(path, "r", encoding="utf-8-sig", newline="") as f:
@@ -196,11 +264,46 @@ def main() -> None:
   p.set_defaults(trim=True)
   p.add_argument("--dry-run", action="store_true", help="Parse only and print summary; do not write JSON")
   p.add_argument("--compact", action="store_true", help="Write JSON with inline array items")
+  # Split-by-country/language options
+  p.add_argument("--split-by-country", action="store_true", help="Split outputs per Country/Language columns")
+  p.add_argument("--country-col", default="Country", help="Column name used for country grouping (default 'Country')")
+  p.add_argument("--language-col", default="Language", help="Column name used for language grouping (default 'Language')")
+  p.add_argument(
+    "--output-pattern",
+    default="media_{COUNTRY}[_{LANG}].json",
+    help="Filename pattern for split outputs; supports tokens {country},{COUNTRY},{lang},{LANG}; bracketed segments are optional",
+  )
   args = p.parse_args()
 
   rows = read_csv(args.input, delimiter=args.delimiter)
-  result = convert_rows(rows, trim=args.trim)
+  
+  if args.split_by_country:
+    groups = group_by_country_language(rows, country_col=args.country_col, language_col=args.language_col, trim=args.trim)
+    if args.dry_run:
+      print(f"groups={len(groups)}")
+      for (country, language), g_rows in groups.items():
+        result = convert_rows(g_rows, trim=args.trim)
+        total_items = sum(len(v) for v in result.values())
+        label = (country or "ALL") + ("_" + language if language else "")
+        print(f"- {label}: keys={len(result)}, items={total_items}")
+      return
 
+    # Determine base output directory from provided output arg
+    base_dir = args.output
+    # If a file path with extension is provided, use its directory; otherwise treat as directory
+    if os.path.splitext(base_dir)[1]:
+      base_dir = os.path.dirname(base_dir) or "."
+    os.makedirs(base_dir or ".", exist_ok=True)
+
+    for (country, language), g_rows in groups.items():
+      fname = expand_output_pattern(args.output_pattern, country, language)
+      out_path = os.path.join(base_dir, fname)
+      result = convert_rows(g_rows, trim=args.trim)
+      write_json(out_path, result, compact=args.compact)
+    return
+
+  # Single-output mode
+  result = convert_rows(rows, trim=args.trim)
   if args.dry_run:
     # Print a brief summary for inspection
     total_items = sum(len(v) for v in result.values())

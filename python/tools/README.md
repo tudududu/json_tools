@@ -57,6 +57,9 @@ Converts a semicolon-delimited media deliverables CSV into a compact JSON index 
 Usage:
 ```sh
 python python/tools/csv_json_media.py input.csv output.json
+python python/tools/csv_json_media.py input.csv out/ --split-by-country
+python python/tools/csv_json_media.py input.csv out/ --split-by-country --output-pattern "media_{COUNTRY}[_{LANG}].json"
+python python/tools/csv_json_media.py input.csv out/ --split-by-country --country-col Territory --language-col Lang
 ```
 
 Options:
@@ -64,9 +67,25 @@ Options:
 - `--trim` / `--no-trim`: Trim surrounding whitespace on fields (default: trim)
 - `--dry-run`: Parse only and print a brief summary; no file written
 - `--compact`: Write JSON with inline array items (objects on a single line inside arrays)
+ - `--split-by-country`: Split outputs per `Country`/`Language` columns; writes one JSON per group
+ - `--country-col <name>`: Country column header (default: `Country`)
+ - `--language-col <name>`: Language column header (default: `Language`)
+ - `--output-pattern <pattern>`: Filename pattern for split outputs. Supports `{country},{COUNTRY},{lang},{LANG}` tokens and optional bracket segments `[...]` that are included only when their expanded content is non-empty. Default: `media_{COUNTRY}[_{LANG}].json`.
+
+Dry run examples:
+```sh
+# Summarize split groups without writing files
+python python/tools/csv_json_media.py input.csv dummy.json --split-by-country --dry-run
+```
 
 ### Changes since CSV to JSON 198 (SRT to CSV script)
 - Added quoting control: `--quote-all` to force quoting on all fields; default remains minimal quoting per RFC 4180.
 - Added delimiter selection: `--delimiter semicolon` to reduce quoting in text-heavy CSV; default `comma` retained.
 - Added batch directory mode: `--input-dir` + optional `--output-dir` to convert multiple `.srt` files, inheriting basenames for `.csv` outputs.
 - Added joined output mode: `--join-output` to combine many `.srt` files into one `.csv`, inserting a filename marker row before each file’s records.
+
+### New: Country/Language split for media CSV
+- Added per-country/language grouping with `--split-by-country`.
+- Custom column names via `--country-col` and `--language-col`.
+- Flexible file naming with `--output-pattern` (tokens: `{country},{COUNTRY},{lang},{LANG}`; optional segments `[...]`).
+- Dry-run prints a concise summary per group (keys/items counts).

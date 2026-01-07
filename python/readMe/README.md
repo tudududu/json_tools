@@ -294,6 +294,11 @@ Helper utilities live under `python/tools/`.
   python -m python.tools.csv_json_media path/to/input.csv out/media_outputs.json
   ```
   Note: add `--compact` to write JSON with inline array items.
+  Split by country/language:
+  ```sh
+  python -m python.tools.csv_json_media path/to/input.csv out/ --split-by-country \
+    --output-pattern "media_{COUNTRY}[_{LANG}].json"
+  ```
 
 ### Parallel Test Execution (xdist)
 
