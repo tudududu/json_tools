@@ -762,6 +762,36 @@ Outputs:
 - Badge: [coverage.svg](../tests/coverage/coverage.svg)
 - XML: [coverage.xml](../tests/coverage/coverage.xml)
 
+### Media Injection (csv_json_media)
+
+Use a separate media CSV to inject a per-country `media` object into the converter’s output. Injection occurs only for exact `(country, language)` matches (language may be empty). The `media` key is appended immediately after `videos` in each per-country payload.
+
+Flags:
+- `--media-csv`: Path to the media CSV (enables injection).
+- `--media-delimiter`: Media CSV delimiter (default `;`).
+- `--media-country-col`: Country column header in the media CSV (default `Country`).
+- `--media-language-col`: Language column header in the media CSV (default `Language`).
+
+Behavior:
+- Exact match only: `(DEU, "")` matches a media row with `Country=DEU` and `Language` empty; `(BEL, FRA)` matches only rows with both `BEL` and `FRA`.
+- No fallbacks: if there is no exact match, `media` is not injected.
+- Mapping shape is produced by the media tool: keys like `1x1|06s` → array of `{ size, media }`.
+
+Example (split by country):
+```sh
+python3 python/csv_to_json.py data.csv out/{country}.json \
+  --split-by-country \
+  --media-csv media.csv \
+  --media-delimiter ';' \
+  --media-country-col Country \
+  --media-language-col Language
+
+python3 python/csv_to_json.py in.csv out.json \
+  --country-column 1 \
+  --fps 25 \
+  --media-csv media.csv
+```
+
 ## Troubleshooting
 * Delimiter guess wrong? Use `--delimiter semicolon` (or `comma`, `tab`, `|`).
 * Timecode parse error: confirm format and `--fps` for frame-based codes.
