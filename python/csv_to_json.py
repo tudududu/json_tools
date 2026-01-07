@@ -37,6 +37,34 @@ import sys
 import platform
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+# Optional media injection support (CSV → JSON media tool)
+try:
+    from python.tools.csv_json_media import (
+        read_csv as media_read_csv,
+        group_by_country_language as media_group_by_country_language,
+        convert_rows as media_convert_rows,
+    )
+except Exception:
+    # Fallback: load from local tools path when executed as a script from within the package directory
+    try:
+        import importlib.util as _ilu
+        _tools_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools", "csv_json_media.py")
+        _spec = _ilu.spec_from_file_location("_csv_json_media", _tools_path)
+        if _spec and _spec.loader:
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
+            media_read_csv = getattr(_mod, "read_csv", None)
+            media_group_by_country_language = getattr(_mod, "group_by_country_language", None)
+            media_convert_rows = getattr(_mod, "convert_rows", None)
+        else:
+            media_read_csv = None  # type: ignore[assignment]
+            media_group_by_country_language = None  # type: ignore[assignment]
+            media_convert_rows = None  # type: ignore[assignment]
+    except Exception:
+        media_read_csv = None  # type: ignore[assignment]
+        media_group_by_country_language = None  # type: ignore[assignment]
+        media_convert_rows = None  # type: ignore[assignment]
+
 
 def parse_timecode(value: str, fps: float) -> float:
     """Parse a timecode string into seconds as float.
@@ -1982,6 +2010,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
     p.add_argument("--no-logo-anim-overview", action="store_true", help="Do not embed aggregated logo_anim_flag mapping object in metadataGlobal (CSV to JSON 47)")
 
+    # Media injection (CSV to JSON media)
+    p.add_argument("--media-csv", default=None, help="Optional path to media CSV for injection per country/language (exact match only)")
+    p.add_argument("--media-delimiter", default=";", help="Delimiter for media CSV (default ';')")
+    p.add_argument("--media-country-col", default="Country", help="Country column name in media CSV (default 'Country')")
+    p.add_argument("--media-language-col", default="Language", help="Language column name in media CSV (default 'Language')")
+
     args = p.parse_args(argv)
 
     # Auto-derive converter version when user leaves default (auto/dev/empty)
@@ -2200,6 +2234,45 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Only inject when we are actually writing outputs (skip validate-only / dry-run)
     if (not args.no_generation_meta) and (not getattr(args, 'validate_only', False)) and (not getattr(args, 'dry_run', False)):
         _inject_generation_metadata(data)
+
+    # Prepare media mappings once (if provided) for exact (country, language) match only
+    media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    if args.media_csv:
+        if media_read_csv is None or media_group_by_country_language is None or media_convert_rows is None:
+            print("Warning: media tools not available; skipping --media-csv integration")
+        else:
+            try:
+                m_rows = media_read_csv(args.media_csv, delimiter=args.media_delimiter)
+                groups = media_group_by_country_language(
+                    m_rows,
+                    country_col=args.media_country_col,
+                    language_col=args.media_language_col,
+                    trim=True,
+                )
+                # Build mapping per (country, language)
+                for (ctry, lang), g_rows in groups.items():
+                    mapping = media_convert_rows(g_rows, trim=True)
+                    # Keep only non-empty mappings to avoid injecting empty objects
+                    if mapping:
+                        media_groups_map[(ctry, lang)] = mapping
+            except Exception as ex:
+                print(f"Warning: failed to load media CSV '{args.media_csv}': {ex}")
+
+    def _inject_media(payload: Dict[str, Any], country_code: str):
+        if not media_groups_map:
+            return
+        mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+        if not isinstance(mg, dict):
+            return
+        try:
+            lang = str(mg.get("language") or "").strip()
+        except Exception:
+            lang = ""
+        key = (country_code, lang)
+        media_map = media_groups_map.get(key)
+        if media_map:
+            # Append after 'videos' by adding as a new key (dicts preserve insertion order)
+            payload["media"] = media_map
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:
@@ -2542,6 +2615,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                             except Exception:
                                 pass
                         payload = (alt.get("byCountry", {}) if isinstance(alt, dict) else {}).get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                    # Inject media (exact country+language) before writing
+                    if isinstance(payload, dict):
+                        _inject_media(payload, c)
                     # Per-country export: reduce logo_anim_flag overview to only this country's values
                     mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
                     if isinstance(mg, dict) and "logo_anim_flag" in mg:
@@ -2622,6 +2698,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 out_path_single = root_pattern.replace("{country}", token)
             if args.verbose:
                 print(f"Writing {out_path_single} (selected country: {csel})")
+            # Inject media for selected country before writing
+            if isinstance(payload, dict):
+                _inject_media(payload, csel)
             write_json(out_path_single, payload)
             if args.sample:
                 sample_path = derive_sample_path(out_path_single)
