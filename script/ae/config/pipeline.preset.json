@@ -33,11 +33,11 @@
     "FILE_SUFFIX": ".json",
     "RUNS_MAX": 0,
     "SLEEP_BETWEEN_RUNS_MS": 500,
-    "SAVE_AFTER_RUN": false,
-    "DRY_RUN": true
+    "SAVE_AFTER_RUN": true,
+    "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/CR7W02/POST/work/ronaldoW2_v03.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/CR7W02/POST/work/ronaldoW2_v16.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -276,15 +276,18 @@
     "DATA_JSON_PRIMARY_NAME": "data.json",
     "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "EXTRA_OUTPUT_COMPS": {
-    
+        "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
+        "1x1|15s": "1440x1440",
+        "9x16|06s": "720x1280@TikTok"
     },
     "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false,
-
-    "EXTRA_OUTPUTS_LOAD_FROM_FS": true,
+    "EXTRA_OUTPUTS_LOAD_FROM_FS": false,
     "EXTRA_OUTPUTS_POST_SUBPATH": ["IN","data","config","extra_outputs.json"],
     "EXTRA_OUTPUTS_DEV_FLAG_FILE": ".use_dev_extra_outputs",
     "EXTRA_OUTPUTS_DEV_REL_PATH": ["config","extra_outputs.json"],
     "EXTRA_OUTPUTS_PROMPT_IF_MISSING": false,
+    "EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON": true,
+    "EXTRA_OUTPUTS_DATA_JSON_PATHS": ["media"],
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
     "OUTPUT_EXTRAS_DIRNAME": "extras"
     },

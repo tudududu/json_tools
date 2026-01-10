@@ -93,6 +93,9 @@ function __Pack_coreRun(opts) {
     var EXTRA_OUTPUTS_DEV_FLAG_FILE = ".use_dev_extra_outputs";
     var EXTRA_OUTPUTS_DEV_REL_PATH = ["config","extra_outputs.json"];
     var EXTRA_OUTPUTS_PROMPT_IF_MISSING = false;
+    // Data.json-based extras map loading (third source)
+    var EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON = false;
+    var EXTRA_OUTPUTS_DATA_JSON_PATHS = ["media"]; // array of path segments or list of segment-arrays
     
     // --------------------------------------------------------------
     // OUTPUT NAME CONFIG (modular token-based name builder)
@@ -180,6 +183,8 @@ function __Pack_coreRun(opts) {
             if (o.EXTRA_OUTPUTS_DEV_FLAG_FILE !== undefined) EXTRA_OUTPUTS_DEV_FLAG_FILE = o.EXTRA_OUTPUTS_DEV_FLAG_FILE;
             if (o.EXTRA_OUTPUTS_DEV_REL_PATH !== undefined) EXTRA_OUTPUTS_DEV_REL_PATH = o.EXTRA_OUTPUTS_DEV_REL_PATH;
             if (o.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!o.EXTRA_OUTPUTS_PROMPT_IF_MISSING;
+            if (o.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON !== undefined) EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON = !!o.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON;
+            if (o.EXTRA_OUTPUTS_DATA_JSON_PATHS !== undefined) EXTRA_OUTPUTS_DATA_JSON_PATHS = o.EXTRA_OUTPUTS_DATA_JSON_PATHS;
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
@@ -201,6 +206,8 @@ function __Pack_coreRun(opts) {
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE) { EXTRA_OUTPUTS_DEV_FLAG_FILE = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE; } } catch(eP8) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH) { EXTRA_OUTPUTS_DEV_REL_PATH = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH; } } catch(eP9) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) { EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING; } } catch(eP10) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON !== undefined) { EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON; } } catch(eP11) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DATA_JSON_PATHS) { EXTRA_OUTPUTS_DATA_JSON_PATHS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DATA_JSON_PATHS; } } catch(eP12) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -530,6 +537,37 @@ function __Pack_coreRun(opts) {
         var txt = null;
         try { if (file.open('r')) { txt = file.read(); file.close(); } } catch(e){ try{ file.close(); }catch(e2){} }
         return txt;
+    }
+    // Resolve extras map from data.json using configured paths
+    function __resolveFromDataJson(json){
+        try {
+            if (!EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON || !json) return null;
+            var paths = EXTRA_OUTPUTS_DATA_JSON_PATHS;
+            if (!paths) return null;
+            function getBySegments(obj, segs){ var cur = obj; for (var i=0;i<segs.length;i++){ var k = segs[i]; if(!cur || typeof cur !== 'object' || !(k in cur)) return null; cur = cur[k]; } return (cur && typeof cur === 'object') ? cur : null; }
+            // Support both a single path array or a list of arrays/strings
+            if (paths instanceof Array) {
+                // If first element is string and rest not arrays, treat as single path
+                var treatAsList = false;
+                for (var pi=0; pi<paths.length; pi++) { if (paths[pi] instanceof Array) { treatAsList = true; break; } }
+                if (!treatAsList) {
+                    // Single-level: could be ["media"] or ["metadataGlobal","extra_outputs"]
+                    var segs = [];
+                    for (var si=0; si<paths.length; si++) segs.push(String(paths[si]));
+                    var v1 = getBySegments(json, segs);
+                    if (v1) { try { log("Extras config: data.json -> " + segs.join("/")); } catch(eL) {} return v1; }
+                } else {
+                    // List of candidate paths
+                    for (var li=0; li<paths.length; li++) {
+                        var pth = paths[li];
+                        var segs2 = (pth instanceof Array) ? pth : [String(pth)];
+                        var v2 = getBySegments(json, segs2);
+                        if (v2) { try { log("Extras config: data.json -> " + segs2.join("/")); } catch(eL2) {} return v2; }
+                    }
+                }
+            }
+        } catch(eDJ){ /* ignore */ }
+        return null;
     }
     function loadExtrasMapFromFs(){
         try {
@@ -1098,13 +1136,20 @@ function __Pack_coreRun(opts) {
         // ---- Extra output comps (alternate resolutions) ----
         if (ENABLE_EXTRA_OUTPUT_COMPS) {
             try {
-            var extrasMapEffective = loadExtrasMapFromFs();
-            if (!extrasMapEffective) extrasMapEffective = EXTRA_OUTPUT_COMPS || {};
+            var extrasSourceTag = null;
+            var extrasMapEffective = null;
+            var fsMap = loadExtrasMapFromFs();
+            if (fsMap) { extrasMapEffective = fsMap; extrasSourceTag = 'fs'; }
+            else {
+                var djMap = __resolveFromDataJson(jsonData);
+                if (djMap) { extrasMapEffective = djMap; extrasSourceTag = 'data_json'; }
+                else { extrasMapEffective = EXTRA_OUTPUT_COMPS || {}; extrasSourceTag = 'preset'; }
+            }
             var extras = parseExtraOutputConfig(extrasMapEffective);
             // Optional DEBUG: dump normalized extras once
             try {
                 if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) {
-                    try { log("[debug] extras: source=" + (extrasMapEffective === EXTRA_OUTPUT_COMPS ? "preset" : "fs")); } catch(eSrc) {}
+                    try { log("[debug] extras: source=" + (extrasSourceTag || (extrasMapEffective === EXTRA_OUTPUT_COMPS ? "preset" : "fs"))); } catch(eSrc) {}
                     var __srcExtraKeyOnce = __normalizeExtraKey(getExtraMediaLabelForComp(item));
                     if (__srcExtraKeyOnce) { log("[debug] extras: extraKey filtering active: source=" + __srcExtraKeyOnce); }
                     log("Extras parsed: count=" + (extras ? extras.length : 0));

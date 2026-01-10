@@ -371,6 +371,10 @@
             EXTRA_OUTPUTS_DEV_FLAG_FILE: ".use_dev_extra_outputs",
             EXTRA_OUTPUTS_DEV_REL_PATH: ["config","extra_outputs.json"],
             EXTRA_OUTPUTS_PROMPT_IF_MISSING: false,
+            // Data.json-based extras map loading (third source)
+            EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON: false,
+            // Candidate paths inside data.json; first match wins. Default: top-level "media" map.
+            EXTRA_OUTPUTS_DATA_JSON_PATHS: ["media"],
             // Optional subfolder names when extras are enabled (also defaulted in Step 6 script)
             OUTPUT_ESSENTIALS_DIRNAME: "essentials",
             OUTPUT_EXTRAS_DIRNAME: "extras"
