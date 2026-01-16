@@ -853,6 +853,44 @@ function __AddLayers_coreRun(opts) {
         return -1;
     }
 
+    // Base-layer detection: prefer bottom-most CompItem (precomp) when present, otherwise
+    // fall back to bottom-most video FootageItem. Skip any layer whose name matches configured
+    // overlay groups (logo/claim/disclaimer/subtitles/etc.), so auxiliary layers like "__scaler__null__"
+    // are not treated as base.
+    function findBottomBaseLayerIndex(comp) {
+        function isOverlayGroupName(nm) {
+            try {
+                if (!nm) return false;
+                for (var key in LAYER_NAME_CONFIG) {
+                    if (!LAYER_NAME_CONFIG.hasOwnProperty(key)) continue;
+                    if (key === 'recenterRules') continue; // not a layer group
+                    if (nameMatchesGroup(nm, key)) return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+        for (var i = comp.numLayers; i >= 1; i--) {
+            var ly = comp.layer(i);
+            var lname = null; try { lname = String(ly.name || ""); } catch (eNm) { lname = ""; }
+            // Skip known overlay groups (logos, claims, disclaimers, subtitles, dataJson, etc.)
+            if (isOverlayGroupName(lname)) continue;
+            try {
+                // Prefer precomp base
+                if (ly && ly.source && (ly.source instanceof CompItem)) {
+                    return i;
+                }
+                // Fallback: video footage base
+                if (ly && ly.source && (ly.source instanceof FootageItem)) {
+                    var src = ly.source;
+                    var hasVid = false;
+                    try { hasVid = (src.hasVideo === true); } catch (e1) {}
+                    if (hasVid) return i;
+                }
+            } catch (e) {}
+        }
+        return -1;
+    }
+
     function getSelectedComps() {
         var out = [];
         var sel = proj.selection;
@@ -1690,9 +1728,21 @@ function __AddLayers_coreRun(opts) {
                 } catch(e){ return "*"; }
             }
             var __LOGM = __asciiOnly(LOG_MARKER);
-            var excludeIdx = findBottomVideoFootageLayerIndex(templateComp);
+            var excludeIdx = findBottomBaseLayerIndex(templateComp);
             var __header = "Using template: " + templateComp.name + " -> target: " + compTarget.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
             log("\n" + __header);
+            // Debug: report detected base layer type and name
+            try {
+                if (excludeIdx > 0) {
+                    var __exLy = templateComp.layer(excludeIdx);
+                    var __exNm = __exLy ? String(__exLy.name||"?") : "?";
+                    var __isComp = false, __isFoot = false;
+                    try { __isComp = (__exLy && __exLy.source && (__exLy.source instanceof CompItem)); } catch(eC) {}
+                    try { __isFoot = (__exLy && __exLy.source && (__exLy.source instanceof FootageItem)); } catch(eF) {}
+                    var __type = __isComp ? "comp" : (__isFoot ? "footage" : "layer");
+                    log("[debug] base-layer: idx=#" + excludeIdx + ", type=" + __type + ", name='" + __exNm + "'.");
+                }
+            } catch(eDBG) {}
             try { __concise.push(__header); } catch(eHC) {}
             var added = 0;
             var skipCopyCount = 0; // per-comp count
