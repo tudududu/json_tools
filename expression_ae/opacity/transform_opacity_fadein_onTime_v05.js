@@ -1,4 +1,8 @@
-// transform_opacity_fadein_onTime_v05 (orientation-aware, SINGLE KEY)
+// transform_opacity_fadein_onTime_v05 251128 (orientation-aware, SINGLE KEY)
+// Start-frame non‑zero adaptation: avoids initial 0 opacity by biasing ramp with frameDuration.
+
+// union does not work (of multiple segments when desiredLine == 0 for subtitles.)
+
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
 // Supported keys: claim | disclaimer | logo | subtitles (timed arrays of objects with in/out; global arrays w/out timing)
@@ -15,9 +19,6 @@
 //   - Fade duration auto-clamped so it never exceeds the segment length.
 //   - Orientation: square treated as portrait; can override by suffix _landscape / _portrait in comp name.
 
-// transform_opacity_fadein_onTime_v04 (orientation-aware, SINGLE KEY)
-// Start-frame non‑zero adaptation: avoids initial 0 opacity by biasing ramp with frameDuration.
-
 // -------- CONFIG --------
 var FOOTAGE_NAME = "data.json";
 var DATA_KEY     = "logo";
@@ -25,6 +26,7 @@ var desiredLine  = 3;
 var FADE_IN      = 0;
 var OPAC_IN      = 0;
 var START_MIN    = 1;          // minimum opacity on first active frame if OPAC_IN == 0
+var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
 // -------- Orientation detection --------
 var compAR = thisComp.width / Math.max(1, thisComp.height);
@@ -34,7 +36,6 @@ if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";
 else if (nameLower.indexOf("_portrait")  >= 0) compOrientation = "portrait";
 
 // -------- VideoId derivation --------
-var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 var token1 = 0 + nameShift;
 var token2 = 1 + nameShift;
 

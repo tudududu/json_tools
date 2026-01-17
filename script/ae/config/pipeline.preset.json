@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -37,7 +37,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/CR7W02/POST/work/ronaldoW2_v16.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/Ram26/POST/WORK/ramadan_v02.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -88,7 +88,7 @@
     "AUDIO_TOKENS_REQUIRE_ADJACENT": false
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false,
     
@@ -125,7 +125,7 @@
             "imageOnlyForContains": false 
         },
         "logoAnim": { 
-            "exact": ["logo_anim", "Size_Holder_Logo"], 
+            "exact": ["logo_01_anim", "Size_Holder_Logo"], 
             "contains": [] 
             },
         "logo_02": { 
@@ -218,7 +218,7 @@
         
         "claim_01": { "mode": "line", "value": 1 },
         "claim_02": { "mode": "line", "value": 2 },
-        "claim_auxiliary": { "mode": "line", "value": 2 }
+        "claim_auxiliary": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff":true, 
@@ -252,11 +252,10 @@
     },
 "pack": {
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": true,
-
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
     "ENABLE_FILE_LOG": true,
     "DRY_RUN_MODE": false,
-    "ENABLE_DETAILED_FILE_LOG": true,
+    "ENABLE_DETAILED_FILE_LOG": false,
     "DEV_VIDEOID_SELF_TEST": false,
     "DEV_VIDEOID_SELF_TEST_USE_SELECTION": false,
     "SUPPRESS_FILE_LOG_WHEN_NOT_DRY_RUN": false,
@@ -274,7 +273,7 @@
     "SKIP_IF_ALREADY_IN_OUTPUT": true,
     "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
     "DATA_JSON_PRIMARY_NAME": "data.json",
-    "ENABLE_EXTRA_OUTPUT_COMPS": true,
+    "ENABLE_EXTRA_OUTPUT_COMPS": false,
     "EXTRA_OUTPUT_COMPS": {
         "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
         "1x1|15s": "1440x1440",
