@@ -41,7 +41,7 @@ BASE_PREFIXES: List[str] = [
 	"RunId=",
 	"ProjectPath:",
 	"INFO {link_data} [data.json] ISO code used:",
-	"Pipeline complete.",
+	# "Pipeline complete.",
 	"Counts =>",
 	"Timing (s) =>",
 	# "INFO {add_layers} Processed",
@@ -138,13 +138,13 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			# Add blank line after each block for readability
 			out.write("\n")
 		# Counts summary
-		out.write("==== Summary Counts ====\n")
-		total = 0
-		for src, lines in gathered:
-			cnt = len(lines)
-			total += cnt
-			out.write(f"{src.name}: {cnt}\n")
-		out.write(f"TOTAL_MATCHED_LINES: {total}\n")
+		# out.write("==== Summary Counts ====\n")
+		# total = 0
+		# for src, lines in gathered:
+		# 	cnt = len(lines)
+		# 	total += cnt
+		# 	out.write(f"{src.name}: {cnt}\n")
+		# out.write(f"TOTAL_MATCHED_LINES: {total}\n")
 
 		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
 		def _extract_value_from_line(line: str, key: str) -> str | None:
@@ -163,7 +163,7 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			return None
 
 		out.write("\n")
-		out.write("==== Short Summary ====\n")
+		out.write("==== Summary addLayers ====\n")
 		for src, lines in gathered:
 			counts_val = None
 			timing_val = None
@@ -178,6 +178,23 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			counts_out = counts_val if counts_val is not None else "-"
 			timing_out = timing_val if timing_val is not None else "-"
 			out.write(f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n")
+
+		out.write("\n")
+		out.write("==== Summary Totals ====\n")
+		for src, lines in gathered:
+			timing_val1 = None
+			timing_val2 = None
+			# Walk lines in reverse to prefer the last occurrence
+			for l in reversed(lines):
+				if timing_val1 is None and l.startswith("Timing (s) =>"):
+					timing_val1 = _extract_value_from_line(l, "addLayers")
+				if timing_val2 is None and l.startswith("Timing (s) =>"):
+					timing_val2 = _extract_value_from_line(l, "total")
+				if timing_val1 is not None and timing_val2 is not None:
+					break
+			timing_out1 = timing_val1 if timing_val1 is not None else "-"
+			timing_out2 = timing_val2 if timing_val2 is not None else "-"
+			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; \n")
 	print(f"Wrote summary: {out_path}")
 
 
