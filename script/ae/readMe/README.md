@@ -346,6 +346,12 @@ Table of contents
     ```
 
   Template folder path: `addLayers.TEMPLATE_FOLDER_PATH` (default `['project','work','template']`). Matching strategies via `TEMPLATE_MATCH_CONFIG` (AR tolerance, duration strictness). Parenting features: reference-time assignment (`PARENTING_REF_TIME_MODE`), cycle-safe guard, debug dumps.
+
+  Base Layer Detection
+  - Rule: excludes the template’s base layer from copy to avoid duplicating the underlying video/precomp.
+  - Order: prefers the bottom-most `CompItem` (precomp) when present; otherwise falls back to the bottom-most video `FootageItem`.
+  - Exclusions: ignores layers that match overlay groups (logos, claims, disclaimers, subtitles, `dataJson`, `super_A`, `info`, `template_aspect`, `center`), so helper/utility layers like `__scaler__null__` are not treated as base.
+  - Debug: logs the detected base layer as `[debug] base-layer: idx=#N, type=comp|footage, name='<LayerName>'`.
     Unified flag handling
     - Flags `disclaimer_flag`, `disclaimer_02_flag`, `subtitle_flag`, and `logo_anim_flag` are parsed via a single helper that reads from the video object or its `metadata` and interprets values against the configured lists (`ON`: y/yes/1, `OFF`: n/no/0).
     - Unknown or missing values default to OFF. An audit log line notes any unrecognized values once per comp.
