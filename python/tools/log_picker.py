@@ -41,7 +41,7 @@ BASE_PREFIXES: List[str] = [
 	"RunId=",
 	"ProjectPath:",
 	"INFO {link_data} [data.json] ISO code used:",
-	# "Pipeline complete.",
+	"Pipeline complete.",
 	"Counts =>",
 	"Timing (s) =>",
 	# "INFO {add_layers} Processed",
@@ -138,13 +138,13 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			# Add blank line after each block for readability
 			out.write("\n")
 		# Counts summary
-		# out.write("==== Summary Counts ====\n")
-		# total = 0
-		# for src, lines in gathered:
-		# 	cnt = len(lines)
-		# 	total += cnt
-		# 	out.write(f"{src.name}: {cnt}\n")
-		# out.write(f"TOTAL_MATCHED_LINES: {total}\n")
+		out.write("==== Summary Counts ====\n")
+		total = 0
+		for src, lines in gathered:
+			cnt = len(lines)
+			total += cnt
+			out.write(f"{src.name}: {cnt}\n")
+		out.write(f"TOTAL_MATCHED_LINES: {total}\n")
 
 		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
 		def _extract_value_from_line(line: str, key: str) -> str | None:
@@ -163,7 +163,7 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			return None
 
 		out.write("\n")
-		out.write("==== Summary addLayers ====\n")
+		out.write("==== Short Summary ====\n")
 		for src, lines in gathered:
 			counts_val = None
 			timing_val = None
@@ -192,9 +192,59 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 					timing_val2 = _extract_value_from_line(l, "total")
 				if timing_val1 is not None and timing_val2 is not None:
 					break
+			# Compute percentage addLayers/total
+			pct_str = "-"
+			try:
+				al = float(timing_val1) if timing_val1 is not None else None
+				tt = float(timing_val2) if timing_val2 is not None else None
+				if al is not None and tt is not None and tt > 0:
+					pct_str = f"{(al/tt)*100:.2f}%"
+			except ValueError:
+				pct_str = "-"
 			timing_out1 = timing_val1 if timing_val1 is not None else "-"
 			timing_out2 = timing_val2 if timing_val2 is not None else "-"
-			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; \n")
+			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; {pct_str}\n")
+
+		# Summary percentage for individual timing steps
+		out.write("\n")
+		out.write("==== Summary percentage ====\n")
+		for src, lines in gathered:
+			latest = None
+			for l in reversed(lines):
+				if l.startswith("Timing (s) =>"):
+					latest = l
+					break
+			if latest is None:
+				out.write(f"{src.name}: -\n")
+				continue
+			# Parse key=value pairs
+			payload = latest.split('=>', 1)[1] if '=>' in latest else latest
+			pairs = {}
+			for piece in payload.split(','):
+				piece = piece.strip()
+				if '=' not in piece:
+					continue
+				k, v = piece.split('=', 1)
+				pairs[k.strip()] = v.strip()
+			# Compute per-key percentages vs total
+			try:
+				total_val = float(pairs.get('total', ''))
+			except ValueError:
+				total_val = 0.0
+			parts = []
+			for k, v in pairs.items():
+				if k == 'total':
+					continue
+				try:
+					val = float(v)
+					if total_val > 0:
+						p = (val / total_val) * 100.0
+						parts.append(f"{k}={p:.2f}%")
+					else:
+						parts.append(f"{k}=-")
+				except ValueError:
+					parts.append(f"{k}=-")
+			out.write(f"{src.name}: " + ", ".join(parts) + "\n")
 	print(f"Wrote summary: {out_path}")
 
 
