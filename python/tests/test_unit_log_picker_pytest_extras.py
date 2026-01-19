@@ -111,7 +111,7 @@ def test_param_prefix_combinations(tmp_path, prefixes, expected_counts, total):
         "\n".join([
             "PrefixA one",
             "PrefixB two",
-            "Pipeline complete.",
+            "INFO {save_as_iso} Saved as",
         ])
         + "\n",
         encoding="utf-8",

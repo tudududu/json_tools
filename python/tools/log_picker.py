@@ -39,9 +39,7 @@ from typing import Iterable, List
 
 BASE_PREFIXES: List[str] = [
 	"RunId=",
-	"ProjectPath:",
-	"INFO {link_data} [data.json] ISO code used:",
-	"Pipeline complete.",
+	"INFO {save_as_iso} Saved as",
 	"Counts =>",
 	"Timing (s) =>",
 	# "INFO {add_layers} Processed",
@@ -163,7 +161,7 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			return None
 
 		out.write("\n")
-		out.write("==== Short Summary ====\n")
+		out.write("==== Summary addLayers ====\n")
 		for src, lines in gathered:
 			counts_val = None
 			timing_val = None
@@ -180,7 +178,7 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			out.write(f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n")
 
 		out.write("\n")
-		out.write("==== Summary Totals ====\n")
+		out.write("==== Summary addLayers / Totals ====\n")
 		for src, lines in gathered:
 			timing_val1 = None
 			timing_val2 = None

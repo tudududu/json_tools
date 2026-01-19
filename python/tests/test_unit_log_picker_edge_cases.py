@@ -46,8 +46,8 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             nested = base / "sub" / "deeper"
             nested.mkdir(parents=True)
 
-            (base / "a.log").write_text("Pipeline complete.\nnope\n", encoding="utf-8")  # 1 match
-            (nested / "b.log").write_text("RunId=XYZ\nPipeline complete.\n", encoding="utf-8")  # 2 matches
+            (base / "a.log").write_text("Pipeline complete.\nnope\n", encoding="utf-8")  # no match after prefix change
+            (nested / "b.log").write_text("RunId=XYZ\nPipeline complete.\n", encoding="utf-8")  # 1 match after prefix change
 
             out = pathlib.Path(td) / "out_recursive.log"
             rc = log_picker.main([
@@ -60,10 +60,10 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             # Both files should be present
             self.assertIn("a.log:", txt)
             self.assertIn("b.log:", txt)
-            # Counts should reflect matches
-            self.assertIn("a.log: 1", txt)
-            self.assertIn("b.log: 2", txt)
-            self.assertIn("TOTAL_MATCHED_LINES: 3", txt)
+            # Counts should reflect matches after prefix change
+            self.assertIn("a.log: 0", txt)
+            self.assertIn("b.log: 1", txt)
+            self.assertIn("TOTAL_MATCHED_LINES: 1", txt)
 
     def test_non_utf8_encoding(self):
         # Latin-1 file should be read correctly when --encoding latin-1 is specified

@@ -28,7 +28,7 @@ class LogPickerLayersSummaryTests(unittest.TestCase):
             rc = log_picker.main(['--input-dir', str(d), '--output-file', str(out)])
             self.assertEqual(rc, 0)
             txt = out.read_text(encoding='utf-8')
-            self.assertIn('==== Short Summary ====', txt)
+            self.assertIn('==== Summary addLayers ====', txt)
             # a.log should have both values
             self.assertIn('a.log: Counts => layersAddedTotal=10 ; Timing (s) => addLayers=2.5', txt)
             # b.log missing Counts value, has Timing value

@@ -47,9 +47,9 @@ class LogPickerTests(unittest.TestCase):
             self.assertIn("MYCUSTOM value here", content)
             # Counts summary section present
             self.assertIn("==== Summary Counts ====", content)
-            # Per-file counts
+            # Per-file counts reflect updated prefixes (no Pipeline complete)
             self.assertIn("one.log: 2", content)
-            self.assertIn("two.log: 2", content)
+            self.assertIn("two.log: 1", content)
             self.assertIn("empty.log: 0", content)
-            # Total should equal 4
-            self.assertIn("TOTAL_MATCHED_LINES: 4", content)
+            # Total should equal 3
+            self.assertIn("TOTAL_MATCHED_LINES: 3", content)
