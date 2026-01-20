@@ -39,7 +39,6 @@ class LogPickerRegexTests(unittest.TestCase):
             self.assertIn("HELLO one", txt)
             self.assertIn("greeting: HELLO two", txt)
 
-            # Counts
-            self.assertIn("x.log: 1", txt)
-            self.assertIn("y.log: 2", txt)
-            self.assertIn("TOTAL_MATCHED_LINES: 3", txt)
+            # Summary Counts now shows only total pipeline_run logs (none in this test)
+            self.assertIn("==== Summary Counts ====", txt)
+            self.assertIn("TOTAL_PIPELINE_RUN_LOGS: 0", txt)

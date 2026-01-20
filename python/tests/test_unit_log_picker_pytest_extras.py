@@ -85,8 +85,10 @@ def test_param_encodings(tmp_path, file_encoding, cli_encoding, line, expect_exa
     assert rc == 0
     txt = out.read_text(encoding="utf-8")
     # We should always match the prefix line once regardless of encoding outcome
-    assert "TOTAL_MATCHED_LINES: 1" in txt
     assert "enc.log:" in txt
+    # Summary Counts now only reports total pipeline_run logs (none here)
+    assert "==== Summary Counts ====" in txt
+    assert "TOTAL_PIPELINE_RUN_LOGS: 0" in txt
     # Exact string may not be preserved under mismatched decoding
     if expect_exact:
         assert line in txt
@@ -126,7 +128,6 @@ def test_param_prefix_combinations(tmp_path, prefixes, expected_counts, total):
     rc = log_picker.main(args)
     assert rc == 0
     txt = out.read_text(encoding="utf-8")
-    # Validate per-file counts
-    for fname, cnt in expected_counts.items():
-        assert f"{fname}: {cnt}" in txt
-    assert f"TOTAL_MATCHED_LINES: {total}" in txt
+    # Summary Counts now only reports total pipeline_run logs (none in this test)
+    assert "==== Summary Counts ====" in txt
+    assert "TOTAL_PIPELINE_RUN_LOGS: 0" in txt

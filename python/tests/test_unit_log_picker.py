@@ -45,11 +45,6 @@ class LogPickerTests(unittest.TestCase):
 
             # Assert: custom prefix line is present
             self.assertIn("MYCUSTOM value here", content)
-            # Counts summary section present
+            # Counts summary section present with only pipeline_run total
             self.assertIn("==== Summary Counts ====", content)
-            # Per-file counts reflect updated prefixes (no Pipeline complete)
-            self.assertIn("one.log: 2", content)
-            self.assertIn("two.log: 1", content)
-            self.assertIn("empty.log: 0", content)
-            # Total should equal 3
-            self.assertIn("TOTAL_MATCHED_LINES: 3", content)
+            self.assertIn("TOTAL_PIPELINE_RUN_LOGS: 0", content)

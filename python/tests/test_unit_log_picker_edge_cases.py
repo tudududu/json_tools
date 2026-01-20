@@ -60,10 +60,9 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             # Both files should be present
             self.assertIn("a.log:", txt)
             self.assertIn("b.log:", txt)
-            # Counts should reflect matches after prefix change
-            self.assertIn("a.log: 0", txt)
-            self.assertIn("b.log: 1", txt)
-            self.assertIn("TOTAL_MATCHED_LINES: 1", txt)
+            # Summary Counts now only reports total pipeline_run logs (none here)
+            self.assertIn("==== Summary Counts ====", txt)
+            self.assertIn("TOTAL_PIPELINE_RUN_LOGS: 0", txt)
 
     def test_non_utf8_encoding(self):
         # Latin-1 file should be read correctly when --encoding latin-1 is specified
@@ -84,7 +83,9 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             txt = out.read_text(encoding="utf-8")
             # Ensure the exact characters survived (no replacement char)
             self.assertIn("RunId=Ångström", txt)
-            self.assertIn("TOTAL_MATCHED_LINES: 1", txt)
+            # Summary Counts now only reports total pipeline_run logs (none here)
+            self.assertIn("==== Summary Counts ====", txt)
+            self.assertIn("TOTAL_PIPELINE_RUN_LOGS: 0", txt)
 
     def test_multiple_regex_and_prefix(self):
         # Combine custom prefix and multiple regex patterns
@@ -131,7 +132,6 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             self.assertIn("CustomPrefix again", txt)
             self.assertIn("Counts => created=1", txt)
             self.assertIn("Timing (s) => addLayers=0.5", txt)
-            # Counts: x.log has 5 matches, y.log has 2 -> total 7
-            self.assertIn("x.log: 5", txt)
-            self.assertIn("y.log: 2", txt)
-            self.assertIn("TOTAL_MATCHED_LINES: 7", txt)
+            # Summary Counts now only reports total pipeline_run logs (none here)
+            self.assertIn("==== Summary Counts ====", txt)
+            self.assertIn("TOTAL_PIPELINE_RUN_LOGS: 0", txt)

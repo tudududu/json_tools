@@ -135,14 +135,10 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 				out.write("<NO MATCHING LINES>\n")
 			# Add blank line after each block for readability
 			out.write("\n")
-		# Counts summary
+		# Counts summary (only total pipeline_run logs parsed)
 		out.write("==== Summary Counts ====\n")
-		total = 0
-		for src, lines in gathered:
-			cnt = len(lines)
-			total += cnt
-			out.write(f"{src.name}: {cnt}\n")
-		out.write(f"TOTAL_MATCHED_LINES: {total}\n")
+		pipeline_runs = sum(1 for src, _ in gathered if src.name.startswith("pipeline_run_"))
+		out.write(f"TOTAL_PIPELINE_RUN_LOGS: {pipeline_runs}\n")
 
 		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
 		def _extract_value_from_line(line: str, key: str) -> str | None:
