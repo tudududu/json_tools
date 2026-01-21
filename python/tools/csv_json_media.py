@@ -97,15 +97,21 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
   last_group_no_index: Tuple[str, str, str, str, str] | None = None
 
   for row in rows:
-    ar = row.get("AspectRatio", "")
-    dims = row.get("Dimensions", "")
-    creative = row.get("Creative", "")
-    media = row.get("Media", "")
-    template = row.get("Template", "")
-    template_name = row.get("Template_name", "")
+    # Safely extract values (DictReader may set missing fields to None)
+    ar = (row.get("AspectRatio") or "")
+    dims = (row.get("Dimensions") or "")
+    creative = (row.get("Creative") or "")
+    media = (row.get("Media") or "")
+    template = (row.get("Template") or "")
+    template_name = (row.get("Template_name") or "")
 
     if trim:
       ar = ar.strip(); dims = dims.strip(); creative = creative.strip(); media = media.strip(); template = template.strip(); template_name = template_name.strip()
+
+    # Skip spacer/blank rows (e.g., ';\n' or '…;') and rows without essential fields
+    if not creative or not ar or not dims or not media:
+      # Common sheet separators may contain ellipsis '…' — treat as blank
+      continue
 
     dur, _idx = parse_duration(creative)
 
@@ -137,8 +143,8 @@ def group_by_country_language(
 ) -> Dict[Tuple[str, str], List[dict]]:
   groups: DefaultDict[Tuple[str, str], List[dict]] = OrderedDict()  # preserve insertion order
   for row in rows:
-    country = row.get(country_col, "")
-    language = row.get(language_col, "")
+    country = (row.get(country_col) or "")
+    language = (row.get(language_col) or "")
     if trim:
       country = (country or "").strip()
       language = (language or "").strip()
@@ -299,6 +305,9 @@ def main() -> None:
       fname = expand_output_pattern(args.output_pattern, country, language)
       out_path = os.path.join(base_dir, fname)
       result = convert_rows(g_rows, trim=args.trim)
+      # Skip writing empty groups (e.g., separator-only rows)
+      if not result:
+        continue
       write_json(out_path, result, compact=args.compact)
     return
 
