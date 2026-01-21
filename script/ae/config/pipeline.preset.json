@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
     "RUN_close_project": false,
 
 "batch": {
@@ -37,7 +37,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/Ram26/POST/WORK/ramadan_v02.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/Ram26/POST/WORK/ramadan_v06.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -88,7 +88,7 @@
     "AUDIO_TOKENS_REQUIRE_ADJACENT": false
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": true,
+    "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false,
     

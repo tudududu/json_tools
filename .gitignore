@@ -42,6 +42,7 @@ in/
 out/
 log/
 temp/
+# script/ae/config/
 
 # Jupyter
 .ipynb_checkpoints/
