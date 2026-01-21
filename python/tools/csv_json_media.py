@@ -1,10 +1,13 @@
 """
 CSV → JSON media outputs list converter
 
-Converts semicolon-delimited CSV with columns:
-  AspectRatio;Dimensions;Creative;Media;Template;Template_name
+Accepts semicolon-delimited CSV with columns:
+  AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name
 
-into a JSON object of the form:
+Notes:
+- `Duration` and `Title` are the preferred source; `Creative` may remain present for backward compatibility but is not required.
+
+Emits a JSON object of the form:
 
 {
   "1x1|06s": [
@@ -18,9 +21,9 @@ into a JSON object of the form:
 }
 
 Rules:
-- Key is `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` where
-  duration is parsed from `Creative` by dropping the trailing `C[1-5]` and zero‑padding to 2 digits when needed (e.g. `6sC1`→`06s`).
-- For consecutive rows that differ only by the `Creative` number (C2–C5) while the other fields match, only the first row is kept.
+- Key is `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`.
+- Duration is sourced from the `Duration` column when available, normalized to a token like `06s`, `15s`, `30s`. If `Duration` is missing/empty, it is parsed from `Creative` by dropping a trailing `C[1-5]` and zero‑padding when needed (e.g., `6sC1`→`06s`).
+- For consecutive rows that differ only by creative variant/title while other fields match, only the first row is kept (consecutive dedup).
 - Values are arrays of objects `{ "size": Dimensions, "media": Media }`, preserving first-seen order; duplicates per key are not repeated.
 - Media labels are trimmed but case is preserved.
 
@@ -60,6 +63,21 @@ def _pad_duration_token(token: str) -> str:
   return f"{num}{suf}"
 
 
+def normalize_duration(raw: str) -> str:
+  """
+  Normalize various inputs like '6', '06', '6s', '06s' into a token '06s'.
+  Leaves already-normalized multi-digit tokens like '15s' unchanged.
+  """
+  s = (raw or "").strip()
+  if not s:
+    return s
+  # If suffix 's' is missing, append it
+  if re.match(r"^\d+$", s):
+    s = s + "s"
+  # If in the form '<digits>s', zero-pad when <10
+  return _pad_duration_token(s)
+
+
 def parse_duration(creative: str) -> Tuple[str, int | None]:
   m = CREATIVE_RE.match(creative or "")
   if not m:
@@ -89,6 +107,20 @@ def build_key(aspect_ratio: str, creative: str, template: str, template_name: st
   return f"{key_ar}|{dur}"
 
 
+def build_key_with_duration(aspect_ratio: str, duration_token: str, template: str, template_name: str, do_trim: bool = True) -> str:
+  """
+  Build key using a provided duration token (from the Duration column).
+  """
+  ar = aspect_ratio.strip() if do_trim else aspect_ratio
+  dur = normalize_duration(duration_token.strip() if do_trim else duration_token)
+  key_ar = ar
+  if (template.strip() if do_trim else template) == "extra":
+    suffix = sanitize_suffix(template_name.strip() if do_trim else template_name)
+    if suffix:
+      key_ar = f"{key_ar}_{suffix}"
+  return f"{key_ar}|{dur}"
+
+
 def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict[str, str]]]:
   out: Dict[str, List[Dict[str, str]]] = OrderedDict()
   seen_pairs: Dict[str, set] = {}
@@ -101,19 +133,26 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
     ar = (row.get("AspectRatio") or "")
     dims = (row.get("Dimensions") or "")
     creative = (row.get("Creative") or "")
+    duration = (row.get("Duration") or "")
     media = (row.get("Media") or "")
     template = (row.get("Template") or "")
     template_name = (row.get("Template_name") or "")
 
     if trim:
-      ar = ar.strip(); dims = dims.strip(); creative = creative.strip(); media = media.strip(); template = template.strip(); template_name = template_name.strip()
+      ar = ar.strip(); dims = dims.strip(); creative = creative.strip(); duration = duration.strip(); media = media.strip(); template = template.strip(); template_name = template_name.strip()
 
-    # Skip spacer/blank rows (e.g., ';\n' or '…;') and rows without essential fields
-    if not creative or not ar or not dims or not media:
+    # Skip spacer/blank rows and rows without essential fields.
+    # Essential: ar, dims, media; plus at least one of duration or creative.
+    if (not ar or not dims or not media or (not duration and not creative)):
       # Common sheet separators may contain ellipsis '…' — treat as blank
       continue
 
-    dur, _idx = parse_duration(creative)
+    # Determine duration token: prefer Duration column; fallback to Creative
+    if duration:
+      dur = normalize_duration(duration)
+      _idx = None
+    else:
+      dur, _idx = parse_duration(creative)
 
     # Suppress consecutive variants that differ only by Creative number
     group_no_idx = (ar, dims, media, template, template_name, dur)
@@ -122,7 +161,11 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
       continue
     last_group_no_index = group_no_idx
 
-    key = build_key(ar, creative, template, template_name, do_trim=False)
+    key = (
+      build_key_with_duration(ar, dur, template, template_name, do_trim=False)
+      if duration
+      else build_key(ar, creative, template, template_name, do_trim=False)
+    )
     item = {"size": dims, "media": media}
     if key not in out:
       out[key] = []
@@ -221,13 +264,17 @@ def read_csv(path: str, delimiter: str = ";") -> List[dict]:
   if "," not in delims_to_try:
     delims_to_try.append(",")
 
-  expected = ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"]
+  base_required = ["AspectRatio", "Dimensions", "Media", "Template", "Template_name"]
+  one_of = ["Duration", "Creative"]
 
   from io import StringIO
   for d in delims_to_try:
     reader = csv.DictReader(StringIO("\n".join(lines[start_idx:])), delimiter=d)
-    if reader.fieldnames and all(h in reader.fieldnames for h in expected):
-      return list(reader)
+    if reader.fieldnames:
+      has_base = all(h in reader.fieldnames for h in base_required)
+      has_any = any(h in reader.fieldnames for h in one_of)
+      if has_base and has_any:
+        return list(reader)
 
   # If we reach here, headers were not recognized with common delimiters
   raise ValueError("Missing required headers; tried delimiters: " + ", ".join(delims_to_try))
