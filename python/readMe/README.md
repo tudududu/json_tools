@@ -287,7 +287,7 @@ Helper utilities live under `python/tools/`.
   python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/joined.csv --join-output --fps 25 --out-format frames
   ```
 
-- `csv_json_media.py`: Convert media deliverables CSV (`AspectRatio;Dimensions;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Handles consecutive C2–C5 dedup and trims surrounding whitespace. See `python/tools/README.md` for rules and options.
+- `csv_json_media.py`: Convert media deliverables CSV (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.
 
   Common invocation:
   ```sh

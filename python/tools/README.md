@@ -46,13 +46,14 @@ Options:
 
 Converts a semicolon-delimited media deliverables CSV into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
 
-- Input columns: `AspectRatio;Dimensions;Creative;Media;Template;Template_name`
+- Input columns (preferred): `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`
+  - `Duration` and `Title` are preferred; `Creative` is optional for backward compatibility.
 - Key rules:
-  - Duration from `Creative` with `C1…C5` removed and zero-padded (e.g., `6sC1` → `06s`).
+  - Duration comes from the `Duration` column when present and is normalized to tokens like `06s`, `15s`, `30s` (inputs like `6`, `06`, `6s`, `06s` are accepted). If `Duration` is empty/missing, it falls back to parsing `Creative` by dropping `C1…C5` and zero-padding (e.g., `6sC1` → `06s`).
   - Append `_<Template_name>` to the AR part only when `Template == extra` (spaces/underscores removed; case preserved).
   - Example keys: `1x1|06s`, `9x16_tiktok|15s`.
-- Values: `{ "size": <Dimensions>, "media": <Media> }` with surrounding whitespace trimmed, case preserved.
-- Deduplication: for consecutive rows that differ only by the creative number (C2–C5) while other columns and base duration match, only the first is kept.
+- Values: `{ "size": <Dimensions>, "media": <Media> }` with surrounding whitespace trimmed; `Dimensions` is normalized by removing whitespace (e.g., `1440 x 1800` → `1440x1800`).
+- Deduplication: for consecutive rows that differ only by creative variant/title while other columns and base duration match, only the first is kept (consecutive dedup).
 
 Usage:
 ```sh
@@ -89,3 +90,7 @@ python python/tools/csv_json_media.py input.csv dummy.json --split-by-country --
 - Custom column names via `--country-col` and `--language-col`.
 - Flexible file naming with `--output-pattern` (tokens: `{country},{COUNTRY},{lang},{LANG}`; optional segments `[...]`).
 - Dry-run prints a concise summary per group (keys/items counts).
+
+### Notes on CSV formatting
+- Spacer/separator rows (e.g., `;;;;;;;` or `…;;;;;;;`) are ignored.
+- Split mode skips writing files for groups that produce no keys (empty groups).

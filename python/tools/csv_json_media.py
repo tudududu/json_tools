@@ -166,7 +166,9 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
       if duration
       else build_key(ar, creative, template, template_name, do_trim=False)
     )
-    item = {"size": dims, "media": media}
+    # Normalize dimensions: remove whitespaces (e.g., '1440 x 1800' → '1440x1800')
+    norm_dims = re.sub(r"\s+", "", dims)
+    item = {"size": norm_dims, "media": media}
     if key not in out:
       out[key] = []
       seen_pairs[key] = set()

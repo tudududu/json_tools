@@ -100,3 +100,38 @@ def test_compact_output_inline_items():
     assert '{ "size"' in txt and '"media"' in txt
     # Objects should be single-line entries inside array
     assert '"size": "640x640"' in txt or '"size":"640x640"' in txt
+
+
+def test_duration_column_preferred_and_title_ignored():
+    # Duration present, Creative may be present but not required; consecutive Title differences are ignored
+    csv_text = textwrap.dedent(
+        """
+        AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name
+        1x1;640x640;6s;C1;;TikTok;regular;
+        1x1;640x640;6s;AnotherTitle;;TikTok;regular;
+        9x16;720x1280;15s;X1;15sC1;TikTok;extra;tiktok
+        9x16;720x1280;15s;X2;15sC2;TikTok;extra;tiktok
+        """
+    )
+    data = run_tool(csv_text)
+    # Prefer Duration → keys built from duration tokens
+    assert '1x1|06s' in data
+    assert '9x16_tiktok|15s' in data
+    # Consecutive rows differing only by Title should be deduped to a single entry per group
+    assert len(data['1x1|06s']) == 1
+    assert len(data['9x16_tiktok|15s']) == 1
+
+
+def test_dimensions_normalization_removes_spaces():
+    csv_text = textwrap.dedent(
+        """
+        AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name
+        4x5;1440 x 1800;15s;C1;;Meta InFeed;regular;
+        1x1;1440 x 1440;06s;C1;;Meta InFeed;regular;
+        """
+    )
+    data = run_tool(csv_text)
+    assert '4x5|15s' in data
+    assert data['4x5|15s'][0]['size'] == '1440x1800'
+    assert '1x1|06s' in data
+    assert data['1x1|06s'][0]['size'] == '1440x1440'
