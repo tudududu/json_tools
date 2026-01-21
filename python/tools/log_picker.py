@@ -140,6 +140,55 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 		pipeline_runs = sum(1 for src, _ in gathered if src.name.startswith("pipeline_run_"))
 		out.write(f"TOTAL_PIPELINE_RUN_LOGS: {pipeline_runs}\n")
 
+		# Compute Batch Total Real (sum of 'total' from Timing lines of pipeline_run logs)
+		def _parse_kv_payload(line: str) -> dict[str, str]:
+			payload = line.split('=>', 1)[1] if '=>' in line else line
+			pairs: dict[str, str] = {}
+			for piece in payload.split(','):
+				piece = piece.strip()
+				if '=' not in piece:
+					continue
+				k, v = piece.split('=', 1)
+				pairs[k.strip()] = v.strip()
+			return pairs
+
+		def _hhmmss(total_seconds: float) -> str:
+			sec = int(total_seconds)
+			h = sec // 3600
+			m = (sec % 3600) // 60
+			s = sec % 60
+			return f"{h:02d}:{m:02d}:{s:02d}"
+
+		real_total = 0.0
+		first_total: float | None = None
+		for src, lines in gathered:
+			if not src.name.startswith("pipeline_run_"):
+				continue
+			latest_timing = None
+			for l in reversed(lines):
+				if l.startswith("Timing (s) =>"):
+					latest_timing = l
+					break
+			if latest_timing is None:
+				continue
+			pairs = _parse_kv_payload(latest_timing)
+			try:
+				tv = float(pairs.get("total", ""))
+			except ValueError:
+				continue
+			real_total += tv
+			if first_total is None:
+				first_total = tv
+
+		# Write real total seconds and HHMMSS
+		out.write(f"Batch Total Real: {real_total:.2f} s, HHMMSS: {_hhmmss(real_total)}\n")
+		# Theory = first total * number of runs (if available)
+		if first_total is not None and pipeline_runs > 0:
+			theory_total = first_total * pipeline_runs
+			out.write(f"Batch Total Theory: {theory_total:.2f} s, HHMMSS: {_hhmmss(theory_total)}\n")
+		else:
+			out.write("Batch Total Theory: - s, HHMMSS: 00:00:00\n")
+
 		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
 		def _extract_value_from_line(line: str, key: str) -> str | None:
 			# Take substring after '=>' if present
