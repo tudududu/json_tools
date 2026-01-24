@@ -25,3 +25,7 @@ def test_batch_totals_and_theory(tmp_path):
     assert 'Batch Total Real: 30.50 s, HHMMSS: 00:00:30' in txt
     # Theory = first total (10.0) * 2 = 20.0 seconds -> HHMMSS 00:00:20
     assert 'Batch Total Theory: 20.00 s, HHMMSS: 00:00:20' in txt
+    # Timing multiplier relative to first pipeline run total
+    assert '==== Summary Timing Multiplier ====' in txt
+    assert 'pipeline_run_20250101_000000.log: total=10.0; Multiplier: 1.00x' in txt
+    assert 'pipeline_run_20250101_000100.log: total=20.5; Multiplier: 2.05x' in txt

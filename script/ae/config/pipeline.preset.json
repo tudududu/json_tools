@@ -37,13 +37,13 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/Ram26/POST/WORK/ramadan_v06.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/sau/Ram26/POST/WORK/ramadan_v09.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "GBL",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBR",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -120,7 +120,7 @@
             "contains": ["info"] 
             },
         "logo": { 
-            "exact": ["logo_01", "logo_static", "Size_Holder_Logo"], 
+            "exact": ["logo_01", "Size_Holder_Logo", "web", "Size_Holder_Claim_03"], 
             "contains": [], 
             "imageOnlyForContains": false 
         },
@@ -146,7 +146,7 @@
             "contains": ["logo_05"] 
             },
         "claim_01": { 
-            "exact": ["claim", "Size_Holder_Claim", "web"],
+            "exact": ["claim", "Size_Holder_Claim"],
             "contains": [] 
             },
         "claim_02": { 
@@ -227,7 +227,7 @@
         "logoAnimOff":true,
         "logo02Off": false,
         "claim01Off": false,
-        "claim02Off": false,
+        "claim02Off": true,
         "groups":{"enabled":true,"keys":["info"]}, 
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
@@ -273,7 +273,7 @@
     "SKIP_IF_ALREADY_IN_OUTPUT": true,
     "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
     "DATA_JSON_PRIMARY_NAME": "data.json",
-    "ENABLE_EXTRA_OUTPUT_COMPS": false,
+    "ENABLE_EXTRA_OUTPUT_COMPS": true,
     "EXTRA_OUTPUT_COMPS": {
         "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
         "1x1|15s": "1440x1440",

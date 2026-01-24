@@ -223,7 +223,7 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			out.write(f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n")
 
 		out.write("\n")
-		out.write("==== Summary addLayers / Totals ====\n")
+		out.write("==== Summary Timings addLayers / Totals / Ratio ====\n")
 		for src, lines in gathered:
 			timing_val1 = None
 			timing_val2 = None
@@ -246,7 +246,36 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 				pct_str = "-"
 			timing_out1 = timing_val1 if timing_val1 is not None else "-"
 			timing_out2 = timing_val2 if timing_val2 is not None else "-"
-			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; {pct_str}\n")
+			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; Ratio: {pct_str}\n")
+
+		# Summary timing multipliers: per file total vs first total
+		out.write("\n")
+		out.write("==== Summary Timing Multiplier ====\n")
+		totals: list[tuple[Path, str | None, float | None]] = []
+		for src, lines in gathered:
+			timing_total = None
+			for l in reversed(lines):
+				if l.startswith("Timing (s) =>"):
+					timing_total = _extract_value_from_line(l, "total")
+					break
+			val: float | None = None
+			if timing_total is not None:
+				try:
+					val = float(timing_total)
+				except ValueError:
+					val = None
+			totals.append((src, timing_total, val))
+
+		first_pipeline_total = next((v for s, _, v in totals if s.name.startswith("pipeline_run_") and v is not None and v > 0), None)
+		first_any_total = next((v for _, _, v in totals if v is not None and v > 0), None)
+		baseline = first_pipeline_total if first_pipeline_total is not None else first_any_total
+
+		for src, timing_total, val in totals:
+			total_out = timing_total if timing_total is not None else "-"
+			mult_out = "-"
+			if baseline is not None and baseline > 0 and val is not None:
+				mult_out = f"{val/baseline:.2f}x"
+			out.write(f"{src.name}: total={total_out}; Multiplier: {mult_out}\n")
 
 		# Summary percentage for individual timing steps
 		out.write("\n")

@@ -18,9 +18,14 @@ def test_summary_totals_and_percentage(tmp_path):
     text = out.read_text(encoding='utf-8')
 
     # Summary Totals percent
-    assert '==== Summary addLayers / Totals ====' in text
-    assert 'a.log: Timing (s) => addLayers=15.0 / total=100.0; 15.00%' in text
-    assert 'b.log: Timing (s) => addLayers=5.0 / total=20.0; 25.00%' in text
+    assert '==== Summary Timings addLayers / Totals / Ratio ====' in text
+    assert 'a.log: Timing (s) => addLayers=15.0 / total=100.0; Ratio: 15.00%' in text
+    assert 'b.log: Timing (s) => addLayers=5.0 / total=20.0; Ratio: 25.00%' in text
+
+    # Timing multiplier summary
+    assert '==== Summary Timing Multiplier ====' in text
+    assert 'a.log: total=100.0; Multiplier: 1.00x' in text
+    assert 'b.log: total=20.0; Multiplier: 0.20x' in text
 
     # Summary percentage per steps
     assert '==== Summary percentage ====' in text
