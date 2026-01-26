@@ -546,6 +546,11 @@ function __AddLayers_coreRun(opts) {
         }
     }
 
+    function __suspendExpressionsInLayer(layer, outArr) {
+        if (!layer || !outArr) return;
+        try { __walkPropertyTree(layer, outArr); } catch (eL) {}
+    }
+
     function __suspendExpressions(scope, templateComp, targetComp) {
         var disabled = [];
         try {
@@ -554,12 +559,15 @@ function __AddLayers_coreRun(opts) {
                 if (p) {
                     for (var i = 1; i <= p.numItems; i++) {
                         var it = p.item(i);
-                        if (it && it instanceof CompItem) __suspendExpressionsInComp(it, disabled);
+                        if (it && it instanceof CompItem) {
+                            if (templateComp && it === templateComp) continue; // keep template expressions ON so copies inherit enabled state
+                            __suspendExpressionsInComp(it, disabled);
+                        }
                     }
                 }
             } else {
-                __suspendExpressionsInComp(templateComp, disabled);
-                if (targetComp && targetComp !== templateComp) __suspendExpressionsInComp(targetComp, disabled);
+                // Only suspend in target comp to avoid copying disabled expressions from template
+                if (targetComp) __suspendExpressionsInComp(targetComp, disabled);
             }
         } catch (e) {}
         return disabled;
@@ -1786,6 +1794,7 @@ function __AddLayers_coreRun(opts) {
             }
             var __LOGM = __asciiOnly(LOG_MARKER);
             var __exprDisabled = null;
+            var __exprDisabledNew = null;
             if (SUSPEND_EXPRESSIONS) {
                 try { __exprDisabled = __suspendExpressions(SUSPEND_EXPRESSIONS_SCOPE, templateComp, compTarget); } catch(eSE) { __exprDisabled = null; }
             }
@@ -2106,8 +2115,20 @@ function __AddLayers_coreRun(opts) {
                 skippedCopyTotal += skipCopyCount;
                 log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + compTarget.name + "'.");
                 log("Inserted " + added + " layer(s) into '" + compTarget.name + "'.");
+                if (SUSPEND_EXPRESSIONS) {
+                    try {
+                        __exprDisabledNew = [];
+                        for (var liN = 1; liN <= templateComp.numLayers; liN++) {
+                            if (liN === excludeIdx) continue;
+                            var entryN = mapNewLayers[liN];
+                            if (!entryN || !entryN.newLayer) continue;
+                            __suspendExpressionsInLayer(entryN.newLayer, __exprDisabledNew);
+                        }
+                    } catch(eSE2) { __exprDisabledNew = __exprDisabledNew || []; }
+                }
                 if (jsonData) { applyJSONTimingToComp(compTarget, jsonData); }
             } finally {
+                if (__exprDisabledNew && __exprDisabledNew.length) { __restoreExpressions(__exprDisabledNew); }
                 if (__exprDisabled && __exprDisabled.length) { __restoreExpressions(__exprDisabled); }
             }
         }
