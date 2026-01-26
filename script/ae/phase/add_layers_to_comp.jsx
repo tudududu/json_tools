@@ -142,9 +142,13 @@ function __AddLayers_coreRun(opts) {
     var SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = false;    // when true, mute audio for footage layers before insert
     // Parenting behavior: assign parents at a stable reference time to avoid time-dependent offsets
     // when parent has animated transforms. Default: use 0s.
-    var PARENTING_ASSIGN_AT_REF_TIME = true;
+    var PARENTING_ASSIGN_AT_REF_TIME = false;
     var PARENTING_REF_TIME_MODE = 'zero'; // 'zero' | 'current' | 'inPoint' | 'custom'
     var PARENTING_REF_TIME_SECONDS = 0.0; // used when mode='custom'
+
+    // Performance: temporarily disable expressions during heavy structural changes
+    var SUSPEND_EXPRESSIONS = false;
+    var SUSPEND_EXPRESSIONS_SCOPE = 'comp'; // 'comp' | 'project'
 
     // Logo timing behavior toggle (legacy removed):
     // Previously `APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME` controlled startTime alignment for logo layers.
@@ -432,6 +436,8 @@ function __AddLayers_coreRun(opts) {
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = __toBool(o.ENABLE_FILE_LOG, true);
             if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = __toBool(o.PIPELINE_SHOW_CONCISE_LOG, true);
             if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
+            if (o.SUSPEND_EXPRESSIONS !== undefined) SUSPEND_EXPRESSIONS = __toBool(o.SUSPEND_EXPRESSIONS, false);
+            if (typeof o.SUSPEND_EXPRESSIONS_SCOPE === 'string' && o.SUSPEND_EXPRESSIONS_SCOPE) SUSPEND_EXPRESSIONS_SCOPE = o.SUSPEND_EXPRESSIONS_SCOPE;
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAL) {}
         // Parenting debug options (optional) from pipeline options
@@ -454,6 +460,8 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('SIMPLE_PREP_REMOVE_ALL_LAYERS')) SIMPLE_PREP_REMOVE_ALL_LAYERS = !!ao.SIMPLE_PREP_REMOVE_ALL_LAYERS;
                 if (ao.hasOwnProperty('SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO')) SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = !!ao.SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO;
                 if (ao.hasOwnProperty('SIMPLE_PREP_MUTE_FOOTAGE_AUDIO')) SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = !!ao.SIMPLE_PREP_MUTE_FOOTAGE_AUDIO;
+                if (ao.hasOwnProperty('SUSPEND_EXPRESSIONS')) SUSPEND_EXPRESSIONS = !!ao.SUSPEND_EXPRESSIONS;
+                if (typeof ao.SUSPEND_EXPRESSIONS_SCOPE === 'string' && ao.SUSPEND_EXPRESSIONS_SCOPE) SUSPEND_EXPRESSIONS_SCOPE = ao.SUSPEND_EXPRESSIONS_SCOPE;
             }
             // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
             try {
@@ -514,6 +522,55 @@ function __AddLayers_coreRun(opts) {
     }
 
     function toEffective(mode, fallback) { return mode || fallback; }
+
+    // Expression suspension helpers (performance)
+    function __walkPropertyTree(prop, outArr) {
+        if (!prop) return;
+        try {
+            if (prop.canSetExpression && prop.expressionEnabled) {
+                outArr.push(prop);
+                try { prop.expressionEnabled = false; } catch (eDis) {}
+            }
+        } catch (e) {}
+        var n = 0; try { n = prop.numProperties; } catch (eN) { n = 0; }
+        for (var i = 1; i <= n; i++) {
+            try { __walkPropertyTree(prop.property(i), outArr); } catch (eP) {}
+        }
+    }
+
+    function __suspendExpressionsInComp(comp, outArr) {
+        if (!comp || !outArr) return;
+        var n = 0; try { n = comp.numLayers; } catch (eN) { n = 0; }
+        for (var i = 1; i <= n; i++) {
+            try { __walkPropertyTree(comp.layer(i), outArr); } catch (eL) {}
+        }
+    }
+
+    function __suspendExpressions(scope, templateComp, targetComp) {
+        var disabled = [];
+        try {
+            if (scope === 'project') {
+                var p = app.project;
+                if (p) {
+                    for (var i = 1; i <= p.numItems; i++) {
+                        var it = p.item(i);
+                        if (it && it instanceof CompItem) __suspendExpressionsInComp(it, disabled);
+                    }
+                }
+            } else {
+                __suspendExpressionsInComp(templateComp, disabled);
+                if (targetComp && targetComp !== templateComp) __suspendExpressionsInComp(targetComp, disabled);
+            }
+        } catch (e) {}
+        return disabled;
+    }
+
+    function __restoreExpressions(disabledArr) {
+        if (!disabledArr || !disabledArr.length) return;
+        for (var i = 0; i < disabledArr.length; i++) {
+            try { disabledArr[i].expressionEnabled = true; } catch (e) {}
+        }
+    }
 
     function logUnrecognizedFlag(flagKey, raw, cfg, ctxName) {
         if (!raw) return; // only log when there is an unrecognized value
@@ -1728,22 +1785,27 @@ function __AddLayers_coreRun(opts) {
                 } catch(e){ return "*"; }
             }
             var __LOGM = __asciiOnly(LOG_MARKER);
-            var excludeIdx = findBottomBaseLayerIndex(templateComp);
-            var __header = "Using template: " + templateComp.name + " -> target: " + compTarget.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
-            log("\n" + __header);
-            // Debug: report detected base layer type and name
+            var __exprDisabled = null;
+            if (SUSPEND_EXPRESSIONS) {
+                try { __exprDisabled = __suspendExpressions(SUSPEND_EXPRESSIONS_SCOPE, templateComp, compTarget); } catch(eSE) { __exprDisabled = null; }
+            }
             try {
-                if (excludeIdx > 0) {
-                    var __exLy = templateComp.layer(excludeIdx);
-                    var __exNm = __exLy ? String(__exLy.name||"?") : "?";
-                    var __isComp = false, __isFoot = false;
-                    try { __isComp = (__exLy && __exLy.source && (__exLy.source instanceof CompItem)); } catch(eC) {}
-                    try { __isFoot = (__exLy && __exLy.source && (__exLy.source instanceof FootageItem)); } catch(eF) {}
-                    var __type = __isComp ? "comp" : (__isFoot ? "footage" : "layer");
-                    log("[debug] base-layer: idx=#" + excludeIdx + ", type=" + __type + ", name='" + __exNm + "'.");
-                }
-            } catch(eDBG) {}
-            try { __concise.push(__header); } catch(eHC) {}
+                var excludeIdx = findBottomBaseLayerIndex(templateComp);
+                var __header = "Using template: " + templateComp.name + " -> target: " + compTarget.name + (excludeIdx > 0 ? (" (excluding layer #" + excludeIdx + ")") : "");
+                log("\n" + __header);
+                // Debug: report detected base layer type and name
+                try {
+                    if (excludeIdx > 0) {
+                        var __exLy = templateComp.layer(excludeIdx);
+                        var __exNm = __exLy ? String(__exLy.name||"?") : "?";
+                        var __isComp = false, __isFoot = false;
+                        try { __isComp = (__exLy && __exLy.source && (__exLy.source instanceof CompItem)); } catch(eC) {}
+                        try { __isFoot = (__exLy && __exLy.source && (__exLy.source instanceof FootageItem)); } catch(eF) {}
+                        var __type = __isComp ? "comp" : (__isFoot ? "footage" : "layer");
+                        log("[debug] base-layer: idx=#" + excludeIdx + ", type=" + __type + ", name='" + __exNm + "'.");
+                    }
+                } catch(eDBG) {}
+                try { __concise.push(__header); } catch(eHC) {}
             var added = 0;
             var skipCopyCount = 0; // per-comp count
             var lastInserted = null;
@@ -2035,16 +2097,19 @@ function __AddLayers_coreRun(opts) {
                     } catch (eSetP) {}
                 }
             } catch (eMap) {}
-            // Restore comp time
-            try { if (__origTime !== null && PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __origTime; } catch(eRt) {}
-            if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, compTarget)) {
-                try { recenterUnparentedLayers(compTarget); } catch (eRC) { log("Auto-center failed for '" + compTarget.name + "': " + eRC); }
+                // Restore comp time
+                try { if (__origTime !== null && PARENTING_ASSIGN_AT_REF_TIME) compTarget.time = __origTime; } catch(eRt) {}
+                if (ENABLE_AUTOCENTER_ON_AR_MISMATCH && arMismatch(templateComp, compTarget)) {
+                    try { recenterUnparentedLayers(compTarget); } catch (eRC) { log("Auto-center failed for '" + compTarget.name + "': " + eRC); }
+                }
+                addedTotal += added;
+                skippedCopyTotal += skipCopyCount;
+                log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + compTarget.name + "'.");
+                log("Inserted " + added + " layer(s) into '" + compTarget.name + "'.");
+                if (jsonData) { applyJSONTimingToComp(compTarget, jsonData); }
+            } finally {
+                if (__exprDisabled && __exprDisabled.length) { __restoreExpressions(__exprDisabled); }
             }
-            addedTotal += added;
-            skippedCopyTotal += skipCopyCount;
-            log("Skipped " + skipCopyCount + " layer(s) (copy) in '" + compTarget.name + "'.");
-            log("Inserted " + added + " layer(s) into '" + compTarget.name + "'.");
-            if (jsonData) { applyJSONTimingToComp(compTarget, jsonData); }
         }
 
         // Simple mode: insert the selected template comp as a single layer into the target
