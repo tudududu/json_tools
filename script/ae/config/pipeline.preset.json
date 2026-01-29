@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -232,6 +232,7 @@
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
+    "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,

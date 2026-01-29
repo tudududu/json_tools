@@ -146,6 +146,9 @@ function __AddLayers_coreRun(opts) {
     var PARENTING_REF_TIME_MODE = 'zero'; // 'zero' | 'current' | 'inPoint' | 'custom'
     var PARENTING_REF_TIME_SECONDS = 0.0; // used when mode='custom'
 
+    // VideoID-based layer skip: when enabled, layers with videoID tokens are skipped if they don't match target
+    var ENABLE_VIDEOID_BASED_LAYER_SKIP = false;
+
     // Logo timing behavior toggle (legacy removed):
     // Previously `APPLY_LOGO_INPOINT_TO_LAYER_STARTTIME` controlled startTime alignment for logo layers.
     // This has been unified under the global `APPLY_INPOINT_TO_LAYER_STARTTIME` below.
@@ -432,6 +435,7 @@ function __AddLayers_coreRun(opts) {
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = __toBool(o.ENABLE_FILE_LOG, true);
             if (o.PIPELINE_SHOW_CONCISE_LOG !== undefined) PIPELINE_SHOW_CONCISE_LOG = __toBool(o.PIPELINE_SHOW_CONCISE_LOG, true);
             if (o.PIPELINE_SHOW_VERBOSE_LOG !== undefined) PIPELINE_SHOW_VERBOSE_LOG = __toBool(o.PIPELINE_SHOW_VERBOSE_LOG, false);
+            if (o.ENABLE_VIDEOID_BASED_LAYER_SKIP !== undefined) ENABLE_VIDEOID_BASED_LAYER_SKIP = __toBool(o.ENABLE_VIDEOID_BASED_LAYER_SKIP, false);
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAL) {}
         // Parenting debug options (optional) from pipeline options
@@ -454,6 +458,7 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('SIMPLE_PREP_REMOVE_ALL_LAYERS')) SIMPLE_PREP_REMOVE_ALL_LAYERS = !!ao.SIMPLE_PREP_REMOVE_ALL_LAYERS;
                 if (ao.hasOwnProperty('SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO')) SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = !!ao.SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO;
                 if (ao.hasOwnProperty('SIMPLE_PREP_MUTE_FOOTAGE_AUDIO')) SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = !!ao.SIMPLE_PREP_MUTE_FOOTAGE_AUDIO;
+                if (ao.hasOwnProperty('ENABLE_VIDEOID_BASED_LAYER_SKIP')) ENABLE_VIDEOID_BASED_LAYER_SKIP = !!ao.ENABLE_VIDEOID_BASED_LAYER_SKIP;
             }
             // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
             try {
@@ -602,6 +607,28 @@ function __AddLayers_coreRun(opts) {
             }
         } catch (eFMT) {}
         return null;
+    }
+
+    // Extract videoID from layer name: the token immediately BEFORE the first duration token (NNs)
+    function extractVideoIdFromLayerName(name) {
+        if (!name) return null;
+        var parts = String(name).split(/[_\s]+/);
+        if (!parts.length) return null;
+        var durIdx = -1;
+        // Pass 1: find first standalone duration token
+        for (var i = 0; i < parts.length; i++) {
+            var p1 = parts[i];
+            if (/^\d{1,4}s$/i.test(p1)) { durIdx = i; break; }
+        }
+        // Pass 2: fallback to last token containing duration-like substring
+        if (durIdx === -1) {
+            for (var j = parts.length - 1; j >= 0; j--) {
+                if (/\d{1,4}s/i.test(parts[j])) { durIdx = j; break; }
+            }
+        }
+        if (durIdx <= 0) return null; // no duration found or duration is first token
+        // Return the token immediately before duration
+        return parts[durIdx - 1];
     }
 
     function findChildFolderByName(parent, name) {
@@ -1852,6 +1879,19 @@ function __AddLayers_coreRun(opts) {
                     }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.tokens && SKIP_COPY_CONFIG.adHoc.tokens.length) {
                         if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.tokens)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
+                    }
+                    
+                    // VideoID-based skip check (if enabled and layer has videoID token)
+                    if (ENABLE_VIDEOID_BASED_LAYER_SKIP) {
+                        var layerVideoId = extractVideoIdFromLayerName(lname);
+                        if (layerVideoId) {
+                            var targetBaseId = buildOrientedVideoId(compTarget).base;
+                            if (layerVideoId !== targetBaseId) {
+                                log("Skip copy: '"+lname+"' (videoID mismatch: layer='"+layerVideoId+"' vs target='"+targetBaseId+"')");
+                                skipCopyCount++;
+                                continue;
+                            }
+                        }
                     }
 
                     var origParent = null; var hadParent = false; var parentIdx = null;
