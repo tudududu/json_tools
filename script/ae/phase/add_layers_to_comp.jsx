@@ -1885,9 +1885,9 @@ function __AddLayers_coreRun(opts) {
                     if (ENABLE_VIDEOID_BASED_LAYER_SKIP) {
                         var layerVideoId = extractVideoIdFromLayerName(lname);
                         if (layerVideoId) {
-                            var targetBaseId = buildOrientedVideoId(compTarget).base;
-                            if (layerVideoId !== targetBaseId) {
-                                log("Skip copy: '"+lname+"' (videoID mismatch: layer='"+layerVideoId+"' vs target='"+targetBaseId+"')");
+                            var targetVideoId = extractVideoIdFromLayerName(compTarget ? compTarget.name : null);
+                            if (targetVideoId && layerVideoId !== targetVideoId) {
+                                log("Skip copy: '"+lname+"' (videoID mismatch: layer='"+layerVideoId+"' vs target='"+targetVideoId+"')");
                                 skipCopyCount++;
                                 continue;
                             }
