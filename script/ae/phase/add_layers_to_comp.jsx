@@ -609,26 +609,29 @@ function __AddLayers_coreRun(opts) {
         return null;
     }
 
-    // Extract videoID from layer name: the token immediately BEFORE the first duration token (NNs)
+    // Extract videoID from layer name: Title_NNs (token before duration + duration token)
     function extractVideoIdFromLayerName(name) {
         if (!name) return null;
         var parts = String(name).split(/[_\s]+/);
         if (!parts.length) return null;
         var durIdx = -1;
+        var durToken = null;
         // Pass 1: find first standalone duration token
         for (var i = 0; i < parts.length; i++) {
             var p1 = parts[i];
-            if (/^\d{1,4}s$/i.test(p1)) { durIdx = i; break; }
+            if (/^\d{1,4}s$/i.test(p1)) { durIdx = i; durToken = String(p1).toLowerCase(); break; }
         }
         // Pass 2: fallback to last token containing duration-like substring
         if (durIdx === -1) {
             for (var j = parts.length - 1; j >= 0; j--) {
-                if (/\d{1,4}s/i.test(parts[j])) { durIdx = j; break; }
+                var m = String(parts[j]).match(/(\d{1,4})s/i);
+                if (m) { durIdx = j; durToken = String(m[1]).toLowerCase() + 's'; break; }
             }
         }
-        if (durIdx <= 0) return null; // no duration found or duration is first token
-        // Return the token immediately before duration
-        return parts[durIdx - 1];
+        if (durIdx <= 0 || !durToken) return null; // no duration found or duration is first token
+        var title = parts[durIdx - 1];
+        if (!title) return null;
+        return String(title) + '_' + durToken;
     }
 
     function findChildFolderByName(parent, name) {
@@ -1885,8 +1888,8 @@ function __AddLayers_coreRun(opts) {
                     if (ENABLE_VIDEOID_BASED_LAYER_SKIP) {
                         var layerVideoId = extractVideoIdFromLayerName(lname);
                         if (layerVideoId) {
-                            var targetVideoId = extractVideoIdFromLayerName(compTarget ? compTarget.name : null);
-                            if (targetVideoId && layerVideoId !== targetVideoId) {
+                            var targetVideoId = buildVideoIdFromCompName(compTarget ? compTarget.name : null);
+                            if (targetVideoId && String(layerVideoId) !== String(targetVideoId)) {
                                 log("Skip copy: '"+lname+"' (videoID mismatch: layer='"+layerVideoId+"' vs target='"+targetVideoId+"')");
                                 skipCopyCount++;
                                 continue;
