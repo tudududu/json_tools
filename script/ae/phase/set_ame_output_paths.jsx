@@ -114,7 +114,6 @@ function __AME_coreRun(opts) {
     // Options overrides
     try {
         var o = opts && opts.options ? opts.options : null;
-        var __AUTO_DELETE_RQ_OPT_SET = false;
         if (o) {
             if (o.ENABLE_FILE_LOG !== undefined) ENABLE_FILE_LOG = !!o.ENABLE_FILE_LOG;
             // 1. Source selection mode
@@ -126,7 +125,7 @@ function __AME_coreRun(opts) {
             if (o.OUTPUT_MODULE_TEMPLATE_BY_AR !== undefined) OUTPUT_MODULE_TEMPLATE_BY_AR = o.OUTPUT_MODULE_TEMPLATE_BY_AR;
             // 3. AME automation
             if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;
-            if (o.AUTO_DELETE_RQ_AFTER_AME_QUEUE !== undefined) { AUTO_DELETE_RQ_AFTER_AME_QUEUE = !!o.AUTO_DELETE_RQ_AFTER_AME_QUEUE; __AUTO_DELETE_RQ_OPT_SET = true; }
+            if (o.AUTO_DELETE_RQ_AFTER_AME_QUEUE !== undefined) AUTO_DELETE_RQ_AFTER_AME_QUEUE = !!o.AUTO_DELETE_RQ_AFTER_AME_QUEUE;
             if (o.AME_MAX_QUEUE_ATTEMPTS !== undefined) AME_MAX_QUEUE_ATTEMPTS = parseInt(o.AME_MAX_QUEUE_ATTEMPTS, 10);
             if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
             // 4. Naming / extension fallback
@@ -151,16 +150,6 @@ function __AME_coreRun(opts) {
             // 5e. Mimic AE project panel folder structure
             if (o.MIMIC_PROJECT_FOLDER_STRUCTURE !== undefined) MIMIC_PROJECT_FOLDER_STRUCTURE = !!o.MIMIC_PROJECT_FOLDER_STRUCTURE;
             if (o.PROJECT_FOLDER_ANCHOR_NAME !== undefined) PROJECT_FOLDER_ANCHOR_NAME = String(o.PROJECT_FOLDER_ANCHOR_NAME);
-        }
-
-        // Pipeline-level fallback (same spirit as EXPORT_SUBPATH):
-        // If not explicitly provided via opts.options, allow __AE_PIPE__.optionsEffective.ame to define it.
-        if (!__AUTO_DELETE_RQ_OPT_SET) {
-            try {
-                if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.ame && __AE_PIPE__.optionsEffective.ame.AUTO_DELETE_RQ_AFTER_AME_QUEUE !== undefined) {
-                    AUTO_DELETE_RQ_AFTER_AME_QUEUE = !!__AE_PIPE__.optionsEffective.ame.AUTO_DELETE_RQ_AFTER_AME_QUEUE;
-                }
-            } catch(eADPipe) {}
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSAME) {}
     } catch(eOpt){}
