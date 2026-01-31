@@ -387,6 +387,7 @@
             PROCESS_SELECTION: true,
             PROCESS_EXISTING_RQ: true,
             AUTO_QUEUE_IN_AME: true,
+            AUTO_DELETE_RQ_AFTER_AME_QUEUE: true, // If true, remove newly-added RQ items after they were queued into AME (best-effort: queueInAME did not throw)
             AME_MAX_QUEUE_ATTEMPTS: 3,
             AME_RETRY_DELAY_MS: 650,
             FILE_LOG_APPEND_MODE: true,

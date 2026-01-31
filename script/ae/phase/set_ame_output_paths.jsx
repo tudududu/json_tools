@@ -54,6 +54,7 @@ function __AME_coreRun(opts) {
     var AME_RETRY_DELAY_MS = 650;           // Delay between attempts (ms)
     var QUEUE_ONLY_WHEN_NEW_OR_CHANGED = true; // If true, only queue to AME when new items were added OR output paths changed
     var FORCE_QUEUE_ALWAYS = false;            // Override: queue every run regardless (takes precedence)
+    var AUTO_DELETE_RQ_AFTER_AME_QUEUE = true; // If true, remove newly-added RQ items after they were queued into AME (best-effort: queueInAME did not throw)
 
     // 4. Naming / extension fallback
     var DEFAULT_EXTENSION_FALLBACK = ".mov"; // Used only if output module has no file name yet
@@ -124,6 +125,7 @@ function __AME_coreRun(opts) {
             if (o.OUTPUT_MODULE_TEMPLATE_BY_AR !== undefined) OUTPUT_MODULE_TEMPLATE_BY_AR = o.OUTPUT_MODULE_TEMPLATE_BY_AR;
             // 3. AME automation
             if (o.AUTO_QUEUE_IN_AME !== undefined) AUTO_QUEUE_IN_AME = !!o.AUTO_QUEUE_IN_AME;
+            if (o.AUTO_DELETE_RQ_AFTER_AME_QUEUE !== undefined) AUTO_DELETE_RQ_AFTER_AME_QUEUE = !!o.AUTO_DELETE_RQ_AFTER_AME_QUEUE;
             if (o.AME_MAX_QUEUE_ATTEMPTS !== undefined) AME_MAX_QUEUE_ATTEMPTS = parseInt(o.AME_MAX_QUEUE_ATTEMPTS, 10);
             if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
             // 4. Naming / extension fallback
@@ -551,7 +553,7 @@ function __AME_coreRun(opts) {
                     log("ProjectName: " + ((app.project && app.project.file) ? app.project.file.name : "(unsaved)"));
                 } catch(ePH) { log("ProjectPath: (error)" ); }
                 log("RunTimestamp: " + __tsHuman());
-                log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
+                log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME+", AUTO_DELETE_RQ="+AUTO_DELETE_RQ_AFTER_AME_QUEUE);
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
                 log("ExportSubpath=" + __exportSegs.join("/"));
                 log("MimicProjectFolders=" + MIMIC_PROJECT_FOLDER_STRUCTURE + (MIMIC_PROJECT_FOLDER_STRUCTURE? (" (anchor='" + PROJECT_FOLDER_ANCHOR_NAME + "')") : ""));
@@ -578,7 +580,7 @@ function __AME_coreRun(opts) {
                 log("ProjectName: " + ((app.project && app.project.file) ? app.project.file.name : "(unsaved)"));
             } catch(ePH2) { log("ProjectPath: (error)" ); }
             log("RunTimestamp: " + __tsHuman());
-            log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME);
+            log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME+", AUTO_DELETE_RQ="+AUTO_DELETE_RQ_AFTER_AME_QUEUE);
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
             log("ExportSubpath=" + __exportSegs.join("/"));
             log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
@@ -1144,6 +1146,34 @@ function __AME_coreRun(opts) {
         }
     }
 
+    // Optional: remove RQ items after they were queued into AME.
+    // Safety: delete only items newly added by this run, and only when queueInAME succeeded (best-effort).
+    var rqAutoDeleted = 0;
+    var rqAutoDeleteFailed = 0;
+    var rqAutoDeleteSkipped = 0;
+    if (AUTO_DELETE_RQ_AFTER_AME_QUEUE && AUTO_QUEUE_IN_AME && shouldQueue && ameQueued) {
+        try {
+            for (var rd = 0; rd < itemsToProcess.length; rd++) {
+                var delEnt = itemsToProcess[rd];
+                if (!delEnt || !delEnt.newlyAdded) { rqAutoDeleteSkipped++; continue; }
+                var delItem = delEnt.rqi;
+                if (!delItem) { rqAutoDeleteFailed++; continue; }
+                // Do not remove rendering items.
+                try { if (delItem.status === RQItemStatus.RENDERING) { rqAutoDeleteSkipped++; continue; } } catch(eSt) {}
+                try {
+                    delItem.remove();
+                    rqAutoDeleted++;
+                } catch(eRem) {
+                    rqAutoDeleteFailed++;
+                    try { if (VERBOSE_DEBUG && detailLines.length < MAX_DETAIL_LINES) detailLines.push("RQ DELETE FAIL: " + safeErrStr(eRem)); } catch(_) {}
+                }
+            }
+            try { if (VERBOSE_DEBUG) detailLines.push("RQ AUTO-DELETE: deleted=" + rqAutoDeleted + " skipped=" + rqAutoDeleteSkipped + " failed=" + rqAutoDeleteFailed); } catch(_) {}
+        } catch(eDel) {
+            try { log("RQ auto-delete error: " + safeErrStr(eDel)); } catch(_) {}
+        }
+    }
+
     var mismatchNote = "";
     if (addedCount > 0 && verifiedAdded === 0) {
         mismatchNote = "\nWARNING: No Render Queue items verified after addition. Re-run script or disable undo grouping.";
@@ -1167,6 +1197,7 @@ function __AME_coreRun(opts) {
     var summaryLines = [];
     summaryLines.push("Added:" + addedCount + " (verified:" + verifiedAdded + ") Changed:" + changedCount + " Processed:" + processed + " Skipped:" + skipped + (unsorted?" Unsorted:"+unsorted:""));
     if (AUTO_QUEUE_IN_AME) summaryLines.push("AMEQueued:" + (shouldQueue ? (ameQueued?"yes":"fail") : (QUEUE_ONLY_WHEN_NEW_OR_CHANGED?"skipped-no-change":"skipped")) );
+    if (AUTO_DELETE_RQ_AFTER_AME_QUEUE) summaryLines.push("RQAutoDeleted:" + (AUTO_QUEUE_IN_AME && shouldQueue && ameQueued ? (rqAutoDeleted + (rqAutoDeleteFailed? (" (failed:"+rqAutoDeleteFailed+")"):"")) : "skipped") );
     if (mismatchNote) summaryLines.push(mismatchNote.replace(/^\n/,''));
     if (AUTO_QUEUE_IN_AME && shouldQueue && !ameQueued) summaryLines.push("Hint: Launch Media Encoder once or raise retry delay.");
     // Concise hints about templates/presets

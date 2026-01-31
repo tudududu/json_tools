@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
     "RUN_close_project": false,
 
 "batch": {
@@ -37,7 +37,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/ria/POST/WORK/riaa_v08.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/ria/POST/WORK/riaa_v10.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -63,7 +63,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": false,
+    "AUTO_FROM_PROJECT_FOOTAGE": true,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
@@ -90,7 +90,7 @@
 "addLayers": {
     "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
-    "PIPELINE_SHOW_VERBOSE_LOG": true,
+    "PIPELINE_SHOW_VERBOSE_LOG": false,
     
     "DEBUG_PARENTING_DUMP": false,
     "DEBUG_PARENTING_DUMP_ONLY_COMPS": [
@@ -299,6 +299,7 @@
     "PROCESS_SELECTION": true,
     "PROCESS_EXISTING_RQ": true,
     "AUTO_QUEUE_IN_AME": true,
+    "AUTO_DELETE_RQ_AFTER_AME_QUEUE": true,
     "AME_MAX_QUEUE_ATTEMPTS": 3,
     "AME_RETRY_DELAY_MS": 650,
     "USE_OM_FILENAME_AS_BASE": false,
