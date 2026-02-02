@@ -1235,7 +1235,115 @@ function __AME_coreRun(opts) {
 
 AE_AME.run = function(opts){ return __AME_coreRun(opts || {}); };
 
-// Standalone auto-run only when not in pipeline
+// ——————————————————————————————————————————————————————————————
+// Standalone dockable UI panel
+// ——————————————————————————————————————————————————————————————
+function __AME_buildPanel(thisObj) {
+    var pal = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Set AME Output Paths", undefined, { resizeable: true });
+    if (!pal) return null;
+
+    pal.orientation = "column";
+    pal.alignChildren = ["fill", "top"];
+
+    // Export target group
+    var grpTarget = pal.add("panel", undefined, "Export target (under POST)");
+    grpTarget.orientation = "column";
+    grpTarget.alignChildren = ["left", "top"];
+
+    var rbMasters = grpTarget.add("radiobutton", undefined, "MASTERS");
+    var rbDeliveries = grpTarget.add("radiobutton", undefined, "DELIVERIES");
+    var rbPreviews = grpTarget.add("radiobutton", undefined, "PREVIEWS");
+    var grpCustom = grpTarget.add("group");
+    grpCustom.orientation = "row";
+    grpCustom.alignChildren = ["left", "center"];
+    var rbCustom = grpCustom.add("radiobutton", undefined, "Custom:");
+    var etCustom = grpCustom.add("edittext", undefined, "OUT/MASTERS");
+    etCustom.characters = 24;
+    etCustom.enabled = false;
+
+    rbPreviews.value = true; // default
+
+    function updateCustomEnabled() {
+        etCustom.enabled = rbCustom.value === true;
+    }
+    rbMasters.onClick = rbDeliveries.onClick = rbPreviews.onClick = rbCustom.onClick = updateCustomEnabled;
+
+    // Options checkboxes
+    var grpOpts = pal.add("panel", undefined, "Options");
+    grpOpts.orientation = "column";
+    grpOpts.alignChildren = ["left", "top"];
+
+    var cbAutoDelete = grpOpts.add("checkbox", undefined, "AUTO_DELETE_RQ_AFTER_AME_QUEUE");
+    var cbIsoSuffix = grpOpts.add("checkbox", undefined, "ENABLE_DATE_FOLDER_ISO_SUFFIX");
+    var cbDuration = grpOpts.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER");
+    var cbMimicProjectFolder = grpOpts.add("checkbox", undefined, "MIMIC_PROJECT_FOLDER_STRUCTURE");
+    var cbLang = grpOpts.add("checkbox", undefined, "USE_LANGUAGE_SUBFOLDER");
+
+    cbAutoDelete.value = true;
+    cbIsoSuffix.value = true;
+    cbDuration.value = true;
+    cbMimicProjectFolder.value = true;
+    cbLang.value = false;
+
+    // Action button
+    var grpAction = pal.add("group");
+    grpAction.alignment = ["fill", "top"];
+    grpAction.orientation = "row";
+    grpAction.alignChildren = ["fill", "center"];
+    var btnSend = grpAction.add("button", undefined, "Send to AME");
+
+    function resolveExportSubpath() {
+        if (rbMasters.value) return "OUT/MASTERS";
+        if (rbDeliveries.value) return "OUT/DELIVERIES";
+        if (rbPreviews.value) return "OUT/PREVIEWS";
+        if (rbCustom.value) {
+            var t = String(etCustom.text || "");
+            t = t.replace(/^\s+|\s+$/g, "");
+            return t;
+        }
+        return "OUT/PREVIEWS";
+    }
+
+    btnSend.onClick = function() {
+        try {
+            if (!app.project) { alert("Open a project first."); return; }
+            var exportSubpath = resolveExportSubpath();
+            if (!exportSubpath || !exportSubpath.length) {
+                alert("Custom export subpath is empty.");
+                return;
+            }
+
+            var opts = {
+                options: {
+                    AUTO_QUEUE_IN_AME: true,
+                    AUTO_DELETE_RQ_AFTER_AME_QUEUE: cbAutoDelete.value === true,
+                    ENABLE_DATE_FOLDER_ISO_SUFFIX: cbIsoSuffix.value === true,
+                    ENABLE_DURATION_SUBFOLDER: cbDuration.value === true,
+                    USE_LANGUAGE_SUBFOLDER: cbLang.value === true,
+                    MIMIC_PROJECT_FOLDER_STRUCTURE: cbMimicProjectFolder.value === true,
+                    EXPORT_SUBPATH: exportSubpath
+                },
+                noQueue: false
+            };
+            AE_AME.run(opts);
+        } catch (e) {
+            try { alert("Failed: " + e); } catch(_) {}
+        }
+    };
+
+    // Resize handling
+    pal.onResizing = pal.onResize = function () { try { this.layout.resize(); } catch(e) {} };
+
+    return pal;
+}
+
+// Show panel when not in pipeline
 if (!__AE_PIPE__) {
-    (function setAMEOutputPaths_IIFE(){ __AME_coreRun({}); })();
+    var __amePal = __AME_buildPanel(this);
+    if (__amePal instanceof Window) {
+        __amePal.center();
+        __amePal.show();
+    } else if (__amePal) {
+        try { __amePal.layout.layout(true); } catch(e) {}
+    }
 }
