@@ -275,6 +275,40 @@ function __AME_coreRun(opts) {
 
     // Extras helpers — derive configured extra suffix from pipeline options when available
     try {
+
+    // Selection-based cut: use selected folder (or selected comp's parent folder) as path root
+    function getSelectionCutRoot() {
+        try {
+            var sel = app.project ? app.project.selection : null;
+            if (!sel || !sel.length) return null;
+            for (var i = 0; i < sel.length; i++) {
+                var it = null; try { it = sel[i]; } catch (eSel) { it = null; }
+                if (it && (it instanceof FolderItem)) return it;
+            }
+            for (var j = 0; j < sel.length; j++) {
+                var it2 = null; try { it2 = sel[j]; } catch (eSel2) { it2 = null; }
+                if (it2 && (it2 instanceof CompItem)) {
+                    try { return it2.parentFolder ? it2.parentFolder : null; } catch (ePF) { return null; }
+                }
+            }
+        } catch (eGSR) {}
+        return null;
+    }
+    function relativeSegmentsAfterSelection(item, selectionRoot) {
+        if (!selectionRoot) return [];
+        if (selectionRoot === app.project.rootFolder) return [];
+        var rootName = null;
+        try { rootName = String(selectionRoot.name || ''); } catch (eRN) { rootName = null; }
+        if (!rootName) return [];
+        var ancestors = collectAncestorNames(item);
+        if (!ancestors || !ancestors.length) return [];
+        var idx = -1;
+        for (var i = ancestors.length - 1; i >= 0; i--) {
+            if (String(ancestors[i]) === rootName) { idx = i; break; }
+        }
+        if (idx < 0) return [];
+        return ancestors.slice(idx);
+    }
         var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
         if (addL && addL.EXTRA_TEMPLATES) {
             if (typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
@@ -767,6 +801,10 @@ function __AME_coreRun(opts) {
         try { return typeof x; } catch(e3) { return "(unknown)"; }
     }
 
+    // Selection-based mimic cut root (folder or selected comp's parent)
+    var __selectionCutRoot = null;
+    try { __selectionCutRoot = getSelectionCutRoot(); } catch (eSCR) { __selectionCutRoot = null; }
+
     // A) Process selection: add selected comps to RQ
     try { if (VERBOSE_DEBUG && LOG_ENV_HEADER) log("Checkpoint: begin selection/RQ add phase (providedComps=" + ((opts && opts.comps && opts.comps.length)||0) + ")"); } catch(eDbgA) {}
     var providedComps = (opts && opts.comps && opts.comps.length) ? opts.comps : null;
@@ -915,6 +953,10 @@ function __AME_coreRun(opts) {
             if (MIMIC_PROJECT_FOLDER_STRUCTURE) {
                 try {
                     var segs = relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase());
+                    // Anchor wins; only use selection-cut when anchor not found
+                    if ((!segs || !segs.length) && __selectionCutRoot) {
+                        segs = relativeSegmentsAfterSelection(rqi.comp, __selectionCutRoot);
+                    }
                     if (segs && segs.length) {
                         var cur = dateFolder;
                         for (var ms=0; ms<segs.length; ms++) {
@@ -926,7 +968,11 @@ function __AME_coreRun(opts) {
                         }
                         destParent = cur;
                         usedMimic = true;
-                        pushDetail("MIMIC PATH -> " + cur.fsName);
+                        if (__selectionCutRoot && !relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase()).length) {
+                            pushDetail("MIMIC PATH (selection) -> " + cur.fsName);
+                        } else {
+                            pushDetail("MIMIC PATH -> " + cur.fsName);
+                        }
                     }
                 } catch(eMimic) { pushDetail("MIMIC error -> " + safeErrStr(eMimic)); }
             }
