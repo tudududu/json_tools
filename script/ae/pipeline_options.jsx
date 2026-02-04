@@ -399,10 +399,17 @@
             EXTRA_EXPORT_SUBFOLDER: false,
             // 5c. Duration-level subfolder toggle
             ENABLE_DURATION_SUBFOLDER: true,           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
+            // 5c.1 Duration-first ordering toggle
+            DURATION_FIRST_ORDER: false,               // When true, use <duration>/<AR?> ordering (unless mimic is enabled)
+            ENABLE_AR_SUBFOLDER: true,                 // Duration-first only: when true, use <duration>/<AR>; when false, use <duration> only
+            // 5d. Language subfolder toggle
             USE_LANGUAGE_SUBFOLDER: false,
             // When true (default), if an Output Module already has a file set, reuse its base name as the output filename base.
             // When false, always derive the base name from the comp name (only reuse extension from OM if present).
             USE_OM_FILENAME_AS_BASE: true,
+            // 5e. Mimic AE project panel folder structure under date folder
+            MIMIC_PROJECT_FOLDER_STRUCTURE: true,
+            PROJECT_FOLDER_ANCHOR_NAME: "out", // anchor folder name to cut at (case-insensitive)
 
             // Logging toggles for Step 7 (AME)
             VERBOSE_DEBUG: true,             // Gates selection/RQ add logs and DETAIL block
@@ -422,10 +429,7 @@
             // Example: { "1x1": "25Mbs", "16x9": "YouTube_1080p" }
             OUTPUT_MODULE_TEMPLATE_BY_AR: {},
             // Optional template mapping by "AR|duration"; overrides AR-only when present. Keys like "1x1|06s"
-            OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION: {},
-            // 5e. Mimic AE project panel folder structure under date folder
-            MIMIC_PROJECT_FOLDER_STRUCTURE: true,
-            PROJECT_FOLDER_ANCHOR_NAME: "out" // anchor folder name to cut at (case-insensitive)
+            OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION: {}
         }
         ,
         closeProject: {

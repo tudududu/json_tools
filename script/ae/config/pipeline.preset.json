@@ -306,7 +306,13 @@
     "USE_LANGUAGE_SUBFOLDER": false,
     "EXPORT_SUBPATH": ["OUT","DELIVERIES"],
     "EXTRA_EXPORT_SUBFOLDER": true,
+
+    "MIMIC_PROJECT_FOLDER_STRUCTURE": true,
+    "PROJECT_FOLDER_ANCHOR_NAME": "out",
     "ENABLE_DURATION_SUBFOLDER": true,
+    "DURATION_FIRST_ORDER": false,
+    "ENABLE_AR_SUBFOLDER": true,
+    
     "APPLY_TEMPLATES": false,
     "AUTO_DISABLE_REAPPLY_ON_MISSING": true,
     "DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES": false,
@@ -321,9 +327,7 @@
     "OUTPUT_MODULE_TEMPLATE_BY_AR_AND_DURATION": {
         "1x1|06s": "Short_1x1",
         "1x1|15s": "Short_1x1_15"
-        },
-    "MIMIC_PROJECT_FOLDER_STRUCTURE": true,
-    "PROJECT_FOLDER_ANCHOR_NAME": "out"
+        }
     },
 "closeProject": {
     "CLOSE_MODE": "force-save"

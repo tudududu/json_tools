@@ -99,8 +99,11 @@ function __AME_coreRun(opts) {
     var EXTRA_EXPORT_SUBFOLDER = false;
     var EXTRA_OUTPUT_SUFFIX = "_extra";            // source of extraName (leading underscore removed)
     var EXTRA_TAG_TOKENS = [];                      // optional tokens to detect extras in names (e.g., ["TIKTOK"])    
-    // 5c. Duration-level subfolder toggle
+    // 5c. Duration-level subfolder toggle (AR-first mode only)
     var ENABLE_DURATION_SUBFOLDER = true;           // When false, place exports directly under <AR> (or <AR>_<extra>) without <duration>
+    // 5c.1 Duration-first ordering toggle
+    var DURATION_FIRST_ORDER = false;               // When true, use <duration>/<AR?> ordering (unless mimic is enabled)
+    var ENABLE_AR_SUBFOLDER = true;                 // Duration-first only: when true, use <duration>/<AR>; when false, use <duration> only
     // 5d. Language-level subfolder toggle (Integration 166)
     var USE_LANGUAGE_SUBFOLDER = false;             // When true, insert <LANG> subfolder under <date[_ISO]> when language is known
     var USE_OM_FILENAME_AS_BASE = true;             // When true, reuse existing OM file base as baseName; when false, always use compName
@@ -146,6 +149,8 @@ function __AME_coreRun(opts) {
             var __EXPORT_SUBPATH_OPT = o.EXPORT_SUBPATH;
             if (o.EXTRA_EXPORT_SUBFOLDER !== undefined) EXTRA_EXPORT_SUBFOLDER = !!o.EXTRA_EXPORT_SUBFOLDER;
             if (o.ENABLE_DURATION_SUBFOLDER !== undefined) ENABLE_DURATION_SUBFOLDER = !!o.ENABLE_DURATION_SUBFOLDER;
+            if (o.DURATION_FIRST_ORDER !== undefined) DURATION_FIRST_ORDER = !!o.DURATION_FIRST_ORDER;
+            if (o.ENABLE_AR_SUBFOLDER !== undefined) ENABLE_AR_SUBFOLDER = !!o.ENABLE_AR_SUBFOLDER;
             if (o.USE_LANGUAGE_SUBFOLDER !== undefined) USE_LANGUAGE_SUBFOLDER = !!o.USE_LANGUAGE_SUBFOLDER;
             if (o.USE_OM_FILENAME_AS_BASE !== undefined) USE_OM_FILENAME_AS_BASE = !!o.USE_OM_FILENAME_AS_BASE;
             // 5e. Mimic AE project panel folder structure
@@ -634,7 +639,7 @@ function __AME_coreRun(opts) {
                 log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
                 log("ExportSubpath=" + __exportSegs.join("/"));
                 log("MimicProjectFolders=" + MIMIC_PROJECT_FOLDER_STRUCTURE + (MIMIC_PROJECT_FOLDER_STRUCTURE? (" (anchor='" + PROJECT_FOLDER_ANCHOR_NAME + "')") : ""));
-                log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
+                log("SortOrder=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic" : (DURATION_FIRST_ORDER ? "duration-first" : "ar-first")) + ", DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER + ", ARSubfolders=" + ENABLE_AR_SUBFOLDER);
                 log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
@@ -660,7 +665,7 @@ function __AME_coreRun(opts) {
             log("Settings: PROCESS_SELECTION="+PROCESS_SELECTION+", PROCESS_EXISTING_RQ="+PROCESS_EXISTING_RQ+", DYN_TEMPLATES="+ENABLE_DYNAMIC_OUTPUT_MODULE_SELECTION+", AUTO_QUEUE="+AUTO_QUEUE_IN_AME+", AUTO_DELETE_RQ="+AUTO_DELETE_RQ_AFTER_AME_QUEUE);
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
             log("ExportSubpath=" + __exportSegs.join("/"));
-            log("DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER);
+            log("SortOrder=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic" : (DURATION_FIRST_ORDER ? "duration-first" : "ar-first")) + ", DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER + ", ARSubfolders=" + ENABLE_AR_SUBFOLDER);
             log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
             log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
             log("--- ENV HEADER END ---");
@@ -1027,7 +1032,61 @@ function __AME_coreRun(opts) {
                 } catch(eMimic) { pushDetail("MIMIC error -> " + safeErrStr(eMimic)); }
             }
             if (!usedMimic) {
-            if (ENABLE_DURATION_SUBFOLDER) {
+            if (DURATION_FIRST_ORDER) {
+                // Duration-first: require duration token; AR token is optional (based on ENABLE_AR_SUBFOLDER)
+                if (tokens.duration) {
+                    var durRoot = new Folder(joinPath(dateFolder.fsName, tokens.duration));
+                    try { ensureFolderExists(durRoot); } catch(eD0) { pushDetail("FOLDER CREATE FAIL -> " + durRoot.fsName + ": " + eD0); }
+                    __markTouched(durRoot.fsName);
+                    if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
+                        if (ENABLE_AR_SUBFOLDER) {
+                            if (tokens.ar) {
+                                var extraRootNameDF = tokens.ar + "_" + extraInfo.name;
+                                var extraRootFolderDF = new Folder(joinPath(durRoot.fsName, extraRootNameDF));
+                                try { ensureFolderExists(extraRootFolderDF); } catch(eED0) { pushDetail("FOLDER CREATE FAIL -> " + extraRootFolderDF.fsName + ": " + eED0); }
+                                __markTouched(extraRootFolderDF.fsName);
+                                destParent = extraRootFolderDF;
+                                pushDetail("EXTRA PATH -> " + extraRootFolderDF.fsName);
+                            } else {
+                                var unsortedFolderDF0 = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                                try { ensureFolderExists(unsortedFolderDF0); } catch(eUDF0) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolderDF0.fsName + ": " + eUDF0); }
+                                __markTouched(unsortedFolderDF0.fsName);
+                                destParent = unsortedFolderDF0;
+                                unsorted++;
+                            }
+                        } else {
+                            var extraRootFolderDF2 = new Folder(joinPath(durRoot.fsName, "Extras"));
+                            try { ensureFolderExists(extraRootFolderDF2); } catch(eED2) { pushDetail("FOLDER CREATE FAIL -> " + extraRootFolderDF2.fsName + ": " + eED2); }
+                            __markTouched(extraRootFolderDF2.fsName);
+                            destParent = extraRootFolderDF2;
+                            pushDetail("EXTRA PATH -> " + extraRootFolderDF2.fsName);
+                        }
+                    } else {
+                        if (ENABLE_AR_SUBFOLDER) {
+                            if (tokens.ar) {
+                                var arFolderDF = new Folder(joinPath(durRoot.fsName, tokens.ar));
+                                try { ensureFolderExists(arFolderDF); } catch(eFD1) { pushDetail("FOLDER CREATE FAIL -> " + arFolderDF.fsName + ": " + eFD1); }
+                                __markTouched(arFolderDF.fsName);
+                                destParent = arFolderDF;
+                            } else {
+                                var unsortedFolderDF1 = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                                try { ensureFolderExists(unsortedFolderDF1); } catch(eUDF1) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolderDF1.fsName + ": " + eUDF1); }
+                                __markTouched(unsortedFolderDF1.fsName);
+                                destParent = unsortedFolderDF1;
+                                unsorted++;
+                            }
+                        } else {
+                            destParent = durRoot;
+                        }
+                    }
+                } else {
+                    var unsortedFolderDF2 = new Folder(joinPath(dateFolder.fsName, "unsorted"));
+                    try { ensureFolderExists(unsortedFolderDF2); } catch(eUDF2) { pushDetail("FOLDER CREATE FAIL -> " + unsortedFolderDF2.fsName + ": " + eUDF2); }
+                    __markTouched(unsortedFolderDF2.fsName);
+                    destParent = unsortedFolderDF2;
+                    unsorted++;
+                }
+            } else if (ENABLE_DURATION_SUBFOLDER) {
                 // Require both AR and duration when nesting by duration
                 if (tokens.ar && tokens.duration) {
                     if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
@@ -1059,7 +1118,7 @@ function __AME_coreRun(opts) {
                     unsorted++;
                 }
             } else {
-                // Duration disabled: only require AR
+                // Duration disabled: only require AR (AR-first)
                 if (tokens.ar) {
                     if (EXTRA_EXPORT_SUBFOLDER && extraInfo && extraInfo.isExtra) {
                         // Extras: <date>/<AR>_<extra>/
@@ -1371,15 +1430,34 @@ function __AME_buildPanel(thisObj) {
 
     var cbAutoDelete = grpOpts.add("checkbox", undefined, "AUTO_DELETE_RQ_AFTER_AME_QUEUE");
     var cbIsoSuffix = grpOpts.add("checkbox", undefined, "ENABLE_DATE_FOLDER_ISO_SUFFIX");
-    var cbDuration = grpOpts.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER");
-    var cbMimicProjectFolder = grpOpts.add("checkbox", undefined, "MIMIC_PROJECT_FOLDER_STRUCTURE");
     var cbLang = grpOpts.add("checkbox", undefined, "USE_LANGUAGE_SUBFOLDER");
+
+    var grpSort = grpOpts.add("panel", undefined, "Sorting mode");
+    grpSort.orientation = "column";
+    grpSort.alignChildren = ["left", "top"];
+    var rbSortMimic = grpSort.add("radiobutton", undefined, "mimic folder structure");
+    var rbSortArFirst = grpSort.add("radiobutton", undefined, "sorting: AR-first");
+    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "sorting: duration-first");
+
+    var cbDuration = grpOpts.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER (AR-first)");
+    var cbArSubfolder = grpOpts.add("checkbox", undefined, "ENABLE_AR_SUBFOLDER (duration-first)");
 
     cbAutoDelete.value = true;
     cbIsoSuffix.value = true;
-    cbDuration.value = true;
-    cbMimicProjectFolder.value = true;
     cbLang.value = false;
+    rbSortMimic.value = true;
+    cbDuration.value = true;
+    cbArSubfolder.value = true;
+
+    function updateSortControls() {
+        var isMimic = rbSortMimic.value === true;
+        var isArFirst = rbSortArFirst.value === true;
+        var isDurationFirst = rbSortDurationFirst.value === true;
+        cbDuration.enabled = isArFirst;
+        cbArSubfolder.enabled = isDurationFirst;
+    }
+    rbSortMimic.onClick = rbSortArFirst.onClick = rbSortDurationFirst.onClick = updateSortControls;
+    updateSortControls();
 
     // Action button
     var grpAction = pal.add("group");
@@ -1415,8 +1493,10 @@ function __AME_buildPanel(thisObj) {
                     AUTO_DELETE_RQ_AFTER_AME_QUEUE: cbAutoDelete.value === true,
                     ENABLE_DATE_FOLDER_ISO_SUFFIX: cbIsoSuffix.value === true,
                     ENABLE_DURATION_SUBFOLDER: cbDuration.value === true,
+                    DURATION_FIRST_ORDER: rbSortDurationFirst.value === true,
+                    ENABLE_AR_SUBFOLDER: cbArSubfolder.value === true,
                     USE_LANGUAGE_SUBFOLDER: cbLang.value === true,
-                    MIMIC_PROJECT_FOLDER_STRUCTURE: cbMimicProjectFolder.value === true,
+                    MIMIC_PROJECT_FOLDER_STRUCTURE: rbSortMimic.value === true,
                     EXPORT_SUBPATH: exportSubpath
                 },
                 noQueue: false
