@@ -288,13 +288,13 @@ function __AME_coreRun(opts) {
 
     // Selection-based cut: use selected folder (or selected comp's parent folder) as path root
     function getSelectionCutInfo() {
-        var info = { folder: null, hasComp: false };
+        var info = { folders: [], hasComp: false };
         try {
             var sel = app.project ? app.project.selection : null;
             if (!sel || !sel.length) return info;
             for (var i = 0; i < sel.length; i++) {
                 var it = null; try { it = sel[i]; } catch (eSel) { it = null; }
-                if (it && (it instanceof FolderItem)) { info.folder = it; return info; }
+                if (it && (it instanceof FolderItem)) { info.folders.push(it); }
             }
             for (var j = 0; j < sel.length; j++) {
                 var it2 = null; try { it2 = sel[j]; } catch (eSel2) { it2 = null; }
@@ -318,6 +318,20 @@ function __AME_coreRun(opts) {
             out.push(String(ancestors[j].name || ''));
         }
         return out;
+    }
+
+    function findMatchingSelectionRoot(item, folders) {
+        if (!folders || !folders.length) return null;
+        var ancestors = collectAncestorItems(item);
+        if (!ancestors || !ancestors.length) return null;
+        var best = null;
+        var bestIdx = -1;
+        for (var i = 0; i < ancestors.length; i++) {
+            for (var j = 0; j < folders.length; j++) {
+                if (ancestors[i] === folders[j]) { best = folders[j]; bestIdx = i; }
+            }
+        }
+        return best;
     }
         var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
         if (addL && addL.EXTRA_TEMPLATES) {
@@ -811,9 +825,9 @@ function __AME_coreRun(opts) {
         try { return typeof x; } catch(e3) { return "(unknown)"; }
     }
 
-    // Selection-based mimic cut info (folder selection wins; otherwise comps)
-    var __selectionCutInfo = { folder: null, hasComp: false };
-    try { __selectionCutInfo = getSelectionCutInfo(); } catch (eSCR) { __selectionCutInfo = { folder: null, hasComp: false }; }
+    // Selection-based mimic cut info (folders preferred; fallback to comps)
+    var __selectionCutInfo = { folders: [], hasComp: false };
+    try { __selectionCutInfo = getSelectionCutInfo(); } catch (eSCR) { __selectionCutInfo = { folders: [], hasComp: false }; }
 
     // A) Process selection: add selected comps to RQ
     try { if (VERBOSE_DEBUG && LOG_ENV_HEADER) log("Checkpoint: begin selection/RQ add phase (providedComps=" + ((opts && opts.comps && opts.comps.length)||0) + ")"); } catch(eDbgA) {}
@@ -966,9 +980,11 @@ function __AME_coreRun(opts) {
                     var segs = anchorSegs;
                     // Anchor wins; only use selection-cut when anchor not found
                     if ((!segs || !segs.length)) {
-                        if (__selectionCutInfo && __selectionCutInfo.folder) {
-                            segs = relativeSegmentsAfterSelection(rqi.comp, __selectionCutInfo.folder);
-                        } else if (__selectionCutInfo && __selectionCutInfo.hasComp) {
+                        if (__selectionCutInfo && __selectionCutInfo.folders && __selectionCutInfo.folders.length) {
+                            var matchRoot = findMatchingSelectionRoot(rqi.comp, __selectionCutInfo.folders);
+                            if (matchRoot) segs = relativeSegmentsAfterSelection(rqi.comp, matchRoot);
+                        }
+                        if ((!segs || !segs.length) && __selectionCutInfo && __selectionCutInfo.hasComp) {
                             try { segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null); } catch (eSelComp) { segs = []; }
                         }
                     }
@@ -983,7 +999,7 @@ function __AME_coreRun(opts) {
                         }
                         destParent = cur;
                         usedMimic = true;
-                        if ((!anchorSegs || !anchorSegs.length) && (__selectionCutInfo && (__selectionCutInfo.folder || __selectionCutInfo.hasComp))) {
+                        if ((!anchorSegs || !anchorSegs.length) && (__selectionCutInfo && ((__selectionCutInfo.folders && __selectionCutInfo.folders.length) || __selectionCutInfo.hasComp))) {
                             pushDetail("MIMIC PATH (selection) -> " + cur.fsName);
                         } else {
                             pushDetail("MIMIC PATH -> " + cur.fsName);
