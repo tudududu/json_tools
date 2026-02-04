@@ -640,6 +640,7 @@ function __AME_coreRun(opts) {
                 log("ExportSubpath=" + __exportSegs.join("/"));
                 log("MimicProjectFolders=" + MIMIC_PROJECT_FOLDER_STRUCTURE + (MIMIC_PROJECT_FOLDER_STRUCTURE? (" (anchor='" + PROJECT_FOLDER_ANCHOR_NAME + "')") : ""));
                 log("SortOrder=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic" : (DURATION_FIRST_ORDER ? "duration-first" : "ar-first")) + ", DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER + ", ARSubfolders=" + ENABLE_AR_SUBFOLDER);
+                log("SortNote=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic uses project panel path" : (DURATION_FIRST_ORDER ? "duration-first requires duration token" : "ar-first uses ENABLE_DURATION_SUBFOLDER")));
                 log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
                 log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
                 log("--- ENV HEADER END ---");
@@ -666,6 +667,7 @@ function __AME_coreRun(opts) {
             log("DateFolderSuffixISO=" + ENABLE_DATE_FOLDER_ISO_SUFFIX + ", REQUIRE_VALID_ISO=" + REQUIRE_VALID_ISO);
             log("ExportSubpath=" + __exportSegs.join("/"));
             log("SortOrder=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic" : (DURATION_FIRST_ORDER ? "duration-first" : "ar-first")) + ", DurationSubfolders=" + ENABLE_DURATION_SUBFOLDER + ", ARSubfolders=" + ENABLE_AR_SUBFOLDER);
+            log("SortNote=" + (MIMIC_PROJECT_FOLDER_STRUCTURE ? "mimic uses project panel path" : (DURATION_FIRST_ORDER ? "duration-first requires duration token" : "ar-first uses ENABLE_DURATION_SUBFOLDER")));
             log("LanguageSubfolder=" + USE_LANGUAGE_SUBFOLDER);
             log("AppendMode=" + FILE_LOG_APPEND_MODE + ", PruneEnabled=" + FILE_LOG_PRUNE_ENABLED + ", MaxFiles=" + FILE_LOG_MAX_FILES);
             log("--- ENV HEADER END ---");
@@ -1423,6 +1425,17 @@ function __AME_buildPanel(thisObj) {
     }
     rbMasters.onClick = rbDeliveries.onClick = rbPreviews.onClick = rbCustom.onClick = updateCustomEnabled;
 
+    // Sorting mode group
+    var grpSort = pal.add("panel", undefined, "Sorting mode");
+    grpSort.orientation = "column";
+    grpSort.alignChildren = ["left", "top"];
+    var rbSortMimic = grpSort.add("radiobutton", undefined, "mimic folder structure");
+    var rbSortArFirst = grpSort.add("radiobutton", undefined, "sorting: AR-first");
+    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "sorting: duration-first");
+
+    var cbDuration = grpSort.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER (AR-first)");
+    var cbArSubfolder = grpSort.add("checkbox", undefined, "ENABLE_AR_SUBFOLDER (duration-first)");
+
     // Options checkboxes
     var grpOpts = pal.add("panel", undefined, "Options");
     grpOpts.orientation = "column";
@@ -1431,16 +1444,6 @@ function __AME_buildPanel(thisObj) {
     var cbAutoDelete = grpOpts.add("checkbox", undefined, "AUTO_DELETE_RQ_AFTER_AME_QUEUE");
     var cbIsoSuffix = grpOpts.add("checkbox", undefined, "ENABLE_DATE_FOLDER_ISO_SUFFIX");
     var cbLang = grpOpts.add("checkbox", undefined, "USE_LANGUAGE_SUBFOLDER");
-
-    var grpSort = grpOpts.add("panel", undefined, "Sorting mode");
-    grpSort.orientation = "column";
-    grpSort.alignChildren = ["left", "top"];
-    var rbSortMimic = grpSort.add("radiobutton", undefined, "mimic folder structure");
-    var rbSortArFirst = grpSort.add("radiobutton", undefined, "sorting: AR-first");
-    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "sorting: duration-first");
-
-    var cbDuration = grpOpts.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER (AR-first)");
-    var cbArSubfolder = grpOpts.add("checkbox", undefined, "ENABLE_AR_SUBFOLDER (duration-first)");
 
     cbAutoDelete.value = true;
     cbIsoSuffix.value = true;
