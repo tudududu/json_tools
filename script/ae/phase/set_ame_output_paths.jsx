@@ -1309,6 +1309,8 @@ function __AME_coreRun(opts) {
     var rqAutoDeleteFailed = 0;
     var rqAutoDeleteSkipped = 0;
     if (AUTO_DELETE_RQ_AFTER_AME_QUEUE && AUTO_QUEUE_IN_AME && shouldQueue && ameQueued) {
+        var __rqDeleteUndoOpened = false;
+        if (!__AE_PIPE__) { try { app.beginUndoGroup("AME RQ Auto-Delete"); __rqDeleteUndoOpened = true; } catch(eUD) {} }
         try {
             for (var rd = 0; rd < itemsToProcess.length; rd++) {
                 var delEnt = itemsToProcess[rd];
@@ -1328,6 +1330,8 @@ function __AME_coreRun(opts) {
             try { if (VERBOSE_DEBUG) detailLines.push("RQ AUTO-DELETE: deleted=" + rqAutoDeleted + " skipped=" + rqAutoDeleteSkipped + " failed=" + rqAutoDeleteFailed); } catch(_) {}
         } catch(eDel) {
             try { log("RQ auto-delete error: " + safeErrStr(eDel)); } catch(_) {}
+        } finally {
+            if (__rqDeleteUndoOpened) { try { app.endUndoGroup(); } catch(eUD2) {} }
         }
     }
 
