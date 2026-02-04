@@ -230,13 +230,23 @@ function __AME_coreRun(opts) {
     }
 
     // Project panel path helpers: derive folder segments after an anchor (e.g., 'out')
-    function collectAncestorNames(item) {
-        var names = [];
+    function collectAncestorItems(item) {
+        var items = [];
         try {
             var f = item && item.parentFolder ? item.parentFolder : null;
             while (f && f !== app.project.rootFolder) {
-                names.unshift(String(f.name || ''));
+                items.unshift(f);
                 f = f.parentFolder;
+            }
+        } catch (e) {}
+        return items;
+    }
+    function collectAncestorNames(item) {
+        var names = [];
+        try {
+            var items = collectAncestorItems(item);
+            for (var i = 0; i < items.length; i++) {
+                names.push(String(items[i].name || ''));
             }
         } catch (e) {}
         return names;
@@ -277,37 +287,37 @@ function __AME_coreRun(opts) {
     try {
 
     // Selection-based cut: use selected folder (or selected comp's parent folder) as path root
-    function getSelectionCutRoot() {
+    function getSelectionCutInfo() {
+        var info = { folder: null, hasComp: false };
         try {
             var sel = app.project ? app.project.selection : null;
-            if (!sel || !sel.length) return null;
+            if (!sel || !sel.length) return info;
             for (var i = 0; i < sel.length; i++) {
                 var it = null; try { it = sel[i]; } catch (eSel) { it = null; }
-                if (it && (it instanceof FolderItem)) return it;
+                if (it && (it instanceof FolderItem)) { info.folder = it; return info; }
             }
             for (var j = 0; j < sel.length; j++) {
                 var it2 = null; try { it2 = sel[j]; } catch (eSel2) { it2 = null; }
-                if (it2 && (it2 instanceof CompItem)) {
-                    try { return it2.parentFolder ? it2.parentFolder : null; } catch (ePF) { return null; }
-                }
+                if (it2 && (it2 instanceof CompItem)) { info.hasComp = true; }
             }
         } catch (eGSR) {}
-        return null;
+        return info;
     }
     function relativeSegmentsAfterSelection(item, selectionRoot) {
         if (!selectionRoot) return [];
         if (selectionRoot === app.project.rootFolder) return [];
-        var rootName = null;
-        try { rootName = String(selectionRoot.name || ''); } catch (eRN) { rootName = null; }
-        if (!rootName) return [];
-        var ancestors = collectAncestorNames(item);
+        var ancestors = collectAncestorItems(item);
         if (!ancestors || !ancestors.length) return [];
         var idx = -1;
         for (var i = ancestors.length - 1; i >= 0; i--) {
-            if (String(ancestors[i]) === rootName) { idx = i; break; }
+            if (ancestors[i] === selectionRoot) { idx = i; break; }
         }
         if (idx < 0) return [];
-        return ancestors.slice(idx);
+        var out = [];
+        for (var j = idx; j < ancestors.length; j++) {
+            out.push(String(ancestors[j].name || ''));
+        }
+        return out;
     }
         var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
         if (addL && addL.EXTRA_TEMPLATES) {
@@ -801,9 +811,9 @@ function __AME_coreRun(opts) {
         try { return typeof x; } catch(e3) { return "(unknown)"; }
     }
 
-    // Selection-based mimic cut root (folder or selected comp's parent)
-    var __selectionCutRoot = null;
-    try { __selectionCutRoot = getSelectionCutRoot(); } catch (eSCR) { __selectionCutRoot = null; }
+    // Selection-based mimic cut info (folder selection wins; otherwise comps)
+    var __selectionCutInfo = { folder: null, hasComp: false };
+    try { __selectionCutInfo = getSelectionCutInfo(); } catch (eSCR) { __selectionCutInfo = { folder: null, hasComp: false }; }
 
     // A) Process selection: add selected comps to RQ
     try { if (VERBOSE_DEBUG && LOG_ENV_HEADER) log("Checkpoint: begin selection/RQ add phase (providedComps=" + ((opts && opts.comps && opts.comps.length)||0) + ")"); } catch(eDbgA) {}
@@ -952,10 +962,15 @@ function __AME_coreRun(opts) {
             var usedMimic = false;
             if (MIMIC_PROJECT_FOLDER_STRUCTURE) {
                 try {
-                    var segs = relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase());
+                    var anchorSegs = relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase());
+                    var segs = anchorSegs;
                     // Anchor wins; only use selection-cut when anchor not found
-                    if ((!segs || !segs.length) && __selectionCutRoot) {
-                        segs = relativeSegmentsAfterSelection(rqi.comp, __selectionCutRoot);
+                    if ((!segs || !segs.length)) {
+                        if (__selectionCutInfo && __selectionCutInfo.folder) {
+                            segs = relativeSegmentsAfterSelection(rqi.comp, __selectionCutInfo.folder);
+                        } else if (__selectionCutInfo && __selectionCutInfo.hasComp) {
+                            try { segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null); } catch (eSelComp) { segs = []; }
+                        }
                     }
                     if (segs && segs.length) {
                         var cur = dateFolder;
@@ -968,7 +983,7 @@ function __AME_coreRun(opts) {
                         }
                         destParent = cur;
                         usedMimic = true;
-                        if (__selectionCutRoot && !relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase()).length) {
+                        if ((!anchorSegs || !anchorSegs.length) && (__selectionCutInfo && (__selectionCutInfo.folder || __selectionCutInfo.hasComp))) {
                             pushDetail("MIMIC PATH (selection) -> " + cur.fsName);
                         } else {
                             pushDetail("MIMIC PATH -> " + cur.fsName);
