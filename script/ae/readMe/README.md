@@ -547,6 +547,33 @@ Table of contents
 
   ### 11. Changelog (Recent Highlights)
   See prior integration notes for full history. Highlights since Integration 195:
+
+  #### Script AE 92–94: videoID-Based Skipping (Step 5 – Add Layers)
+  Goal: Enable stable exclusion of specific compositions from layer-addition processing using their derived videoID.
+  Scope implemented:
+  - Added `addLayers.EXCLUDE_VIDEOIDS` option accepting an array of videoID strings to skip during layer copying.
+  - VideoID parsing moved earlier in the process: now extracted before duplicate (extras) generation and template layer copy.
+  - Skip logic applies to both regular and extras-derived comps: skipped comps remain with only their base layer; no template layers are copied.
+  - Logging: Skipped comps are noted in per-comp lines with `[skipped]` tag; summary reports total skipped count.
+  - Use case: Exclude specific comps from template application when manual layer arrangement is required or when particular videoIDs are handled differently.
+  Guidance:
+  - VideoIDs are derived before the skip check, ensuring stable matching even for extras comps.
+  - Skipped comps are not removed from the output pipeline; they proceed to packing and AME export with their base layer intact.
+
+  #### Script AE 230–244: Export Behaviour Changes (Step 7 – AME Output Paths)
+  Goal: Provide advanced sorting options, date folder toggles, and RenderQueue auto-delete with undo support.
+  Scope implemented:
+  - **Duration-First Sorting (Scripts AE 238–241)**: Added `DURATION_FIRST_ORDER` toggle for alternate token-based sorting (duration/AR vs AR/duration). Controlled via `ENABLE_AR_SUBFOLDER` (duration-first only) and `ENABLE_DURATION_SUBFOLDER` (AR-first only).
+  - **Three-Way Radio UI (Scripts AE 238–241)**: Introduced dedicated "Sorting mode" panel with radio buttons for mimic/AR-first/duration-first; subfolder checkboxes inside panel with dynamic enable/disable based on active mode.
+  - **Sorting Mode Logging (Script AE 241)**: Added ENV header note documenting active sorting mode and requirements (e.g., `Sorting: duration-first (req: duration; AR optional based on ENABLE_AR_SUBFOLDER)`).
+  - **Date Folder ISO Suffix Override (Script AE 237)**: Extended `ENABLE_DATE_FOLDER_ISO_SUFFIX` with options override support for pipeline-driven toggling.
+  - **RenderQueue Auto-Delete Undo (Scripts AE 242–244)**: Wrapped RQ auto-delete in standalone-only undo group (`AME RQ Auto-Delete`); pipeline mode skips undo to avoid batch overhead. Undo group uses guard variable and try/finally for safe cleanup.
+  - **UI Restructure (Script AE 241)**: Moved Sorting mode panel to independent position between Export target and Options groups for clarity.
+  Guidance:
+  - Sorting precedence: mimic wins when enabled; else duration-first if toggled; else AR-first via `ENABLE_DURATION_SUBFOLDER`.
+  - Missing tokens: duration-first requires duration token; comps without duration land in unsorted. Extras without AR in duration-first mode use "Extras" folder when `ENABLE_AR_SUBFOLDER=false`.
+  - Undo availability: RQ auto-delete can now be undone in standalone runs (UI mode); batch/pipeline runs remain unchanged.
+
   - Integrations 222–228 (Step 7 AME):
     - Added `AUTO_DELETE_RQ_AFTER_AME_QUEUE` to optionally remove newly added RQ items after a successful AME queue (best‑effort: `queueInAME` did not throw). Summary/log lines include delete counts.
     - Standalone AME panel: new dockable ScriptUI panel in `script/spinoff/set_ame_output_paths_panel.jsx` with a “Send to AME” button, export target radios (`MASTERS`, `DELIVERIES`, `PREVIEWS`, custom subpath), and checkboxes for `AUTO_DELETE_RQ_AFTER_AME_QUEUE`, `ENABLE_DATE_FOLDER_ISO_SUFFIX`, `ENABLE_DURATION_SUBFOLDER`, `USE_LANGUAGE_SUBFOLDER`.
