@@ -285,6 +285,16 @@ function __AME_coreRun(opts) {
 
     // Extras helpers — derive configured extra suffix from pipeline options when available
     try {
+        var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
+        if (addL && addL.EXTRA_TEMPLATES) {
+            if (typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
+                EXTRA_OUTPUT_SUFFIX = addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX;
+            }
+            if (addL.EXTRA_TEMPLATES.TAG_TOKENS instanceof Array) {
+                EXTRA_TAG_TOKENS = addL.EXTRA_TEMPLATES.TAG_TOKENS.slice(0);
+            }
+        }
+    } catch(eGetSuffix) {}
 
     // Selection-based cut: use selected folder (or selected comp's parent folder) as path root
     function getSelectionCutInfo() {
@@ -302,6 +312,18 @@ function __AME_coreRun(opts) {
             }
         } catch (eGSR) {}
         return info;
+    }
+    function folderPathKey(folder) {
+        try {
+            if (!folder || folder === app.project.rootFolder) return "";
+            var parts = [];
+            var f = folder;
+            while (f && f !== app.project.rootFolder) {
+                parts.unshift(String(f.name || ""));
+                f = f.parentFolder;
+            }
+            return parts.join("/").toLowerCase();
+        } catch (eFP) { return ""; }
     }
     function relativeSegmentsAfterSelection(item, selectionRoot) {
         if (!selectionRoot) return [];
@@ -324,27 +346,21 @@ function __AME_coreRun(opts) {
         if (!folders || !folders.length) return null;
         var ancestors = collectAncestorItems(item);
         if (!ancestors || !ancestors.length) return null;
+        var selMap = {};
+        for (var s = 0; s < folders.length; s++) {
+            var k = folderPathKey(folders[s]);
+            if (k) selMap[k] = folders[s];
+        }
         var best = null;
         var bestIdx = null;
         for (var i = 0; i < ancestors.length; i++) {
-            for (var j = 0; j < folders.length; j++) {
-                if (ancestors[i] === folders[j]) {
-                    if (bestIdx === null || i < bestIdx) { best = folders[j]; bestIdx = i; }
-                }
+            var keyA = folderPathKey(ancestors[i]);
+            if (keyA && selMap[keyA]) {
+                if (bestIdx === null || i < bestIdx) { best = selMap[keyA]; bestIdx = i; }
             }
         }
         return best;
     }
-        var addL = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.addLayers) ? __AE_PIPE__.optionsEffective.addLayers : null;
-        if (addL && addL.EXTRA_TEMPLATES) {
-            if (typeof addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX === 'string' && addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX.length) {
-                EXTRA_OUTPUT_SUFFIX = addL.EXTRA_TEMPLATES.OUTPUT_NAME_SUFFIX;
-            }
-            if (addL.EXTRA_TEMPLATES.TAG_TOKENS instanceof Array) {
-                EXTRA_TAG_TOKENS = addL.EXTRA_TEMPLATES.TAG_TOKENS.slice(0);
-            }
-        }
-    } catch(eGetSuffix) {}
     function __normToken(s){ try { return String(s||"").replace(/[^A-Za-z0-9]+/g, "").toLowerCase(); } catch(e){ return ""; } }
     function detectExtraInfo(compName) {
         try {
