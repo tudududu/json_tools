@@ -130,6 +130,7 @@ function __AME_coreRun(opts) {
             if (o.AME_RETRY_DELAY_MS !== undefined) AME_RETRY_DELAY_MS = parseInt(o.AME_RETRY_DELAY_MS, 10);
             // 4. Naming / extension fallback
             // 4b. Date folder ISO suffix feature & parent folder customization
+            if (o.ENABLE_DATE_FOLDER_ISO_SUFFIX !== undefined) ENABLE_DATE_FOLDER_ISO_SUFFIX = !!o.ENABLE_DATE_FOLDER_ISO_SUFFIX;
             // 4c. File logging options
             if (o.FILE_LOG_APPEND_MODE !== undefined) FILE_LOG_APPEND_MODE = !!o.FILE_LOG_APPEND_MODE;
             if (o.FILE_LOG_MAX_FILES !== undefined) FILE_LOG_MAX_FILES = parseInt(o.FILE_LOG_MAX_FILES, 10);
