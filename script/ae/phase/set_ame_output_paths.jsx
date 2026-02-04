@@ -325,10 +325,12 @@ function __AME_coreRun(opts) {
         var ancestors = collectAncestorItems(item);
         if (!ancestors || !ancestors.length) return null;
         var best = null;
-        var bestIdx = -1;
+        var bestIdx = null;
         for (var i = 0; i < ancestors.length; i++) {
             for (var j = 0; j < folders.length; j++) {
-                if (ancestors[i] === folders[j]) { best = folders[j]; bestIdx = i; }
+                if (ancestors[i] === folders[j]) {
+                    if (bestIdx === null || i < bestIdx) { best = folders[j]; bestIdx = i; }
+                }
             }
         }
         return best;
