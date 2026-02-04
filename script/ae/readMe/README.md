@@ -547,6 +547,10 @@ Table of contents
 
   ### 11. Changelog (Recent Highlights)
   See prior integration notes for full history. Highlights since Integration 195:
+  - Integrations 222–228 (Step 7 AME):
+    - Added `AUTO_DELETE_RQ_AFTER_AME_QUEUE` to optionally remove newly added RQ items after a successful AME queue (best‑effort: `queueInAME` did not throw). Summary/log lines include delete counts.
+    - Standalone AME panel: new dockable ScriptUI panel in `script/spinoff/set_ame_output_paths_panel.jsx` with a “Send to AME” button, export target radios (`MASTERS`, `DELIVERIES`, `PREVIEWS`, custom subpath), and checkboxes for `AUTO_DELETE_RQ_AFTER_AME_QUEUE`, `ENABLE_DATE_FOLDER_ISO_SUFFIX`, `ENABLE_DURATION_SUBFOLDER`, `USE_LANGUAGE_SUBFOLDER`.
+    - Panel behavior: always queues on button press; custom export path expects relative subpath segments under `POST` (e.g., `OUT/MASTERS`).
   - Step 3 (Create Comps): AUTO now accepts `CompItem` sources via `ENABLE_ACCEPT_COMP_SOURCE`; collection summary includes item type counts.
   - Step 4 (Insert & Relink): Audio pairing generalized to N (1–4) title tokens before duration with `AUDIO_TITLE_TOKEN_COUNT`; optional strict adjacency via `AUDIO_TOKENS_REQUIRE_ADJACENT`; added debug-only audit without breaking existing parsers.
   - Step 5 (Add Layers): Added `logo_03/04/05` flags and wired skip-copy gates using group-based detection.
