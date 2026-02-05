@@ -95,6 +95,7 @@ function __AME_coreRun(opts) {
     var DOUBLE_APPLY_OUTPUT_MODULE_TEMPLATES = true; // Re-apply template just before AME queue (improves reliability of inheritance)
     var INJECT_PRESET_TOKEN_IN_FILENAME = false;    // Append __TemplateName to filename before extension (lets you see which preset intended)
     var FILENAME_TEMPLATE_SANITIZE = true;          // Sanitize token when injecting
+    
     // 5b. Extras routing: when true, route extras into a subfolder named "<AR>_<extraName>"
     var EXTRA_EXPORT_SUBFOLDER = false;
     var EXTRA_OUTPUT_SUFFIX = "_extra";            // source of extraName (leading underscore removed)
@@ -1433,21 +1434,21 @@ function __AME_buildPanel(thisObj) {
     var grpSort = pal.add("panel", undefined, "Sorting mode");
     grpSort.orientation = "column";
     grpSort.alignChildren = ["left", "top"];
-    var rbSortMimic = grpSort.add("radiobutton", undefined, "mimic folder structure");
-    var rbSortArFirst = grpSort.add("radiobutton", undefined, "sorting: AR-first");
-    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "sorting: duration-first");
+    var rbSortMimic = grpSort.add("radiobutton", undefined, "Mimic Folder Structure");
+    var rbSortArFirst = grpSort.add("radiobutton", undefined, "Sorting: AR-First");
+    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "Sorting: Duration-First");
 
-    var cbDuration = grpSort.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER (AR-first)");
-    var cbArSubfolder = grpSort.add("checkbox", undefined, "ENABLE_AR_SUBFOLDER (duration-first)");
+    var cbDuration = grpSort.add("checkbox", undefined, "Duration Subfolder (AR-First)");
+    var cbArSubfolder = grpSort.add("checkbox", undefined, "AR Subfolder (Duration-First)");
 
     // Options checkboxes
     var grpOpts = pal.add("panel", undefined, "Options");
     grpOpts.orientation = "column";
     grpOpts.alignChildren = ["left", "top"];
 
-    var cbAutoDelete = grpOpts.add("checkbox", undefined, "AUTO_DELETE_RQ_AFTER_AME_QUEUE");
-    var cbIsoSuffix = grpOpts.add("checkbox", undefined, "ENABLE_DATE_FOLDER_ISO_SUFFIX");
-    var cbLang = grpOpts.add("checkbox", undefined, "USE_LANGUAGE_SUBFOLDER");
+    var cbAutoDelete = grpOpts.add("checkbox", undefined, "Auto Delete RQ");
+    var cbIsoSuffix = grpOpts.add("checkbox", undefined, "Date Folder ISO Suffix");
+    var cbLang = grpOpts.add("checkbox", undefined, "Language Subfolder");
 
     cbAutoDelete.value = true;
     cbIsoSuffix.value = true;
