@@ -1434,12 +1434,22 @@ function __AME_buildPanel(thisObj) {
     var grpSort = pal.add("panel", undefined, "Sorting mode");
     grpSort.orientation = "column";
     grpSort.alignChildren = ["left", "top"];
-    var rbSortMimic = grpSort.add("radiobutton", undefined, "Mimic Folder Structure");
-    var rbSortArFirst = grpSort.add("radiobutton", undefined, "Sorting: AR-First");
-    var rbSortDurationFirst = grpSort.add("radiobutton", undefined, "Sorting: Duration-First");
+    var grpSortRadio = grpSort.add("group");
+    grpSortRadio.orientation = "row";
+    grpSortRadio.alignChildren = ["left", "top"];
+    var rbSortMimic = grpSortRadio.add("radiobutton", undefined, "Structure");
+    var rbSortArFirst = grpSortRadio.add("radiobutton", undefined, "Sort AR");
+    var rbSortDurationFirst = grpSortRadio.add("radiobutton", undefined, "Sort Dur");
 
     var cbDuration = grpSort.add("checkbox", undefined, "Duration Subfolder (AR-First)");
     var cbArSubfolder = grpSort.add("checkbox", undefined, "AR Subfolder (Duration-First)");
+    
+    // Action button
+    var grpAction = pal.add("group");
+    grpAction.alignment = ["fill", "top"];
+    grpAction.orientation = "row";
+    grpAction.alignChildren = ["fill", "center"];
+    var btnSend = grpAction.add("button", undefined, "Send to AME");
 
     // Options checkboxes
     var grpOpts = pal.add("panel", undefined, "Options");
@@ -1466,13 +1476,6 @@ function __AME_buildPanel(thisObj) {
     }
     rbSortMimic.onClick = rbSortArFirst.onClick = rbSortDurationFirst.onClick = updateSortControls;
     updateSortControls();
-
-    // Action button
-    var grpAction = pal.add("group");
-    grpAction.alignment = ["fill", "top"];
-    grpAction.orientation = "row";
-    grpAction.alignChildren = ["fill", "center"];
-    var btnSend = grpAction.add("button", undefined, "Send to AME");
 
     function resolveExportSubpath() {
         if (rbMasters.value) return "OUT/MASTERS";
