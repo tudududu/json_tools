@@ -142,10 +142,9 @@ class FlagsAndMergingTests(unittest.TestCase):
             os.remove(path)
 
         node = out['byCountry']['GBL']
-        # Claim orientation arrays: portrait collects only explicit slots, then extends with remaining landscape entries
-        # For row1 (no portrait), nothing added; row2 adds C2_port; then extended with landscape[1] ('C2_land')
+        # Claim orientation arrays: portrait is aligned per line with row-wise fallback to landscape.
         self.assertEqual(node['claim']['landscape'], ['C1_land', 'C2_land'])
-        self.assertEqual(node['claim']['portrait'], ['C2_port', 'C2_land'])
+        self.assertEqual(node['claim']['portrait'], ['C1_land', 'C2_port'])
         # Logo mirrors to portrait
         self.assertEqual(node['logo']['portrait'], node['logo']['landscape'])
         # Subtitles: portrait video should use portrait text when supplied
@@ -205,6 +204,82 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(v_land['claim'][0]['text'], 'LOCAL_LAND')
         # Portrait inherits LOCAL_LAND (not GLOBAL_PORT) because portrait local empty
         self.assertEqual(v_port['claim'][0]['text'], 'LOCAL_LAND')
+
+    def test_claim_portrait_alignment_issue_test_a(self):
+        # Global claim: portrait provided only for line 3 (multiline); portrait must stay aligned by line index.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBR;GBR\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;;;;;Y;;;TIME TRAVELLING SINCE 1824;\n'
+            'claim;;;;; ;Y;;;claim2;\n'
+            'claim;;;;; ;Y;;;Discover more at themacallan.com;"Discover more at\n'
+            'themacallan.com"\n'
+            'meta_local;VID_A;;;;title;N;ALL;T;;\n'
+            'sub;VID_A;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+            'claim;VID_A;1;00:00:11:22;00:00:15:00;;;;;;\n'
+            'claim;VID_A;2;00:00:00:00;00:00:00:00;;;;;;\n'
+            'claim;VID_A;3;00:00:11:22;00:00:15:00;;;;;;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBR']
+        self.assertEqual(node['claim']['landscape'], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            'Discover more at themacallan.com',
+        ])
+        self.assertEqual(node['claim']['portrait'], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        self.assertEqual([x['text'] for x in v_port['claim']], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
+
+    def test_claim_portrait_alignment_issue_test_b(self):
+        # Global claim: portrait provided for lines 1 and 3 (multiline); line 2 must remain in place.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBR;GBR\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;;;;;Y;;;TIME TRAVELLING SINCE 1824;"TIME TRAVELLING\n'
+            'SINCE 1824"\n'
+            'claim;;;;; ;Y;;;claim2;\n'
+            'claim;;;;; ;Y;;;Discover more at themacallan.com;"Discover more at\n'
+            'themacallan.com"\n'
+            'meta_local;VID_B;;;;title;N;ALL;T;;\n'
+            'sub;VID_B;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+            'claim;VID_B;1;00:00:11:22;00:00:15:00;;;;;;\n'
+            'claim;VID_B;2;00:00:00:00;00:00:00:00;;;;;;\n'
+            'claim;VID_B;3;00:00:11:22;00:00:15:00;;;;;;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBR']
+        self.assertEqual(node['claim']['portrait'], [
+            'TIME TRAVELLING\nSINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        self.assertEqual([x['text'] for x in v_port['claim']], [
+            'TIME TRAVELLING\nSINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
 
     def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
         # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled

@@ -1201,18 +1201,11 @@ def convert_csv_to_json(
             for row in claims_rows:
                 txt_l = (row["texts"].get(c, "") or "").rstrip()
                 txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                # If portrait empty mirror later; only append landscape if not empty (unless keeping empty forbidden)
+                # Keep claim line alignment by falling back portrait per row index.
+                # Append only rows that participate in landscape output (or include empties when configured).
                 if txt_l or not skip_empty_text:
                     claim_landscape.append(txt_l)
-                if txt_p:
-                    claim_portrait.append(txt_p)
-            # Mirror landscape into portrait if portrait missing or shorter
-            if not claim_portrait and claim_landscape:
-                claim_portrait = claim_landscape.copy()
-            elif claim_portrait and len(claim_portrait) < len(claim_landscape):
-                # Extend portrait with landscape fallbacks
-                for i in range(len(claim_portrait), len(claim_landscape)):
-                    claim_portrait.append(claim_landscape[i])
+                    claim_portrait.append(txt_p if txt_p else txt_l)
 
             disc_landscape: List[str] = []
             disc_portrait: List[str] = []
