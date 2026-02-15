@@ -384,6 +384,10 @@ def convert_csv_to_json(
         # endFrame rows (per-video timings; optional text columns similar to logo)
         endframe_rows_raw: List[Dict[str, Any]] = []
         per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        # Generic timed keys (scalable): generic_01 .. generic_NN
+        generic_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        per_video_generic_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+        generic_keys_seen: set[str] = set()
         # subs_rows reserved for future use (not needed currently)
 
         auto_claim_line = 1
@@ -396,9 +400,26 @@ def convert_csv_to_json(
         auto_logo_line_per_video: Dict[str, int] = {}
         auto_endframe_line = 1
         auto_endframe_line_per_video: Dict[str, int] = {}
+        auto_generic_line_per_key: Dict[str, int] = {}
+        auto_generic_line_per_video_per_key: Dict[str, Dict[str, int]] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
         auto_super_a_line_per_video: Dict[str, int] = {}
         auto_super_b_line_per_video: Dict[str, int] = {}
+
+        generic_record_re = re.compile(r"^generic_(\d+)$", re.I)
+        generic_flag_re = re.compile(r"^generic_(\d+)_flag$", re.I)
+
+        def _normalize_generic_record(name: str) -> Optional[str]:
+            m = generic_record_re.match((name or "").strip())
+            if not m:
+                return None
+            return f"generic_{int(m.group(1)):02d}"
+
+        def _normalize_generic_flag(name: str) -> Optional[str]:
+            m = generic_flag_re.match((name or "").strip())
+            if not m:
+                return None
+            return f"generic_{int(m.group(1)):02d}_flag"
 
         for r in rows:
             if len(r) < len(headers):
@@ -475,12 +496,14 @@ def convert_csv_to_json(
                     continue
                 # Per-country flag keys (disclaimer_flag / disclaimer_02_flag / subtitle_flag / super_A_flag / super_B_flag) now can appear as meta_global.
                 # Capture per-country values so they can act as defaults for per-video metadata flags.
-                if key_name in ("disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_A_flag", "super_B_flag"):
+                generic_flag_name = _normalize_generic_flag(key_name)
+                if key_name in ("disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_A_flag", "super_B_flag") or generic_flag_name:
+                    flag_key_name = generic_flag_name if generic_flag_name else key_name
                     for c in countries:
                         per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
                         if per_val:
                             bucket = global_flag_values_per_country.setdefault(c, {})
-                            bucket[key_name] = per_val
+                            bucket[flag_key_name] = per_val
                     # Do not store as a single shared global_meta value; flags are per-country.
                     continue
                 # Per-country language value for metadataGlobal.language (CSV to JSON 167)
@@ -527,7 +550,9 @@ def convert_csv_to_json(
                     video_order.append(video_id)
                 key_lower = key_name.lower()
                 # Special per-country meta_local keys: collect values per country instead of a single shared one
-                if key_lower in {"disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_a_flag", "super_b_flag", "logo_anim_flag"}:
+                generic_flag_name = _normalize_generic_flag(key_name)
+                if key_lower in {"disclaimer_flag", "disclaimer_02_flag", "subtitle_flag", "super_a_flag", "super_b_flag", "logo_anim_flag"} or generic_flag_name:
+                    local_flag_key = generic_flag_name if generic_flag_name else key_name
                     if video_id not in per_video_meta_local_country:
                         per_video_meta_local_country[video_id] = {}
                     # For each country, pick per-country landscape/portrait cell (first non-empty among them)
@@ -538,7 +563,7 @@ def convert_csv_to_json(
                             val = metadata_cell_val.strip()
                         if val:
                             bucket = per_video_meta_local_country[video_id].setdefault(c, {})
-                            bucket[key_name] = val
+                            bucket[local_flag_key] = val
                     # Do not store shared value in videos[video_id]["metadata"] for these keys
                 else:
                     country_val = next((texts[c] for c in countries if texts[c]), "")
@@ -794,6 +819,49 @@ def convert_csv_to_json(
                     "texts": texts,
                     "texts_portrait": texts_portrait,
                 })
+                continue
+
+            # Generic timed rows (scalable): generic_01 .. generic_NN
+            generic_key = _normalize_generic_record(rt)
+            if generic_key:
+                generic_keys_seen.add(generic_key)
+                if video_id:
+                    if video_id not in videos:
+                        videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                        video_order.append(video_id)
+                    per_video_generic_rows_raw.setdefault(generic_key, {})
+                    per_video_generic_rows_raw[generic_key].setdefault(video_id, [])
+                    auto_generic_line_per_video_per_key.setdefault(generic_key, {})
+                    if video_id not in auto_generic_line_per_video_per_key[generic_key]:
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = start_line_index
+                    if line_num is None:
+                        line_num = auto_generic_line_per_video_per_key[generic_key][video_id]
+                        auto_generic_line_per_video_per_key[generic_key][video_id] += 1
+                    else:
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = line_num + 1
+                    per_video_generic_rows_raw[generic_key][video_id].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    })
+                else:
+                    generic_rows_raw.setdefault(generic_key, [])
+                    if generic_key not in auto_generic_line_per_key:
+                        auto_generic_line_per_key[generic_key] = 1
+                    if line_num is None:
+                        line_num = auto_generic_line_per_key[generic_key]
+                        auto_generic_line_per_key[generic_key] += 1
+                    else:
+                        auto_generic_line_per_key[generic_key] = line_num + 1
+                    generic_rows_raw[generic_key].append({
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    })
                 continue
 
             # Unknown record type ignored
@@ -1194,6 +1262,10 @@ def convert_csv_to_json(
 
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
+        generic_keys_sorted = sorted(
+            generic_keys_seen,
+            key=lambda k: int(re.search(r"(\d+)$", k).group(1)) if re.search(r"(\d+)$", k) else 9999,
+        )
         for c in countries:
             # Build orientation-specific top-level arrays
             claim_landscape: List[str] = []
@@ -1246,6 +1318,21 @@ def convert_csv_to_json(
                     logo_portrait.append(txt_p)
             if not logo_portrait and logo_landscape:
                 logo_portrait = logo_landscape.copy()
+
+            # Generic top-level orientation arrays (line-aligned, portrait fallback per row)
+            generic_top_land: Dict[str, List[str]] = {}
+            generic_top_port: Dict[str, List[str]] = {}
+            for gk in generic_keys_sorted:
+                g_land: List[str] = []
+                g_port: List[str] = []
+                for grow in generic_rows_raw.get(gk, []):
+                    txt_l = (grow.get("texts", {}).get(c, "") or "").rstrip()
+                    txt_p = (grow.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                    if txt_l or not skip_empty_text:
+                        g_land.append(txt_l)
+                        g_port.append(txt_p if txt_p else txt_l)
+                generic_top_land[gk] = g_land
+                generic_top_port[gk] = g_port
 
             # Videos (create landscape + portrait objects always, mirroring when portrait empty)
             videos_list: List[Dict[str, Any]] = []
@@ -1373,6 +1460,11 @@ def convert_csv_to_json(
 
             global_claim_map_land = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
             global_claim_map_port = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in claims_rows}
+            global_generic_map_land: Dict[str, Dict[Tuple[Optional[float], Optional[float]], str]] = {}
+            global_generic_map_port: Dict[str, Dict[Tuple[Optional[float], Optional[float]], str]] = {}
+            for gk in generic_keys_sorted:
+                global_generic_map_land[gk] = {timing_key(r): (r.get("texts", {}).get(c, "") or "").strip() for r in generic_rows_raw.get(gk, [])}
+                global_generic_map_port[gk] = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in generic_rows_raw.get(gk, [])}
             # For disclaimers, order matters but often it's one block; use index-based fallback too
             global_disc_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
             global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
@@ -1660,6 +1752,34 @@ def convert_csv_to_json(
                     end_items.append(entry)
                 vobj["endFrame"] = end_items
 
+                # Generic timed keys (no merge/dedup) with top-level + per-video output
+                for gk in generic_keys_sorted:
+                    src_generic = (per_video_generic_rows_raw.get(gk, {}).get(vid_full.rsplit("_", 1)[0]) or generic_rows_raw.get(gk, []))
+                    generic_items: List[Dict[str, Any]] = []
+                    generic_texts_global = generic_top_port[gk] if orientation == "portrait" else generic_top_land[gk]
+                    global_generic_map = global_generic_map_port[gk] if orientation == "portrait" else global_generic_map_land[gk]
+                    for idx, grow in enumerate(src_generic):
+                        txt_local = (((grow.get("texts_portrait", {}) if orientation == "portrait" else grow.get("texts", {})).get(c, "") or "").rstrip())
+                        if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                            alt_land_local = (grow.get("texts", {}).get(c, "") or "").rstrip()
+                            if alt_land_local:
+                                txt_local = alt_land_local
+                        txt_global_timing = global_generic_map.get(timing_key(grow), "")
+                        txt_global_index = (
+                            generic_texts_global[idx]
+                            if idx < len(generic_texts_global)
+                            else (generic_texts_global[0] if generic_texts_global else "")
+                        )
+                        text_value = txt_local if txt_local else (txt_global_timing or txt_global_index or txt_local)
+                        if test_mode and text_value:
+                            text_value = f"{vid_full}_{text_value}"
+                        entry = {"line": grow.get("line", idx + 1), "text": text_value}
+                        if grow.get("start") is not None and grow.get("end") is not None:
+                            entry["in"] = fmt_time(grow["start"])
+                            entry["out"] = fmt_time(grow["end"])
+                        generic_items.append(entry)
+                    vobj[gk] = generic_items
+
             # Cast metadata values if requested
             def maybe_cast(value: Any) -> Any:
                 if not cast_metadata:
@@ -1719,6 +1839,8 @@ def convert_csv_to_json(
                     "logo": vobj.get("logo", []),
                     "endFrame": vobj.get("endFrame", []),
                 }
+                for gk in generic_keys_sorted:
+                    base[gk] = vobj.get(gk, [])
                 if claims_as_objects:
                     # Copy any claim_XX fields from vobj into the output
                     for k, val in vobj.items():
@@ -1742,6 +1864,8 @@ def convert_csv_to_json(
                     "logo": logo_landscape,
                     "videos": vlist_cast,
                 }
+                for gk in generic_keys_sorted:
+                    payload[gk] = generic_top_land.get(gk, [])
             else:
                 payload = {
                     "metadataGlobal": gm_cast,
@@ -1751,6 +1875,8 @@ def convert_csv_to_json(
                     "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
                     "videos": vlist_cast,
                 }
+                for gk in generic_keys_sorted:
+                    payload[gk] = {"landscape": generic_top_land.get(gk, []), "portrait": generic_top_port.get(gk, [])}
             by_country[c] = payload
 
         # Multi output
