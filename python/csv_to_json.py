@@ -1834,6 +1834,7 @@ def convert_csv_to_json(
                     "subtitles": vobj["subtitles"],
                     "super_A": vobj.get("super_A", []),
                     "super_B": vobj.get("super_B", []),
+                    "claim": vobj.get("claim", []),
                     "disclaimer": vobj.get("disclaimer", []),
                     "disclaimer_02": vobj.get("disclaimer_02", []),
                     "logo": vobj.get("logo", []),
@@ -1846,6 +1847,7 @@ def convert_csv_to_json(
                     for k, val in vobj.items():
                         if isinstance(k, str) and k.startswith("claim_"):
                             base[k] = val
+                    base.pop("claim", None)
                 else:
                     base["claim"] = vobj.get("claim", [])
                 vlist_cast.append(base)
@@ -1862,10 +1864,10 @@ def convert_csv_to_json(
                     "disclaimer": disc_landscape if disc_landscape else [""],
                     "disclaimer_02": disc_02_landscape if disc_02_landscape else [""],
                     "logo": logo_landscape,
-                    "videos": vlist_cast,
                 }
                 for gk in generic_keys_sorted:
                     payload[gk] = generic_top_land.get(gk, [])
+                payload["videos"] = vlist_cast
             else:
                 payload = {
                     "metadataGlobal": gm_cast,
@@ -1873,10 +1875,10 @@ def convert_csv_to_json(
                     "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
                     "disclaimer_02": {"landscape": disc_02_landscape, "portrait": disc_02_portrait},
                     "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
-                    "videos": vlist_cast,
                 }
                 for gk in generic_keys_sorted:
                     payload[gk] = {"landscape": generic_top_land.get(gk, []), "portrait": generic_top_port.get(gk, [])}
+                payload["videos"] = vlist_cast
             by_country[c] = payload
 
         # Multi output
