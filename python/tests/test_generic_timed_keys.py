@@ -88,6 +88,45 @@ class GenericTimedKeysTests(unittest.TestCase):
         self.assertEqual(v_land['generic_01'][0]['text'], 'DUP')
         self.assertEqual(v_land['generic_01'][1]['text'], 'DUP')
 
+    def test_ordering_contract_top_level_and_per_video(self):
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;1;00:00:01:00;00:00:02:00;;;;;C1;\n'
+            'disclaimer;;1;00:00:02:00;00:00:03:00;;;;;D1;\n'
+            'logo;;1;00:00:03:00;00:00:04:00;;;;;L1;\n'
+            'generic_01;;1;00:00:04:00;00:00:05:00;;;;;G1;\n'
+            'generic_02;;1;00:00:05:00;00:00:06:00;;;;;G2;\n'
+            'meta_local;VID_O;;;;title;N;ALL;TitleO;;\n'
+            'sub;VID_O;1;00:00:00:00;00:00:01:00;;;;;sL;sP\n'
+            'super_a;VID_O;1;00:00:01:00;00:00:02:00;;;;;aL;aP\n'
+            'super_b;VID_O;1;00:00:02:00;00:00:03:00;;;;;bL;bP\n'
+            'claim;VID_O;1;00:00:01:00;00:00:02:00;;;;;vC;\n'
+            'disclaimer;VID_O;1;00:00:00:00;00:00:00:00;;;;;vD;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        top_keys = list(node.keys())
+        self.assertIn('generic_01', top_keys)
+        self.assertIn('generic_02', top_keys)
+        self.assertIn('videos', top_keys)
+        self.assertLess(top_keys.index('generic_01'), top_keys.index('videos'))
+        self.assertLess(top_keys.index('generic_02'), top_keys.index('videos'))
+
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        v_keys = list(v_land.keys())
+        self.assertIn('super_B', v_keys)
+        self.assertIn('claim', v_keys)
+        self.assertIn('disclaimer', v_keys)
+        self.assertLess(v_keys.index('super_B'), v_keys.index('claim'))
+        self.assertLess(v_keys.index('claim'), v_keys.index('disclaimer'))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

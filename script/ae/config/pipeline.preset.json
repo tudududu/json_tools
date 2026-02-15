@@ -37,7 +37,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/ria/POST/WORK/riaa_v10.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/20reasons/POST/WORK/riaa_v10pers15.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -274,7 +274,7 @@
     "SKIP_IF_ALREADY_IN_OUTPUT": true,
     "SKIP_IF_OUTPUT_ALREADY_EXISTS": true,
     "DATA_JSON_PRIMARY_NAME": "data.json",
-    "ENABLE_EXTRA_OUTPUT_COMPS": true,
+    "ENABLE_EXTRA_OUTPUT_COMPS": false,
     "EXTRA_OUTPUT_COMPS": {
         "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
         "1x1|15s": "1440x1440",
