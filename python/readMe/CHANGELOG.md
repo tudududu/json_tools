@@ -1,3 +1,21 @@
+# 1.5.7 - 2025-12-11
+
+Added:
+- SRT → CSV converter tool `srt_to_csv.py` (CSV to JSON 195–203):
+	* Converts SubRip blocks into CSV with either frame timecodes (`HH:MM:SS:FF`) or milliseconds (`HH:MM:SS,SSS`).
+	* `--fps` controls frame conversion; `--out-format` selects `frames` or `ms` output.
+	* `--encoding` supports `utf-8-sig` and other inputs with BOM.
+	* CSV formatting controls: `--quote-all` and `--delimiter` (comma/semicolon).
+	* Batch mode: `--input-dir` and `--output-dir` convert multiple `.srt` files.
+	* Batch join: `--join-output` merges many `.srt` files into one CSV with filename markers.
+	* Includes CLI module entry (`python -m python.tools.srt_to_csv`) and tool documentation.
+
+Tests:
+- Added coverage for `srt_to_csv.py` (frame/ms output, join-output, batch mode, quoting, and delimiter handling).
+
+Docs:
+- README updated with `srt_to_csv.py` usage, flags, and batch examples.
+
 # 1.5.6 - 2025-12-10
 
 Added (CSV to JSON 191–192):
