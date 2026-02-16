@@ -1,3 +1,28 @@
+# 1.6.0 - 2026-02-16
+
+Added:
+- CSV → JSON tool (CSV to JSON 220–223):
+	* Scalable generic timed keys (`generic_01`..`generic_NN`) with top-level and per-video outputs.
+	* Auto-detected `generic_XX_flag` support via `meta_global`/`meta_local` with the usual per-country default + per-video override rules.
+	* Output ordering guarantees: generic keys appear before `videos`, and per-video `claim` follows `super_B`.
+
+# 1.5.10 - 2026-02-12
+
+Fixed:
+- CSV → JSON tool
+	Traced and fixed the claim line-shift bug, then added regression coverage for your Test A and Test B scenarios.
+
+	What was wrong
+	Portrait claims were built by appending only explicit portrait rows, then padding by list length.
+	That caused row-order drift when portrait was missing on earlier rows (exactly your A/B symptom).
+
+	Fix applied
+	Updated csv_to_json.py to keep claim.portrait aligned per row index:
+	For each emitted claim row, portrait now uses:
+		explicit portrait text when present,
+		otherwise fallback to same-row landscape text.
+	Removed the old “append portrait then extend tail” behavior that caused shifting.
+
 # 1.5.9 - 2026-01-21
 
 Added:

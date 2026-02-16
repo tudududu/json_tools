@@ -32,6 +32,7 @@ Meaning:
   * `sub` – subtitle rows (must have `video_id` + start/end)
   * `super_a` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_A`)
   * `super_b` – timed auxiliary rows (per‑video; same rules as `sub` but emitted under `super_B`)
+  * `generic_01` ... `generic_NN` – timed generic rows (global or per‑video; scalable)
 * `video_id`: identifies the target video for `sub` and `meta_local` rows
 * `line`: optional manual line index; auto-assigned when missing
 * `start` / `end`: timecodes (may be empty for continuation lines of disclaimers/disclaimer_02 or untimed claim segments)
@@ -52,6 +53,7 @@ Meaning:
 | sub           | Appended to `videos[].subtitles[]` for the given `video_id` |
 | super_a       | Appended to `videos[].super_A[]` for the given `video_id` |
 | super_b       | Appended to `videos[].super_B[]` for the given `video_id` |
+| generic_XX    | Appended to top-level `generic_XX` and per-video `videos[].generic_XX[]` |
 | endFrame      | Appended to `videos[].endFrame[]` (timed segments; mirrors logo behavior per video) |
 
 ### Merging Behaviors
@@ -64,6 +66,44 @@ Meaning:
 * Per-video claim/disclaimer/disclaimer_02 text always takes precedence over the global arrays when a local cell is populated (landscape or portrait). Global text still supplies fallback content whenever the local cell is empty, so sparse overrides remain safe.
 * Local claim/disclaimer/disclaimer_02 override is ON by default. A portrait line whose portrait cell is empty inherits the landscape local text when present before falling back to any global text. Use `--no-local-claim-override` (preferred) or the legacy inverted flag `--prefer-local-claim-disclaimer` to disable this behavior and revert to global timing/index fallback only.
 * Non‑contiguous dedup (subtitles + `super_A`): after contiguous merging, rows sharing `(line,start,end)` are grouped. Identical duplicate texts are not re‑appended; distinct texts for the same key are newline‑concatenated in original encounter order. Portrait texts use the same rule, with fallback to landscape when empty.
+
+### Generic Timed Keys (generic_01 .. generic_NN)
+
+Use `record_type` values like `generic_01`, `generic_02`, ... `generic_NN` to emit scalable timed arrays.
+
+* Any `generic_<number>` is normalized to two digits (`generic_1` → `generic_01`).
+* Omit `video_id` for top-level output or provide `video_id` for per-video output; per-video text takes precedence, global rows provide timing/index fallback.
+* Output shape matches claim-like arrays: orientation objects at the top level and per-video `generic_XX[]` arrays containing `{line,text,in,out}` items.
+* Portrait text falls back to landscape per row when missing.
+* No merge or dedup is applied for generic rows; line numbers auto-increment per key and per video.
+* Flags `generic_XX_flag` can be set via `meta_global` or `meta_local` and follow the same per-country default + per-video override rules as `super_A_flag`.
+
+#### Sample CSV (generic_XX)
+
+```
+record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBR
+meta_global;;;;;generic_01_flag;Y;ALL;enabled;
+generic_01;;;00:00:00:00;00:00:02:00;;;;;GLOBAL LINE;
+generic_01;VID_A;;00:00:03:00;00:00:05:00;;;;;LOCAL LINE;
+```
+
+```json
+{
+  "generic_01": {
+    "landscape": ["GLOBAL LINE"],
+    "portrait": ["GLOBAL LINE"]
+  },
+  "videos": [
+    {
+      "videoId": "VID_A_landscape",
+      "metadata": {"generic_01_flag": "enabled", "orientation": "landscape"},
+      "generic_01": [
+        {"line": 1, "in": 3.0, "out": 5.0, "text": "LOCAL LINE"}
+      ]
+    }
+  ]
+}
+```
 
 ### Sample CSV (super_A / super_B + flags)
 
