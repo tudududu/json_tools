@@ -1,3 +1,12 @@
+# 1.5.8 - 2025-12-31
+
+Added:
+- CSV → JSON media tool `csv_json_media.py` (CSV to JSON 206–211):
+	* Converts deliverables CSV into a media index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`.
+	* Supports duration parsing/normalization, consecutive creative dedup, and stable ordering of `{size, media}` pairs.
+	* Optional split-by-country output with filename templating and dry-run summaries.
+	* Media injection integrated into `csv_to_json.py` via `--media-csv` with exact country+language matching.
+
 # 1.5.7 - 2025-12-11
 
 Added:
