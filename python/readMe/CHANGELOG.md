@@ -1,6 +1,8 @@
 # 1.5.9 - 2026-01-21
 
 Added:
+- CSV → JSON tool
+	* Media injection into `csv_to_json.py` (CSV to JSON 212–213): added `--media-*` flags, single-load media CSV, and per-country injection on exact (Country, Language) matches.
 - CSV → JSON media tool enhancements (CSV to JSON 212–218):
 	* Multi-country/language split outputs with `--split-by-country` and `{COUNTRY}/{LANG}` filename templating.
 	* Optional bracket segments in output patterns only included when tokens are present.
