@@ -1,3 +1,14 @@
+# 1.5.9 - 2026-01-21
+
+Added:
+- CSV → JSON media tool enhancements (CSV to JSON 212–218):
+	* Multi-country/language split outputs with `--split-by-country` and `{COUNTRY}/{LANG}` filename templating.
+	* Optional bracket segments in output patterns only included when tokens are present.
+	* Robust handling for blank/separator rows and skipping empty split groups.
+	* Media CSV duration sourced from `Duration`/`Title` columns with fallback to `Creative`.
+	* Media mapping integration into `csv_to_json.py` with exact (country, language) injection after `videos`.
+	* Dimensions normalization (e.g., `1440 x 1800` → `1440x1800`).
+
 # 1.5.8 - 2025-12-31
 
 Added:
