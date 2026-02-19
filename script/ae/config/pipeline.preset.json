@@ -37,7 +37,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/20reasons/POST/WORK/riaa_v10pers15.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/macallan/demo/POST/WORK/Macallan_v16.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -120,7 +120,7 @@
             "contains": ["info"] 
             },
         "logo": { 
-            "exact": ["logo_01", "Size_Holder_Logo", "web", "Size_Holder_Claim_03"], 
+            "exact": ["logo_01", "Size_Holder_Logo", "Size_Holder_Claim_03"], 
             "contains": [], 
             "imageOnlyForContains": false 
         },
@@ -150,7 +150,7 @@
             "contains": [] 
             },
         "claim_02": { 
-            "exact": ["claim_02", "Size_Holder_Claim_02"],
+            "exact": ["claim_02", "Size_Holder_Claim_02", "web"],
             "contains": [] 
             },
         "claim_auxiliary": { 
@@ -221,18 +221,21 @@
         "claim_auxiliary": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
-        "disclaimerOff":true, 
+        "disclaimerOff": true, 
         "disclaimer02Off": true,
-        "subtitlesOff":true, 
-        "logoAnimOff":true,
+        "subtitlesOff": true, 
+        "logoAnimOff": true,
         "logo02Off": false,
-        "claim01Off": false,
+        "claim01Off": true,
         "claim02Off": true,
+        "superAOff": true,
+        "superBOff": true,
         "groups":{"enabled":true,"keys":["info"]}, 
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
-    "ENABLE_VIDEOID_BASED_LAYER_SKIP": true,
+    "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
+
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,

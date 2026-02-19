@@ -1,13 +1,12 @@
-// transform_opacity_fadein_onTime_v05 251128 
-// (orientation-aware, SINGLE KEY, 
-// issue: fade in - does not start at 0, fixed in v06)
-// Start-frame non‑zero adaptation: avoids initial 0 opacity by biasing ramp with frameDuration.
+// opacity_fadein_onTime_v06 260217
+// (orientation-aware, SINGLE KEY, fade in)
+// Fix: Fade starts exactly at OPAC_IN at segment in-point.
 
 // union does not work (of multiple segments when desiredLine == 0 for subtitles.)
 
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
-// Supported keys: claim | disclaimer | logo | subtitles (timed arrays of objects with in/out; global arrays w/out timing)
+// Supported keys: (E.g. claim | disclaimer | logo | subtitles) timed arrays of objects with in/out;
 // CONFIG:
 //   DATA_KEY    → which array to read
 //   desiredLine → line number (1-based). For subtitles: if 0 gather ALL subtitle lines' time windows (union)
@@ -24,10 +23,9 @@
 // -------- CONFIG --------
 var FOOTAGE_NAME = "data.json";
 var DATA_KEY     = "logo";
-var desiredLine  = 3;
+var desiredLine  = 0;
 var FADE_IN      = 0;
 var OPAC_IN      = 0;
-var START_MIN    = 1;          // minimum opacity on first active frame if OPAC_IN == 0
 var nameShift = 1;  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s
 
 // -------- Orientation detection --------
@@ -113,18 +111,15 @@ function mergeSegments(list){
   return out;
 }
 
-// Bias fade so first active frame > 0
+// Fade from OPAC_IN to 100 over segment start window
 function fadeOpacity(t, sT, eT, fin){
   if (fin <= 0.000001 || fin <= thisComp.frameDuration){
     // Treat as instant
     return 100;
   }
-  var frameBias = thisComp.frameDuration; // pushes start above 0
-  var progress = (t - sT + frameBias) / fin;
+  var progress = (t - sT) / fin;
   progress = Math.min(Math.max(progress, 0), 1);
-  var val = OPAC_IN + (100 - OPAC_IN) * progress;
-  if (OPAC_IN === 0 && val < START_MIN) val = START_MIN;
-  return val;
+  return OPAC_IN + (100 - OPAC_IN) * progress;
 }
 
 var dataRef = null, videoObj = null, segments = [], hasGlobalFallback = false;

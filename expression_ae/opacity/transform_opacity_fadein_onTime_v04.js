@@ -1,4 +1,6 @@
-// transform_opacity_fadein_onTime_v04 251202 (orientation-aware, SINGLE KEY)
+// transform_opacity_fadein_onTime_v04 251202
+// (orientation-aware, SINGLE KEY, 
+// issue: fade in - does not start at 0, fixed in v06)
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
 // Supported keys: claim | disclaimer | logo | subtitles (timed arrays of objects with in/out; global arrays w/out timing)
