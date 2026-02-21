@@ -34,10 +34,11 @@
     "RUNS_MAX": 0,
     "SLEEP_BETWEEN_RUNS_MS": 500,
     "SAVE_AFTER_RUN": true,
-    "DRY_RUN": false
+    "ENABLE_ISO_TOKEN_SELF_TEST": true,
+    "DRY_RUN": true
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/macallan/demo/POST/WORK/Macallan_v16.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/macallan/demo/POST/WORK/Macallan_v19.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {

@@ -35,6 +35,8 @@
         // Master switch: when false, all per-phase ENABLE_FILE_LOG toggles are forcibly disabled regardless of per-phase setting.
         PHASE_FILE_LOGS_MASTER_ENABLE: true,
         DRY_RUN: false,
+        // When true (and DRY_RUN=true), logs a small regex self-test matrix for ISO tokens
+        ENABLE_ISO_TOKEN_SELF_TEST: true,
         PIPELINE_QUEUE_TO_AME: true,
         VERBOSE: false,
         DEBUG_DUMP_EFFECTIVE_OPTIONS: false,
