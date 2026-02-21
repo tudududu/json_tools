@@ -117,8 +117,10 @@ Table of contents
   #### Step 1 – Link Data / ISO Detection
   Controls: `linkData.ENABLE_RELINK_DATA_JSON`, `linkData.DATA_JSON_ISO_MODE` (`manual`|`auto`), `linkData.DATA_JSON_ISO_CODE_MANUAL`, and optional `linkData.DATA_JSON_LANG_CODE_MANUAL`.
   Behavior:
-  - ISO can be auto-detected from parent folder name or forced via `DATA_JSON_ISO_CODE_MANUAL`.
+  - Country token (ISO) can be auto-detected from parent folder name or forced via `DATA_JSON_ISO_CODE_MANUAL`.
+    - Supported country formats: `AAA` or `AA1` (e.g., `USA`, `US1`).
   - Language is manual-only: set `DATA_JSON_LANG_CODE_MANUAL` to use `data_<ISO>_<LANG>.json`. If unset, the pipeline uses `data_<ISO>.json` and does not auto-pick any language file.
+    - Language token format remains alpha-3 (e.g., `ENG`, `FRA`).
   - Strictness: if a manually requested file is missing (ISO or ISO+LANG), Step 1 returns fatal and the run aborts immediately.
   - Ambiguity warning: when multiple `data_<ISO>_<LANG>.json` files exist and no language is selected, a warning is logged and ISO-only is used.
   Keeps ISO/LANG authoritative for later steps (Save As, audio checks, AME folder building).
@@ -463,7 +465,7 @@ Table of contents
   | Option | Default | Notes |
   |--------|---------|-------|
   | DATA_FS_SUBPATH | ['IN','data'] | Path under POST scanned for JSON files. |
-  | FILE_PREFIX / FILE_SUFFIX | data_ / .json | Filename pattern producing 3-letter ISO. |
+  | FILE_PREFIX / FILE_SUFFIX | data_ / .json | Filename pattern producing country token `AAA` or `AA1` (optional `_LANG` where `LANG` is alpha-3). |
   | RUNS_MAX | 0 | Limit number of runs (0 = all). |
   | SLEEP_BETWEEN_RUNS_MS | 500 | Stabilizing pause. |
   | DRY_RUN | false | Discovery only. |
@@ -538,7 +540,8 @@ Table of contents
   Missing AME template: leave `APPLY_TEMPLATES=false` or install presets in AME; pathing still works.
 
   ### 10. Glossary
-  ISO: 3-letter country/language code from data filename (`data_ENG.json`) or JSON.
+  ISO (country token): country code token from data filename (`data_USA.json`, `data_US1.json`) or JSON. Supported formats: `AAA` or `AA1`.
+  LANG (language token): alpha-3 language token used in `data_<ISO>_<LANG>.json` (e.g., `ENG`, `FRA`).
   YYMMDD: Date folder naming convention for footage & sound (e.g., `250910`).
   AR: Aspect Ratio token expressed as `w:h` normalized (e.g., `16x9`, `9x16`).
   Extras: Additional output variants produced either by Step 5 `EXTRA_TEMPLATES` duplicates or Step 6 `EXTRA_OUTPUT_COMPS` entries (string/compact/object/array). Extras may be routed into dedicated subfolders; naming can include a `MEDIA` token label when enabled.

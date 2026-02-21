@@ -107,7 +107,7 @@
         // Match both ISO-only and ISO_LANG variants: data_<ISO>.json and data_<ISO>_<LANG>.json
         var rx = new RegExp(
             "^" + batchCfg.FILE_PREFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') +
-            "([A-Za-z]{3})(?:_([A-Za-z]{3}))?" +
+            "((?:[A-Za-z]{3}|[A-Za-z]{2}\\d))(?:_([A-Za-z]{3}))?" +
             batchCfg.FILE_SUFFIX.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') +
             "$",
             "i"
@@ -153,7 +153,7 @@
 
     // Precompile ISO(+LANG) extraction regex using configured prefix/suffix to avoid mismatches
     function escRe(s){ return String(s).replace(/([.*+?^${}()|[\]\\])/g,'\\$1'); }
-    var isoLangRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "([A-Za-z]{3})(?:_([A-Za-z]{3}))?" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
+    var isoLangRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "((?:[A-Za-z]{3}|[A-Za-z]{2}\\d))(?:_([A-Za-z]{3}))?" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
 
     // Build ISO index to detect ambiguous language sets in DRY_RUN mode
     var isoIndex = (function(){

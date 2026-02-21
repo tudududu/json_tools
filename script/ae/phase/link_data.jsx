@@ -108,20 +108,20 @@ function __LinkData_coreRun(opts) {
             }
             var workName = normalizedName || decodedName || parentNameRaw;
             var mIso = null;
-            var m1 = workName.match(/-\s*([A-Za-z]{3})$/);
+            var m1 = workName.match(/-\s*((?:[A-Za-z]{3}|[A-Za-z]{2}\d))$/);
             if (m1) mIso = m1;
             if (!mIso) {
                 var parts = workName.split(/[\s_]+/);
                 if (parts.length) {
                     var last = parts[parts.length - 1];
-                    if (/^[A-Za-z]{3}$/.test(last)) mIso = [null, last];
+                    if (/^(?:[A-Za-z]{3}|[A-Za-z]{2}\d)$/.test(last)) mIso = [null, last];
                 }
             }
             if (!mIso) {
                 var dashParts = workName.split('-');
                 if (dashParts.length >= 2) {
                     var cand = dashParts[dashParts.length - 1].replace(/\s+/g,'');
-                    if (/^[A-Za-z]{3}$/.test(cand)) mIso = [null, cand];
+                    if (/^(?:[A-Za-z]{3}|[A-Za-z]{2}\d)$/.test(cand)) mIso = [null, cand];
                 }
             }
             if (mIso && mIso[1]) {
@@ -155,7 +155,7 @@ function __LinkData_coreRun(opts) {
     } else {
         // Enumerate existing language files (data_<ISO>_<LANG>.json); if >1 present and none selected manually, warn.
         try {
-            var warnPattern = new RegExp('^' + DATA_JSON_FILE_PREFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + DATA_JSON_ISO_CODE + '_([A-Za-z]{3})' + DATA_JSON_FILE_SUFFIX.replace(/[-^$*+?.()|[\]{}]/g,'\$&') + '$','i');
+            var warnPattern = new RegExp('^' + DATA_JSON_FILE_PREFIX.replace(/[-^$*+?.()|[\]{}]/g,'\\$&') + DATA_JSON_ISO_CODE + '_([A-Za-z]{3})' + DATA_JSON_FILE_SUFFIX.replace(/[-^$*+?.()|[\]{}]/g,'\\$&') + '$','i');
             var langFiles = dataFolderFS.getFiles(function(f){ return (f instanceof File) && warnPattern.test(f.name); });
             if (langFiles && langFiles.length > 1) {
                 var langs = [];

@@ -763,7 +763,7 @@ function __InsertRelink_coreRun(opts) {
                 var first = null, second = null;
                 if (durIdx + 1 < parts.length) {
                     var t1 = cleanTok(parts[durIdx+1]);
-                    if (/^[A-Z]{3}$/.test(t1) && !IGNORE[t1]) first = t1;
+                    if (/^(?:[A-Z]{3}|[A-Z]{2}\d)$/.test(t1) && !IGNORE[t1]) first = t1;
                 }
                 if (first && durIdx + 2 < parts.length) {
                     var t2 = cleanTok(parts[durIdx+2]);
@@ -772,8 +772,8 @@ function __InsertRelink_coreRun(opts) {
                 if (first && second) { return { iso:first, lang:second, token:first+"_"+second }; }
                 if (first) { return { iso:first, lang:null, token:first }; }
             }
-            // Fallback: scan any 3-letter token if no duration found
-            for (var k=0; k<parts.length; k++) { var pk = cleanTok(parts[k]); if (/^[A-Z]{3}$/.test(pk) && !IGNORE[pk]) { return { iso:pk, lang:null, token:pk }; } }
+            // Fallback: scan any country token (AAA or AA1) if no duration found
+            for (var k=0; k<parts.length; k++) { var pk = cleanTok(parts[k]); if (/^(?:[A-Z]{3}|[A-Z]{2}\d)$/.test(pk) && !IGNORE[pk]) { return { iso:pk, lang:null, token:pk }; } }
         } catch(eNI) {}
         return { iso:null, lang:null, token:null };
     }

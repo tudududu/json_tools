@@ -452,7 +452,7 @@ function __AME_coreRun(opts) {
             if (!srcFile || !srcFile.exists) { if (LOG_ISO_EXTRACTION) log("ISO(FN): underlying file missing"); return null; }
             var fname = "";
             try { fname = srcFile.name || ""; } catch(eNm) { fname = ""; }
-            var m = fname.match(/^data_([A-Za-z]{3})\.json$/);
+            var m = fname.match(/^data_((?:[A-Za-z]{3}|[A-Za-z]{2}\d))\.json$/i);
             if (!m) { if (LOG_ISO_EXTRACTION) log("ISO(FN): filename pattern mismatch '"+fname+"'"); return null; }
             var iso = m[1];
             if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
@@ -469,12 +469,12 @@ function __AME_coreRun(opts) {
             if (!inFolder.exists) return null;
             var dataFolder = new Folder(joinPath(inFolder.fsName, 'data'));
             if (!dataFolder.exists) return null;
-            var files = dataFolder.getFiles(function(f){ return (f instanceof File) && /^data_[A-Za-z]{3}\.json$/i.test(f.name); });
+            var files = dataFolder.getFiles(function(f){ return (f instanceof File) && /^data_(?:[A-Za-z]{3}|[A-Za-z]{2}\d)\.json$/i.test(f.name); });
             if (!files || !files.length) return null;
             // If multiple, choose the most recently modified
             files.sort(function(a,b){ try { return b.modified.getTime() - a.modified.getTime(); } catch(e){ return 0; } });
             var top = files[0];
-            var m = top.name.match(/^data_([A-Za-z]{3})\.json$/i);
+            var m = top.name.match(/^data_((?:[A-Za-z]{3}|[A-Za-z]{2}\d))\.json$/i);
             if (m) {
                 var iso = m[1];
                 if (DATE_FOLDER_ISO_UPPERCASE) iso = iso.toUpperCase();
@@ -683,7 +683,7 @@ function __AME_coreRun(opts) {
             try {
                 if (__AE_PIPE__ && __AE_PIPE__.results && __AE_PIPE__.results.linkData && __AE_PIPE__.results.linkData.iso) {
                     var __iso1 = String(__AE_PIPE__.results.linkData.iso);
-                    if (/^[A-Za-z]{3}$/.test(__iso1)) {
+                    if (/^(?:[A-Za-z]{3}|[A-Za-z]{2}\d)$/.test(__iso1)) {
                         isoVal = DATE_FOLDER_ISO_UPPERCASE ? __iso1.toUpperCase() : __iso1;
                         if (LOG_ISO_EXTRACTION) {
                             var __origin = null; try { __origin = String(__AE_PIPE__.results.linkData.origin||"link_data"); } catch(eOr) {}
@@ -703,7 +703,7 @@ function __AME_coreRun(opts) {
                     if (LOG_ISO_EXTRACTION) log("ISO: using fallback '" + isoVal + "'");
                 }
             }
-            if (isoVal && /^[A-Za-z]{3}$/.test(isoVal)) {
+            if (isoVal && /^(?:[A-Za-z]{3}|[A-Za-z]{2}\d)$/.test(isoVal)) {
                 dateFolderName = baseDateName + "_" + (DATE_FOLDER_ISO_UPPERCASE ? isoVal.toUpperCase() : isoVal);
             } else if (LOG_ISO_EXTRACTION) {
                 log("ISO: no valid ISO append; using plain date folder");
