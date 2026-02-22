@@ -612,7 +612,10 @@ Backward compatibility note: if `target_duration` is empty, the converter falls 
 Duration token note: numeric duration tokens are normalized during matching, so `06` and `6` are treated as the same duration key.
 
 At output time:
-* Each detected global flag is emitted in `metadataGlobal` as an object: `{ "_default": <value>, "<duration>": <value>, ... }` (when present).
+* By default, each detected global flag in `metadataGlobal` is emitted as:
+  * scalar when only untargeted default exists (e.g., `"subtitle_flag": "N"`),
+  * object when targeted durations exist (e.g., `"subtitle_flag": {"_default":"N","6":"Y"}`).
+* Use `--flags-overview-object-always` to always emit object shape per flag.
 * Each video's `metadata` receives resolved flag values with precedence: `meta_local` override > targeted `meta_global` value (duration match) > untargeted `meta_global` default.
 * `--no-logo-anim-overview` still removes only `metadataGlobal.logo_anim_flag` while keeping per-video resolved values.
 

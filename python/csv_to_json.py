@@ -264,6 +264,7 @@ def convert_csv_to_json(
     claims_as_objects: bool = False,
     no_orientation: bool = False,
     country_variant_index: Optional[int] = None,
+    flags_overview_object_always: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -1789,19 +1790,34 @@ def convert_csv_to_json(
                 return value
 
             gm_cast = {k: maybe_cast(v) for k, v in global_meta.copy().items()}
-            # Emit global *_flag overview for this country as: {_default, <duration>: value}
+            # Emit global *_flag overview per country.
+            # Default mode: scalar when default-only; object when targeted durations exist.
+            # Optional mode: always object per flag.
             defaults_for_country = global_flag_defaults_per_country.get(c, {})
             targeted_for_country = global_flag_targeted_per_country.get(c, {})
             flag_keys_for_country = sorted(set(defaults_for_country.keys()) | set(targeted_for_country.keys()))
             for flag_key in flag_keys_for_country:
-                overview_obj: Dict[str, Any] = {}
-                if flag_key in defaults_for_country:
-                    overview_obj["_default"] = defaults_for_country[flag_key]
                 dur_map = targeted_for_country.get(flag_key, {})
-                for dur in sorted(dur_map.keys(), key=lambda x: (len(x), x)):
-                    overview_obj[dur] = dur_map[dur]
-                if overview_obj:
+                default_value = defaults_for_country.get(flag_key)
+                if flags_overview_object_always:
+                    overview_obj: Dict[str, Any] = {}
+                    if default_value is not None:
+                        overview_obj["_default"] = default_value
+                    for dur in sorted(dur_map.keys(), key=lambda x: (len(x), x)):
+                        overview_obj[dur] = dur_map[dur]
+                    if overview_obj:
+                        gm_cast[flag_key] = overview_obj
+                    continue
+
+                if dur_map:
+                    overview_obj: Dict[str, Any] = {}
+                    if default_value is not None:
+                        overview_obj["_default"] = default_value
+                    for dur in sorted(dur_map.keys(), key=lambda x: (len(x), x)):
+                        overview_obj[dur] = dur_map[dur]
                     gm_cast[flag_key] = overview_obj
+                elif default_value is not None:
+                    gm_cast[flag_key] = default_value
             # Inject per-country jobNumber override if present
             # Always add jobNumber key (even if empty) using precedence already resolved during meta_global parsing
             if c in job_number_per_country:
@@ -2118,6 +2134,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ))
     p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
     p.add_argument("--no-logo-anim-overview", action="store_true", help="Do not embed aggregated logo_anim_flag mapping object in metadataGlobal (CSV to JSON 47)")
+    p.add_argument(
+        "--flags-overview-object-always",
+        action="store_true",
+        help="Emit metadataGlobal *_flag overviews always as objects (default behavior emits scalar when default-only and object when targeted exists)",
+    )
 
     # Media injection (CSV to JSON media)
     p.add_argument("--media-csv", default=None, help="Optional path to media CSV for injection per country/language (exact match only)")
@@ -2227,6 +2248,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         claims_as_objects=args.claims_as_objects,
         no_orientation=args.no_orientation,
         country_variant_index=args.country_variant_index,
+        flags_overview_object_always=args.flags_overview_object_always,
     )
 
     # Optionally strip overview if disabled flag set
@@ -2716,6 +2738,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             claims_as_objects=args.claims_as_objects,
                             no_orientation=args.no_orientation,
                             country_variant_index=vi,
+                            flags_overview_object_always=args.flags_overview_object_always,
                         )
                         # Inject generation metadata for alternate variant payloads as well
                         if not args.no_generation_meta:

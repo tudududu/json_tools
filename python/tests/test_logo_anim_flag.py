@@ -286,8 +286,8 @@ class LogoAnimFlagTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-    def test_logo_anim_row_without_duration_becomes_default(self):
-        """Row without duration acts as untargeted default for all videos."""
+    def test_logo_anim_row_without_duration_becomes_scalar_default(self):
+        """Row without duration acts as untargeted default (scalar overview by default)."""
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_malformed_')
         try:
             csv_path = os.path.join(tmpdir, 'malformed.csv')
@@ -308,11 +308,41 @@ class LogoAnimFlagTests(unittest.TestCase):
             deu_path = out_pattern.replace('{country}', 'DEU')
             data = load_json(deu_path)
             mg = data.get('metadataGlobal', {})
-            overview = mg.get('logo_anim_flag', {})
-            self.assertEqual(overview.get('_default'), 'Y')
+            self.assertEqual(mg.get('logo_anim_flag'), 'Y')
             v = next((v for v in data.get('videos', []) if v.get('metadata', {}).get('duration') in ('60', 60)), None)
             self.assertIsNotNone(v)
             self.assertEqual(v.get('metadata', {}).get('logo_anim_flag'), 'Y')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_flags_overview_object_always_option(self):
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_obj_always_')
+        try:
+            csv_path = os.path.join(tmpdir, 'obj_always.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;;Y;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_60s;;;;duration;N;ALL;60;;;;\n'
+                'meta_local;WTA_60s;;;;title;N;ALL;WTA;;;;\n'
+                'sub;WTA_60s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            run([
+                sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'),
+                '--split-by-country', '--output-pattern', out_pattern,
+                '--flags-overview-object-always',
+            ])
+            deu_path = out_pattern.replace('{country}', 'DEU')
+            data = load_json(deu_path)
+            overview = data.get('metadataGlobal', {}).get('logo_anim_flag', {})
+            self.assertIsInstance(overview, dict)
+            self.assertEqual(overview.get('_default'), 'Y')
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
