@@ -37,7 +37,7 @@ Meaning:
 * `line`: optional manual line index; auto-assigned when missing
 * `start` / `end`: timecodes (may be empty for continuation lines of disclaimers/disclaimer_02 or untimed claim segments)
 * `key`: metadata key for meta rows
-* `target_duration`: optional duration selector used by `meta_global` rows with `key=logo_anim_flag`
+* `target_duration`: optional duration selector for any `meta_global` flag key (`*_flag`)
 * `is_global`: (reserved / optional) – currently not required (parser ignores)
 * `country_scope`: `ALL` will propagate the first non-empty text across all country columns
 * `metadata`: fallback value column for metadata rows if no per-country value provided
@@ -77,13 +77,13 @@ Use `record_type` values like `generic_01`, `generic_02`, ... `generic_NN` to em
 * Output shape matches claim-like arrays: orientation objects at the top level and per-video `generic_XX[]` arrays containing `{line,text,in,out}` items.
 * Portrait text falls back to landscape per row when missing.
 * No merge or dedup is applied for generic rows; line numbers auto-increment per key and per video.
-* Flags `generic_XX_flag` can be set via `meta_global` or `meta_local` and follow the same per-country default + per-video override rules as `super_A_flag`.
+* Flags `generic_XX_flag` can be set via `meta_global` or `meta_local` and follow the same per-country default + per-video override rules as other flags.
 
 #### Sample CSV (generic_XX)
 
 ```
-record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBR
-meta_global;;;;;generic_01_flag;Y;ALL;enabled;
+record_type;video_id;line;start;end;key;target_duration;is_global;country_scope;metadata;GBR
+meta_global;;;;;generic_01_flag;;Y;ALL;enabled;
 generic_01;;;00:00:00:00;00:00:02:00;;;;;GLOBAL LINE;
 generic_01;VID_A;;00:00:03:00;00:00:05:00;;;;;LOCAL LINE;
 ```
@@ -597,19 +597,24 @@ Other `meta_local` keys continue to behave as before: the first non-empty per-co
 
 Consumer guidance: Treat absence of these keys as `false` / disabled; treat presence with any non-empty value (e.g. `Y`) as enabled.
 
-### Multi-Row Global Logo Animation Overview: `logo_anim_flag` (CSV to JSON 46–51)
+### Flexible Metadata Flags (`*_flag`) with Optional Duration Targeting (CSV to JSON 231–233)
 
-Some campaigns need a quick lookup for whether the logo animates at a given video duration. This is modeled via multiple `meta_global` rows whose `key` is `logo_anim_flag` and whose `target_duration` column holds the duration string (e.g. `6`, `15`, `30`, `60`, `90`, `120`). The flag value (`Y` / `N`) is taken from the `metadata` column (typical `ALL` usage) with a fallback to per-country landscape, then portrait cells if the metadata cell is empty.
+Any `meta_global` key ending with `_flag` is auto-detected and handled as a flag. A flag row may be:
+
+* Untargeted (`target_duration` empty): becomes the default for all videos in that country.
+* Targeted (`target_duration` set): applies only to videos whose `metadata.duration` matches that target.
+* Combined default + targeted rows of the same key: targeted values override the default only for matching durations.
+
+For all flag rows, value precedence per country is derived from row cells: landscape, then portrait, then `metadata` fallback (except `logo_anim_flag`, which keeps portrait-first compatibility).
 
 Backward compatibility note: if `target_duration` is empty, the converter falls back to legacy `country_scope` for `logo_anim_flag` rows and emits a deprecation warning.
 
 Duration token note: numeric duration tokens are normalized during matching, so `06` and `6` are treated as the same duration key.
 
 At output time:
-* `metadataGlobal.logo_anim_flag` becomes an object mapping duration → value, stably ordered by (length, lexicographic) for predictable diffs: `{"6":"N","15":"Y",...}`.
-* Each video's `metadata.logo_anim_flag` is populated by looking up the video's `duration` (string compare) in the overview. (Videos whose duration is not present simply omit the key.)
-* A `meta_local` row for `logo_anim_flag` now overrides the duration-derived (and per-country) mapping for that specific video & country (portrait > landscape > metadata fallback). Precedence per video per country: meta_local > per-country meta_global override > meta_global default value.
-* Disable embedding of the overview object (but keep per-video injected values) with `--no-logo-anim-overview`.
+* Each detected global flag is emitted in `metadataGlobal` as an object: `{ "_default": <value>, "<duration>": <value>, ... }` (when present).
+* Each video's `metadata` receives resolved flag values with precedence: `meta_local` override > targeted `meta_global` value (duration match) > untargeted `meta_global` default.
+* `--no-logo-anim-overview` still removes only `metadataGlobal.logo_anim_flag` while keeping per-video resolved values.
 
 Example rows:
 ```
@@ -621,7 +626,8 @@ meta_global;;;;;logo_anim_flag;120;;ALL;Y;;;;;;
 Example output excerpt:
 ```jsonc
 "metadataGlobal": {
-  "logo_anim_flag": { "6": "N", "15": "Y", "120": "Y" },
+  "logo_anim_flag": { "_default": "N", "6": "N", "15": "Y", "120": "Y" },
+  "subtitle_flag": { "_default": "N", "6": "Y", "10": "Y" },
   "briefVersion": 19,
   ...
 },
@@ -637,12 +643,7 @@ CLI toggle:
 ```
 
 Splitting Behavior (`--split-by-country`):
-When writing per-country JSON files the overview is filtered/simplified for that country:
-* Nested entries (with `_default` + country keys) are reduced to just the effective scalar for that country.
-* Scalar durations remain unchanged.
-* Result: each per-country file exposes only values relevant to its own country (no leakage of other country overrides, no `_default`).
-
-Use a non-split (combined) run if you need the full multi-country matrix with nested objects.
+* Each country file already contains only that country’s resolved flag overview and per-video metadata.
 
 ### Per-Video End Frame Markers: `record_type endFrame` (CSV to JSON 115–116)
 

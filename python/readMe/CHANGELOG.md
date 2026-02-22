@@ -11,6 +11,11 @@ Added:
 	* Clarified docs so `country_scope` remains scope/broadcast semantics while duration targeting uses `target_duration`.
 - CSV → JSON tool (CSV to JSON 232):
 	* Normalized numeric duration tokens for `logo_anim_flag` matching so values like `06` and `6` resolve to the same key.
+- CSV → JSON tool (CSV to JSON 233):
+	* Rebuilt metadata flag handling to auto-detect any `meta_global`/`meta_local` key ending with `_flag` (including `generic_XX_flag`) without hardcoded flag lists.
+	* Added duration-targeted emission for global flags via `target_duration` with rules: untargeted default applies to all videos, targeted rows apply only to matching durations, and targeted rows override default for matching durations.
+	* Preserved precedence for per-video metadata injection: `meta_local` override > targeted `meta_global` > untargeted `meta_global`.
+	* Added global per-country flag overview emission in `metadataGlobal` as objects like `{ "_default": ..., "<duration>": ... }`.
 
 # 1.5.10 - 2026-02-12
 

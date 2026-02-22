@@ -442,8 +442,8 @@ class FlagsAndMergingTests(unittest.TestCase):
         for v in vids_gbl_60 + vids_fra_60:
             self.assertEqual(v['metadata']['logo_anim_flag'], 'DEF60')
 
-    def test_logo_anim_flag_overview_nested_and_trim_on_split(self):
-        # Build overview with per-country nesting for duration 45 and verify trimming on split export
+    def test_logo_anim_flag_overview_per_country_and_split_consistent(self):
+        # Build overview for duration 45 and verify per-country scalar duration mapping
         csv_content = (
             'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
             'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
@@ -460,16 +460,12 @@ class FlagsAndMergingTests(unittest.TestCase):
             out = mod.convert_csv_to_json(path, fps=25)
         finally:
             os.remove(path)
-        # Combined structure contains nested overview
-        overview = out['byCountry']['GBL']['metadataGlobal']['logo_anim_flag']
-        self.assertIsInstance(overview, dict)
-        self.assertIn('45', overview)
-        entry = overview['45']
-        self.assertIsInstance(entry, dict)
-        self.assertIn('_default', entry)
-        self.assertIn('GBL', entry)
-        self.assertIn('FRA', entry)
-        # Now run CLI split to test trimming per country
+        # Combined structure already stores scalar per-country values
+        overview_gbl = out['byCountry']['GBL']['metadataGlobal']['logo_anim_flag']
+        overview_fra = out['byCountry']['FRA']['metadataGlobal']['logo_anim_flag']
+        self.assertEqual(overview_gbl.get('45'), 'P_OVR')
+        self.assertEqual(overview_fra.get('45'), 'F_LAND')
+        # Run CLI split and ensure values are consistent
         csv_path = tmp_csv(csv_content)
         try:
             with tempfile.TemporaryDirectory() as td:
@@ -481,7 +477,7 @@ class FlagsAndMergingTests(unittest.TestCase):
                     gbl = json.load(f)
                 with open(os.path.join(td, 'out_FRA.json'), 'r', encoding='utf-8') as f:
                     fra = json.load(f)
-                # After trimming, values are scalars per country
+                # Values remain scalars per country
                 self.assertIsInstance(gbl['metadataGlobal']['logo_anim_flag']['45'], str)
                 self.assertIsInstance(fra['metadataGlobal']['logo_anim_flag']['45'], str)
                 # Specific values: GBL picks portrait override P_OVR; FRA picks landscape F_LAND
@@ -559,6 +555,45 @@ class FlagsAndMergingTests(unittest.TestCase):
         for v in v2_fra:
             self.assertEqual(v['metadata']['subtitle_flag'], 'S_FRA_OVR')
             self.assertEqual(v['metadata']['disclaimer_flag'], 'D_FRA_OVR')
+
+    def test_targeted_and_default_flag_combination(self):
+        # subtitle_flag: targeted for 06 and 10, default for all others
+        csv_content = (
+            'record_type;video_id;line;start;end;key;target_duration;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;;Y;ALL;53;;\n'
+            'meta_global;;;;;fps;;Y;ALL;25;;\n'
+            'meta_global;;;;;subtitle_flag;;Y;;N;;\n'
+            'meta_global;;;;;subtitle_flag;06;Y;;Y;;\n'
+            'meta_global;;;;;subtitle_flag;10;Y;;Y;;\n'
+            'meta_local;VID06;;;;duration;;N;ALL;06;;\n'
+            'meta_local;VID06;;;;title;;N;ALL;T06;;\n'
+            'sub;VID06;1;00:00:00:00;00:00:01:00;;;;;;x;\n'
+            'meta_local;VID10;;;;duration;;N;ALL;10;;\n'
+            'meta_local;VID10;;;;title;;N;ALL;T10;;\n'
+            'sub;VID10;1;00:00:00:00;00:00:01:00;;;;;;x;\n'
+            'meta_local;VID15;;;;duration;;N;ALL;15;;\n'
+            'meta_local;VID15;;;;title;;N;ALL;T15;;\n'
+            'sub;VID15;1;00:00:00:00;00:00:01:00;;;;;;x;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        overview = node['metadataGlobal']['subtitle_flag']
+        self.assertEqual(overview.get('_default'), 'N')
+        self.assertEqual(overview.get('6'), 'Y')
+        self.assertEqual(overview.get('10'), 'Y')
+
+        v06 = [v for v in node['videos'] if v['videoId'].startswith('VID06_')]
+        v10 = [v for v in node['videos'] if v['videoId'].startswith('VID10_')]
+        v15 = [v for v in node['videos'] if v['videoId'].startswith('VID15_')]
+        for v in v06 + v10:
+            self.assertEqual(v['metadata'].get('subtitle_flag'), 'Y')
+        for v in v15:
+            self.assertEqual(v['metadata'].get('subtitle_flag'), 'N')
 
     def test_per_video_logo_anim_flag_overrides_supersede_overview(self):
         # Build overview (duration 45) and per-video per-country overrides; ensure overrides win

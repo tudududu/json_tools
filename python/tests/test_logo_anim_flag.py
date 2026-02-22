@@ -286,8 +286,8 @@ class LogoAnimFlagTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-    def test_malformed_logo_anim_row_ignored(self):
-        """Row missing duration (empty country_scope) should be ignored without crashing."""
+    def test_logo_anim_row_without_duration_becomes_default(self):
+        """Row without duration acts as untargeted default for all videos."""
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_malformed_')
         try:
             csv_path = os.path.join(tmpdir, 'malformed.csv')
@@ -296,7 +296,7 @@ class LogoAnimFlagTests(unittest.TestCase):
                 'meta_global;;;;;schemaVersion;Y;ALL;53;;;;;;\n'
                 'meta_global;;;;;briefVersion;Y;ALL;53;;;;;;\n'
                 'meta_global;;;;;fps;Y;ALL;25;;;;;;\n'
-                'meta_global;;;;;logo_anim_flag;;;Y;;;;;;\n'  # missing country_scope duration
+                'meta_global;;;;;logo_anim_flag;;;Y;;;;;;\n'  # no duration -> default
                 'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait;landscape;portrait\n'
                 'meta_local;WTA_60s;;;;duration;N;ALL;60;;;;;;\n'
                 'meta_local;WTA_60s;;;;title;N;ALL;WTA;;;;;;\n'
@@ -308,7 +308,11 @@ class LogoAnimFlagTests(unittest.TestCase):
             deu_path = out_pattern.replace('{country}', 'DEU')
             data = load_json(deu_path)
             mg = data.get('metadataGlobal', {})
-            self.assertNotIn('logo_anim_flag', mg, 'Malformed row should not create overview mapping')
+            overview = mg.get('logo_anim_flag', {})
+            self.assertEqual(overview.get('_default'), 'Y')
+            v = next((v for v in data.get('videos', []) if v.get('metadata', {}).get('duration') in ('60', 60)), None)
+            self.assertIsNotNone(v)
+            self.assertEqual(v.get('metadata', {}).get('logo_anim_flag'), 'Y')
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 

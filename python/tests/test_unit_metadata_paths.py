@@ -50,13 +50,11 @@ class MetadataGlobalLocalTests(unittest.TestCase):
         self.assertIn('DEU', byc)
         self.assertIn('GBL', byc)
 
-        # 1) Global overview nested for duration 60
+        # 1) Global overview for this country contains scalar duration mapping
         mg_deu = byc['DEU']['metadataGlobal']
         overview = mg_deu.get('logo_anim_flag', {})
         self.assertIn('60', overview)
-        self.assertIsInstance(overview['60'], dict)
-        self.assertEqual(overview['60'].get('_default'), 'N')
-        self.assertEqual(overview['60'].get('DEU'), 'Y')
+        self.assertEqual(overview['60'], 'Y')
 
         # 2) Per-video metadata injection of logo_anim_flag respects per-country override
         vids_deu = byc['DEU']['videos']
