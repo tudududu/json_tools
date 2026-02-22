@@ -32,6 +32,93 @@ def load_json(path):
 
 
 class LogoAnimFlagTests(unittest.TestCase):
+    def test_duration_token_normalization_06_matches_6(self):
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_norm_')
+        try:
+            csv_path = os.path.join(tmpdir, 'norm.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;target_duration;is_global;country_scope;metadata;GBL;GBL;DEU;DEU\n'
+                'meta_global;;;;;schemaVersion;;Y;ALL;53;;;;\n'
+                'meta_global;;;;;briefVersion;;Y;ALL;53;;;;\n'
+                'meta_global;;;;;fps;;Y;ALL;25;;;;\n'
+                'meta_global;;;;;logo_anim_flag;06;Y;;YES;;;;\n'
+                'meta_global;;;;;orientation;;Y;ALL;;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_6s;;;;duration;;N;ALL;6;;;;\n'
+                'meta_local;WTA_6s;;;;title;;N;ALL;WTA;;;;\n'
+                'sub;WTA_6s;1;00:00:01:00;00:00:02:00;;;;;;Hello;;Hallo;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            deu_path = out_pattern.replace('{country}', 'DEU')
+            data = load_json(deu_path)
+            mapping = data.get('metadataGlobal', {}).get('logo_anim_flag', {})
+            self.assertIn('6', mapping)
+            self.assertNotIn('06', mapping)
+            self.assertEqual(mapping.get('6'), 'YES')
+            v = next((v for v in data.get('videos', []) if v.get('metadata', {}).get('duration') in ('6', 6)), None)
+            self.assertIsNotNone(v)
+            self.assertEqual(v.get('metadata', {}).get('logo_anim_flag'), 'YES')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_target_duration_column_preferred(self):
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_target_duration_')
+        try:
+            csv_path = os.path.join(tmpdir, 'target_duration.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;target_duration;is_global;country_scope;metadata;GBL;GBL;DEU;DEU\n'
+                'meta_global;;;;;schemaVersion;;Y;ALL;53;;;;\n'
+                'meta_global;;;;;briefVersion;;Y;ALL;53;;;;\n'
+                'meta_global;;;;;fps;;Y;ALL;25;;;;\n'
+                'meta_global;;;;;logo_anim_flag;30;Y;ALL;Y;;;;\n'
+                'meta_global;;;;;orientation;;Y;ALL;;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_30s;;;;duration;;N;ALL;30;;;;\n'
+                'meta_local;WTA_30s;;;;title;;N;ALL;WTA;;;;\n'
+                'sub;WTA_30s;1;00:00:01:00;00:00:02:00;;;;;;Hello;;Hallo;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            res = run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            self.assertNotIn("deprecated", res.stderr.lower(), 'Should not warn when target_duration is used')
+            deu_path = out_pattern.replace('{country}', 'DEU')
+            data = load_json(deu_path)
+            mapping = data.get('metadataGlobal', {}).get('logo_anim_flag', {})
+            self.assertEqual(mapping.get('30'), 'Y')
+            v = next((v for v in data.get('videos', []) if v.get('metadata', {}).get('duration') in ('30', 30)), None)
+            self.assertIsNotNone(v)
+            self.assertEqual(v.get('metadata', {}).get('logo_anim_flag'), 'Y')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_legacy_country_scope_duration_warns_once(self):
+        tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_legacy_warn_')
+        try:
+            csv_path = os.path.join(tmpdir, 'legacy.csv')
+            csv_content = (
+                'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;DEU;DEU\n'
+                'meta_global;;;;;schemaVersion;Y;ALL;53;;;;\n'
+                'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
+                'meta_global;;;;;fps;Y;ALL;25;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;30;Y;;;;\n'
+                'meta_global;;;;;logo_anim_flag;;60;N;;;;\n'
+                'meta_global;;;;;orientation;Y;ALL;;landscape;portrait;landscape;portrait\n'
+                'meta_local;WTA_30s;;;;duration;N;ALL;30;;;;\n'
+                'meta_local;WTA_30s;;;;title;N;ALL;WTA;;;;\n'
+                'sub;WTA_30s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;\n'
+            )
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
+            out_pattern = os.path.join(tmpdir, 'out_{country}.json')
+            res = run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
+            lowered = res.stderr.lower()
+            self.assertIn('deprecated', lowered)
+            self.assertEqual(lowered.count('deprecated'), 1, 'Legacy warning should be emitted once per run')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_overview_present_and_per_video_injection(self):
         tmpdir = tempfile.mkdtemp(prefix='logo_anim_flag_')
         try:

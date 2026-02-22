@@ -291,6 +291,7 @@ def convert_csv_to_json(
         idx_start = lower_headers.index("start") if "start" in lower_headers else None
         idx_end = lower_headers.index("end") if "end" in lower_headers else None
         idx_key = lower_headers.index("key") if "key" in lower_headers else None
+        idx_target_duration = lower_headers.index("target_duration") if "target_duration" in lower_headers else None
         idx_is_global = lower_headers.index("is_global") if "is_global" in lower_headers else None
         idx_country_scope = lower_headers.index("country_scope") if "country_scope" in lower_headers else None
         idx_metadata_val = lower_headers.index("metadata") if "metadata" in lower_headers else None
@@ -405,6 +406,7 @@ def convert_csv_to_json(
         auto_sub_line_per_video: Dict[str, int] = {}
         auto_super_a_line_per_video: Dict[str, int] = {}
         auto_super_b_line_per_video: Dict[str, int] = {}
+        warned_logo_anim_legacy_country_scope = False
 
         generic_record_re = re.compile(r"^generic_(\d+)$", re.I)
         generic_flag_re = re.compile(r"^generic_(\d+)_flag$", re.I)
@@ -420,6 +422,14 @@ def convert_csv_to_json(
             if not m:
                 return None
             return f"generic_{int(m.group(1)):02d}_flag"
+
+        def _normalize_duration_token(value: str) -> str:
+            token = (value or "").strip()
+            if not token:
+                return ""
+            if re.fullmatch(r"\d+", token):
+                return str(int(token))
+            return token
 
         for r in rows:
             if len(r) < len(headers):
@@ -438,7 +448,9 @@ def convert_csv_to_json(
             end_tc = parse_time_optional(r[idx_end]) if idx_end is not None else None
 
             key_name = r[idx_key].strip() if (idx_key is not None and r[idx_key]) else ""
-            country_scope_val = r[idx_country_scope].strip().upper() if (idx_country_scope is not None and r[idx_country_scope]) else ""
+            target_duration_val = r[idx_target_duration].strip() if (idx_target_duration is not None and r[idx_target_duration]) else ""
+            country_scope_raw = r[idx_country_scope].strip() if (idx_country_scope is not None and r[idx_country_scope]) else ""
+            country_scope_val = country_scope_raw.upper()
             metadata_cell_val = r[idx_metadata_val].strip() if (idx_metadata_val is not None and r[idx_metadata_val]) else ""
 
             # Gather per-country texts for both orientations (portrait optional)
@@ -515,13 +527,23 @@ def convert_csv_to_json(
                     # Do not store a single shared language in global_meta; injected per-country later
                     continue
                 # Special multi-row meta_global: logo_anim_flag
-                # Rows supply: key=logo_anim_flag, country_scope column used as a 'duration' sub-key, metadata column (or per-country columns) as value.
+                # Rows supply: key=logo_anim_flag, target_duration as a duration sub-key (preferred),
+                # with legacy fallback to country_scope for backward compatibility.
                 # Precedence rules for value derivation per row:
                 #   1. Per-country portrait cell overrides per-country landscape
                 #   2. Per-country landscape overrides metadata (ALL) cell
                 #   For the aggregated global mapping, we use the ALL/metadata value if present; per-country specific differences are not aggregated (design choice for simplicity).
                 if key_name == "logo_anim_flag":
-                    duration_subkey = (country_scope_val or "").strip()
+                    duration_subkey = (target_duration_val or "").strip()
+                    if not duration_subkey:
+                        duration_subkey = (country_scope_raw or "").strip()
+                        if duration_subkey and not warned_logo_anim_legacy_country_scope:
+                            print(
+                                "Warning: logo_anim_flag duration from 'country_scope' is deprecated; use 'target_duration' column.",
+                                file=sys.stderr,
+                            )
+                            warned_logo_anim_legacy_country_scope = True
+                    duration_subkey = _normalize_duration_token(duration_subkey)
                     if not duration_subkey:
                         continue
                     default_val = (metadata_cell_val or "").strip()
@@ -1415,7 +1437,7 @@ def convert_csv_to_json(
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject logo_anim_flag per video based on its duration (string match)
                 if logo_anim_flag_by_duration:
-                    dur_key = str(base_meta.get("duration", "")).strip()
+                    dur_key = _normalize_duration_token(str(base_meta.get("duration", "")))
                     if dur_key and dur_key in logo_anim_flag_by_duration:
                         if "logo_anim_flag" not in base_meta:
                             # Pick per-country override if present

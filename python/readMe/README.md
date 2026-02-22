@@ -19,7 +19,7 @@ This Python CLI converts several related CSV formats into structured JSON suitab
 Header columns (fixed order up to `metadata` then one column per country):
 
 ```
-record_type,video_id,line,start,end,key,is_global,country_scope,metadata,<COUNTRY1>,<COUNTRY2>,...
+record_type,video_id,line,start,end,key,target_duration,is_global,country_scope,metadata,<COUNTRY1>,<COUNTRY2>,...
 ```
 
 Meaning:
@@ -37,6 +37,7 @@ Meaning:
 * `line`: optional manual line index; auto-assigned when missing
 * `start` / `end`: timecodes (may be empty for continuation lines of disclaimers/disclaimer_02 or untimed claim segments)
 * `key`: metadata key for meta rows
+* `target_duration`: optional duration selector used by `meta_global` rows with `key=logo_anim_flag`
 * `is_global`: (reserved / optional) – currently not required (parser ignores)
 * `country_scope`: `ALL` will propagate the first non-empty text across all country columns
 * `metadata`: fallback value column for metadata rows if no per-country value provided
@@ -598,7 +599,11 @@ Consumer guidance: Treat absence of these keys as `false` / disabled; treat pres
 
 ### Multi-Row Global Logo Animation Overview: `logo_anim_flag` (CSV to JSON 46–51)
 
-Some campaigns need a quick lookup for whether the logo animates at a given video duration. This is modeled via multiple `meta_global` rows whose `key` is `logo_anim_flag` and whose `country_scope` column holds the duration string (e.g. `6`, `15`, `30`, `60`, `90`, `120`). The flag value (`Y` / `N`) is taken from the `metadata` column (typical `ALL` usage) with a fallback to per-country landscape, then portrait cells if the metadata cell is empty.
+Some campaigns need a quick lookup for whether the logo animates at a given video duration. This is modeled via multiple `meta_global` rows whose `key` is `logo_anim_flag` and whose `target_duration` column holds the duration string (e.g. `6`, `15`, `30`, `60`, `90`, `120`). The flag value (`Y` / `N`) is taken from the `metadata` column (typical `ALL` usage) with a fallback to per-country landscape, then portrait cells if the metadata cell is empty.
+
+Backward compatibility note: if `target_duration` is empty, the converter falls back to legacy `country_scope` for `logo_anim_flag` rows and emits a deprecation warning.
+
+Duration token note: numeric duration tokens are normalized during matching, so `06` and `6` are treated as the same duration key.
 
 At output time:
 * `metadataGlobal.logo_anim_flag` becomes an object mapping duration → value, stably ordered by (length, lexicographic) for predictable diffs: `{"6":"N","15":"Y",...}`.
@@ -608,9 +613,9 @@ At output time:
 
 Example rows:
 ```
-meta_global;;;;;logo_anim_flag;;6;N;;;;;;
-meta_global;;;;;logo_anim_flag;;15;Y;;;;;;
-meta_global;;;;;logo_anim_flag;;120;Y;;;;;;
+meta_global;;;;;logo_anim_flag;6;;ALL;N;;;;;;
+meta_global;;;;;logo_anim_flag;15;;ALL;Y;;;;;;
+meta_global;;;;;logo_anim_flag;120;;ALL;Y;;;;;;
 ```
 
 Example output excerpt:
