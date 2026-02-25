@@ -403,12 +403,14 @@ Current state
 ## Key Flags
 
 General:
+* Positional input supports `.csv` and `.xlsx`/`.xlsm` files
 * `--fps <float>` Frames per second for `HH:MM:SS:FF` parsing (default 25)
 * `--start-line <int>` Starting line index for auto numbering (default 1)
 * `--round <int>` Round seconds to N decimals (default 2; `-1` disables rounding)
 * `--times-as-string` Emit times as strings (retain trailing zeros)
-* `--encoding <name>` CSV encoding (default `utf-8-sig`)
-* `--delimiter <auto|comma|semicolon|tab|pipe|char>` Force / sniff delimiter (default auto)
+* `--encoding <name>` CSV encoding (default `utf-8-sig`; ignored for XLSX)
+* `--delimiter <auto|comma|semicolon|tab|pipe|char>` Force / sniff delimiter (default auto; ignored for XLSX)
+* `--xlsx-sheet <name>` XLSX only: sheet name override (default: `data` if present, else first sheet)
 * `--verbose` Print detected delimiter and headers
 
 Simple mode overrides:

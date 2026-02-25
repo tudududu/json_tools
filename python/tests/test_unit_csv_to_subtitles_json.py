@@ -3,6 +3,11 @@ import sys
 import tempfile
 import unittest
 
+try:
+    from openpyxl import Workbook
+except Exception:
+    Workbook = None
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))
 if PYTHON_DIR not in sys.path:
@@ -77,6 +82,50 @@ class ConvertMinimalTests(unittest.TestCase):
         try:
             out = mod.convert_csv_to_json(path)
             self.assertEqual(out, {"subtitles": []})
+        finally:
+            os.remove(path)
+
+
+@unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+class ConvertXlsxTests(unittest.TestCase):
+    def test_simple_xlsx_convert(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
+            path = f.name
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "data"
+            ws.append(["Start Time", "End Time", "Text"])
+            ws.append(["0", "1.2", "Hello XLSX"])
+            wb.save(path)
+            wb.close()
+
+            out = mod.convert_csv_to_json(path)
+            self.assertEqual(out["subtitles"][0]["text"], "Hello XLSX")
+        finally:
+            os.remove(path)
+
+    def test_xlsx_sheet_selection_default_data_else_first(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
+            path = f.name
+        try:
+            wb = Workbook()
+            ws_first = wb.active
+            ws_first.title = "Sheet1"
+            ws_first.append(["Start Time", "End Time", "Text"])
+            ws_first.append(["0", "1", "Wrong sheet"])
+
+            ws_data = wb.create_sheet("data")
+            ws_data.append(["Start Time", "End Time", "Text"])
+            ws_data.append(["0", "1", "Data sheet"])
+            wb.save(path)
+            wb.close()
+
+            out_default = mod.convert_csv_to_json(path)
+            self.assertEqual(out_default["subtitles"][0]["text"], "Data sheet")
+
+            out_sheet1 = mod.convert_csv_to_json(path, xlsx_sheet="Sheet1")
+            self.assertEqual(out_sheet1["subtitles"][0]["text"], "Wrong sheet")
         finally:
             os.remove(path)
 

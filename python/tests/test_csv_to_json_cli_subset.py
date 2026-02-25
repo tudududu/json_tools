@@ -22,6 +22,33 @@ def write(path: Path, content: str):
     return path
 
 
+def test_xlsx_input_uses_data_sheet_default_and_supports_override(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+
+    workbook_path = tmp_path / "subs.xlsx"
+    wb = openpyxl.Workbook()
+    ws_first = wb.active
+    ws_first.title = "Sheet1"
+    ws_first.append(["Start Time", "End Time", "Text"])
+    ws_first.append(["0", "1", "From Sheet1"])
+
+    ws_data = wb.create_sheet("data")
+    ws_data.append(["Start Time", "End Time", "Text"])
+    ws_data.append(["0", "1", "From data"])
+    wb.save(workbook_path)
+    wb.close()
+
+    out_default = tmp_path / "out_default.json"
+    run_cli([str(workbook_path), str(out_default), "--fps", "25"])
+    payload_default = json.loads(out_default.read_text(encoding="utf-8"))
+    assert payload_default["subtitles"][0]["text"] == "From data"
+
+    out_sheet1 = tmp_path / "out_sheet1.json"
+    run_cli([str(workbook_path), str(out_sheet1), "--fps", "25", "--xlsx-sheet", "Sheet1"])
+    payload_sheet1 = json.loads(out_sheet1.read_text(encoding="utf-8"))
+    assert payload_sheet1["subtitles"][0]["text"] == "From Sheet1"
+
+
 @pytest.mark.parametrize("delim,force_flag", [
     (";", None),              # sniff semicolon
     (";", "semicolon"),      # forced named delimiter

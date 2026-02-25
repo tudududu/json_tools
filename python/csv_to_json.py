@@ -37,6 +37,11 @@ import sys
 import platform
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+try:
+    from openpyxl import load_workbook as _openpyxl_load_workbook
+except Exception:
+    _openpyxl_load_workbook = None
+
 # Optional media injection support (CSV → JSON media tool)
 try:
     from python.tools.csv_json_media import (
@@ -224,8 +229,55 @@ def _read_table(
     path: str,
     encoding: str = "utf-8-sig",
     delimiter: Optional[str] = None,
+    xlsx_sheet: Optional[str] = None,
 ) -> Tuple[List[str], List[List[str]], str]:
-    """Read CSV preserving duplicate column names. Returns (headers, rows, delimiter)."""
+    """Read CSV/XLSX preserving duplicate column names. Returns (headers, rows, delimiter/sentinel)."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".xlsx", ".xlsm", ".xltx", ".xltm"):
+        if _openpyxl_load_workbook is None:
+            raise RuntimeError(
+                "XLSX input requires 'openpyxl'. Install it (e.g., pip install openpyxl) or provide CSV input."
+            )
+
+        wb = _openpyxl_load_workbook(path, data_only=True, read_only=True)
+        try:
+            if xlsx_sheet:
+                if xlsx_sheet not in wb.sheetnames:
+                    raise ValueError(
+                        f"XLSX sheet '{xlsx_sheet}' not found. Available sheets: {wb.sheetnames}"
+                    )
+                ws = wb[xlsx_sheet]
+            else:
+                default_sheet_name = "data" if "data" in wb.sheetnames else wb.sheetnames[0]
+                ws = wb[default_sheet_name]
+
+            if delimiter and str(delimiter).lower() not in ("", "auto"):
+                print(
+                    "Warning: --delimiter is ignored for XLSX input.",
+                    file=sys.stderr,
+                )
+
+            rows_iter = ws.iter_rows(values_only=True)
+            first_row = next(rows_iter, None)
+            if first_row is None:
+                raise ValueError("XLSX appears to be empty.")
+
+            def _to_text(cell: Any) -> str:
+                if cell is None:
+                    return ""
+                if isinstance(cell, datetime):
+                    return cell.isoformat()
+                return str(cell)
+
+            headers = [_to_text(c) for c in first_row]
+            rows = [[_to_text(c) for c in row] for row in rows_iter]
+            return headers, rows, f"xlsx:{ws.title}"
+        finally:
+            try:
+                wb.close()
+            except Exception:
+                pass
+
     with open(path, "r", encoding=encoding, newline="") as f:
         sample = f.read(8192)
         f.seek(0)
@@ -265,6 +317,7 @@ def convert_csv_to_json(
     no_orientation: bool = False,
     country_variant_index: Optional[int] = None,
     flags_overview_object_always: bool = False,
+    xlsx_sheet: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -273,7 +326,7 @@ def convert_csv_to_json(
        columns include line, Start Time, End Time, and one or more Text columns (per-country). Metadata rows
        provide key/value pairs; a row with key 'country' defines per-country codes.
     """
-    headers, rows, delim = _read_table(input_csv, encoding=encoding, delimiter=delimiter)
+    headers, rows, delim = _read_table(input_csv, encoding=encoding, delimiter=delimiter, xlsx_sheet=xlsx_sheet)
     if verbose:
         print(f"Detected delimiter: {repr(delim)} | Headers: {headers}")
     if not rows:
@@ -2077,7 +2130,7 @@ def convert_csv_to_json(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="Convert subtitle CSV to JSON")
+    p = argparse.ArgumentParser(description="Convert subtitle CSV/XLSX to JSON")
     p.add_argument("input", help="Path to input CSV file")
     p.add_argument("output", help="Path to output JSON file")
     p.add_argument("--fps", type=float, default=25.0, help="Frames per second for HH:MM:SS:FF timecodes (default: 25)")
@@ -2095,6 +2148,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             "CSV delimiter. One of: auto (default), comma, semicolon, tab, pipe, or a single character. "
             "If auto, the script will sniff among , ; TAB |"
         ),
+    )
+    p.add_argument(
+        "--xlsx-sheet",
+        default=None,
+        help="XLSX only: sheet name to read (default: 'data' if present, otherwise first sheet)",
     )
     p.add_argument("--start-col", help="Override Start column by name or 1-based index", default=None)
     p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
@@ -2249,6 +2307,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         no_orientation=args.no_orientation,
         country_variant_index=args.country_variant_index,
         flags_overview_object_always=args.flags_overview_object_always,
+        xlsx_sheet=args.xlsx_sheet,
     )
 
     # Optionally strip overview if disabled flag set
@@ -2739,6 +2798,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             no_orientation=args.no_orientation,
                             country_variant_index=vi,
                             flags_overview_object_always=args.flags_overview_object_always,
+                            xlsx_sheet=args.xlsx_sheet,
                         )
                         # Inject generation metadata for alternate variant payloads as well
                         if not args.no_generation_meta:

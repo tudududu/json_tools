@@ -1,3 +1,12 @@
+# 1.8.0 - 2026-02-25
+
+Added:
+- CSV → JSON tool (CSV to JSON 236):
+	* Added direct XLSX input support alongside existing CSV input (no CSV workflow changes required).
+	* Added `--xlsx-sheet` option for explicit sheet selection.
+	* Default XLSX sheet resolution: use sheet named `data` if present, otherwise use first sheet.
+	* XLSX reader uses cached formula values (`data_only=True`) and preserves duplicate headers for country/orientation mapping.
+
 # 1.7.3 - 2026-02-22
 
 Added:
