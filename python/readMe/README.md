@@ -328,11 +328,12 @@ Helper utilities live under `python/tools/`.
   python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/joined.csv --join-output --fps 25 --out-format frames
   ```
 
-- `csv_json_media.py`: Convert media deliverables CSV (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.
+- `csv_json_media.py`: Convert media deliverables CSV/XLSX (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.
 
   Common invocation:
   ```sh
   python -m python.tools.csv_json_media path/to/input.csv out/media_outputs.json
+  python -m python.tools.csv_json_media path/to/input.xlsx out/media_outputs.json --xlsx-sheet media
   ```
   Note: add `--compact` to write JSON with inline array items.
   Split by country/language:
@@ -818,10 +819,10 @@ Outputs:
 Use a separate media CSV to inject a per-country `media` object into the converter’s output. Injection occurs only for exact `(country, language)` matches (language may be empty). The `media` key is appended immediately after `videos` in each per-country payload.
 
 Flags:
-- `--media-csv`: Path to the media CSV (enables injection).
-- `--media-delimiter`: Media CSV delimiter (default `;`).
-- `--media-country-col`: Country column header in the media CSV (default `Country`).
-- `--media-language-col`: Language column header in the media CSV (default `Language`).
+- `--media-csv`: Path to the media source CSV/XLSX (enables injection).
+- `--media-delimiter`: Media CSV delimiter (default `;`, ignored for XLSX media source).
+- `--media-country-col`: Country column header in the media source (default `Country`).
+- `--media-language-col`: Language column header in the media source (default `Language`).
 
 Behavior:
 - Exact match only: `(DEU, "")` matches a media row with `Country=DEU` and `Language` empty; `(BEL, FRA)` matches only rows with both `BEL` and `FRA`.

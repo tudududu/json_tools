@@ -4,8 +4,26 @@ import tempfile
 import textwrap
 import subprocess
 import sys
+import pytest
 
 SCRIPT = 'python/tools/csv_json_media.py'
+
+
+def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    first = True
+    for name, rows in sheets.items():
+        if first:
+            ws = wb.active
+            ws.title = name
+            first = False
+        else:
+            ws = wb.create_sheet(name)
+        for row in rows:
+            ws.append(row)
+    wb.save(path)
+    wb.close()
 
 
 def test_split_by_country_writes_multiple_files_with_default_pattern():
@@ -72,3 +90,51 @@ def test_split_dry_run_prints_group_summary():
 
     # Cleanup
     os.remove(path_in); os.remove(path_out)
+
+
+def test_split_by_country_from_xlsx_default_media_sheet():
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    out_dir = tempfile.mkdtemp()
+    try:
+        write_xlsx(path_in, {
+            "Sheet1": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name", "Country", "Language"],
+                ["1x1", "640x640", "6sC1", "Wrong", "regular", "", "US", "EN"],
+            ],
+            "media": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name", "Country", "Language"],
+                ["1x1", "640x640", "6sC1", "TikTok", "regular", "", "US", "EN"],
+                ["1x1", "1440x1440", "6sC1", "Meta InFeed", "regular", "", "US", ""],
+            ],
+        })
+
+        proc = subprocess.run(
+            [sys.executable, SCRIPT, path_in, out_dir, '--split-by-country'],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+
+        f1 = os.path.join(out_dir, 'media_US_EN.json')
+        f2 = os.path.join(out_dir, 'media_US.json')
+        assert os.path.exists(f1)
+        assert os.path.exists(f2)
+
+        data1 = json.load(open(f1, 'r', encoding='utf-8'))
+        data2 = json.load(open(f2, 'r', encoding='utf-8'))
+        assert data1['1x1|06s'][0]['media'] == 'TikTok'
+        assert data2['1x1|06s'][0]['media'] == 'Meta InFeed'
+    finally:
+        try:
+            os.remove(path_in)
+        except Exception:
+            pass
+        for fname in ('media_US_EN.json', 'media_US.json'):
+            try:
+                os.remove(os.path.join(out_dir, fname))
+            except Exception:
+                pass
+        try:
+            os.rmdir(out_dir)
+        except Exception:
+            pass

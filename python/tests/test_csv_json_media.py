@@ -4,8 +4,26 @@ import tempfile
 import textwrap
 import subprocess
 import sys
+import pytest
 
 SCRIPT = 'python/tools/csv_json_media.py'
+
+
+def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    first = True
+    for name, rows in sheets.items():
+        if first:
+            ws = wb.active
+            ws.title = name
+            first = False
+        else:
+            ws = wb.create_sheet(name)
+        for row in rows:
+            ws.append(row)
+    wb.save(path)
+    wb.close()
 
 
 def run_tool(csv_text: str, delimiter=';'):
@@ -19,6 +37,23 @@ def run_tool(csv_text: str, delimiter=';'):
     data = json.load(open(path_out, 'r', encoding='utf-8'))
     os.remove(path_in); os.remove(path_out)
     return data
+
+
+def run_tool_path(path_in: str, extra_args: list[str] | None = None):
+    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    args = [sys.executable, SCRIPT, path_in, path_out]
+    if extra_args:
+        args.extend(extra_args)
+    proc = subprocess.run(args, capture_output=True, text=True)
+    if proc.returncode != 0:
+        try:
+            os.remove(path_out)
+        except Exception:
+            pass
+        return proc, None
+    data = json.load(open(path_out, 'r', encoding='utf-8'))
+    os.remove(path_out)
+    return proc, data
 
 
 def test_duration_parsing_and_padding_and_suffix():
@@ -135,3 +170,90 @@ def test_dimensions_normalization_removes_spaces():
     assert data['4x5|15s'][0]['size'] == '1440x1800'
     assert '1x1|06s' in data
     assert data['1x1|06s'][0]['size'] == '1440x1440'
+
+
+def test_xlsx_default_prefers_media_sheet():
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    try:
+        write_xlsx(path_in, {
+            "Sheet1": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "Wrong", "regular", ""],
+            ],
+            "media": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "TikTok", "regular", ""],
+            ],
+        })
+        proc, data = run_tool_path(path_in)
+        assert proc.returncode == 0, proc.stderr
+        assert data['1x1|06s'][0]['media'] == 'TikTok'
+    finally:
+        os.remove(path_in)
+
+
+def test_xlsx_fallback_to_first_sheet_when_media_missing():
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    try:
+        write_xlsx(path_in, {
+            "primary": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["9x16", "720x1280", "15sC1", "TikTok", "extra", "tiktok"],
+            ],
+            "other": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "Wrong", "regular", ""],
+            ],
+        })
+        proc, data = run_tool_path(path_in)
+        assert proc.returncode == 0, proc.stderr
+        assert '9x16_tiktok|15s' in data
+    finally:
+        os.remove(path_in)
+
+
+def test_xlsx_sheet_override_uses_requested_sheet():
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    try:
+        write_xlsx(path_in, {
+            "media": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "TikTok", "regular", ""],
+            ],
+            "custom": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "Meta InFeed", "regular", ""],
+            ],
+        })
+        proc, data = run_tool_path(path_in, ["--xlsx-sheet", "custom", "--delimiter", "|"])
+        assert proc.returncode == 0, proc.stderr
+        assert data['1x1|06s'][0]['media'] == 'Meta InFeed'
+    finally:
+        os.remove(path_in)
+
+
+def test_xlsx_sheet_override_missing_fails():
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    try:
+        write_xlsx(path_in, {
+            "media": [
+                ["AspectRatio", "Dimensions", "Creative", "Media", "Template", "Template_name"],
+                ["1x1", "640x640", "6sC1", "TikTok", "regular", ""],
+            ],
+        })
+        fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+        try:
+            proc = subprocess.run(
+                [sys.executable, SCRIPT, path_in, path_out, "--xlsx-sheet", "missing"],
+                capture_output=True,
+                text=True,
+            )
+            assert proc.returncode != 0
+            assert "sheet 'missing' not found" in (proc.stderr or "").lower()
+        finally:
+            try:
+                os.remove(path_out)
+            except Exception:
+                pass
+    finally:
+        os.remove(path_in)

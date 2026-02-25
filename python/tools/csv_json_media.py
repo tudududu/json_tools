@@ -44,8 +44,15 @@ import csv
 import json
 import os
 import re
+import sys
+from datetime import date, datetime
 from collections import OrderedDict
 from typing import Dict, Iterable, List, Tuple, DefaultDict
+
+try:
+  from openpyxl import load_workbook as _openpyxl_load_workbook
+except Exception:
+  _openpyxl_load_workbook = None
 
 
 CREATIVE_RE = re.compile(r"^(?P<dur>[0-9]+s)(?:C(?P<idx>[1-5]))?\s*$", re.I)
@@ -248,7 +255,66 @@ def expand_output_pattern(pattern: str, country: str, language: str) -> str:
   return pat
 
 
-def read_csv(path: str, delimiter: str = ";") -> List[dict]:
+def _to_cell_text(cell: object) -> str:
+  if cell is None:
+    return ""
+  if isinstance(cell, datetime):
+    return cell.isoformat()
+  if isinstance(cell, date):
+    return cell.isoformat()
+  return str(cell)
+
+
+def read_csv(path: str, delimiter: str = ";", xlsx_sheet: str | None = None) -> List[dict]:
+  ext = os.path.splitext(path)[1].lower()
+  if ext in (".xlsx", ".xlsm", ".xltx", ".xltm"):
+    if _openpyxl_load_workbook is None:
+      raise RuntimeError(
+        "XLSX input requires 'openpyxl'. Install it (e.g., pip install openpyxl) or provide CSV input."
+      )
+
+    wb = _openpyxl_load_workbook(path, data_only=True, read_only=True)
+    try:
+      if xlsx_sheet:
+        if xlsx_sheet not in wb.sheetnames:
+          raise ValueError(f"XLSX sheet '{xlsx_sheet}' not found. Available sheets: {wb.sheetnames}")
+        ws = wb[xlsx_sheet]
+      else:
+        default_sheet_name = "media" if "media" in wb.sheetnames else wb.sheetnames[0]
+        ws = wb[default_sheet_name]
+
+      if delimiter and delimiter != ";":
+        print("Warning: --delimiter is ignored for XLSX input.", file=sys.stderr)
+
+      rows_iter = ws.iter_rows(values_only=True)
+      first_row = next(rows_iter, None)
+      if first_row is None:
+        raise ValueError("XLSX appears to be empty.")
+      fieldnames = [_to_cell_text(c) for c in first_row]
+
+      out_rows: List[dict] = []
+      for row in rows_iter:
+        row_vals = [_to_cell_text(c) for c in row]
+        item = {fieldnames[i]: (row_vals[i] if i < len(row_vals) else "") for i in range(len(fieldnames))}
+        out_rows.append(item)
+
+      base_required = ["AspectRatio", "Dimensions", "Media", "Template", "Template_name"]
+      one_of = ["Duration", "Creative"]
+      has_base = all(h in fieldnames for h in base_required)
+      has_any = any(h in fieldnames for h in one_of)
+      if not (has_base and has_any):
+        raise ValueError(
+          "Missing required headers in XLSX sheet; expected base headers "
+          "AspectRatio, Dimensions, Media, Template, Template_name and one of Duration/Creative"
+        )
+
+      return out_rows
+    finally:
+      try:
+        wb.close()
+      except Exception:
+        pass
+
   # Read entire file to allow simple header-based delimiter detection fallback
   with open(path, "r", encoding="utf-8-sig", newline="") as f:
     content = f.read()
@@ -310,9 +376,10 @@ def write_json(path: str, data: dict, compact: bool = False) -> None:
 
 def main() -> None:
   p = argparse.ArgumentParser(description="CSV → JSON media outputs list converter")
-  p.add_argument("input", help="Path to input CSV")
+  p.add_argument("input", help="Path to input CSV/XLSX")
   p.add_argument("output", help="Path to output JSON")
   p.add_argument("--delimiter", default=";", help="CSV delimiter (default ';')")
+  p.add_argument("--xlsx-sheet", default=None, help="XLSX only: sheet name to read (default: 'media' if present, otherwise first sheet)")
   grp = p.add_mutually_exclusive_group()
   grp.add_argument("--trim", dest="trim", action="store_true", help="Trim whitespace on all fields (default)")
   grp.add_argument("--no-trim", dest="trim", action="store_false", help="Disable whitespace trimming")
@@ -330,7 +397,7 @@ def main() -> None:
   )
   args = p.parse_args()
 
-  rows = read_csv(args.input, delimiter=args.delimiter)
+  rows = read_csv(args.input, delimiter=args.delimiter, xlsx_sheet=args.xlsx_sheet)
   
   if args.split_by_country:
     groups = group_by_country_language(rows, country_col=args.country_col, language_col=args.language_col, trim=args.trim)

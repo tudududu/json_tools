@@ -44,7 +44,7 @@ Options:
 
 ## csv_json_media.py
 
-Converts a semicolon-delimited media deliverables CSV into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
+Converts a media deliverables CSV/XLSX into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
 
 - Input columns (preferred): `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`
   - `Duration` and `Title` are preferred; `Creative` is optional for backward compatibility.
@@ -58,13 +58,15 @@ Converts a semicolon-delimited media deliverables CSV into a compact JSON index 
 Usage:
 ```sh
 python python/tools/csv_json_media.py input.csv output.json
+python python/tools/csv_json_media.py input.xlsx output.json
 python python/tools/csv_json_media.py input.csv out/ --split-by-country
 python python/tools/csv_json_media.py input.csv out/ --split-by-country --output-pattern "media_{COUNTRY}[_{LANG}].json"
 python python/tools/csv_json_media.py input.csv out/ --split-by-country --country-col Territory --language-col Lang
 ```
 
 Options:
-- `--delimiter <char>`: CSV delimiter (default: `;`)
+- `--delimiter <char>`: CSV delimiter (default: `;`, ignored for XLSX input)
+- `--xlsx-sheet <name>`: XLSX only sheet override (default: sheet named `media` when present, otherwise first sheet)
 - `--trim` / `--no-trim`: Trim surrounding whitespace on fields (default: trim)
 - `--dry-run`: Parse only and print a brief summary; no file written
 - `--compact`: Write JSON with inline array items (objects on a single line inside arrays)

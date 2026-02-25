@@ -1,3 +1,12 @@
+# 1.8.1 - 2026-02-25
+
+Added:
+- CSV → JSON media tool (CSV to JSON 238):
+	* Added direct XLSX input support to `python/tools/csv_json_media.py` alongside existing CSV support.
+	* Added `--xlsx-sheet` option for explicit sheet selection.
+	* Default XLSX sheet resolution: use sheet named `media` when present, otherwise use first sheet.
+	* XLSX reader uses cached formula values (`data_only=True`) and keeps CSV parsing logic unchanged after row ingestion.
+
 # 1.8.0 - 2026-02-25
 
 Added:
