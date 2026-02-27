@@ -216,6 +216,7 @@ function __AddLayers_coreRun(opts) {
         logo05Off: true,
         claim01Off: true,
         claim02Off: true,
+        genericByFlagOff: true,
         // Base logo layers that must always be copied (case-insensitive exact names)
         alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
         // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
@@ -527,6 +528,63 @@ function __AddLayers_coreRun(opts) {
         log("Flag '"+flagKey+"' value '"+raw+"' not recognized (ON:"+onList+", OFF:"+offList+") for '"+ctxName+"'.");
     }
 
+    function isGenericKeyName(key) {
+        if (!key) return false;
+        return /^generic_\d+$/i.test(String(key));
+    }
+
+    function collectGenericKeysFromVideo(videoObj) {
+        var seen = {};
+        var out = [];
+        function addKey(key) {
+            if (!key) return;
+            var low = String(key).toLowerCase();
+            if (!isGenericKeyName(low)) return;
+            if (!seen[low]) { seen[low] = true; out.push(low); }
+        }
+        function scan(obj, allowArrayScan, allowFlagScan) {
+            if (!obj) return;
+            for (var key in obj) {
+                if (!obj.hasOwnProperty(key)) continue;
+                var low = String(key).toLowerCase();
+                var val = obj[key];
+                if (allowArrayScan && isGenericKeyName(low) && (val instanceof Array)) addKey(low);
+                if (allowFlagScan) {
+                    var m = low.match(/^(generic_\d+)_flag$/i);
+                    if (m && m[1]) addKey(m[1]);
+                }
+            }
+        }
+        scan(videoObj, true, true);
+        try { if (videoObj && videoObj.metadata) scan(videoObj.metadata, false, true); } catch (eMeta) {}
+        out.sort(function (a, b) {
+            var ma = String(a).match(/^generic_(\d+)$/i);
+            var mb = String(b).match(/^generic_(\d+)$/i);
+            var na = ma ? parseInt(ma[1], 10) : 0;
+            var nb = mb ? parseInt(mb[1], 10) : 0;
+            if (na < nb) return -1;
+            if (na > nb) return 1;
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        });
+        return out;
+    }
+
+    function findMatchingGenericKeyForLayer(layerName, genericKeys) {
+        if (!layerName || !genericKeys || !genericKeys.length) return null;
+        var nm = String(layerName).toLowerCase();
+        for (var i = 0; i < genericKeys.length; i++) {
+            var key = String(genericKeys[i]).toLowerCase();
+            if (nameMatchesGroup(layerName, key)) return key;
+        }
+        for (var j = 0; j < genericKeys.length; j++) {
+            var key2 = String(genericKeys[j]).toLowerCase();
+            if (nm === key2 || nm.indexOf(key2) !== -1) return key2;
+        }
+        return null;
+    }
+
     function getModesForVideo(videoObj) {
         var raw = {
             disclaimer: extractFlagFromVideo(videoObj, DISCLAIMER_FLAG_KEY),
@@ -538,8 +596,14 @@ function __AddLayers_coreRun(opts) {
             logo04: extractFlagFromVideo(videoObj, LOGO_04_FLAG_KEY),
             logo05: extractFlagFromVideo(videoObj, LOGO_05_FLAG_KEY),
             claim01: extractFlagFromVideo(videoObj, CLAIM_01_FLAG_KEY),
-            claim02: extractFlagFromVideo(videoObj, CLAIM_02_FLAG_KEY)
+            claim02: extractFlagFromVideo(videoObj, CLAIM_02_FLAG_KEY),
+            generic: {}
         };
+        var genericKeys = collectGenericKeysFromVideo(videoObj);
+        for (var gi = 0; gi < genericKeys.length; gi++) {
+            var gk = genericKeys[gi];
+            raw.generic[gk] = extractFlagFromVideo(videoObj, gk + '_flag');
+        }
         var modes = {
             disclaimer: interpretFlagValue(raw.disclaimer, FLAG_VALUES, { allowAuto: false }),
             disclaimer02: interpretFlagValue(raw.disclaimer02, FLAG_VALUES, { allowAuto: false }),
@@ -550,8 +614,13 @@ function __AddLayers_coreRun(opts) {
             logo04: interpretFlagValue(raw.logo04, FLAG_VALUES, { allowAuto: false }),
             logo05: interpretFlagValue(raw.logo05, FLAG_VALUES, { allowAuto: false }),
             claim01: interpretFlagValue(raw.claim01, FLAG_VALUES, { allowAuto: false }),
-            claim02: interpretFlagValue(raw.claim02, FLAG_VALUES, { allowAuto: false })
+            claim02: interpretFlagValue(raw.claim02, FLAG_VALUES, { allowAuto: false }),
+            generic: {}
         };
+        for (var gm = 0; gm < genericKeys.length; gm++) {
+            var gmk = genericKeys[gm];
+            modes.generic[gmk] = interpretFlagValue(raw.generic[gmk], FLAG_VALUES, { allowAuto: false });
+        }
         var eff = {
             disclaimer: toEffective(modes.disclaimer, 'off'),
             disclaimer02: toEffective(modes.disclaimer02, 'off'),
@@ -562,8 +631,13 @@ function __AddLayers_coreRun(opts) {
             logo04: toEffective(modes.logo04, 'off'),
             logo05: toEffective(modes.logo05, 'off'),
             claim01: toEffective(modes.claim01, 'off'),
-            claim02: toEffective(modes.claim02, 'off')
+            claim02: toEffective(modes.claim02, 'off'),
+            generic: {}
         };
+        for (var ge = 0; ge < genericKeys.length; ge++) {
+            var gek = genericKeys[ge];
+            eff.generic[gek] = toEffective(modes.generic[gek], 'off');
+        }
         return { raw: raw, modes: modes, effective: eff };
     }
 
@@ -581,8 +655,12 @@ function __AddLayers_coreRun(opts) {
         return false;
     }
     function nameMatchesGroup(name, groupKey) {
-        var cfg = LAYER_NAME_CONFIG[groupKey];
-        if (!cfg) return false;
+        var gk = String(groupKey || '').toLowerCase();
+        var cfg = LAYER_NAME_CONFIG[gk];
+        if (!cfg) {
+            if (isGenericKeyName(gk)) return _matchesExact(name, [gk]) || _matchesContains(name, [gk]);
+            return false;
+        }
         return _matchesExact(name, cfg.exact) || _matchesContains(name, cfg.contains);
     }
     function nameMatchesAnyTokenContains(name, tokens) {
@@ -1366,6 +1444,13 @@ function __AddLayers_coreRun(opts) {
         if (!claimAuxMM && claim01MM) { claimAuxMM = claim01MM; __claimAuxOrigin = 'claim_01'; }
         if (!claimAuxMM) { claimAuxMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR); if (claimAuxMM) __claimAuxOrigin = 'claim[minMax]'; }
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
+        var __genericKeys = collectGenericKeysFromVideo(v);
+        var __genericTimingMap = {};
+        for (var gti = 0; gti < __genericKeys.length; gti++) {
+            var gtk = __genericKeys[gti];
+            var gspan = resolveTimingSpan(v, gtk, TIMING_ITEM_SELECTOR);
+            if (gspan) __genericTimingMap[gtk] = gspan;
+        }
         // Helper to extract flag value given a configured key (checks video then video.metadata)
         function extractFlag(videoObj, keyName) {
             if (!videoObj || !keyName) return null;
@@ -1570,6 +1655,33 @@ function __AddLayers_coreRun(opts) {
                 continue;
             }
             var timingBeh = resolveTimingBehaviorForLayer(nm) || 'asIs';
+
+            var matchedGenericKey = findMatchingGenericKeyForLayer(nm, __genericKeys);
+            if (matchedGenericKey) {
+                var genericTimingBeh = timingBeh;
+                var explicitForGenericKey = !!(TIMING_BEHAVIOR && TIMING_BEHAVIOR.hasOwnProperty(matchedGenericKey));
+                var explicitForLiteral = false;
+                if (TIMING_BEHAVIOR) {
+                    var nmLower = String(nm).toLowerCase();
+                    for (var tbk in TIMING_BEHAVIOR) {
+                        if (!TIMING_BEHAVIOR.hasOwnProperty(tbk)) continue;
+                        if (String(tbk).toLowerCase() === nmLower) { explicitForLiteral = true; break; }
+                    }
+                }
+                if (genericTimingBeh === 'asIs' && !explicitForGenericKey && !explicitForLiteral) genericTimingBeh = 'timed';
+                var gmm = __genericTimingMap[matchedGenericKey] || null;
+                if (genericTimingBeh === 'timed') {
+                    if (gmm) {
+                        setLayerInOut(ly, gmm.tin, gmm.tout, comp.duration);
+                        log("Set generic layer '" + nm + "' (" + matchedGenericKey + ") to [" + gmm.tin + ", " + gmm.tout + ")");
+                        appliedAny = true;
+                    }
+                } else if (genericTimingBeh === 'span') {
+                    setLayerInOut(ly, 0, comp.duration, comp.duration);
+                    log("Span generic layer '" + nm + "' (" + matchedGenericKey + ") to full duration.");
+                    appliedAny = true;
+                }
+            }
 
             // Claim_01 timing (only when timed behavior)
             if (timingBeh === 'timed' && claim01MM && (matchesExact(nm, LAYER_NAME_CONFIG.claim_01.exact) || matchesContains(nm, LAYER_NAME_CONFIG.claim_01.contains))) {
@@ -1820,6 +1932,8 @@ function __AddLayers_coreRun(opts) {
                 return null;
             }
             var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _logo03Mode = 'off', _logo04Mode = 'off', _logo05Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
+            var _genericModes = {};
+            var _genericKeys = [];
             if (vRec) {
                 var __modes = getModesForVideo(vRec);
                 _discMode = __modes.effective.disclaimer;
@@ -1832,6 +1946,8 @@ function __AddLayers_coreRun(opts) {
                 _logo05Mode = __modes.effective.logo05;
                 _claim01Mode = __modes.effective.claim01;
                 _claim02Mode = __modes.effective.claim02;
+                _genericModes = (__modes && __modes.effective && __modes.effective.generic) ? __modes.effective.generic : {};
+                for (var gmk2 in _genericModes) if (_genericModes.hasOwnProperty(gmk2)) _genericKeys.push(String(gmk2).toLowerCase());
             }
 
             // Helper: collect current layer references to detect the newly inserted one reliably
@@ -1856,6 +1972,7 @@ function __AddLayers_coreRun(opts) {
                     var isClaim01 = nameMatchesGroup(lname, 'claim_01') || (lname.toLowerCase() === 'claim_01');
                     var isClaim02 = nameMatchesGroup(lname, 'claim_02') || (lname.toLowerCase() === 'claim_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
+                    var isGenericLayerKey = findMatchingGenericKeyForLayer(lname, _genericKeys);
                     var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
@@ -1871,6 +1988,10 @@ function __AddLayers_coreRun(opts) {
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo05Off && isLogo05 && _logo05Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_05 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim01Off && isClaim01 && _claim01Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_01 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim02Off && isClaim02 && _claim02Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_02 OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.genericByFlagOff && isGenericLayerKey) {
+                        var gMode = _genericModes[isGenericLayerKey];
+                        if (gMode !== 'on') { log("Skip copy: '" + lname + "' (" + isGenericLayerKey + " OFF)"); skipCopyCount++; continue; }
+                    }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
                         var groupSkipped = false;
                         for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
