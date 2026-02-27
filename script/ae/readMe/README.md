@@ -325,7 +325,7 @@ Table of contents
     | `addLayers.TEMPLATE_MATCH_CONFIG.durationToleranceSeconds` | `0.50` | Duration tolerance (seconds). |
     | `addLayers.TIMING_BEHAVIOR` | map | Per-group/literal timing: `timed` | `span` | `asIs`. Defaults documented above. |
     | `addLayers.APPLY_INPOINT_TO_LAYER_STARTTIME` | `true` | Align `layer.startTime` to `inPoint` for `timed` layers. |
-    | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names. |
+    | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names; includes `genericByFlagOff` for scalable `generic_NN_flag` handling. |
     | `addLayers.EXTRA_TEMPLATES.*` | various | Controls duplicate “extras” comps (allowed ARs, tags, suffix, duration strictness). |
     | `addLayers.EXTRA_TEMPLATES.USE_DEDICATED_TARGET_FOLDERS` | `false` | Place extras in sibling `<AR>_<extraTag>` folders and create `<NNs>` duration subfolders under them. |
     ```json
