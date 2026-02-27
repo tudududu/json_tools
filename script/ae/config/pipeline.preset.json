@@ -229,6 +229,7 @@
         "logo02Off": false,
         "claim01Off": true,
         "claim02Off": true,
+        "genericByFlagOff": true,
         "superAOff": true,
         "superBOff": true,
         "groups":{"enabled":true,"keys":["info"]}, 

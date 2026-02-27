@@ -204,6 +204,7 @@
                 logo02Off: true,
                 claim01Off: true,
                 claim02Off: true,
+                genericByFlagOff: true,
                 // Base logo layers that must always be copied regardless of flags (case-insensitive exact names).
                 alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
                 // Group-based skip using LAYER_NAME_CONFIG keys. When enabled, any layers matching these groups are skipped.
