@@ -281,6 +281,83 @@ class FlagsAndMergingTests(unittest.TestCase):
             'Discover more at\nthemacallan.com',
         ])
 
+    def test_claim_portrait_only_row_is_preserved_and_aligned(self):
+        # Regression (CSV to JSON 239): if a global claim row has portrait text only,
+        # the row must still be emitted with an empty landscape placeholder.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;;;;;Y;;;TIME TRAVELLING SINCE 1824;\n'
+            'claim;;;;; ;Y;;;claim2;\n'
+            'claim;;;;; ;Y;;;;"Discover more at\n'
+            'themacallan.com"\n'
+            'meta_local;VID_P239;;;;title;N;ALL;T;;\n'
+            'sub;VID_P239;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+            'claim;VID_P239;1;00:00:11:22;00:00:15:00;;;;;;\n'
+            'claim;VID_P239;2;00:00:00:00;00:00:00:00;;;;;;\n'
+            'claim;VID_P239;3;00:00:11:22;00:00:15:00;;;;;;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        self.assertEqual(node['claim']['landscape'], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            '',
+        ])
+        self.assertEqual(node['claim']['portrait'], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
+
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        self.assertEqual([x['text'] for x in v_land['claim']], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            '',
+        ])
+        self.assertEqual([x['text'] for x in v_port['claim']], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            'Discover more at\nthemacallan.com',
+        ])
+
+    def test_claim_portrait_only_row_preserved_no_orientation(self):
+        # In legacy no-orientation shape, preserve row count and empty placeholder for landscape-only view.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;;;;;Y;;;TIME TRAVELLING SINCE 1824;\n'
+            'claim;;;;; ;Y;;;claim2;\n'
+            'claim;;;;; ;Y;;;;"Discover more at\n'
+            'themacallan.com"\n'
+            'meta_local;VID_P239_NO;;;;title;N;ALL;T;;\n'
+            'sub;VID_P239_NO;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+            'claim;VID_P239_NO;1;00:00:11:22;00:00:15:00;;;;;;\n'
+            'claim;VID_P239_NO;2;00:00:00:00;00:00:00:00;;;;;;\n'
+            'claim;VID_P239_NO;3;00:00:11:22;00:00:15:00;;;;;;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, no_orientation=True)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        self.assertEqual(node['claim'], [
+            'TIME TRAVELLING SINCE 1824',
+            'claim2',
+            '',
+        ])
+
     def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
         # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled
         csv_content = (

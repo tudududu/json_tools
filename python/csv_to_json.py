@@ -1323,8 +1323,9 @@ def convert_csv_to_json(
                 txt_l = (row["texts"].get(c, "") or "").rstrip()
                 txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
                 # Keep claim line alignment by falling back portrait per row index.
-                # Append only rows that participate in landscape output (or include empties when configured).
-                if txt_l or not skip_empty_text:
+                # Append rows with any orientation text (or include empties when configured)
+                # so portrait-only rows are preserved and aligned by index.
+                if txt_l or txt_p or not skip_empty_text:
                     claim_landscape.append(txt_l)
                     claim_portrait.append(txt_p if txt_p else txt_l)
 

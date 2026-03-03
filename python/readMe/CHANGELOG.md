@@ -1,3 +1,11 @@
+# 1.8.2 - 2026-03-03
+
+Fixed:
+- CSV → JSON tool (CSV to JSON 239):
+	* Fixed claim parsing alignment when a global claim row contains portrait-only text.
+	* Portrait-only rows are now preserved (landscape placeholder emitted as empty string) instead of being dropped.
+	* Per-video claim arrays keep correct line mapping for both orientations in this scenario.
+
 # 1.8.1 - 2026-02-25
 
 Added:
