@@ -387,6 +387,48 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual([x['text'] for x in v_land['claim']], ['claim_line_01', ''])
         self.assertEqual([x['text'] for x in v_port['claim']], ['claim_line_01', ''])
 
+    def test_top_level_keys_preserve_fully_empty_defined_rows(self):
+        # CSV to JSON 241: top-level rows remain aligned even when landscape+portrait are empty.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'disclaimer;;1;00:00:02:00;00:00:03:00;;;;;disc1;\n'
+            'disclaimer;;2;00:00:04:00;00:00:05:00;;;;;;\n'
+            'disclaimer_02;;1;00:00:06:00;00:00:07:00;;;;;disc2_1;\n'
+            'disclaimer_02;;2;00:00:08:00;00:00:09:00;;;;;;\n'
+            'logo;;1;00:00:10:00;00:00:11:00;;;;;logo1;\n'
+            'logo;;2;00:00:12:00;00:00:13:00;;;;;;\n'
+            'generic_01;;1;00:00:14:00;00:00:15:00;;;;;g01_1;\n'
+            'generic_01;;2;00:00:16:00;00:00:17:00;;;;;;\n'
+            'generic_02;;1;00:00:18:00;00:00:19:00;;;;;g02_1;\n'
+            'generic_02;;2;00:00:20:00;00:00:21:00;;;;;;\n'
+            'meta_local;VID_P241;;;;title;N;ALL;T;;\n'
+            'sub;VID_P241;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(
+                path,
+                fps=25,
+                merge_disclaimer=False,
+                merge_disclaimer_02=False,
+            )
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        self.assertEqual(node['disclaimer']['landscape'], ['disc1', ''])
+        self.assertEqual(node['disclaimer']['portrait'], ['disc1', ''])
+        self.assertEqual(node['disclaimer_02']['landscape'], ['disc2_1', ''])
+        self.assertEqual(node['disclaimer_02']['portrait'], ['disc2_1', ''])
+        self.assertEqual(node['logo']['landscape'], ['logo1', ''])
+        self.assertEqual(node['logo']['portrait'], ['logo1', ''])
+        self.assertEqual(node['generic_01']['landscape'], ['g01_1', ''])
+        self.assertEqual(node['generic_01']['portrait'], ['g01_1', ''])
+        self.assertEqual(node['generic_02']['landscape'], ['g02_1', ''])
+        self.assertEqual(node['generic_02']['portrait'], ['g02_1', ''])
+
     def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
         # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled
         csv_content = (

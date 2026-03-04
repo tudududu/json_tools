@@ -1333,10 +1333,8 @@ def convert_csv_to_json(
             for row in disclaimers_rows_merged:
                 txt_l = (row["texts"].get(c, "") or "").rstrip()
                 txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                if txt_l or not skip_empty_text:
-                    disc_landscape.append(txt_l)
-                if txt_p:
-                    disc_portrait.append(txt_p)
+                disc_landscape.append(txt_l)
+                disc_portrait.append(txt_p if txt_p else txt_l)
             if not disc_landscape:
                 disc_landscape = [""]
             if not disc_portrait and disc_landscape:
@@ -1347,10 +1345,8 @@ def convert_csv_to_json(
             for row in disclaimers_02_rows_merged:
                 txt_l = (row["texts"].get(c, "") or "").rstrip()
                 txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                if txt_l or not skip_empty_text:
-                    disc_02_landscape.append(txt_l)
-                if txt_p:
-                    disc_02_portrait.append(txt_p)
+                disc_02_landscape.append(txt_l)
+                disc_02_portrait.append(txt_p if txt_p else txt_l)
             if not disc_02_landscape:
                 disc_02_landscape = [""]
             if not disc_02_portrait and disc_02_landscape:
@@ -1361,10 +1357,8 @@ def convert_csv_to_json(
             for row in logo_rows_raw:
                 txt_l = (row["texts"].get(c, "") or "").rstrip()
                 txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                if txt_l or not skip_empty_text:
-                    logo_landscape.append(txt_l)
-                if txt_p:
-                    logo_portrait.append(txt_p)
+                logo_landscape.append(txt_l)
+                logo_portrait.append(txt_p if txt_p else txt_l)
             if not logo_portrait and logo_landscape:
                 logo_portrait = logo_landscape.copy()
 
@@ -1377,9 +1371,8 @@ def convert_csv_to_json(
                 for grow in generic_rows_raw.get(gk, []):
                     txt_l = (grow.get("texts", {}).get(c, "") or "").rstrip()
                     txt_p = (grow.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                    if txt_l or not skip_empty_text:
-                        g_land.append(txt_l)
-                        g_port.append(txt_p if txt_p else txt_l)
+                    g_land.append(txt_l)
+                    g_port.append(txt_p if txt_p else txt_l)
                 generic_top_land[gk] = g_land
                 generic_top_port[gk] = g_port
 

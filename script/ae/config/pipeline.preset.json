@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": false,
+    "RUN_set_ame_output_paths": true,
     "RUN_close_project": false,
 
 "batch": {
@@ -35,10 +35,10 @@
     "SLEEP_BETWEEN_RUNS_MS": 500,
     "SAVE_AFTER_RUN": true,
     "ENABLE_ISO_TOKEN_SELF_TEST": true,
-    "DRY_RUN": true
+    "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/macallan/demo/POST/WORK/Macallan_v19.aep",
+    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/EDRINGTON/MACALLAN/2026/AUTOMATION PILOT/C21407609 - GBL/POST/WORK/Macallan_v23.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -64,7 +64,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": false,
+    "AUTO_FROM_PROJECT_FOOTAGE": true,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
@@ -178,6 +178,10 @@
             "exact": ["test_gen_01"], 
             "contains": [] 
             },
+        "generic_02": {
+            "exact": ["test_gen_02"], 
+            "contains": [] 
+            },
         "dataJson": { 
             "exact": ["DATA_JSON", "data.json"], 
             "contains": [] 
@@ -197,6 +201,7 @@
         "claim_02": "timed",
         "claim_auxiliary": "timed",
         "generic_01": "timed",
+        "generic_02": "timed",
 
         "logo_03": "span",
         "logo_04": "span",
@@ -225,7 +230,8 @@
         "claim_01": { "mode": "line", "value": 1 },
         "claim_02": { "mode": "line", "value": 2 },
         "claim_auxiliary": { "mode": "line", "value": 1 },
-        "generic_01": { "mode": "line", "value": 1 }
+        "generic_01": { "mode": "line", "value": 1 },
+        "generic_02": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff": true, 

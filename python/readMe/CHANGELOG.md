@@ -1,3 +1,11 @@
+# 1.8.4 - 2026-03-04
+
+Fixed:
+- CSV → JSON tool (CSV to JSON 241):
+	* Updated top-level `disclaimer`, `disclaimer_02`, `logo`, and `generic_XX` arrays to preserve all explicitly defined rows, including rows where both landscape and portrait are empty.
+	* Removed row filtering for these top-level arrays so defined empty rows emit `""` placeholders and keep index alignment.
+	* Portrait values continue to fall back to the landscape value when portrait is empty.
+
 # 1.8.3 - 2026-03-04
 
 Fixed:
