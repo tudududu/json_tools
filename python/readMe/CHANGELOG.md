@@ -1,3 +1,13 @@
+# 1.8.5 - 2026-03-04
+
+Added:
+- SRT → CSV tool (CSV to JSON 242):
+	* Added XLSX output support to `python/tools/srt_to_csv.py` in parallel with existing CSV output.
+	* Added `--output-type {csv,xlsx}` as an explicit output container override.
+	* Added output extension inference when `--output-type` is omitted (`.xlsx` => XLSX, otherwise CSV).
+	* XLSX output writes a single worksheet named `subtitles`.
+	* Refactored shared row serialization so single-file and batch-join modes use the same output pipeline.
+
 # 1.8.4 - 2026-03-04
 
 Fixed:

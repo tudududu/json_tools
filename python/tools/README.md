@@ -4,7 +4,7 @@ This folder contains helper scripts used alongside the CSV → JSON converter.
 
 ## srt_to_csv.py
 
-Converts a SubRip (`.srt`) subtitle file into a simple CSV with columns:
+Converts a SubRip (`.srt`) subtitle file into tabular output with columns:
 `Start Time, End Time, Text`.
 
 - Input: Standard SRT blocks
@@ -28,8 +28,11 @@ Usage:
 ```sh
 python python/tools/srt_to_csv.py input.srt output.csv --fps 25 --out-format frames
 python python/tools/srt_to_csv.py input.srt output_ms.csv --out-format ms
+python python/tools/srt_to_csv.py input.srt output.xlsx --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_csv/ --fps 25 --out-format frames
+python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_xlsx/ --output-type xlsx --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ joined.csv --join-output --fps 25 --out-format frames
+python -m python.tools.srt_to_csv --input-dir in_srt/ joined.xlsx --join-output --fps 25 --out-format frames
 ```
 
 Options:
@@ -37,10 +40,15 @@ Options:
 - `--out-format <frames|ms>`: Output time format (`frames` → `HH:MM:SS:FF`, `ms` → `HH:MM:SS,SSS`; default: `frames`)
 - `--encoding <name>`: Input file encoding (default: `utf-8-sig`)
 - `--quote-all`: Quote all CSV fields (default: minimal quoting)
-- `--delimiter <comma|semicolon>`: Output delimiter (default: `comma`)
+- `--delimiter <comma|semicolon>`: CSV output delimiter (default: `comma`)
+- `--output-type <csv|xlsx>`: Output container override; when omitted, output extension decides (`.xlsx` → XLSX, otherwise CSV)
 - `--input-dir`: Batch mode — iterate all `.srt` files in the directory
-- `--output-dir`: Batch mode — directory to write separate `.csv` files (defaults to `--input-dir`)
-- `--join-output`: Batch join — write a single combined CSV (provide an output file path either positionally after `--input-dir` or via `--output-dir`)
+- `--output-dir`: Batch mode — directory to write separate output files (defaults to `--input-dir`)
+- `--join-output`: Batch join — write a single combined output file (provide an output file path either positionally after `--input-dir` or via `--output-dir`)
+
+XLSX notes:
+- XLSX output writes a single worksheet named `subtitles`.
+- XLSX output requires `openpyxl`.
 
 ## csv_json_media.py
 
