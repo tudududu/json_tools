@@ -358,6 +358,35 @@ class FlagsAndMergingTests(unittest.TestCase):
             '',
         ])
 
+    def test_claim_fully_empty_defined_row_is_preserved(self):
+        # Regression (CSV to JSON 240): defined claim row with both orientations empty
+        # must be preserved as an empty placeholder in global and per-video claims.
+        csv_content = (
+            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n'
+            'meta_global;;;;;briefVersion;Y;ALL;3;;\n'
+            'meta_global;;;;;fps;Y;ALL;25;;\n'
+            'claim;;;;;;Y;;;claim_line_01;\n'
+            'claim;;;;; ;Y;;;;\n'
+            'meta_local;VID_P240;;;;title;N;ALL;T;;\n'
+            'sub;VID_P240;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n'
+            'claim;VID_P240;1;00:00:11:22;00:00:15:00;;;;;;\n'
+            'claim;VID_P240;2;00:00:11:22;00:00:15:00;;;;;;\n'
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25)
+        finally:
+            os.remove(path)
+
+        node = out['byCountry']['GBL']
+        self.assertEqual(node['claim']['landscape'], ['claim_line_01', ''])
+        self.assertEqual(node['claim']['portrait'], ['claim_line_01', ''])
+
+        v_land = next(v for v in node['videos'] if v['videoId'].endswith('_landscape'))
+        v_port = next(v for v in node['videos'] if v['videoId'].endswith('_portrait'))
+        self.assertEqual([x['text'] for x in v_land['claim']], ['claim_line_01', ''])
+        self.assertEqual([x['text'] for x in v_port['claim']], ['claim_line_01', ''])
+
     def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
         # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled
         csv_content = (

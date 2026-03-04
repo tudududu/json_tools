@@ -1,3 +1,11 @@
+# 1.8.3 - 2026-03-04
+
+Fixed:
+- CSV → JSON tool (CSV to JSON 240):
+	* Preserved explicitly defined global claim rows even when both landscape and portrait values are empty.
+	* Empty defined claim rows now emit empty-string placeholders in top-level `claim.landscape`/`claim.portrait`.
+	* Per-video claim fallback keeps correct row alignment and no longer drifts to a previous line in this case.
+
 # 1.8.2 - 2026-03-03
 
 Fixed:
