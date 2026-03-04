@@ -210,3 +210,48 @@ def test_xlsx_output_without_openpyxl_reports_clear_cli_error():
             os.rmdir(in_dir)
         except Exception:
             pass
+
+
+def test_join_xlsx_output_without_openpyxl_reports_clear_cli_error():
+    in_dir = tempfile.mkdtemp()
+    out_dir = tempfile.mkdtemp()
+    try:
+        with open(os.path.join(in_dir, 'a.srt'), 'w', encoding='utf-8') as f:
+            f.write('1\n00:00:00,000 --> 00:00:01,000\nJoin needs xlsx\n')
+
+        out_xlsx = os.path.join(out_dir, 'joined_missing_openpyxl.xlsx')
+
+        # Shadow installed openpyxl with an empty local package so
+        # `from openpyxl import Workbook` fails in the CLI process.
+        fake_site = tempfile.mkdtemp()
+        fake_openpyxl_pkg = os.path.join(fake_site, 'openpyxl')
+        os.makedirs(fake_openpyxl_pkg, exist_ok=True)
+        with open(os.path.join(fake_openpyxl_pkg, '__init__.py'), 'w', encoding='utf-8') as f:
+            f.write('# intentionally empty: Workbook symbol missing\n')
+
+        script_mod = 'python.tools.srt_to_csv'
+        env = os.environ.copy()
+        env['PYTHONPATH'] = fake_site + os.pathsep + env.get('PYTHONPATH', '')
+
+        proc = subprocess.run(
+            [sys.executable, '-m', script_mod, '--input-dir', in_dir, out_xlsx, '--join-output', '--out-format', 'frames', '--fps', '25'],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert proc.returncode != 0
+        combined = (proc.stdout or '') + (proc.stderr or '')
+        assert 'XLSX output requires openpyxl. Install with: pip install openpyxl' in combined
+    finally:
+        try:
+            os.remove(os.path.join(in_dir, 'a.srt'))
+        except Exception:
+            pass
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass
+        try:
+            os.rmdir(out_dir)
+        except Exception:
+            pass
