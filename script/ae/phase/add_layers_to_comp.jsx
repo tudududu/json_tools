@@ -231,6 +231,14 @@ function __AddLayers_coreRun(opts) {
         }
     };
 
+    // AE 256: modular layer filtering for generic groups
+    var MODULAR_FILTER = {
+        ENABLED: false,
+        USE_GENERIC_FLAG_GATES: true
+    };
+    // Built from shared `modular.MODULE_MAP`: generic source key -> module tag prefix (e.g., generic_01 -> A)
+    var MODULAR_SOURCEKEY_TO_TAG = {};
+
     // Config: Layer name configuration (case-insensitive)
     // - exact: list of layer names to match exactly
     // - contains: list of substrings; if present in layer name, it's a match
@@ -402,6 +410,12 @@ function __AddLayers_coreRun(opts) {
             if (o.SKIP_COPY_CONFIG) {
                 try { SKIP_COPY_CONFIG = o.SKIP_COPY_CONFIG; } catch(eS) {}
             }
+            if (o.MODULAR_FILTER && typeof o.MODULAR_FILTER === 'object') {
+                try {
+                    if (o.MODULAR_FILTER.ENABLED !== undefined) MODULAR_FILTER.ENABLED = __toBool(o.MODULAR_FILTER.ENABLED, false);
+                    if (o.MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== undefined) MODULAR_FILTER.USE_GENERIC_FLAG_GATES = __toBool(o.MODULAR_FILTER.USE_GENERIC_FLAG_GATES, true);
+                } catch(eMF1) {}
+            }
             // EXTRA_TEMPLATES (optional) — read into local effective variables
             var __EXTRA_ENABLE = false;
             var __EXTRA_ALLOWED_AR = [];
@@ -460,7 +474,25 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO')) SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = !!ao.SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO;
                 if (ao.hasOwnProperty('SIMPLE_PREP_MUTE_FOOTAGE_AUDIO')) SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = !!ao.SIMPLE_PREP_MUTE_FOOTAGE_AUDIO;
                 if (ao.hasOwnProperty('ENABLE_VIDEOID_BASED_LAYER_SKIP')) ENABLE_VIDEOID_BASED_LAYER_SKIP = !!ao.ENABLE_VIDEOID_BASED_LAYER_SKIP;
+                if (ao.MODULAR_FILTER && typeof ao.MODULAR_FILTER === 'object') {
+                    if (ao.MODULAR_FILTER.ENABLED !== undefined) MODULAR_FILTER.ENABLED = __toBool(ao.MODULAR_FILTER.ENABLED, false);
+                    if (ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== undefined) MODULAR_FILTER.USE_GENERIC_FLAG_GATES = __toBool(ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES, true);
+                }
             }
+            try {
+                var mo = (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.modular) ? __AE_PIPE__.optionsEffective.modular : null;
+                if (mo && mo.MODULE_MAP && typeof mo.MODULE_MAP === 'object') {
+                    for (var mk in mo.MODULE_MAP) if (mo.MODULE_MAP.hasOwnProperty(mk)) {
+                        var tagPrefix = String(mk || '').toUpperCase();
+                        if (!tagPrefix) continue;
+                        var spec = mo.MODULE_MAP[mk] || {};
+                        if (spec.ENABLED === false) continue;
+                        var sourceKey = String(spec.SOURCE_KEY || '').toLowerCase();
+                        if (!sourceKey) continue;
+                        MODULAR_SOURCEKEY_TO_TAG[sourceKey] = tagPrefix;
+                    }
+                }
+            } catch(eMMAP) {}
             // Global pipeline-level LOG_MARKER takes precedence; keep per-phase as backward-compatible fallback
             try {
                 if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && typeof __AE_PIPE__.optionsEffective.LOG_MARKER === 'string') {
@@ -710,6 +742,64 @@ function __AddLayers_coreRun(opts) {
         var title = parts[durIdx - 1];
         if (!title) return null;
         return String(title) + '_' + durToken;
+    }
+
+    function extractModuleTagsAfterDurationFromName(name) {
+        // Parse contiguous module tags after duration token, e.g. "..._15s_A1_B2_..." -> ["A1","B2"]
+        var out = [];
+        try {
+            var parts = String(name || '').split(/[\s_]+/);
+            if (!parts || !parts.length) return out;
+            var durIdx = -1;
+            for (var i = 0; i < parts.length; i++) {
+                var p = String(parts[i] || '').replace(/\.[^.]+$/, '');
+                if (/^\d{1,4}s$/i.test(p)) { durIdx = i; break; }
+            }
+            if (durIdx < 0) return out;
+            for (var j = durIdx + 1; j < parts.length; j++) {
+                var tok = String(parts[j] || '').replace(/\.[^.]+$/, '').toUpperCase();
+                if (/^[A-Z]\d+$/.test(tok)) out.push(tok);
+                else break;
+            }
+        } catch(eMT) {}
+        return out;
+    }
+
+    function moduleTagMapFromCompName(name) {
+        var map = {};
+        var tags = extractModuleTagsAfterDurationFromName(name);
+        for (var i = 0; i < tags.length; i++) {
+            var tok = String(tags[i] || '').toUpperCase();
+            if (!tok) continue;
+            var m = tok.match(/^([A-Z])(\d+)$/);
+            if (!m) continue;
+            map[m[1]] = tok;
+        }
+        return map;
+    }
+
+    function resolveModuleTagPrefixForGenericKey(genericKey) {
+        var gk = String(genericKey || '').toLowerCase();
+        if (!gk) return null;
+        if (MODULAR_SOURCEKEY_TO_TAG && MODULAR_SOURCEKEY_TO_TAG[gk]) return String(MODULAR_SOURCEKEY_TO_TAG[gk]).toUpperCase();
+        // Fallback: generic_01 -> A, generic_02 -> B ...
+        var m = gk.match(/^generic_(\d+)$/i);
+        if (!m) return null;
+        var n = parseInt(m[1], 10);
+        if (isNaN(n) || n < 1 || n > 26) return null;
+        return String.fromCharCode(64 + n);
+    }
+
+    function findModuleTokenInLayerNameForPrefix(layerName, prefix) {
+        if (!layerName || !prefix) return null;
+        try {
+            var p = String(prefix || '').toUpperCase().replace(/[^A-Z]/g, '');
+            if (!p) return null;
+            var re = new RegExp('(?:^|[\\s_])(' + p + '\\d+)(?:$|[\\s_])', 'i');
+            var m = String(layerName || '').match(re);
+            if (m && m[1]) return String(m[1]).toUpperCase();
+        } catch(eLT) {}
+        return null;
     }
 
     function findChildFolderByName(parent, name) {
@@ -1934,6 +2024,7 @@ function __AddLayers_coreRun(opts) {
             var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _logo03Mode = 'off', _logo04Mode = 'off', _logo05Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
             var _genericModes = {};
             var _genericKeys = [];
+            var _compModuleTagMap = moduleTagMapFromCompName(compTarget ? compTarget.name : null);
             if (vRec) {
                 var __modes = getModesForVideo(vRec);
                 _discMode = __modes.effective.disclaimer;
@@ -1988,9 +2079,30 @@ function __AddLayers_coreRun(opts) {
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo05Off && isLogo05 && _logo05Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_05 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim01Off && isClaim01 && _claim01Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_01 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim02Off && isClaim02 && _claim02Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_02 OFF)"); skipCopyCount++; continue; }
-                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.genericByFlagOff && isGenericLayerKey) {
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.genericByFlagOff && isGenericLayerKey && (!MODULAR_FILTER || MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== false)) {
                         var gMode = _genericModes[isGenericLayerKey];
                         if (gMode !== 'on') { log("Skip copy: '" + lname + "' (" + isGenericLayerKey + " OFF)"); skipCopyCount++; continue; }
+                    }
+                    if (MODULAR_FILTER && MODULAR_FILTER.ENABLED && isGenericLayerKey) {
+                        var __tagPrefix = resolveModuleTagPrefixForGenericKey(isGenericLayerKey);
+                        if (__tagPrefix) {
+                            var __selectedCompToken = _compModuleTagMap[__tagPrefix] || null;
+                            var __layerToken = findModuleTokenInLayerNameForPrefix(lname, __tagPrefix);
+                            if (__selectedCompToken) {
+                                if (__layerToken && __layerToken !== __selectedCompToken) {
+                                    log("Skip copy: '" + lname + "' (modular mismatch " + __tagPrefix + ": layer='" + __layerToken + "' vs comp='" + __selectedCompToken + "')");
+                                    skipCopyCount++;
+                                    continue;
+                                }
+                            } else {
+                                // If comp has no token for this module prefix, skip tagged variant layers for that prefix.
+                                if (__layerToken) {
+                                    log("Skip copy: '" + lname + "' (modular tag present without comp token: " + __layerToken + ")");
+                                    skipCopyCount++;
+                                    continue;
+                                }
+                            }
+                        }
                     }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
                         var groupSkipped = false;
