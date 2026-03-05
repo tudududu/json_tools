@@ -95,6 +95,9 @@ function __InsertRelink_coreRun(opts) {
     var AUDIO_TITLE_TOKEN_COUNT = 2; // default keeps backward compatibility (token01_token02_duration)
     // New: optional strict adjacency for tokens (require tokens to appear contiguously with underscores before duration)
     var AUDIO_TOKENS_REQUIRE_ADJACENT = false; // default false preserves lenient matching
+    // AE 255: modular-audio matching gates
+    var MODULAR_AUDIO_ENABLED = false;
+    var MODULAR_AUDIO_FALLBACK_TO_SHARED = true;
 
     // Options overrides
     try {
@@ -115,6 +118,10 @@ function __InsertRelink_coreRun(opts) {
                 if (nt < 1) nt = 1; if (nt > 4) nt = 4; AUDIO_TITLE_TOKEN_COUNT = nt;
             }
             if (o.AUDIO_TOKENS_REQUIRE_ADJACENT !== undefined) AUDIO_TOKENS_REQUIRE_ADJACENT = !!o.AUDIO_TOKENS_REQUIRE_ADJACENT;
+            if (o.MODULAR_AUDIO && typeof o.MODULAR_AUDIO === 'object') {
+                if (o.MODULAR_AUDIO.ENABLED !== undefined) MODULAR_AUDIO_ENABLED = !!o.MODULAR_AUDIO.ENABLED;
+                if (o.MODULAR_AUDIO.FALLBACK_TO_SHARED !== undefined) MODULAR_AUDIO_FALLBACK_TO_SHARED = !!o.MODULAR_AUDIO.FALLBACK_TO_SHARED;
+            }
         }
         try { if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) { ENABLE_FILE_LOG = false; } } catch(eMSIR) {}
         // Allow pipeline-global override for token count and adjacency when provided
@@ -126,6 +133,10 @@ function __InsertRelink_coreRun(opts) {
                     if (nt2 < 1) nt2 = 1; if (nt2 > 4) nt2 = 4; AUDIO_TITLE_TOKEN_COUNT = nt2;
                 }
                 if (pe.AUDIO_TOKENS_REQUIRE_ADJACENT !== undefined) AUDIO_TOKENS_REQUIRE_ADJACENT = !!pe.AUDIO_TOKENS_REQUIRE_ADJACENT;
+                if (pe.MODULAR_AUDIO && typeof pe.MODULAR_AUDIO === 'object') {
+                    if (pe.MODULAR_AUDIO.ENABLED !== undefined) MODULAR_AUDIO_ENABLED = !!pe.MODULAR_AUDIO.ENABLED;
+                    if (pe.MODULAR_AUDIO.FALLBACK_TO_SHARED !== undefined) MODULAR_AUDIO_FALLBACK_TO_SHARED = !!pe.MODULAR_AUDIO.FALLBACK_TO_SHARED;
+                }
             }
         } catch(ePipeTok) {}
     } catch (eOpt) {}
@@ -303,6 +314,38 @@ function __InsertRelink_coreRun(opts) {
         return parseInt(m[1], 10);
     }
 
+    function __stripExtToken(tok) {
+        var t = String(tok || "");
+        return t.replace(/\.[^.]+$/, "");
+    }
+
+    function __extractModuleTagsAfterDuration(name) {
+        // Reads contiguous module tags directly after duration token, e.g. "..._15s_A1_B2_..." => ["A1","B2"]
+        var out = [];
+        try {
+            var parts = String(name || "").split(/[_\s]+/);
+            if (!parts.length) return out;
+            var durIdx = -1;
+            for (var i = 0; i < parts.length; i++) {
+                if (/^\d{1,4}s$/i.test(__stripExtToken(parts[i]))) { durIdx = i; break; }
+            }
+            if (durIdx < 0) return out;
+            for (var j = durIdx + 1; j < parts.length; j++) {
+                var tok = __stripExtToken(parts[j]).toUpperCase();
+                if (/^[A-Z]\d+$/.test(tok)) out.push(tok);
+                else break;
+            }
+        } catch (eMT) {}
+        return out;
+    }
+
+    function __sameModuleTags(a, b) {
+        if (!a || !b) return false;
+        if (a.length !== b.length) return false;
+        for (var i = 0; i < a.length; i++) if (String(a[i]) !== String(b[i])) return false;
+        return true;
+    }
+
     function pickBestAudioMatch(items, tok) {
         // Filter items whose names contain N title tokens in order before the same duration (case-insensitive) and that have audio
         var matches = [];
@@ -359,6 +402,25 @@ function __InsertRelink_coreRun(opts) {
         }
         matches.sort(function(a, b) { return scoreExt(a.name) - scoreExt(b.name); });
         return matches[0];
+    }
+
+    function pickBestAudioMatchForComp(items, tok, compModuleTags) {
+        if (!MODULAR_AUDIO_ENABLED) return pickBestAudioMatch(items, tok);
+        if (!compModuleTags || !compModuleTags.length) return pickBestAudioMatch(items, tok);
+
+        var variantItems = [];
+        var sharedItems = [];
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var audioTags = __extractModuleTagsAfterDuration(it.name);
+            if (__sameModuleTags(audioTags, compModuleTags)) variantItems.push(it);
+            else if (MODULAR_AUDIO_FALLBACK_TO_SHARED && (!audioTags || !audioTags.length)) sharedItems.push(it);
+        }
+
+        var bestVariant = pickBestAudioMatch(variantItems, tok);
+        if (bestVariant) return bestVariant;
+        if (MODULAR_AUDIO_FALLBACK_TO_SHARED) return pickBestAudioMatch(sharedItems, tok);
+        return null;
     }
 
     function firstCompMarkerTime(comp) {
@@ -791,17 +853,28 @@ function __InsertRelink_coreRun(opts) {
     for (var ci = 0; ci < comps.length; ci++) {
         var comp = comps[ci];
         var tokStruct = getTokensBeforeDuration(comp.name, AUDIO_TITLE_TOKEN_COUNT);
+        var compModuleTags = __extractModuleTagsAfterDuration(comp.name);
         if (!tokStruct) {
             missed.push(comp.name + " (no tokens)");
             try { log("[debug] insert_relink: expected title tokens before duration: " + AUDIO_TITLE_TOKEN_COUNT + " (comp '" + comp.name + "')"); } catch(eDbg1) {}
             continue;
         }
         try { log("[debug] insert_relink: matching tokens '" + tokStruct.tokens.join(',') + "' + duration '" + tokStruct.duration + "' (N=" + tokStruct.tokens.length + ") for comp '" + comp.name + "'"); } catch(eDbg2) {}
-        var match = pickBestAudioMatch(allFootage, tokStruct);
+        var match = pickBestAudioMatchForComp(allFootage, tokStruct, compModuleTags);
         if (!match) {
             missed.push(comp.name + " (no audio for '" + tokStruct.tokens[0] + "_" + tokStruct.duration + "')");
             try { log("[debug] insert_relink: no audio for tokens=[" + tokStruct.tokens.join(',') + "], duration=" + tokStruct.duration + " (comp '" + comp.name + "')"); } catch(eDbg3) {}
             continue;
+        }
+        if (MODULAR_AUDIO_ENABLED && compModuleTags && compModuleTags.length) {
+            try {
+                var matchedAudioTags = __extractModuleTagsAfterDuration(match.name);
+                if (__sameModuleTags(matchedAudioTags, compModuleTags)) {
+                    log("[debug] insert_relink: modular match for comp '" + comp.name + "' => [" + compModuleTags.join(',') + "] using '" + match.name + "'");
+                } else if (MODULAR_AUDIO_FALLBACK_TO_SHARED && (!matchedAudioTags || !matchedAudioTags.length)) {
+                    log("[debug] insert_relink: modular fallback-to-shared for comp '" + comp.name + "' => [" + compModuleTags.join(',') + "] using '" + match.name + "'");
+                }
+            } catch (eMMLog) {}
         }
         // Optional: validate ISO token in audio filename
         if (ENABLE_CHECK_AUDIO_ISO) {
