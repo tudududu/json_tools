@@ -146,6 +146,15 @@ function __Pack_coreRun(opts) {
         appendSuffix: true      // append APPEND_SUFFIX to the built name (if not already there)
     };
 
+    // AE 257: modular naming integration (Phase 4)
+    var MODULAR_NAMING = {
+        ENABLE_MODULE_TOKENS: false,
+        TOKEN_ORDER: ["A", "B"],
+        OMIT_MISSING_TOKENS: true
+    };
+    // Shared map from modular.MODULE_MAP: tag prefix -> source key (e.g., A -> generic_01)
+    var MODULAR_SOURCEKEY_BY_TAG = {};
+
 
     // Options overrides
     try {
@@ -185,6 +194,11 @@ function __Pack_coreRun(opts) {
             if (o.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!o.EXTRA_OUTPUTS_PROMPT_IF_MISSING;
             if (o.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON !== undefined) EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON = !!o.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON;
             if (o.EXTRA_OUTPUTS_DATA_JSON_PATHS !== undefined) EXTRA_OUTPUTS_DATA_JSON_PATHS = o.EXTRA_OUTPUTS_DATA_JSON_PATHS;
+            if (o.MODULAR_NAMING && typeof o.MODULAR_NAMING === 'object') {
+                if (o.MODULAR_NAMING.ENABLE_MODULE_TOKENS !== undefined) MODULAR_NAMING.ENABLE_MODULE_TOKENS = !!o.MODULAR_NAMING.ENABLE_MODULE_TOKENS;
+                if (o.MODULAR_NAMING.TOKEN_ORDER instanceof Array) MODULAR_NAMING.TOKEN_ORDER = o.MODULAR_NAMING.TOKEN_ORDER;
+                if (o.MODULAR_NAMING.OMIT_MISSING_TOKENS !== undefined) MODULAR_NAMING.OMIT_MISSING_TOKENS = !!o.MODULAR_NAMING.OMIT_MISSING_TOKENS;
+            }
         }
         try {
             if (__AE_PIPE__ && __AE_PIPE__.optionsEffective) {
@@ -208,6 +222,26 @@ function __Pack_coreRun(opts) {
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING !== undefined) { EXTRA_OUTPUTS_PROMPT_IF_MISSING = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING; } } catch(eP10) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON !== undefined) { EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON; } } catch(eP11) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DATA_JSON_PATHS) { EXTRA_OUTPUTS_DATA_JSON_PATHS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DATA_JSON_PATHS; } } catch(eP12) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.MODULAR_NAMING) {
+                    var pmn = __AE_PIPE__.optionsEffective.pack.MODULAR_NAMING;
+                    if (pmn.ENABLE_MODULE_TOKENS !== undefined) MODULAR_NAMING.ENABLE_MODULE_TOKENS = !!pmn.ENABLE_MODULE_TOKENS;
+                    if (pmn.TOKEN_ORDER instanceof Array) MODULAR_NAMING.TOKEN_ORDER = pmn.TOKEN_ORDER;
+                    if (pmn.OMIT_MISSING_TOKENS !== undefined) MODULAR_NAMING.OMIT_MISSING_TOKENS = !!pmn.OMIT_MISSING_TOKENS;
+                } } catch(ePMN) {}
+                try {
+                    if (__AE_PIPE__.optionsEffective.modular && __AE_PIPE__.optionsEffective.modular.MODULE_MAP) {
+                        var mm = __AE_PIPE__.optionsEffective.modular.MODULE_MAP;
+                        for (var mk in mm) if (mm.hasOwnProperty(mk)) {
+                            var tag = String(mk || '').toUpperCase();
+                            if (!tag) continue;
+                            var spec = mm[mk] || {};
+                            if (spec.ENABLED === false) continue;
+                            var src = String(spec.SOURCE_KEY || '').toLowerCase();
+                            if (!src) continue;
+                            MODULAR_SOURCEKEY_BY_TAG[tag] = src;
+                        }
+                    }
+                } catch(eMM) {}
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
@@ -866,6 +900,61 @@ function __Pack_coreRun(opts) {
         return null;
     }
 
+    function extractModuleTagMapFromCompName(name){
+        // Parse contiguous module tags after duration token: ..._15s_A1_B2_... => {A:'A1', B:'B2'}
+        var map = {};
+        try {
+            var parts = String(name || '').split(/[\s_]+/);
+            if (!parts || !parts.length) return map;
+            var durIdx = -1;
+            for (var i = 0; i < parts.length; i++) {
+                var p = String(parts[i] || '').replace(/\.[^.]+$/, '');
+                if (/^\d{1,4}s$/i.test(p)) { durIdx = i; break; }
+            }
+            if (durIdx < 0) return map;
+            for (var j = durIdx + 1; j < parts.length; j++) {
+                var tok = String(parts[j] || '').replace(/\.[^.]+$/, '').toUpperCase();
+                var m = tok.match(/^([A-Z])(\d+)$/);
+                if (!m) break;
+                map[m[1]] = tok;
+            }
+        } catch(eMT) {}
+        return map;
+    }
+
+    function resolveModuleValueFromToken(tagPrefix, token, video){
+        // Default: keep token if we cannot resolve a text value from video generic arrays.
+        if (!token) return '';
+        var fallback = String(token || '').toUpperCase();
+        try {
+            if (!video) return fallback;
+            var tag = String(tagPrefix || '').toUpperCase();
+            if (!tag) return fallback;
+            var sourceKey = MODULAR_SOURCEKEY_BY_TAG[tag];
+            if (!sourceKey) return fallback;
+            var arr = video[sourceKey];
+            if (!(arr instanceof Array) || !arr.length) return fallback;
+            var m = String(token).toUpperCase().match(/^[A-Z](\d+)$/);
+            if (!m) return fallback;
+            var lineNo = parseInt(m[1], 10);
+            if (isNaN(lineNo) || lineNo < 1) return fallback;
+
+            var picked = null;
+            for (var i = 0; i < arr.length; i++) {
+                var it = arr[i] || {};
+                var ln = parseInt(it.line, 10);
+                if (!isNaN(ln) && ln === lineNo) { picked = it; break; }
+            }
+            if (!picked && lineNo - 1 < arr.length) picked = arr[lineNo - 1];
+            if (!picked) return fallback;
+            var txt = (picked.text !== undefined && picked.text !== null) ? String(picked.text) : '';
+            if (!txt) return fallback;
+            return __safeSanMedia(txt);
+        } catch(eRV) {
+            return fallback;
+        }
+    }
+
     function __isTokenEnabled(key){
         try {
             for (var i=0;i<OUTPUT_NAME_TOKENS.length;i++){
@@ -990,6 +1079,7 @@ function __Pack_coreRun(opts) {
         var video = jsonData ? findVideoRecord(jsonData, comp) : null;
         if(!video){ log("No video metadata match for comp '" + comp.name + "' (will fallback)" ); }
         var ctx = { comp: comp, meta: meta, video: video };
+        var moduleTagMap = extractModuleTagMapFromCompName(comp ? comp.name : null);
         // Allow extras to inject media label via a synthetic property on the comp-like context
         try { if (comp && comp.extraMediaLabel) ctx.extraMediaLabel = comp.extraMediaLabel; } catch(eEML) {}
         var parts = [];
@@ -1005,6 +1095,20 @@ function __Pack_coreRun(opts) {
             if(DEBUG_NAMING) log("Token " + tk.key + " => '" + val + "'");
             if(!val){ if(OUTPUT_NAME_CONFIG.skipEmpty) continue; else val=''; }
             parts.push(val);
+
+            // AE 257: inject module values right after TITLE token
+            if (tk.key === 'TITLE' && MODULAR_NAMING && MODULAR_NAMING.ENABLE_MODULE_TOKENS) {
+                var order = (MODULAR_NAMING.TOKEN_ORDER instanceof Array) ? MODULAR_NAMING.TOKEN_ORDER : [];
+                for (var mi = 0; mi < order.length; mi++) {
+                    var prefix = String(order[mi] || '').toUpperCase();
+                    if (!prefix) continue;
+                    var tok = moduleTagMap[prefix] || '';
+                    var mval = resolveModuleValueFromToken(prefix, tok, video);
+                    if (!mval && MODULAR_NAMING.OMIT_MISSING_TOKENS) continue;
+                    parts.push(mval || '');
+                    if (DEBUG_NAMING) log("Token MODULE[" + prefix + "] => '" + (mval || '') + "'");
+                }
+            }
         }
         if(!parts.length) return null;
         var rawName = parts.join(OUTPUT_NAME_CONFIG.delimiter || '_');
