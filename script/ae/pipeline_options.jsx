@@ -43,6 +43,28 @@
         sleepBetweenPhasesMs: 0,
         ENABLE_FINAL_ALERT: true,
 
+        // Shared modular variants contract (used across Steps 3-6)
+        modular: {
+            ENABLED: false,
+            // hybrid: explicit combinations override, otherwise cartesian.
+            // cartesian: always generate product of active module values.
+            // explicit: generate only explicit combinations.
+            GENERATION_MODE: "hybrid", // "hybrid" | "cartesian" | "explicit"
+            // Module registry by tag prefix (e.g., A, B). SOURCE_KEY points to video object arrays (e.g., generic_01).
+            MODULE_MAP: {
+                A: { ENABLED: true, SOURCE_KEY: "generic_01" },
+                B: { ENABLED: true, SOURCE_KEY: "generic_02" }
+            },
+            // Optional explicit combinations keyed by base/oriented videoId.
+            // Example: { "Title_15s_landscape": ["A1_B2", {"A":1,"B":3}] }
+            EXPLICIT_VARIANTS_BY_VIDEOID: {},
+            // Safety cap against accidental explosion.
+            MAX_VARIANTS_PER_BASE: 128,
+            TAG_DELIMITER: "_",
+            TAG_POSITION: "after_duration", // locked value
+            VALUE_TOKEN_MODE: "index" // "index" (default) | "text" (future-safe)
+        },
+
         // Phase run toggles (default ON). Names mirror script files for recognisability.
         RUN_open_project: false,
         RUN_link_data: true,
@@ -132,7 +154,12 @@
             SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER: false,
             AUDIO_TITLE_TOKEN_COUNT: 2, // default keeps backward compatibility (token01_token02_duration)
             // New: optional strict adjacency for tokens (require tokens to appear contiguously with underscores before duration)
-            AUDIO_TOKENS_REQUIRE_ADJACENT: false // default false preserves lenient matching
+            AUDIO_TOKENS_REQUIRE_ADJACENT: false, // default false preserves lenient matching
+            // AE 253: Step 4 modular-audio gate (implementation phase follows)
+            MODULAR_AUDIO: {
+                ENABLED: false,
+                FALLBACK_TO_SHARED: true
+            }
 
         },
         addLayers: {
@@ -217,6 +244,11 @@
                     enabled: false,
                     tokens: [] // e.g., ["template_aspect", "debug"]
                 }
+            },
+            // AE 253: Step 5 modular layer filter gate (implementation phase follows)
+            MODULAR_FILTER: {
+                ENABLED: false,
+                USE_GENERIC_FLAG_GATES: true
             },
             APPLY_INPOINT_TO_LAYER_STARTTIME: true,
             // VideoID-based layer skip: when enabled, layers whose names contain a videoID token are skipped
@@ -383,7 +415,13 @@
             EXTRA_OUTPUTS_DATA_JSON_PATHS: ["media"],
             // Optional subfolder names when extras are enabled (also defaulted in Step 6 script)
             OUTPUT_ESSENTIALS_DIRNAME: "essentials",
-            OUTPUT_EXTRAS_DIRNAME: "extras"
+            OUTPUT_EXTRAS_DIRNAME: "extras",
+            // AE 253: Step 6 modular naming gate (implementation phase follows)
+            MODULAR_NAMING: {
+                ENABLE_MODULE_TOKENS: false,
+                TOKEN_ORDER: ["A", "B"],
+                OMIT_MISSING_TOKENS: true
+            }
         },
         ame: {
             ENABLE_FILE_LOG: true,

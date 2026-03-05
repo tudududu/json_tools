@@ -73,6 +73,19 @@
     "ENABLE_COMP_FRAME_BLENDING": false,
     "ENABLE_ACCEPT_COMP_SOURCE": true
 },
+"modular": {
+    "ENABLED": false,
+    "GENERATION_MODE": "hybrid",
+    "MODULE_MAP": {
+        "A": { "ENABLED": true, "SOURCE_KEY": "generic_01" },
+        "B": { "ENABLED": true, "SOURCE_KEY": "generic_02" }
+    },
+    "EXPLICIT_VARIANTS_BY_VIDEOID": {},
+    "MAX_VARIANTS_PER_BASE": 128,
+    "TAG_DELIMITER": "_",
+    "TAG_POSITION": "after_duration",
+    "VALUE_TOKEN_MODE": "index"
+},
 "insertRelink": { 
     "ENABLE_FILE_LOG": false,
     "ENABLE_ALIGN_AUDIO_TO_MARKERS": false,
@@ -86,7 +99,11 @@
     "SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER": true,
     "SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER": false,
     "AUDIO_TITLE_TOKEN_COUNT": 2,
-    "AUDIO_TOKENS_REQUIRE_ADJACENT": false
+    "AUDIO_TOKENS_REQUIRE_ADJACENT": false,
+    "MODULAR_AUDIO": {
+        "ENABLED": false,
+        "FALLBACK_TO_SHARED": true
+    }
     },
 "addLayers": {
     "ENABLE_FILE_LOG": false,
@@ -175,12 +192,12 @@
             "contains": ["super_A"] 
             },
         "generic_01": {
-            "exact": ["test_gen_01"], 
-            "contains": [] 
+            "exact": [], 
+            "contains": ["module_A"] 
             },
         "generic_02": {
-            "exact": ["test_gen_02"], 
-            "contains": [] 
+            "exact": [], 
+            "contains": ["module_B"] 
             },
         "dataJson": { 
             "exact": ["DATA_JSON", "data.json"], 
@@ -248,6 +265,10 @@
         "adHoc":{"enabled":false,"tokens":[]}, 
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
+    "MODULAR_FILTER": {
+        "ENABLED": false,
+        "USE_GENERIC_FLAG_GATES": true
+    },
     "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
 
     "TEMPLATE_MATCH_CONFIG": { 
@@ -306,7 +327,12 @@
     "EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON": true,
     "EXTRA_OUTPUTS_DATA_JSON_PATHS": ["media"],
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
-    "OUTPUT_EXTRAS_DIRNAME": "extras"
+    "OUTPUT_EXTRAS_DIRNAME": "extras",
+    "MODULAR_NAMING": {
+        "ENABLE_MODULE_TOKENS": false,
+        "TOKEN_ORDER": ["A", "B"],
+        "OMIT_MISSING_TOKENS": true
+    }
     },
 "ame": {
     "ENABLE_FILE_LOG": false,

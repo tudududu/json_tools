@@ -50,6 +50,15 @@ function __CreateComps_coreRun(opts) {
 	// New: comp-level switches (Enable Motion Blur / Enable Frame Blending)
 	var ENABLE_COMP_MOTION_BLUR = false;      // when true, set comp.motionBlur = true for created comps
 	var ENABLE_COMP_FRAME_BLENDING = false;   // when true, set comp.frameBlending = true for created comps
+	// Modular variants (AE 253, Phase 0/1)
+	var MODULAR_ENABLED = false;
+	var MODULAR_GENERATION_MODE = "hybrid"; // hybrid | cartesian | explicit
+	var MODULAR_MODULE_MAP = {};
+	var MODULAR_EXPLICIT_BY_VIDEOID = {};
+	var MODULAR_MAX_VARIANTS_PER_BASE = 128;
+	var MODULAR_TAG_DELIMITER = "_";
+	var MODULAR_TAG_POSITION = "after_duration";
+	var MODULAR_VALUE_TOKEN_MODE = "index";
 	
 	// Options overrides
 	try {
@@ -68,7 +77,31 @@ function __CreateComps_coreRun(opts) {
 			// New: comp-level switches overrides
 			if (o.ENABLE_COMP_MOTION_BLUR !== undefined) ENABLE_COMP_MOTION_BLUR = !!o.ENABLE_COMP_MOTION_BLUR;
 			if (o.ENABLE_COMP_FRAME_BLENDING !== undefined) ENABLE_COMP_FRAME_BLENDING = !!o.ENABLE_COMP_FRAME_BLENDING;
+			if (o.modular && typeof o.modular === 'object') {
+				if (o.modular.ENABLED !== undefined) MODULAR_ENABLED = !!o.modular.ENABLED;
+				if (o.modular.GENERATION_MODE !== undefined) MODULAR_GENERATION_MODE = String(o.modular.GENERATION_MODE || MODULAR_GENERATION_MODE).toLowerCase();
+				if (o.modular.MODULE_MAP && typeof o.modular.MODULE_MAP === 'object') MODULAR_MODULE_MAP = o.modular.MODULE_MAP;
+				if (o.modular.EXPLICIT_VARIANTS_BY_VIDEOID && typeof o.modular.EXPLICIT_VARIANTS_BY_VIDEOID === 'object') MODULAR_EXPLICIT_BY_VIDEOID = o.modular.EXPLICIT_VARIANTS_BY_VIDEOID;
+				if (o.modular.MAX_VARIANTS_PER_BASE !== undefined) MODULAR_MAX_VARIANTS_PER_BASE = parseInt(o.modular.MAX_VARIANTS_PER_BASE, 10) || MODULAR_MAX_VARIANTS_PER_BASE;
+				if (o.modular.TAG_DELIMITER !== undefined) MODULAR_TAG_DELIMITER = String(o.modular.TAG_DELIMITER || MODULAR_TAG_DELIMITER);
+				if (o.modular.TAG_POSITION !== undefined) MODULAR_TAG_POSITION = String(o.modular.TAG_POSITION || MODULAR_TAG_POSITION);
+				if (o.modular.VALUE_TOKEN_MODE !== undefined) MODULAR_VALUE_TOKEN_MODE = String(o.modular.VALUE_TOKEN_MODE || MODULAR_VALUE_TOKEN_MODE).toLowerCase();
+			}
 		}
+		// Pull shared modular contract from global effective options when running in pipeline mode.
+		try {
+			if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.modular) {
+				var mo = __AE_PIPE__.optionsEffective.modular;
+				if (mo.ENABLED !== undefined) MODULAR_ENABLED = !!mo.ENABLED;
+				if (mo.GENERATION_MODE !== undefined) MODULAR_GENERATION_MODE = String(mo.GENERATION_MODE || MODULAR_GENERATION_MODE).toLowerCase();
+				if (mo.MODULE_MAP && typeof mo.MODULE_MAP === 'object') MODULAR_MODULE_MAP = mo.MODULE_MAP;
+				if (mo.EXPLICIT_VARIANTS_BY_VIDEOID && typeof mo.EXPLICIT_VARIANTS_BY_VIDEOID === 'object') MODULAR_EXPLICIT_BY_VIDEOID = mo.EXPLICIT_VARIANTS_BY_VIDEOID;
+				if (mo.MAX_VARIANTS_PER_BASE !== undefined) MODULAR_MAX_VARIANTS_PER_BASE = parseInt(mo.MAX_VARIANTS_PER_BASE, 10) || MODULAR_MAX_VARIANTS_PER_BASE;
+				if (mo.TAG_DELIMITER !== undefined) MODULAR_TAG_DELIMITER = String(mo.TAG_DELIMITER || MODULAR_TAG_DELIMITER);
+				if (mo.TAG_POSITION !== undefined) MODULAR_TAG_POSITION = String(mo.TAG_POSITION || MODULAR_TAG_POSITION);
+				if (mo.VALUE_TOKEN_MODE !== undefined) MODULAR_VALUE_TOKEN_MODE = String(mo.VALUE_TOKEN_MODE || MODULAR_VALUE_TOKEN_MODE).toLowerCase();
+			}
+		} catch(eModGlobal) {}
 		// Master switch: disable if top-level pipeline effective has PHASE_FILE_LOGS_MASTER_ENABLE=false
 		try {
 			if (__AE_PIPE__ && __AE_PIPE__.optionsEffective && __AE_PIPE__.optionsEffective.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
@@ -409,6 +442,249 @@ function __CreateComps_coreRun(opts) {
 		return d;
 	}
 
+	function __parseJSONSafe(txt) {
+		try { if (typeof JSON !== 'undefined' && JSON.parse) return JSON.parse(txt); } catch(e1) {}
+		try { return eval('(' + txt + ')'); } catch(e2) {}
+		return null;
+	}
+
+	function __readTextFile(fileObj) {
+		if (!fileObj) return null;
+		try {
+			if (!fileObj.exists) return null;
+			if (!fileObj.open('r')) return null;
+			var txt = fileObj.read();
+			fileObj.close();
+			return txt;
+		} catch (eRT) {
+			try { fileObj.close(); } catch (eClose) {}
+			return null;
+		}
+	}
+
+	function __loadLinkedDataJsonObject() {
+		var dataCandidates = ['data.json', 'DATA_JSON'];
+		for (var i = 1; i <= app.project.numItems; i++) {
+			var it = app.project.items[i];
+			if (!(it instanceof FootageItem)) continue;
+			var nm = String(it.name || '');
+			var match = false;
+			for (var c = 0; c < dataCandidates.length; c++) {
+				if (nm === dataCandidates[c]) { match = true; break; }
+			}
+			if (!match) continue;
+			try {
+				if (it.mainSource && it.mainSource.file) {
+					var txt = __readTextFile(it.mainSource.file);
+					if (txt && txt.length) {
+						var obj = __parseJSONSafe(txt);
+						if (obj) return obj;
+					}
+				}
+			} catch (eLoad1) {}
+		}
+		return null;
+	}
+
+	function __extractDurationTokenInfo(name) {
+		var parts = String(name || '').split('_');
+		if (!parts.length) return null;
+		for (var i = 0; i < parts.length; i++) {
+			if (/^\d{1,4}s$/i.test(parts[i])) return { index: i, token: String(parts[i]).toLowerCase(), parts: parts };
+		}
+		for (var j = parts.length - 1; j >= 0; j--) {
+			var m = String(parts[j]).match(/(\d{1,4})s/i);
+			if (m) return { index: j, token: String(m[1]).toLowerCase() + 's', parts: parts };
+		}
+		return null;
+	}
+
+	function __buildBaseVideoIdFromCompName(name) {
+		var info = __extractDurationTokenInfo(name);
+		if (!info || info.index <= 0) return null;
+		var title = String(info.parts[info.index - 1] || '');
+		if (!title) return null;
+		return title + '_' + info.token;
+	}
+
+	function __getOrientationFromDims(dims) {
+		try {
+			if (dims && Number(dims.w) > Number(dims.h)) return 'landscape';
+		} catch(eOri) {}
+		return 'portrait';
+	}
+
+	function __findVideoByVideoId(data, videoId) {
+		if (!data || !data.videos || !(data.videos instanceof Array) || !videoId) return null;
+		for (var i = 0; i < data.videos.length; i++) {
+			var v = data.videos[i];
+			if (v && String(v.videoId) === String(videoId)) return v;
+		}
+		return null;
+	}
+
+	function __findVideoForCompName(dataObj, compName, dims) {
+		var base = __buildBaseVideoIdFromCompName(compName);
+		if (!base) return null;
+		var oriented = base + '_' + __getOrientationFromDims(dims);
+		return __findVideoByVideoId(dataObj, oriented) || __findVideoByVideoId(dataObj, base);
+	}
+
+	function __sanitizeVariantTextToken(s) {
+		var n = String(s || '');
+		n = n.replace(/[^A-Za-z0-9]+/g, '_');
+		n = n.replace(/^_+|_+$/g, '');
+		if (!n) n = 'X';
+		return n;
+	}
+
+	function __collectModularTagDefs() {
+		var out = [];
+		if (!MODULAR_MODULE_MAP || typeof MODULAR_MODULE_MAP !== 'object') return out;
+		for (var key in MODULAR_MODULE_MAP) if (MODULAR_MODULE_MAP.hasOwnProperty(key)) {
+			var tag = String(key || '').toUpperCase();
+			if (!tag) continue;
+			var spec = MODULAR_MODULE_MAP[key] || {};
+			if (spec.ENABLED === false) continue;
+			var sourceKey = String(spec.SOURCE_KEY || '');
+			if (!sourceKey) continue;
+			out.push({ tag: tag, sourceKey: sourceKey });
+		}
+		out.sort(function(a, b){ return a.tag < b.tag ? -1 : (a.tag > b.tag ? 1 : 0); });
+		return out;
+	}
+
+	function __collectModuleValueTokens(videoObj, tagDef) {
+		var vals = [];
+		if (!videoObj || !tagDef || !tagDef.sourceKey) return vals;
+		var arr = videoObj[tagDef.sourceKey];
+		if (!(arr instanceof Array)) return vals;
+		for (var i = 0; i < arr.length; i++) {
+			var it = arr[i] || {};
+			var lineNo = parseInt(it.line, 10);
+			if (!lineNo || lineNo < 1) lineNo = i + 1;
+			var token = null;
+			if (MODULAR_VALUE_TOKEN_MODE === 'text') {
+				token = tagDef.tag + __sanitizeVariantTextToken(it.text);
+			} else {
+				token = tagDef.tag + lineNo;
+			}
+			vals.push({ token: token, line: lineNo, text: String(it.text || ''), sourceKey: tagDef.sourceKey });
+		}
+		return vals;
+	}
+
+	function __normalizeExplicitVariantEntry(entry, delimiter) {
+		if (typeof entry === 'string') {
+			var e = String(entry || '');
+			if (!e) return null;
+			var parts = e.split(String(delimiter || '_'));
+			var outS = [];
+			for (var i = 0; i < parts.length; i++) {
+				var p = String(parts[i] || '');
+				if (!p) continue;
+				outS.push(p);
+			}
+			return outS.length ? outS : null;
+		}
+		if (entry && typeof entry === 'object') {
+			var outO = [];
+			for (var k in entry) if (entry.hasOwnProperty(k)) {
+				var tag = String(k || '').toUpperCase();
+				if (!tag) continue;
+				var v = entry[k];
+				if (typeof v === 'number' || /^\d+$/.test(String(v || ''))) outO.push(tag + String(v));
+				else {
+					var s = String(v || '');
+					if (s) outO.push(s);
+				}
+			}
+			outO.sort();
+			return outO.length ? outO : null;
+		}
+		return null;
+	}
+
+	function __buildTokenCombosCartesian(moduleTokenLists, maxCount) {
+		if (!moduleTokenLists || !moduleTokenLists.length) return [[]];
+		var out = [[]];
+		for (var i = 0; i < moduleTokenLists.length; i++) {
+			var vals = moduleTokenLists[i] || [];
+			if (!vals.length) continue;
+			var next = [];
+			for (var a = 0; a < out.length; a++) {
+				for (var b = 0; b < vals.length; b++) {
+					var row = out[a].slice(0);
+					row.push(vals[b].token);
+					next.push(row);
+					if (maxCount > 0 && next.length >= maxCount) return next;
+				}
+			}
+			out = next;
+			if (maxCount > 0 && out.length >= maxCount) return out;
+		}
+		return out;
+	}
+
+	function __insertTokensAfterDuration(baseName, addTokens, delimiter) {
+		if (!addTokens || !addTokens.length) return baseName;
+		var info = __extractDurationTokenInfo(baseName);
+		if (!info || info.index < 0 || MODULAR_TAG_POSITION !== 'after_duration') return baseName + String(delimiter || '_') + addTokens.join(String(delimiter || '_'));
+		var left = [];
+		var right = [];
+		for (var i = 0; i <= info.index; i++) left.push(info.parts[i]);
+		for (var j = info.index + 1; j < info.parts.length; j++) right.push(info.parts[j]);
+		var all = left.concat(addTokens).concat(right);
+		return all.join(String(delimiter || '_'));
+	}
+
+	function __computeVariantCompNames(baseCompName, videoObj) {
+		if (!MODULAR_ENABLED || !videoObj) return [baseCompName];
+		var moduleDefs = __collectModularTagDefs();
+		if (!moduleDefs.length) return [baseCompName];
+
+		var moduleTokenLists = [];
+		for (var i = 0; i < moduleDefs.length; i++) {
+			var vals = __collectModuleValueTokens(videoObj, moduleDefs[i]);
+			if (vals.length) moduleTokenLists.push(vals);
+		}
+		if (!moduleTokenLists.length) return [baseCompName];
+
+		var explicitRaw = null;
+		try {
+			if (MODULAR_EXPLICIT_BY_VIDEOID && videoObj.videoId && MODULAR_EXPLICIT_BY_VIDEOID.hasOwnProperty(videoObj.videoId)) explicitRaw = MODULAR_EXPLICIT_BY_VIDEOID[videoObj.videoId];
+			if (!explicitRaw) {
+				var baseVideoId = __buildBaseVideoIdFromCompName(baseCompName);
+				if (baseVideoId && MODULAR_EXPLICIT_BY_VIDEOID && MODULAR_EXPLICIT_BY_VIDEOID.hasOwnProperty(baseVideoId)) explicitRaw = MODULAR_EXPLICIT_BY_VIDEOID[baseVideoId];
+			}
+		} catch (eExRaw) {}
+
+		var combos = [];
+		if ((MODULAR_GENERATION_MODE === 'explicit' || MODULAR_GENERATION_MODE === 'hybrid') && (explicitRaw instanceof Array)) {
+			for (var ex = 0; ex < explicitRaw.length; ex++) {
+				var norm = __normalizeExplicitVariantEntry(explicitRaw[ex], MODULAR_TAG_DELIMITER);
+				if (norm && norm.length) combos.push(norm);
+				if (MODULAR_MAX_VARIANTS_PER_BASE > 0 && combos.length >= MODULAR_MAX_VARIANTS_PER_BASE) break;
+			}
+		}
+		if (!combos.length && (MODULAR_GENERATION_MODE === 'cartesian' || MODULAR_GENERATION_MODE === 'hybrid')) {
+			combos = __buildTokenCombosCartesian(moduleTokenLists, MODULAR_MAX_VARIANTS_PER_BASE);
+		}
+		if (!combos.length) return [baseCompName];
+
+		var unique = {};
+		var outNames = [];
+		for (var c = 0; c < combos.length; c++) {
+			var name = __insertTokensAfterDuration(baseCompName, combos[c], MODULAR_TAG_DELIMITER);
+			if (!unique[name]) {
+				unique[name] = true;
+				outNames.push(name);
+			}
+		}
+		if (!outNames.length) outNames.push(baseCompName);
+		return outNames;
+	}
+
 	// Core ————————————————————————————————————————————————
 
 	var proj = app.project;
@@ -502,6 +778,11 @@ function __CreateComps_coreRun(opts) {
 	}
 
 	var compsRoot = getOrCreateProjectPath();
+	var __dataJsonForModular = null;
+	if (MODULAR_ENABLED) {
+		__dataJsonForModular = __loadLinkedDataJsonObject();
+		if (!__dataJsonForModular) log("Modular: enabled, but data.json could not be loaded. Falling back to base comp names.");
+	}
 
 	var createdCount = 0;
 	var createdList = [];
@@ -517,32 +798,6 @@ function __CreateComps_coreRun(opts) {
 		}
 
 		var compName = itemToCompName(item);
-
-		// Determine destination folder path under project/work/comps BEFORE creating comp
-		var segs = [];
-		try {
-			if (item.mainSource && item.mainSource.file) {
-				segs = subpathAfterFootage(item.mainSource.file);
-			}
-		} catch (e1) {}
-		if (!segs || segs.length === 0) {
-			segs = subpathFromProjectPanelAfterFootage(item);
-		}
-		var targetFolder = segs.length ? findOrCreatePath(compsRoot, segs) : compsRoot;
-
-		// Check for existing comp with same name in target folder
-		var exists = false;
-		if (SKIP_IF_COMP_EXISTS) {
-			for (var ci = 1; ci <= targetFolder.numItems; ci++) {
-				var existing = targetFolder.items[ci];
-				if (existing instanceof CompItem && String(existing.name) === compName) { exists = true; break; }
-			}
-		}
-		if (exists) {
-			skipped.push(compName + " (exists)");
-			log("Skip: comp already exists '" + compName + "' in folder '" + targetFolder.name + "'");
-			continue;
-		}
 
 		// Gather source properties (footage or comp)
 		var dims = isFootage ? getFootageDimensions(item) : { w: item.width, h: item.height };
@@ -566,60 +821,92 @@ function __CreateComps_coreRun(opts) {
 		var fps = isFootage ? getFootageFrameRate(item) : (function(){ try { return item.frameRate || 25; } catch(eFR){ return 25; } })();
 		var dur = isFootage ? getFootageDuration(item) : (function(){ try { return item.duration || DEFAULT_STILL_DURATION; } catch(eDR){ return DEFAULT_STILL_DURATION; } })();
 
-		var comp = proj.items.addComp(compName, dims.w, dims.h, 1.0, dur, fps);
-		comp.displayStartTime = 0;
-		comp.parentFolder = targetFolder;
-
-		// Apply comp-level switches based on config gates
-		try { comp.motionBlur = !!ENABLE_COMP_MOTION_BLUR; } catch(eMB) {}
-		try { comp.frameBlending = !!ENABLE_COMP_FRAME_BLENDING; } catch(eFB) {}
-
-		// Add layer
-		var layer = comp.layers.add(item); // adds footage or precomp
-		if (layer && layer.stretch !== undefined) {
-			try { layer.startTime = 0; } catch (e2) {}
+		// Determine destination folder path under project/work/comps BEFORE creating comp
+		var segs = [];
+		try {
+			if (item.mainSource && item.mainSource.file) {
+				segs = subpathAfterFootage(item.mainSource.file);
+			}
+		} catch (e1) {}
+		if (!segs || segs.length === 0) {
+			segs = subpathFromProjectPanelAfterFootage(item);
 		}
+		var targetFolder = segs.length ? findOrCreatePath(compsRoot, segs) : compsRoot;
 
-		// Marker-based trim (optional)
-		if (ENABLE_MARKER_TRIM) {
-			try {
-				var markerProp = layer.property("Marker");
-				if (markerProp && markerProp.numKeys > 0) {
-					var inTime = null, outTime = null, durSec = null;
-					if (markerProp.numKeys >= 2) {
-						inTime = markerProp.keyTime(1);
-						outTime = markerProp.keyTime(markerProp.numKeys);
-						if (outTime < inTime) { var tmp = inTime; inTime = outTime; outTime = tmp; }
-					} else if (markerProp.numKeys === 1) {
-						var t = markerProp.keyTime(1);
-						var mv = markerProp.keyValue(1);
-						var comment = (mv && mv.comment) ? String(mv.comment) : "";
-						var m = comment.match(/[-+]?[0-9]*\.?[0-9]+/);
-						if (m) { durSec = parseFloat(m[0]); }
-						if (!durSec && mv && mv.duration && mv.duration > 0) { durSec = mv.duration; }
-						if (durSec && durSec > 0) { inTime = t; outTime = t + durSec; }
-					}
-					if (inTime !== null && outTime !== null && outTime > inTime) {
-						var trimDur = outTime - inTime;
-						comp.displayStartTime = 0;
-						comp.duration = trimDur;
-						try { layer.startTime = -inTime; } catch (e3) {}
-						try { layer.inPoint = 0; } catch (e4) {}
-						try { layer.outPoint = trimDur; } catch (e5) {}
-						log("Trimmed by marker: in=" + inTime.toFixed(3) + ", out=" + outTime.toFixed(3) + ", dur=" + trimDur.toFixed(3));
-					}
+		var videoForModular = __dataJsonForModular ? __findVideoForCompName(__dataJsonForModular, compName, dims) : null;
+		var variantNames = __computeVariantCompNames(compName, videoForModular);
+		if (variantNames.length > 1) log("Modular: " + compName + " -> " + variantNames.length + " variants");
+
+		for (var vn = 0; vn < variantNames.length; vn++) {
+			var targetCompName = variantNames[vn];
+			var exists = false;
+			if (SKIP_IF_COMP_EXISTS) {
+				for (var ci = 1; ci <= targetFolder.numItems; ci++) {
+					var existing = targetFolder.items[ci];
+					if (existing instanceof CompItem && String(existing.name) === targetCompName) { exists = true; break; }
 				}
-			} catch (eMarker) { log("Marker trim skipped (" + eMarker + ")"); }
-		}
+			}
+			if (exists) {
+				skipped.push(targetCompName + " (exists)");
+				log("Skip: comp already exists '" + targetCompName + "' in folder '" + targetFolder.name + "'");
+				continue;
+			}
 
-		createdCount++;
-		// Tag with runId for pipeline discovery and return list
-		var runId = (opts && opts.runId) || (__AE_PIPE__ && __AE_PIPE__.RUN_ID) || null;
-		if (runId) {
-			try { comp.comment = (comp.comment ? (comp.comment + " ") : "") + ("runId=" + runId); } catch (eCmt) {}
+			var comp = proj.items.addComp(targetCompName, dims.w, dims.h, 1.0, dur, fps);
+			comp.displayStartTime = 0;
+			comp.parentFolder = targetFolder;
+
+			// Apply comp-level switches based on config gates
+			try { comp.motionBlur = !!ENABLE_COMP_MOTION_BLUR; } catch(eMB) {}
+			try { comp.frameBlending = !!ENABLE_COMP_FRAME_BLENDING; } catch(eFB) {}
+
+			// Add layer
+			var layer = comp.layers.add(item); // adds footage or precomp
+			if (layer && layer.stretch !== undefined) {
+				try { layer.startTime = 0; } catch (e2) {}
+			}
+
+			// Marker-based trim (optional)
+			if (ENABLE_MARKER_TRIM) {
+				try {
+					var markerProp = layer.property("Marker");
+					if (markerProp && markerProp.numKeys > 0) {
+						var inTime = null, outTime = null, durSec = null;
+						if (markerProp.numKeys >= 2) {
+							inTime = markerProp.keyTime(1);
+							outTime = markerProp.keyTime(markerProp.numKeys);
+							if (outTime < inTime) { var tmp = inTime; inTime = outTime; outTime = tmp; }
+						} else if (markerProp.numKeys === 1) {
+							var t = markerProp.keyTime(1);
+							var mv = markerProp.keyValue(1);
+							var comment = (mv && mv.comment) ? String(mv.comment) : "";
+							var m = comment.match(/[-+]?[0-9]*\.?[0-9]+/);
+							if (m) { durSec = parseFloat(m[0]); }
+							if (!durSec && mv && mv.duration && mv.duration > 0) { durSec = mv.duration; }
+							if (durSec && durSec > 0) { inTime = t; outTime = t + durSec; }
+						}
+						if (inTime !== null && outTime !== null && outTime > inTime) {
+							var trimDur = outTime - inTime;
+							comp.displayStartTime = 0;
+							comp.duration = trimDur;
+							try { layer.startTime = -inTime; } catch (e3) {}
+							try { layer.inPoint = 0; } catch (e4) {}
+							try { layer.outPoint = trimDur; } catch (e5) {}
+							log("Trimmed by marker: in=" + inTime.toFixed(3) + ", out=" + outTime.toFixed(3) + ", dur=" + trimDur.toFixed(3));
+						}
+					}
+				} catch (eMarker) { log("Marker trim skipped (" + eMarker + ")"); }
+			}
+
+			createdCount++;
+			// Tag with runId for pipeline discovery and return list
+			var runId = (opts && opts.runId) || (__AE_PIPE__ && __AE_PIPE__.RUN_ID) || null;
+			if (runId) {
+				try { comp.comment = (comp.comment ? (comp.comment + " ") : "") + ("runId=" + runId); } catch (eCmt) {}
+			}
+			createdList.push(comp);
+			log("Created comp '" + targetCompName + "' -> " + targetFolder.name + (segs.length ? (" (" + segs.join("/") + ")") : ""));
 		}
-		createdList.push(comp);
-		log("Created comp '" + compName + "' -> " + targetFolder.name + (segs.length ? (" (" + segs.join("/") + ")") : ""));
 	}
 
 	var msg = "Created " + createdCount + " comp(s).";
