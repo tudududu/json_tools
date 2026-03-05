@@ -157,12 +157,13 @@
     function escRe(s){ return String(s).replace(/([.*+?^${}()|[\]\\])/g,'\\$1'); }
     var isoLangRx = new RegExp("^" + escRe(batchCfg.FILE_PREFIX) + "((?:[A-Za-z]{3}|[A-Za-z]{2}\\d))(?:_([A-Za-z]{3}))?" + escRe(batchCfg.FILE_SUFFIX) + "$", "i");
 
-    // Small ISO token self-test for dry-run verification (USA, US1, US1_FRA)
+    // Small ISO token self-test for dry-run verification (valid + invalid token cases)
     function runIsoTokenSelfTest(rx) {
         var tests = [
             { name: "data_USA.json", expect: { iso: "USA", lang: "" } },
             { name: "data_US1.json", expect: { iso: "US1", lang: "" } },
-            { name: "data_US1_FRA.json", expect: { iso: "US1", lang: "FRA" } }
+            { name: "data_US1_FRA.json", expect: { iso: "US1", lang: "FRA" } },
+            { name: "data_U1.json", expectNoMatch: true }
         ];
         var pass = 0;
         flog("SelfTest: ISO token regex begin");
@@ -171,9 +172,18 @@
             var mT = String(t.name).match(rx);
             var gotIso = mT && mT[1] ? String(mT[1]).toUpperCase() : "";
             var gotLang = mT && mT[2] ? String(mT[2]).toUpperCase() : "";
-            var ok = !!mT && gotIso === t.expect.iso && gotLang === t.expect.lang;
+            var ok = false;
+            if (t.expectNoMatch === true) {
+                ok = !mT;
+            } else {
+                ok = !!mT && gotIso === t.expect.iso && gotLang === t.expect.lang;
+            }
             if (ok) pass++;
-            flog("SelfTest: " + (ok ? "PASS" : "FAIL") + " file=" + t.name + " => iso='" + gotIso + "' lang='" + gotLang + "' expected='" + t.expect.iso + (t.expect.lang ? ("_"+t.expect.lang) : "") + "'");
+            if (t.expectNoMatch === true) {
+                flog("SelfTest: " + (ok ? "PASS" : "FAIL") + " file=" + t.name + " => expected NO MATCH, got=" + (mT ? ("iso='" + gotIso + "' lang='" + gotLang + "'") : "no-match"));
+            } else {
+                flog("SelfTest: " + (ok ? "PASS" : "FAIL") + " file=" + t.name + " => iso='" + gotIso + "' lang='" + gotLang + "' expected='" + t.expect.iso + (t.expect.lang ? ("_"+t.expect.lang) : "") + "'");
+            }
         }
         flog("SelfTest: ISO token regex result " + pass + "/" + tests.length + " passed");
     }
