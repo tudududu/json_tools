@@ -401,9 +401,42 @@ Table of contents
   | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` (regular) and optionally `AR_<extra>|NNs` (extra-template), with values in string/compact/object/array forms to produce extras. |
   | `ENABLE_EXTRA_MEDIA_OVERRIDE` | — | Use `media`/`label` from extras config to override the `MEDIA` token. |
   | `DEBUG_EXTRAS` | — | Emit a one-time parsed extras dump for audit. |
+  | `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS` | `false` | When true, injects modular values into Step 6 names right after `TITLE`. |
+  | `pack.MODULAR_NAMING.TOKEN_ORDER` | `['A','B']` | Order of module tag prefixes to emit (maps through shared `modular.MODULE_MAP`). |
+  | `pack.MODULAR_NAMING.OMIT_MISSING_TOKENS` | `true` | Skip empty/unresolved module values instead of emitting empty placeholders. |
   | `OUTPUT_ESSENTIALS_DIRNAME` | `essentials` | Name of the subfolder for regular outputs when extras are enabled; inserted after `YYMMDD` when present. |
   | `OUTPUT_EXTRAS_DIRNAME` | `extras` | Name of the subfolder for extra outputs; inserted after `YYMMDD` when present. |
   | `DEV_VIDEOID_SELF_TEST` | — | Development-only self-test for videoId derivation. |
+
+  Modular naming (Step 6)
+  - Gate: `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS=true`.
+  - Source: comp tags after duration (for example `..._15s_A2_B1`) are resolved via shared `modular.MODULE_MAP` (for example `A -> generic_01`, `B -> generic_02`) to the corresponding line `text` value in the matched `video` record.
+  - Position: injected immediately after `TITLE` in the output token stream.
+  - Fallback: if a module value cannot be resolved, Step 6 falls back to the raw tag token (for example `A2`) unless omitted by config.
+
+  Example config
+  ```json
+  {
+    "modular": {
+      "MODULE_MAP": {
+        "A": { "SOURCE_KEY": "generic_01" },
+        "B": { "SOURCE_KEY": "generic_02" }
+      }
+    },
+    "pack": {
+      "MODULAR_NAMING": {
+        "ENABLE_MODULE_TOKENS": true,
+        "TOKEN_ORDER": ["A", "B"],
+        "OMIT_MISSING_TOKENS": true
+      }
+    }
+  }
+  ```
+
+  Example naming flow
+  - Comp: `RootsOLV1_15s_A2_B1_landscape`
+  - Resolved module values: `A2 -> DT`, `B1 -> bookNow`
+  - Output (excerpt around title): `..._RootsOLV1_DT_bookNow_15s_...`
 
   External extras config sources
   - Precedence (first match wins):

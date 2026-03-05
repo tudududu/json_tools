@@ -24,7 +24,7 @@
     "RUN_insert_and_relink_footage": true,
     "RUN_add_layers_to_comp": true,
     "RUN_pack_output_comps": true,
-    "RUN_set_ame_output_paths": true,
+    "RUN_set_ame_output_paths": false,
     "RUN_close_project": false,
 
 "batch": {
@@ -38,7 +38,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/EDRINGTON/MACALLAN/2026/AUTOMATION PILOT/C21407609 - GBL/POST/WORK/Macallan_v23.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup_v03.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -64,7 +64,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": true,
+    "AUTO_FROM_PROJECT_FOOTAGE": false,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
@@ -74,7 +74,7 @@
     "ENABLE_ACCEPT_COMP_SOURCE": true
 },
 "modular": {
-    "ENABLED": false,
+    "ENABLED": true,
     "GENERATION_MODE": "hybrid",
     "MODULE_MAP": {
         "A": { "ENABLED": true, "SOURCE_KEY": "generic_01" },
@@ -266,15 +266,15 @@
         "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
         },
     "MODULAR_FILTER": {
-        "ENABLED": false,
-        "USE_GENERIC_FLAG_GATES": true
+        "ENABLED": true,
+        "USE_GENERIC_FLAG_GATES": false
     },
     "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
 
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,
-        "enableDurationMatch": true,
+        "enableDurationMatch": false,
         "requireDurationMatch": false,
         "durationToleranceSeconds": 0.5
         },
@@ -329,7 +329,7 @@
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
     "OUTPUT_EXTRAS_DIRNAME": "extras",
     "MODULAR_NAMING": {
-        "ENABLE_MODULE_TOKENS": false,
+        "ENABLE_MODULE_TOKENS": true,
         "TOKEN_ORDER": ["A", "B"],
         "OMIT_MISSING_TOKENS": true
     }
