@@ -165,7 +165,7 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
     header_fill = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.5))
     # Excel theme color: Turquoise, Accent 4, Lighter 40%.
-    title_fill = PatternFill(fill_type="solid", fgColor=Color(theme=7, tint=0.4))
+    title_fill = PatternFill(fill_type="solid", fgColor=Color(theme=2, tint=0.3))
     # Excel theme color: Text 2 (Dark Blue) alternating variants.
     plain_fill_1 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.75))
     plain_fill_2 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.85))
@@ -195,7 +195,7 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
 
         row_fill = plain_fill_1 if plain_row_index % 2 == 0 else plain_fill_2
         plain_row_index += 1
-        for col_idx in range(1, 4):  # Used data columns A-C
+        for col_idx in range(1, 27):  # 1-26 = A-Z
             ws.cell(row=row_idx, column=col_idx).fill = row_fill
 
     wb.save(out_path)
