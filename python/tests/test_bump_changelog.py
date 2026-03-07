@@ -1,5 +1,3 @@
-import io
-import os
 from typing import List, Tuple
 
 import pytest
@@ -230,7 +228,8 @@ def test_main_fallback_date_branch(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
 
     # Provide a shim for _dt without UTC
-    import types, datetime as real_dt
+    import types
+    import datetime as real_dt
     shim = types.SimpleNamespace(datetime=real_dt.datetime)
     monkeypatch.setattr(bc, "_dt", shim)
 

@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 import os
 import re
 import copy
@@ -35,7 +34,7 @@ from datetime import datetime
 import subprocess
 import sys
 import platform
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from openpyxl import load_workbook as _openpyxl_load_workbook

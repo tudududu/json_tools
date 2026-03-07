@@ -1,4 +1,10 @@
-import json, subprocess, os, sys, tempfile, shutil, unittest
+import json
+import subprocess
+import os
+import sys
+import tempfile
+import shutil
+import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))

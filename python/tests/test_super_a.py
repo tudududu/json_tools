@@ -2,7 +2,6 @@ import os
 import sys
 import tempfile
 import unittest
-import json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))

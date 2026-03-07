@@ -13,7 +13,6 @@ original_fn = mod.convert_csv_to_json
 
 def patched_fn(*args, **kwargs):
     # Monkey-patch to intercept
-    import types
     result = original_fn(*args, **kwargs)
     return result
 

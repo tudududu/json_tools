@@ -1,6 +1,8 @@
 import pathlib
-import shutil
-import os, sys, tempfile, unittest
+import os
+import sys
+import tempfile
+import unittest
 
 # Ensure repository root is on sys.path; with package markers, `python.*` imports work
 _HERE = os.path.dirname(os.path.abspath(__file__))

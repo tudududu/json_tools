@@ -35,7 +35,7 @@ def run():
         cmd += [
             '--cov=python',
             '--cov-branch',
-            f'--cov-report=term-missing',
+            '--cov-report=term-missing',
             f'--cov-report=xml:{os.path.join(cov_dir, "coverage.xml")}',
         ]
 

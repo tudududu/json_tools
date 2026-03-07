@@ -9,7 +9,11 @@ Glob patterns are expanded by the shell. You can also pass directories; the scri
 Outputs one line per file with found key/value pairs (missing keys omitted unless --show-missing).
 """
 from __future__ import annotations
-import argparse, json, os, sys, glob
+import argparse
+import json
+import os
+import sys
+import glob
 from typing import List
 
 def gather_json_files(paths: List[str]) -> List[str]:

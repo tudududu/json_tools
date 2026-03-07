@@ -1,4 +1,3 @@
-import tempfile, pathlib
 from python.tools import log_picker
 
 def test_batch_totals_and_theory(tmp_path):
