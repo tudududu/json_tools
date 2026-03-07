@@ -164,11 +164,40 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     ws.append(HEADER)
     # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
     header_fill = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.5))
+    # Excel theme color: Turquoise, Accent 4, Lighter 40%.
+    title_fill = PatternFill(fill_type="solid", fgColor=Color(theme=7, tint=0.4))
+    # Excel theme color: Text 2 (Dark Blue) alternating variants.
+    plain_fill_1 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.75))
+    plain_fill_2 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.85))
     # Apply fill to entire first row (columns A-Z to span the visible area)
     for col_idx in range(1, 27):  # 1-26 = A-Z
         ws.cell(row=1, column=col_idx).fill = header_fill
     for row in rows:
         ws.append(row)
+
+    plain_row_index = 0
+    for row_idx in range(2, ws.max_row + 1):
+        c1 = ws.cell(row=row_idx, column=1).value
+        c2 = ws.cell(row=row_idx, column=2).value
+        c3 = ws.cell(row=row_idx, column=3).value
+
+        # Only style rows that contain at least one value in the data columns.
+        in_use = any(value not in (None, "") for value in (c1, c2, c3))
+        if not in_use:
+            continue
+
+        # Joined-output title marker rows are emitted as ["", "", <filename>].
+        is_title_row = c1 in (None, "") and c2 in (None, "") and str(c3 or "").strip() != ""
+        if is_title_row:
+            for col_idx in range(1, 27):  # 1-26 = A-Z
+                ws.cell(row=row_idx, column=col_idx).fill = title_fill
+            continue
+
+        row_fill = plain_fill_1 if plain_row_index % 2 == 0 else plain_fill_2
+        plain_row_index += 1
+        for col_idx in range(1, 4):  # Used data columns A-C
+            ws.cell(row=row_idx, column=col_idx).fill = row_fill
+
     wb.save(out_path)
 
 
