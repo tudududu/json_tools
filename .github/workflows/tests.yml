@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.12']
-        check: [ 'ruff', 'flake8', 'format-black-isort', 'format-ruff-check' ]
+        check: [ 'ruff', 'format-ruff-check' ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,13 +51,6 @@ jobs:
           case "${{ matrix.check }}" in
             ruff)
               ruff check .
-              ;;
-            flake8)
-              flake8 .
-              ;;
-            format-black-isort)
-              isort --check-only .
-              black --check .
               ;;
             format-ruff-check)
               ruff format --check .

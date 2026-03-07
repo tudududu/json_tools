@@ -27,6 +27,7 @@ Examples:
     python python/tools/srt_to_csv.py --input-dir in_srt/ joined.csv --join-output --fps 25 --out-format frames
     python python/tools/srt_to_csv.py --input-dir in_srt/ joined.xlsx --join-output --fps 25 --out-format frames
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,7 +44,7 @@ except Exception:  # pragma: no cover - optional dependency
     PatternFill = None
 
 TIME_RE = re.compile(
-    r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*" 
+    r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
     r"(?P<h2>\d{2}):(?P<m2>\d{2}):(?P<s2>\d{2})[,.](?P<ms2>\d{3})\s*$"
 )
 
@@ -62,8 +63,14 @@ def parse_srt(lines: List[str]) -> List[Tuple[float, float, str]]:
             i += 1
             continue
         # Parse times
-        h1 = int(m.group("h1")); m1 = int(m.group("m1")); s1 = int(m.group("s1")); ms1 = int(m.group("ms1"))
-        h2 = int(m.group("h2")); m2 = int(m.group("m2")); s2 = int(m.group("s2")); ms2 = int(m.group("ms2"))
+        h1 = int(m.group("h1"))
+        m1 = int(m.group("m1"))
+        s1 = int(m.group("s1"))
+        ms1 = int(m.group("ms1"))
+        h2 = int(m.group("h2"))
+        m2 = int(m.group("m2"))
+        s2 = int(m.group("s2"))
+        ms2 = int(m.group("ms2"))
         start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000.0
         end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000.0
         # Collect following text lines until blank line
@@ -126,7 +133,9 @@ def resolve_output_type(out_path: str, explicit_output_type: str | None) -> str:
     return "csv"
 
 
-def records_to_rows(records: List[Tuple[float, float, str]], fps: float, out_format: str) -> List[List[str]]:
+def records_to_rows(
+    records: List[Tuple[float, float, str]], fps: float, out_format: str
+) -> List[List[str]]:
     rows: List[List[str]] = []
     for start, end, text in records:
         if out_format == "frames":
@@ -141,14 +150,24 @@ def records_to_rows(records: List[Tuple[float, float, str]], fps: float, out_for
     return rows
 
 
-def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, delimiter_name: str, output_type: str) -> None:
+def write_tabular_output(
+    out_path: str,
+    rows: List[List[str]],
+    quote_all: bool,
+    delimiter_name: str,
+    output_type: str,
+) -> None:
     import os
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     if output_type == "csv":
         delimiter = "," if delimiter_name == "comma" else ";"
         with open(out_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=delimiter, quoting=(csv.QUOTE_ALL if quote_all else csv.QUOTE_MINIMAL))
+            writer = csv.writer(
+                f,
+                delimiter=delimiter,
+                quoting=(csv.QUOTE_ALL if quote_all else csv.QUOTE_MINIMAL),
+            )
             writer.writerow(HEADER)
             writer.writerows(rows)
         return
@@ -156,7 +175,9 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     if output_type != "xlsx":
         raise ValueError("output_type must be 'csv' or 'xlsx'")
     if Workbook is None:
-        raise SystemExit("XLSX output requires openpyxl. Install with: pip install openpyxl")
+        raise SystemExit(
+            "XLSX output requires openpyxl. Install with: pip install openpyxl"
+        )
 
     wb = Workbook()
     ws = wb.active
@@ -169,8 +190,8 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     # Excel theme color: Text 2 (Dark Blue) alternating variants.
     plain_fill_1 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.75))
     plain_fill_2 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.85))
-    # Apply fill to entire first row (columns A-Z to span the visible area)
-    for col_idx in range(1, 27):  # 1-26 = A-Z
+    # Apply fill only to used output columns.
+    for col_idx in range(1, len(HEADER) + 1):
         ws.cell(row=1, column=col_idx).fill = header_fill
     for row in rows:
         ws.append(row)
@@ -187,21 +208,32 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
             continue
 
         # Joined-output title marker rows are emitted as ["", "", <filename>].
-        is_title_row = c1 in (None, "") and c2 in (None, "") and str(c3 or "").strip() != ""
+        is_title_row = (
+            c1 in (None, "") and c2 in (None, "") and str(c3 or "").strip() != ""
+        )
         if is_title_row:
-            for col_idx in range(1, 27):  # 1-26 = A-Z
+            for col_idx in range(1, len(HEADER) + 1):
                 ws.cell(row=row_idx, column=col_idx).fill = title_fill
             continue
 
         row_fill = plain_fill_1 if plain_row_index % 2 == 0 else plain_fill_2
         plain_row_index += 1
-        for col_idx in range(1, 27):  # 1-26 = A-Z
+        for col_idx in range(1, len(HEADER) + 1):
             ws.cell(row=row_idx, column=col_idx).fill = row_fill
 
     wb.save(out_path)
 
 
-def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encoding: str, quote_all: bool, delimiter_name: str, output_type: str | None = None) -> None:
+def srt_to_csv(
+    in_path: str,
+    out_path: str,
+    fps: float,
+    out_format: str,
+    encoding: str,
+    quote_all: bool,
+    delimiter_name: str,
+    output_type: str | None = None,
+) -> None:
     with open(in_path, "r", encoding=encoding) as f:
         # Preserve lines; splitlines handles CRLF/CR/LF
         lines = f.read().splitlines()
@@ -219,26 +251,66 @@ def srt_to_csv(in_path: str, out_path: str, fps: float, out_format: str, encodin
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Convert SRT subtitles to CSV")
-    p.add_argument("input", nargs="?", help="Path to input .srt file (omit when using --input-dir)")
-    p.add_argument("output", nargs="?", help="Path to output .csv/.xlsx file (omit when using --output-dir; in --join-output mode this can be the joined output file path)")
-    p.add_argument("--input-dir", help="Directory containing .srt files to convert (batch mode)")
+    p.add_argument(
+        "input", nargs="?", help="Path to input .srt file (omit when using --input-dir)"
+    )
+    p.add_argument(
+        "output",
+        nargs="?",
+        help="Path to output .csv/.xlsx file (omit when using --output-dir; in --join-output mode this can be the joined output file path)",
+    )
+    p.add_argument(
+        "--input-dir", help="Directory containing .srt files to convert (batch mode)"
+    )
     p.add_argument("--output-dir", help="Directory to write .csv files in batch mode")
-    p.add_argument("--join-output", action="store_true", help="In batch mode, join all inputs into a single output CSV (provide output file path)")
-    p.add_argument("--fps", type=float, default=25.0, help="Input frame rate for frames output (default 25)")
-    p.add_argument("--out-format", choices=["frames", "ms"], default="frames", help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)")
-    p.add_argument("--encoding", default="utf-8-sig", help="Input file encoding (default utf-8-sig)")
-    p.add_argument("--quote-all", action="store_true", help="Always quote all CSV fields (default OFF)")
-    p.add_argument("--delimiter", choices=["comma", "semicolon"], default="comma", help="Output delimiter (default comma)")
-    p.add_argument("--output-type", choices=["csv", "xlsx"], help="Output container override. When omitted, inferred from output extension (.xlsx => xlsx, otherwise csv)")
+    p.add_argument(
+        "--join-output",
+        action="store_true",
+        help="In batch mode, join all inputs into a single output CSV (provide output file path)",
+    )
+    p.add_argument(
+        "--fps",
+        type=float,
+        default=25.0,
+        help="Input frame rate for frames output (default 25)",
+    )
+    p.add_argument(
+        "--out-format",
+        choices=["frames", "ms"],
+        default="frames",
+        help="Output format: frames (HH:MM:SS:FF) or ms (HH:MM:SS,SSS)",
+    )
+    p.add_argument(
+        "--encoding",
+        default="utf-8-sig",
+        help="Input file encoding (default utf-8-sig)",
+    )
+    p.add_argument(
+        "--quote-all",
+        action="store_true",
+        help="Always quote all CSV fields (default OFF)",
+    )
+    p.add_argument(
+        "--delimiter",
+        choices=["comma", "semicolon"],
+        default="comma",
+        help="Output delimiter (default comma)",
+    )
+    p.add_argument(
+        "--output-type",
+        choices=["csv", "xlsx"],
+        help="Output container override. When omitted, inferred from output extension (.xlsx => xlsx, otherwise csv)",
+    )
     args = p.parse_args()
 
     # Determine mode: single file or batch directory
     import os
+
     if args.input_dir:
         in_dir = args.input_dir
         if not os.path.isdir(in_dir):
             raise SystemExit(f"Input directory not found: {in_dir}")
-        names = [n for n in sorted(os.listdir(in_dir)) if n.lower().endswith('.srt')]
+        names = [n for n in sorted(os.listdir(in_dir)) if n.lower().endswith(".srt")]
         if args.join_output:
             # Resolve output file path: allow positional output OR positional input token used as output OR --output-dir as file path
             out_path = None
@@ -250,14 +322,20 @@ def main() -> None:
             elif args.output_dir:
                 out_path = args.output_dir
             if not out_path:
-                raise SystemExit("Provide an output file path for --join-output mode (positional after --input-dir or via --output-dir)")
+                raise SystemExit(
+                    "Provide an output file path for --join-output mode (positional after --input-dir or via --output-dir)"
+                )
             rows: List[List[str]] = []
             for name in names:
                 in_path = os.path.join(in_dir, name)
                 rows.append(["", "", name])
                 with open(in_path, "r", encoding=args.encoding) as sf:
                     lines = sf.read().splitlines()
-                rows.extend(records_to_rows(parse_srt(lines), fps=args.fps, out_format=args.out_format))
+                rows.extend(
+                    records_to_rows(
+                        parse_srt(lines), fps=args.fps, out_format=args.out_format
+                    )
+                )
             resolved_output_type = resolve_output_type(out_path, args.output_type)
             write_tabular_output(
                 out_path,
@@ -287,7 +365,9 @@ def main() -> None:
                 )
     else:
         if not args.input or not args.output:
-            raise SystemExit("Provide input and output paths, or use --input-dir/--output-dir for batch mode")
+            raise SystemExit(
+                "Provide input and output paths, or use --input-dir/--output-dir for batch mode"
+            )
         srt_to_csv(
             args.input,
             args.output,
