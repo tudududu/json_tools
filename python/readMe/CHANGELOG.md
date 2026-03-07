@@ -1,3 +1,10 @@
+# 1.8.6 - 2026-03-07
+
+Added:
+- SRT → CSV tool (CSV to JSON 245):
+	* Added XLSX header row background formatting in `python/tools/srt_to_csv.py`.
+	* XLSX row 1 now uses Excel theme color "Text 2 (Dark Blue), Lighter 50%".
+
 # 1.8.5 - 2026-03-04
 
 Added:

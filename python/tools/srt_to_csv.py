@@ -36,8 +36,11 @@ from typing import List, Tuple
 
 try:
     from openpyxl import Workbook
+    from openpyxl.styles import Color, PatternFill
 except Exception:  # pragma: no cover - optional dependency
     Workbook = None
+    Color = None
+    PatternFill = None
 
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*" 
@@ -159,6 +162,10 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     ws = wb.active
     ws.title = "subtitles"
     ws.append(HEADER)
+    # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
+    header_fill = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.5))
+    for cell in ws[1]:
+        cell.fill = header_fill
     for row in rows:
         ws.append(row)
     wb.save(out_path)

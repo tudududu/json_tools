@@ -2,6 +2,7 @@ import os
 import tempfile
 import subprocess
 import sys
+import math
 
 import pytest
 
@@ -87,6 +88,13 @@ def test_single_output_infers_xlsx_from_extension():
         rows = list(ws.iter_rows(values_only=True))
         assert rows[0] == ('Start Time', 'End Time', 'Text')
         assert rows[1] == ('00:00:00:00', '00:00:01:00', 'Hello XLSX')
+
+        # Header style should be theme "Text 2" with lighter 50% tint.
+        fill = ws['A1'].fill
+        assert fill.fill_type == 'solid'
+        assert fill.fgColor.type == 'theme'
+        assert fill.fgColor.theme == 3
+        assert math.isclose(float(fill.fgColor.tint), 0.5, rel_tol=0.0, abs_tol=1e-6)
     finally:
         try:
             os.remove(os.path.join(in_dir, 'single.srt'))
