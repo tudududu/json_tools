@@ -164,8 +164,9 @@ def write_tabular_output(out_path: str, rows: List[List[str]], quote_all: bool, 
     ws.append(HEADER)
     # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
     header_fill = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.5))
-    for cell in ws[1]:
-        cell.fill = header_fill
+    # Apply fill to entire first row (columns A-Z to span the visible area)
+    for col_idx in range(1, 27):  # 1-26 = A-Z
+        ws.cell(row=1, column=col_idx).fill = header_fill
     for row in rows:
         ws.append(row)
     wb.save(out_path)
