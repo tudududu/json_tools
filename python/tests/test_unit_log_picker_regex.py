@@ -12,16 +12,24 @@ class LogPickerRegexTests(unittest.TestCase):
             logs = tmp_path / "logs"
             logs.mkdir()
             (logs / "x.log").write_text("HELLO one\nnope\nbye\n", encoding="utf-8")
-            (logs / "y.log").write_text("greeting: HELLO two\nTiming (s) => 0.1\n", encoding="utf-8")
+            (logs / "y.log").write_text(
+                "greeting: HELLO two\nTiming (s) => 0.1\n", encoding="utf-8"
+            )
 
             out = tmp_path / "out.log"
 
-            rc = log_picker.main([
-                "--input-dir", str(logs),
-                "--output-file", str(out),
-                "--regex", r"^HELLO",
-                "--regex", r"greeting: HELLO",
-            ])
+            rc = log_picker.main(
+                [
+                    "--input-dir",
+                    str(logs),
+                    "--output-file",
+                    str(out),
+                    "--regex",
+                    r"^HELLO",
+                    "--regex",
+                    r"greeting: HELLO",
+                ]
+            )
             self.assertEqual(rc, 0)
 
             txt = out.read_text(encoding="utf-8")

@@ -8,6 +8,7 @@
 This makes a plain `pytest --cov=python ...` produce non-zero coverage for
 code executed in child processes.
 """
+
 from __future__ import annotations
 
 import os
@@ -19,20 +20,20 @@ import subprocess
 def _ensure_env():
     here = Path(__file__).resolve()
     repo_root = here.parents[2]
-    python_dir = repo_root / 'python'
+    python_dir = repo_root / "python"
     # COVERAGE config for subprocess auto-start via sitecustomize/usercustomize
-    cov_rc = repo_root / '.coveragerc'
+    cov_rc = repo_root / ".coveragerc"
     if cov_rc.exists():
-        os.environ.setdefault('COVERAGE_PROCESS_START', str(cov_rc))
+        os.environ.setdefault("COVERAGE_PROCESS_START", str(cov_rc))
     # Ensure our root sitecustomize.py is importable before system one
     paths = [str(repo_root), str(python_dir)]
-    env_pp = os.environ.get('PYTHONPATH')
+    env_pp = os.environ.get("PYTHONPATH")
     if env_pp:
-        os.environ['PYTHONPATH'] = os.pathsep.join(paths + [env_pp])
+        os.environ["PYTHONPATH"] = os.pathsep.join(paths + [env_pp])
     else:
-        os.environ['PYTHONPATH'] = os.pathsep.join(paths)
+        os.environ["PYTHONPATH"] = os.pathsep.join(paths)
     # Instruct tests to wrap CLI subprocesses with coverage run -p
-    os.environ.setdefault('COVERAGE_SUBPROCESS', '1')
+    os.environ.setdefault("COVERAGE_SUBPROCESS", "1")
 
 
 _ensure_env()
@@ -45,6 +46,11 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[override]
     """
     try:
         # Combine in the workspace root; ignore failures and suppress noise.
-        subprocess.run([sys.executable, '-m', 'coverage', 'combine'], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            [sys.executable, "-m", "coverage", "combine"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception:
         pass

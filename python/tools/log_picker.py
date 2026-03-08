@@ -4,25 +4,25 @@ Collect selected lines from all ``*.log`` files in a given input directory and
 write a condensed summary log into the repository's ``./log`` folder.
 
 Selection criteria (base line prefixes):
-	RunId=
-	ProjectPath:
-	INFO {link_data} [data.json] ISO code used:
-	Pipeline complete.
-	Counts =>
-	Timing (s) =>
-	INFO {add_layers} Processed
+        RunId=
+        ProjectPath:
+        INFO {link_data} [data.json] ISO code used:
+        Pipeline complete.
+        Counts =>
+        Timing (s) =>
+        INFO {add_layers} Processed
 
 Usage (CLI):
-	python -m python.tools.log_picker --input-dir path/to/logs
+        python -m python.tools.log_picker --input-dir path/to/logs
 
 Optional arguments:
-	--output-file   Explicit path for the output log file (useful for tests)
-	--encoding      Override file encoding used to read logs (default utf-8)
-	--recursive     Recurse into sub-directories when gathering *.log files
-	--prefix PFX    Additional custom prefix to match (may be repeated)
+        --output-file   Explicit path for the output log file (useful for tests)
+        --encoding      Override file encoding used to read logs (default utf-8)
+        --recursive     Recurse into sub-directories when gathering *.log files
+        --prefix PFX    Additional custom prefix to match (may be repeated)
 
 The default output filename (if --output-file not supplied) is:
-	./log/log_picker_<YYYYMMDD_HHMMSS>.log
+        ./log/log_picker_<YYYYMMDD_HHMMSS>.log
 
 Separator: A line consisting of 72 dashes plus the source filename.
 """
@@ -38,328 +38,376 @@ from typing import Iterable, List
 
 
 BASE_PREFIXES: List[str] = [
-	"RunId=",
-	"INFO {save_as_iso} Saved as",
-	"Counts =>",
-	"Timing (s) =>",
-	# "INFO {add_layers} Processed",
+    "RunId=",
+    "INFO {save_as_iso} Saved as",
+    "Counts =>",
+    "Timing (s) =>",
+    # "INFO {add_layers} Processed",
 ]
 
 SEPARATOR_WIDTH = 72
 
 
 def find_repo_root() -> Path:
-	"""Return repo root assuming this file lives in <root>/python/aux/.
+    """Return repo root assuming this file lives in <root>/python/aux/.
 
-	Falls back to current working directory if expected layout not found.
-	"""
-	here = Path(__file__).resolve()
-	# Expect: .../<root>/python/aux/log_picker.py
-	try:
-		python_dir = here.parent.parent  # <root>/python
-		root = python_dir.parent
-		if (root / "log").is_dir():  # sanity check
-			return root
-	except Exception:
-		pass
-	return Path.cwd()
+    Falls back to current working directory if expected layout not found.
+    """
+    here = Path(__file__).resolve()
+    # Expect: .../<root>/python/aux/log_picker.py
+    try:
+        python_dir = here.parent.parent  # <root>/python
+        root = python_dir.parent
+        if (root / "log").is_dir():  # sanity check
+            return root
+    except Exception:
+        pass
+    return Path.cwd()
 
 
 def iter_log_files(base: Path, recursive: bool) -> Iterable[Path]:
-	"""Yield *.log files under base (non-recursive by default)."""
-	if recursive:
-		yield from (p for p in base.rglob("*.log") if p.is_file())
-	else:
-		yield from (p for p in base.glob("*.log") if p.is_file())
+    """Yield *.log files under base (non-recursive by default)."""
+    if recursive:
+        yield from (p for p in base.rglob("*.log") if p.is_file())
+    else:
+        yield from (p for p in base.glob("*.log") if p.is_file())
 
 
-def pick_lines(path: Path, prefixes: List[str], regexes: List[re.Pattern], encoding: str = "utf-8") -> List[str]:
-	"""Return list of lines from file matching any prefix or regex pattern.
+def pick_lines(
+    path: Path, prefixes: List[str], regexes: List[re.Pattern], encoding: str = "utf-8"
+) -> List[str]:
+    """Return list of lines from file matching any prefix or regex pattern.
 
-	Matching logic:
-	- Prefixes: line.startswith(prefix)
-	- Regexes: pattern.search(line)
-	Lines returned exactly as in file (newline stripped).
-	"""
-	picked: List[str] = []
-	try:
-		with path.open("r", encoding=encoding, errors="replace") as f:
-			for raw in f:
-				line = raw.rstrip("\n")
-				matched = False
-				for pref in prefixes:
-					if line.startswith(pref):
-						matched = True
-						break
-				if not matched:
-					for rgx in regexes:
-						if rgx.search(line):
-							matched = True
-							break
-				if matched:
-					picked.append(line)
-	except OSError as e:
-		picked.append(f"<ERROR reading {path.name}: {e}>")
-	return picked
+    Matching logic:
+    - Prefixes: line.startswith(prefix)
+    - Regexes: pattern.search(line)
+    Lines returned exactly as in file (newline stripped).
+    """
+    picked: List[str] = []
+    try:
+        with path.open("r", encoding=encoding, errors="replace") as f:
+            for raw in f:
+                line = raw.rstrip("\n")
+                matched = False
+                for pref in prefixes:
+                    if line.startswith(pref):
+                        matched = True
+                        break
+                if not matched:
+                    for rgx in regexes:
+                        if rgx.search(line):
+                            matched = True
+                            break
+                if matched:
+                    picked.append(line)
+    except OSError as e:
+        picked.append(f"<ERROR reading {path.name}: {e}>")
+    return picked
 
 
 def build_output_path(repo_root: Path, explicit: str | None) -> Path:
-	log_dir = repo_root / "log"
-	log_dir.mkdir(parents=True, exist_ok=True)
-	if explicit:
-		return Path(explicit).resolve()
-	stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-	return (log_dir / f"log_picker_{stamp}.log").resolve()
+    log_dir = repo_root / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    if explicit:
+        return Path(explicit).resolve()
+    stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return (log_dir / f"log_picker_{stamp}.log").resolve()
 
 
-def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_dir: Path, prefixes: List[str], regexes: List[re.Pattern]) -> None:
-	"""Write the condensed log with header and a counts summary section."""
-	stamp = _dt.datetime.now().isoformat(timespec="seconds")
-	with out_path.open("w", encoding="utf-8") as out:
-		# Header
-		out.write("==== Log Picker Summary ====" + "\n")
-		out.write(f"Timestamp: {stamp}\n")
-		out.write(f"Input Directory: {input_dir}\n")
-		if prefixes:
-			out.write("Prefixes: " + ", ".join(prefixes) + "\n")
-		if regexes:
-			out.write("Regexes: " + ", ".join(r.pattern for r in regexes) + "\n")
-		out.write("\n")
-		for idx, (src, lines) in enumerate(gathered, start=1):
-			sep = f"{'-' * SEPARATOR_WIDTH} {src.name}"
-			out.write(sep + "\n")
-			if lines:
-				for line in lines:
-					out.write(line + "\n")
-			else:
-				out.write("<NO MATCHING LINES>\n")
-			# Add blank line after each block for readability
-			out.write("\n")
-		# Counts summary (only total pipeline_run logs parsed)
-		out.write("==== Summary Counts ====\n")
-		pipeline_runs = sum(1 for src, _ in gathered if src.name.startswith("pipeline_run_"))
-		out.write(f"TOTAL_PIPELINE_RUN_LOGS: {pipeline_runs}\n")
+def write_summary(
+    out_path: Path,
+    gathered: List[tuple[Path, List[str]]],
+    input_dir: Path,
+    prefixes: List[str],
+    regexes: List[re.Pattern],
+) -> None:
+    """Write the condensed log with header and a counts summary section."""
+    stamp = _dt.datetime.now().isoformat(timespec="seconds")
+    with out_path.open("w", encoding="utf-8") as out:
+        # Header
+        out.write("==== Log Picker Summary ====" + "\n")
+        out.write(f"Timestamp: {stamp}\n")
+        out.write(f"Input Directory: {input_dir}\n")
+        if prefixes:
+            out.write("Prefixes: " + ", ".join(prefixes) + "\n")
+        if regexes:
+            out.write("Regexes: " + ", ".join(r.pattern for r in regexes) + "\n")
+        out.write("\n")
+        for idx, (src, lines) in enumerate(gathered, start=1):
+            sep = f"{'-' * SEPARATOR_WIDTH} {src.name}"
+            out.write(sep + "\n")
+            if lines:
+                for line in lines:
+                    out.write(line + "\n")
+            else:
+                out.write("<NO MATCHING LINES>\n")
+            # Add blank line after each block for readability
+            out.write("\n")
+        # Counts summary (only total pipeline_run logs parsed)
+        out.write("==== Summary Counts ====\n")
+        pipeline_runs = sum(
+            1 for src, _ in gathered if src.name.startswith("pipeline_run_")
+        )
+        out.write(f"TOTAL_PIPELINE_RUN_LOGS: {pipeline_runs}\n")
 
-		# Compute Batch Total Real (sum of 'total' from Timing lines of pipeline_run logs)
-		def _parse_kv_payload(line: str) -> dict[str, str]:
-			payload = line.split('=>', 1)[1] if '=>' in line else line
-			pairs: dict[str, str] = {}
-			for piece in payload.split(','):
-				piece = piece.strip()
-				if '=' not in piece:
-					continue
-				k, v = piece.split('=', 1)
-				pairs[k.strip()] = v.strip()
-			return pairs
+        # Compute Batch Total Real (sum of 'total' from Timing lines of pipeline_run logs)
+        def _parse_kv_payload(line: str) -> dict[str, str]:
+            payload = line.split("=>", 1)[1] if "=>" in line else line
+            pairs: dict[str, str] = {}
+            for piece in payload.split(","):
+                piece = piece.strip()
+                if "=" not in piece:
+                    continue
+                k, v = piece.split("=", 1)
+                pairs[k.strip()] = v.strip()
+            return pairs
 
-		def _hhmmss(total_seconds: float) -> str:
-			sec = int(total_seconds)
-			h = sec // 3600
-			m = (sec % 3600) // 60
-			s = sec % 60
-			return f"{h:02d}:{m:02d}:{s:02d}"
+        def _hhmmss(total_seconds: float) -> str:
+            sec = int(total_seconds)
+            h = sec // 3600
+            m = (sec % 3600) // 60
+            s = sec % 60
+            return f"{h:02d}:{m:02d}:{s:02d}"
 
-		real_total = 0.0
-		first_total: float | None = None
-		for src, lines in gathered:
-			if not src.name.startswith("pipeline_run_"):
-				continue
-			latest_timing = None
-			for line in reversed(lines):
-				if line.startswith("Timing (s) =>"):
-					latest_timing = line
-					break
-			if latest_timing is None:
-				continue
-			pairs = _parse_kv_payload(latest_timing)
-			try:
-				tv = float(pairs.get("total", ""))
-			except ValueError:
-				continue
-			real_total += tv
-			if first_total is None:
-				first_total = tv
+        real_total = 0.0
+        first_total: float | None = None
+        for src, lines in gathered:
+            if not src.name.startswith("pipeline_run_"):
+                continue
+            latest_timing = None
+            for line in reversed(lines):
+                if line.startswith("Timing (s) =>"):
+                    latest_timing = line
+                    break
+            if latest_timing is None:
+                continue
+            pairs = _parse_kv_payload(latest_timing)
+            try:
+                tv = float(pairs.get("total", ""))
+            except ValueError:
+                continue
+            real_total += tv
+            if first_total is None:
+                first_total = tv
 
-		# Write real total seconds and HHMMSS
-		out.write(f"Batch Total Real: {real_total:.2f} s, HHMMSS: {_hhmmss(real_total)}\n")
-		# Theory = first total * number of runs (if available)
-		if first_total is not None and pipeline_runs > 0:
-			theory_total = first_total * pipeline_runs
-			out.write(f"Batch Total Theory: {theory_total:.2f} s, HHMMSS: {_hhmmss(theory_total)}\n")
-		else:
-			out.write("Batch Total Theory: - s, HHMMSS: 00:00:00\n")
+        # Write real total seconds and HHMMSS
+        out.write(
+            f"Batch Total Real: {real_total:.2f} s, HHMMSS: {_hhmmss(real_total)}\n"
+        )
+        # Theory = first total * number of runs (if available)
+        if first_total is not None and pipeline_runs > 0:
+            theory_total = first_total * pipeline_runs
+            out.write(
+                f"Batch Total Theory: {theory_total:.2f} s, HHMMSS: {_hhmmss(theory_total)}\n"
+            )
+        else:
+            out.write("Batch Total Theory: - s, HHMMSS: 00:00:00\n")
 
-		# Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
-		def _extract_value_from_line(line: str, key: str) -> str | None:
-			# Take substring after '=>' if present
-			payload = line
-			if '=>' in line:
-				payload = line.split('=>', 1)[1]
-			# Split by commas and parse key=value pairs
-			for piece in payload.split(','):
-				piece = piece.strip()
-				if not piece or '=' not in piece:
-					continue
-				k, v = piece.split('=', 1)
-				if k.strip() == key:
-					return v.strip()
-			return None
+        # Short layers summary: extract from 'Counts =>' and 'Timing (s) =>' lines
+        def _extract_value_from_line(line: str, key: str) -> str | None:
+            # Take substring after '=>' if present
+            payload = line
+            if "=>" in line:
+                payload = line.split("=>", 1)[1]
+            # Split by commas and parse key=value pairs
+            for piece in payload.split(","):
+                piece = piece.strip()
+                if not piece or "=" not in piece:
+                    continue
+                k, v = piece.split("=", 1)
+                if k.strip() == key:
+                    return v.strip()
+            return None
 
-		out.write("\n")
-		out.write("==== Summary addLayers ====\n")
-		for src, lines in gathered:
-			counts_val = None
-			timing_val = None
-			# Walk lines in reverse to prefer the last occurrence
-			for line in reversed(lines):
-				if counts_val is None and line.startswith("Counts =>"):
-					counts_val = _extract_value_from_line(line, "layersAddedTotal")
-				if timing_val is None and line.startswith("Timing (s) =>"):
-					timing_val = _extract_value_from_line(line, "addLayers")
-				if counts_val is not None and timing_val is not None:
-					break
-			counts_out = counts_val if counts_val is not None else "-"
-			timing_out = timing_val if timing_val is not None else "-"
-			out.write(f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n")
+        out.write("\n")
+        out.write("==== Summary addLayers ====\n")
+        for src, lines in gathered:
+            counts_val = None
+            timing_val = None
+            # Walk lines in reverse to prefer the last occurrence
+            for line in reversed(lines):
+                if counts_val is None and line.startswith("Counts =>"):
+                    counts_val = _extract_value_from_line(line, "layersAddedTotal")
+                if timing_val is None and line.startswith("Timing (s) =>"):
+                    timing_val = _extract_value_from_line(line, "addLayers")
+                if counts_val is not None and timing_val is not None:
+                    break
+            counts_out = counts_val if counts_val is not None else "-"
+            timing_out = timing_val if timing_val is not None else "-"
+            out.write(
+                f"{src.name}: Counts => layersAddedTotal={counts_out} ; Timing (s) => addLayers={timing_out}\n"
+            )
 
-		out.write("\n")
-		out.write("==== Summary Timings addLayers / Totals / Ratio ====\n")
-		for src, lines in gathered:
-			timing_val1 = None
-			timing_val2 = None
-			# Walk lines in reverse to prefer the last occurrence
-			for line in reversed(lines):
-				if timing_val1 is None and line.startswith("Timing (s) =>"):
-					timing_val1 = _extract_value_from_line(line, "addLayers")
-				if timing_val2 is None and line.startswith("Timing (s) =>"):
-					timing_val2 = _extract_value_from_line(line, "total")
-				if timing_val1 is not None and timing_val2 is not None:
-					break
-			# Compute percentage addLayers/total
-			pct_str = "-"
-			try:
-				al = float(timing_val1) if timing_val1 is not None else None
-				tt = float(timing_val2) if timing_val2 is not None else None
-				if al is not None and tt is not None and tt > 0:
-					pct_str = f"{(al/tt)*100:.2f}%"
-			except ValueError:
-				pct_str = "-"
-			timing_out1 = timing_val1 if timing_val1 is not None else "-"
-			timing_out2 = timing_val2 if timing_val2 is not None else "-"
-			out.write(f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; Ratio: {pct_str}\n")
+        out.write("\n")
+        out.write("==== Summary Timings addLayers / Totals / Ratio ====\n")
+        for src, lines in gathered:
+            timing_val1 = None
+            timing_val2 = None
+            # Walk lines in reverse to prefer the last occurrence
+            for line in reversed(lines):
+                if timing_val1 is None and line.startswith("Timing (s) =>"):
+                    timing_val1 = _extract_value_from_line(line, "addLayers")
+                if timing_val2 is None and line.startswith("Timing (s) =>"):
+                    timing_val2 = _extract_value_from_line(line, "total")
+                if timing_val1 is not None and timing_val2 is not None:
+                    break
+            # Compute percentage addLayers/total
+            pct_str = "-"
+            try:
+                al = float(timing_val1) if timing_val1 is not None else None
+                tt = float(timing_val2) if timing_val2 is not None else None
+                if al is not None and tt is not None and tt > 0:
+                    pct_str = f"{(al / tt) * 100:.2f}%"
+            except ValueError:
+                pct_str = "-"
+            timing_out1 = timing_val1 if timing_val1 is not None else "-"
+            timing_out2 = timing_val2 if timing_val2 is not None else "-"
+            out.write(
+                f"{src.name}: Timing (s) => addLayers={timing_out1} / total={timing_out2}; Ratio: {pct_str}\n"
+            )
 
-		# Summary timing multipliers: per file total vs first total
-		out.write("\n")
-		out.write("==== Summary Timing Multiplier ====\n")
-		totals: list[tuple[Path, str | None, float | None]] = []
-		for src, lines in gathered:
-			timing_total = None
-			for line in reversed(lines):
-				if line.startswith("Timing (s) =>"):
-					timing_total = _extract_value_from_line(line, "total")
-					break
-			val: float | None = None
-			if timing_total is not None:
-				try:
-					val = float(timing_total)
-				except ValueError:
-					val = None
-			totals.append((src, timing_total, val))
+        # Summary timing multipliers: per file total vs first total
+        out.write("\n")
+        out.write("==== Summary Timing Multiplier ====\n")
+        totals: list[tuple[Path, str | None, float | None]] = []
+        for src, lines in gathered:
+            timing_total = None
+            for line in reversed(lines):
+                if line.startswith("Timing (s) =>"):
+                    timing_total = _extract_value_from_line(line, "total")
+                    break
+            val: float | None = None
+            if timing_total is not None:
+                try:
+                    val = float(timing_total)
+                except ValueError:
+                    val = None
+            totals.append((src, timing_total, val))
 
-		first_pipeline_total = next((v for s, _, v in totals if s.name.startswith("pipeline_run_") and v is not None and v > 0), None)
-		first_any_total = next((v for _, _, v in totals if v is not None and v > 0), None)
-		baseline = first_pipeline_total if first_pipeline_total is not None else first_any_total
+        first_pipeline_total = next(
+            (
+                v
+                for s, _, v in totals
+                if s.name.startswith("pipeline_run_") and v is not None and v > 0
+            ),
+            None,
+        )
+        first_any_total = next(
+            (v for _, _, v in totals if v is not None and v > 0), None
+        )
+        baseline = (
+            first_pipeline_total
+            if first_pipeline_total is not None
+            else first_any_total
+        )
 
-		for src, timing_total, val in totals:
-			total_out = timing_total if timing_total is not None else "-"
-			mult_out = "-"
-			if baseline is not None and baseline > 0 and val is not None:
-				mult_out = f"{val/baseline:.2f}x"
-			out.write(f"{src.name}: total={total_out}; Multiplier: {mult_out}\n")
+        for src, timing_total, val in totals:
+            total_out = timing_total if timing_total is not None else "-"
+            mult_out = "-"
+            if baseline is not None and baseline > 0 and val is not None:
+                mult_out = f"{val / baseline:.2f}x"
+            out.write(f"{src.name}: total={total_out}; Multiplier: {mult_out}\n")
 
-		# Summary percentage for individual timing steps
-		out.write("\n")
-		out.write("==== Summary percentage ====\n")
-		for src, lines in gathered:
-			latest = None
-			for line in reversed(lines):
-				if line.startswith("Timing (s) =>"):
-					latest = line
-					break
-			if latest is None:
-				out.write(f"{src.name}: -\n")
-				continue
-			# Parse key=value pairs
-			payload = latest.split('=>', 1)[1] if '=>' in latest else latest
-			pairs = {}
-			for piece in payload.split(','):
-				piece = piece.strip()
-				if '=' not in piece:
-					continue
-				k, v = piece.split('=', 1)
-				pairs[k.strip()] = v.strip()
-			# Compute per-key percentages vs total
-			try:
-				total_val = float(pairs.get('total', ''))
-			except ValueError:
-				total_val = 0.0
-			parts = []
-			for k, v in pairs.items():
-				if k == 'total':
-					continue
-				try:
-					val = float(v)
-					if total_val > 0:
-						p = (val / total_val) * 100.0
-						parts.append(f"{k}={p:.2f}%")
-					else:
-						parts.append(f"{k}=-")
-				except ValueError:
-					parts.append(f"{k}=-")
-			out.write(f"{src.name}: " + ", ".join(parts) + "\n")
-	print(f"Wrote summary: {out_path}")
+        # Summary percentage for individual timing steps
+        out.write("\n")
+        out.write("==== Summary percentage ====\n")
+        for src, lines in gathered:
+            latest = None
+            for line in reversed(lines):
+                if line.startswith("Timing (s) =>"):
+                    latest = line
+                    break
+            if latest is None:
+                out.write(f"{src.name}: -\n")
+                continue
+            # Parse key=value pairs
+            payload = latest.split("=>", 1)[1] if "=>" in latest else latest
+            pairs = {}
+            for piece in payload.split(","):
+                piece = piece.strip()
+                if "=" not in piece:
+                    continue
+                k, v = piece.split("=", 1)
+                pairs[k.strip()] = v.strip()
+            # Compute per-key percentages vs total
+            try:
+                total_val = float(pairs.get("total", ""))
+            except ValueError:
+                total_val = 0.0
+            parts = []
+            for k, v in pairs.items():
+                if k == "total":
+                    continue
+                try:
+                    val = float(v)
+                    if total_val > 0:
+                        p = (val / total_val) * 100.0
+                        parts.append(f"{k}={p:.2f}%")
+                    else:
+                        parts.append(f"{k}=-")
+                except ValueError:
+                    parts.append(f"{k}=-")
+            out.write(f"{src.name}: " + ", ".join(parts) + "\n")
+    print(f"Wrote summary: {out_path}")
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
-	p = argparse.ArgumentParser(description="Pick selected lines from log files")
-	p.add_argument("--input-dir", required=True, help="Directory containing *.log files")
-	p.add_argument("--output-file", help="Explicit output file path")
-	p.add_argument("--encoding", default="utf-8", help="Encoding for reading log files")
-	p.add_argument("--recursive", action="store_true", help="Recurse into subdirectories")
-	p.add_argument("--prefix", action="append", default=[], help="Additional prefix to match (repeatable)")
-	p.add_argument("--regex", action="append", default=[], help="Regex pattern to match (repeatable)")
-	return p.parse_args(argv)
+    p = argparse.ArgumentParser(description="Pick selected lines from log files")
+    p.add_argument(
+        "--input-dir", required=True, help="Directory containing *.log files"
+    )
+    p.add_argument("--output-file", help="Explicit output file path")
+    p.add_argument("--encoding", default="utf-8", help="Encoding for reading log files")
+    p.add_argument(
+        "--recursive", action="store_true", help="Recurse into subdirectories"
+    )
+    p.add_argument(
+        "--prefix",
+        action="append",
+        default=[],
+        help="Additional prefix to match (repeatable)",
+    )
+    p.add_argument(
+        "--regex",
+        action="append",
+        default=[],
+        help="Regex pattern to match (repeatable)",
+    )
+    return p.parse_args(argv)
 
 
 def main(argv: List[str] | None = None) -> int:
-	ns = parse_args(argv or sys.argv[1:])
-	input_dir = Path(ns.input_dir).expanduser().resolve()
-	if not input_dir.is_dir():
-		print(f"Input directory does not exist or is not a directory: {input_dir}", file=sys.stderr)
-		return 2
-	repo_root = find_repo_root()
-	out_path = build_output_path(repo_root, ns.output_file)
+    ns = parse_args(argv or sys.argv[1:])
+    input_dir = Path(ns.input_dir).expanduser().resolve()
+    if not input_dir.is_dir():
+        print(
+            f"Input directory does not exist or is not a directory: {input_dir}",
+            file=sys.stderr,
+        )
+        return 2
+    repo_root = find_repo_root()
+    out_path = build_output_path(repo_root, ns.output_file)
 
-	prefixes = BASE_PREFIXES + list(ns.prefix)
-	regexes: List[re.Pattern] = []
-	for pattern in ns.regex:
-		try:
-			regexes.append(re.compile(pattern))
-		except re.error as e:
-			print(f"Invalid regex pattern '{pattern}': {e}", file=sys.stderr)
-			return 3
+    prefixes = BASE_PREFIXES + list(ns.prefix)
+    regexes: List[re.Pattern] = []
+    for pattern in ns.regex:
+        try:
+            regexes.append(re.compile(pattern))
+        except re.error as e:
+            print(f"Invalid regex pattern '{pattern}': {e}", file=sys.stderr)
+            return 3
 
-	gathered: List[tuple[Path, List[str]]] = []
-	files = sorted(iter_log_files(input_dir, ns.recursive))
-	if not files:
-		print(f"No .log files found in {input_dir}", file=sys.stderr)
-	for f in files:
-		picked = pick_lines(f, prefixes, regexes, encoding=ns.encoding)
-		gathered.append((f, picked))
+    gathered: List[tuple[Path, List[str]]] = []
+    files = sorted(iter_log_files(input_dir, ns.recursive))
+    if not files:
+        print(f"No .log files found in {input_dir}", file=sys.stderr)
+    for f in files:
+        picked = pick_lines(f, prefixes, regexes, encoding=ns.encoding)
+        gathered.append((f, picked))
 
-	write_summary(out_path, gathered, input_dir, prefixes, regexes)
-	return 0
+    write_summary(out_path, gathered, input_dir, prefixes, regexes)
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
-	raise SystemExit(main())
+    raise SystemExit(main())

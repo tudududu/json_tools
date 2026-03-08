@@ -39,14 +39,16 @@ def test_main_parametrized_error_cases(tmp_path, case):
         d = tmp_path / "logs"
         d.mkdir()
         (d / "a.log").write_text("Pipeline complete.\n", encoding="utf-8")
-        rc = log_picker.main([
-            "--input-dir",
-            str(d),
-            "--output-file",
-            str(out),
-            "--regex",
-            "(",
-        ])
+        rc = log_picker.main(
+            [
+                "--input-dir",
+                str(d),
+                "--output-file",
+                str(out),
+                "--regex",
+                "(",
+            ]
+        )
         assert rc == 3
 
 
@@ -102,11 +104,13 @@ def test_param_prefix_combinations(tmp_path, prefixes, expected_counts, total):
     base.mkdir()
     # a.log has both prefixes and a base prefix line
     (base / "a.log").write_text(
-        "\n".join([
-            "PrefixA one",
-            "PrefixB two",
-            "INFO {save_as_iso} Saved as",
-        ])
+        "\n".join(
+            [
+                "PrefixA one",
+                "PrefixB two",
+                "INFO {save_as_iso} Saved as",
+            ]
+        )
         + "\n",
         encoding="utf-8",
     )

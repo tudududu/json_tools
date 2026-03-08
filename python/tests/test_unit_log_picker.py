@@ -16,7 +16,8 @@ class LogPickerTests(unittest.TestCase):
                 "RunId=AAA\nUnrelated line\nMYCUSTOM value here\n", encoding="utf-8"
             )
             (log_dir / "two.log").write_text(
-                "Pipeline complete.\nTiming (s) => total=1.23\nOther line\n", encoding="utf-8"
+                "Pipeline complete.\nTiming (s) => total=1.23\nOther line\n",
+                encoding="utf-8",
             )
             (log_dir / "empty.log").write_text(
                 "Nothing to see here\n", encoding="utf-8"
@@ -26,11 +27,16 @@ class LogPickerTests(unittest.TestCase):
             out_file = tmp_path / "summary.log"
 
             # Act: run main with custom prefix
-            rc = log_picker.main([
-                "--input-dir", str(log_dir),
-                "--output-file", str(out_file),
-                "--prefix", "MYCUSTOM",
-            ])
+            rc = log_picker.main(
+                [
+                    "--input-dir",
+                    str(log_dir),
+                    "--output-file",
+                    str(out_file),
+                    "--prefix",
+                    "MYCUSTOM",
+                ]
+            )
 
             self.assertEqual(rc, 0, "Script should exit with success")
             self.assertTrue(out_file.is_file(), "Output file should be created")

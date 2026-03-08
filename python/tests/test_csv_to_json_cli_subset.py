@@ -9,11 +9,18 @@ SCRIPT = Path(__file__).resolve().parents[1] / "csv_to_json.py"
 
 
 def run_cli(args, expect_exit=0):
-    proc = subprocess.run([sys.executable, str(SCRIPT)] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT)] + args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     if proc.returncode != expect_exit:
         print(proc.stdout)
         print(proc.stderr, file=sys.stderr)
-    assert proc.returncode == expect_exit, f"Exit {proc.returncode} != {expect_exit} (stderr={proc.stderr})"
+    assert proc.returncode == expect_exit, (
+        f"Exit {proc.returncode} != {expect_exit} (stderr={proc.stderr})"
+    )
     return proc
 
 
@@ -44,16 +51,21 @@ def test_xlsx_input_uses_data_sheet_default_and_supports_override(tmp_path):
     assert payload_default["subtitles"][0]["text"] == "From data"
 
     out_sheet1 = tmp_path / "out_sheet1.json"
-    run_cli([str(workbook_path), str(out_sheet1), "--fps", "25", "--xlsx-sheet", "Sheet1"])
+    run_cli(
+        [str(workbook_path), str(out_sheet1), "--fps", "25", "--xlsx-sheet", "Sheet1"]
+    )
     payload_sheet1 = json.loads(out_sheet1.read_text(encoding="utf-8"))
     assert payload_sheet1["subtitles"][0]["text"] == "From Sheet1"
 
 
-@pytest.mark.parametrize("delim,force_flag", [
-    (";", None),              # sniff semicolon
-    (";", "semicolon"),      # forced named delimiter
-    (",", "comma"),          # explicit same delimiter
-])
+@pytest.mark.parametrize(
+    "delim,force_flag",
+    [
+        (";", None),  # sniff semicolon
+        (";", "semicolon"),  # forced named delimiter
+        (",", "comma"),  # explicit same delimiter
+    ],
+)
 def test_delimiter_sniff_vs_forced(tmp_path, delim, force_flag):
     csv = tmp_path / "subs_semicolon.csv"
     # Simple legacy CSV headers (Start Time;End Time;Text)
@@ -67,16 +79,31 @@ def test_delimiter_sniff_vs_forced(tmp_path, delim, force_flag):
     assert data["subtitles"][0]["text"] == "Hello"
 
 
-@pytest.mark.parametrize("round_val,input_start,input_end,expected_start_str", [
-    (2, "0", "1.5", "0.00"),
-    (2, "1.234", "2.0", "1.23"),  # rounding down
-    (2, "1.235", "2.0", "1.24"),  # rounding up
-])
-def test_times_as_string_rounding(tmp_path, round_val, input_start, input_end, expected_start_str):
+@pytest.mark.parametrize(
+    "round_val,input_start,input_end,expected_start_str",
+    [
+        (2, "0", "1.5", "0.00"),
+        (2, "1.234", "2.0", "1.23"),  # rounding down
+        (2, "1.235", "2.0", "1.24"),  # rounding up
+    ],
+)
+def test_times_as_string_rounding(
+    tmp_path, round_val, input_start, input_end, expected_start_str
+):
     csv = tmp_path / "subs_times.csv"
     write(csv, f"Start Time,End Time,Text\n{input_start},{input_end},Hello")
     out = tmp_path / "out.json"
-    run_cli([str(csv), str(out), "--fps", "25", "--times-as-string", "--round", str(round_val)])
+    run_cli(
+        [
+            str(csv),
+            str(out),
+            "--fps",
+            "25",
+            "--times-as-string",
+            "--round",
+            str(round_val),
+        ]
+    )
     data = json.loads(out.read_text(encoding="utf-8"))
     sub = data["subtitles"][0]
     assert isinstance(sub["in"], str)
@@ -88,7 +115,9 @@ def test_malformed_timecode_validation_error(tmp_path):
     # End earlier than Start should trigger validation error in unified mode; use simple legacy with ordering violation
     write(csv, "Start Time,End Time,Text\n5,3,Bad timing")
     out = tmp_path / "out.json"
-    proc = run_cli([str(csv), str(out), "--fps", "25", "--validate-only"], expect_exit=1)
+    proc = run_cli(
+        [str(csv), str(out), "--fps", "25", "--validate-only"], expect_exit=1
+    )
     # stdout should contain 'Errors found.' phrase
     assert "Errors found" in proc.stdout or "Validation errors" in proc.stdout
     assert not out.exists()
@@ -147,7 +176,10 @@ def test_hhmmssff_parse_with_fps_times_as_string(tmp_path):
 @pytest.mark.parametrize("delim_name,delim_char", [("tab", "\t"), ("pipe", "|")])
 def test_delimiter_named_mappings_tab_and_pipe(tmp_path, delim_name, delim_char):
     csv = tmp_path / f"subs_{delim_name}.csv"
-    write(csv, f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}X")
+    write(
+        csv,
+        f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}X",
+    )
     out = tmp_path / "named.json"
     run_cli([str(csv), str(out), "--fps", "25", "--delimiter", delim_name])
     data = json.loads(out.read_text(encoding="utf-8"))
@@ -182,7 +214,10 @@ def test_delimiter_auto_sniff_tab_and_pipe(tmp_path, delim_char):
     # Exercise --delimiter auto sniff path for tab and pipe (no explicit --delimiter flag)
     name = "tab" if delim_char == "\t" else "pipe"
     csv = tmp_path / f"subs_auto_{name}.csv"
-    write(csv, f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}A")
+    write(
+        csv,
+        f"Start Time{delim_char}End Time{delim_char}Text\n0{delim_char}1{delim_char}A",
+    )
     out = tmp_path / "auto.json"
     run_cli([str(csv), str(out), "--fps", "25"])  # delimiter=auto default
     data = json.loads(out.read_text(encoding="utf-8"))
@@ -192,7 +227,9 @@ def test_delimiter_auto_sniff_tab_and_pipe(tmp_path, delim_char):
 def unified_with_endframe_and_logo_anim(country_codes=("GBR", "FRA")):
     # Build unified schema rows including an endFrame row to cover that branch and a logo_anim_flag overview row.
     # Duplicate first country column for portrait simulation for each country (GBR, GBR, FRA, FRA)
-    countries_cols = ",".join([c for c in country_codes for _ in (0, 1)])  # e.g., GBR,GBR,FRA,FRA
+    countries_cols = ",".join(
+        [c for c in country_codes for _ in (0, 1)]
+    )  # e.g., GBR,GBR,FRA,FRA
     header = f"record_type,video_id,line,start,end,key,is_global,country_scope,metadata,{countries_cols}"
     rows = [header]
     # meta_global country definition row
@@ -214,7 +251,9 @@ def test_unified_endframe_and_logo_anim_overview(tmp_path):
     # Non-split mode writes a single selected country payload (default selects last country)
     payload = json.loads(out.read_text(encoding="utf-8"))
     vids = payload.get("videos", [])
-    end_items = [v.get("endFrame") for v in vids if v.get("videoId") == "VID2_landscape"]
+    end_items = [
+        v.get("endFrame") for v in vids if v.get("videoId") == "VID2_landscape"
+    ]
     assert end_items and isinstance(end_items[0], list)
     # Validate timing exists and is correctly parsed/rounded; text may be empty unless prefer-local is enabled
     assert end_items[0][0]["in"] == 2.0 and end_items[0][0]["out"] == 3.0
@@ -309,7 +348,10 @@ def test_dry_run_reports_variants(tmp_path):
     write(csv, unified_bel_two_variants_language())
     out = tmp_path / "out.json"
     # Expect dry-run to print discovered countries and per-country stats; we look for both BEL_FRA and BEL_NLD via filenames if split, but here we only check stdout contains country
-    proc = run_cli([str(csv), str(out), "--fps", "25", "--split-by-country", "--dry-run"], expect_exit=0)
+    proc = run_cli(
+        [str(csv), str(out), "--fps", "25", "--split-by-country", "--dry-run"],
+        expect_exit=0,
+    )
     # Should list Discovered countries and include BEL
     assert "Discovered countries" in proc.stdout
     assert "BEL" in proc.stdout

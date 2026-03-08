@@ -7,7 +7,7 @@ from python import csv_to_json as mod
 
 
 def tmp_csv(content: str) -> str:
-    f = tempfile.NamedTemporaryFile('w+', delete=False, suffix='.csv')
+    f = tempfile.NamedTemporaryFile("w+", delete=False, suffix=".csv")
     f.write(content)
     f.flush()
     f.close()
@@ -18,32 +18,32 @@ class CliOutputTests(unittest.TestCase):
     def test_auto_output_split_names(self):
         # Two countries minimal unified CSV
         csv_content = (
-            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
-            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
-            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
-            'meta_local;V;;;;title;N;ALL;T;;;;\n'
-            'sub;V;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "meta_local;V;;;;title;N;ALL;T;;;;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n"
         )
         path = tmp_csv(csv_content)
         try:
             with tempfile.TemporaryDirectory() as td:
                 # Note: with --auto-output, outputs are written next to the INPUT file,
                 # not to the provided output path. We still must provide a dummy second arg.
-                dummy_out = os.path.join(td, 'ignored.json')
-                rc = mod.main([path, dummy_out, '--split-by-country', '--auto-output'])
+                dummy_out = os.path.join(td, "ignored.json")
+                rc = mod.main([path, dummy_out, "--split-by-country", "--auto-output"])
                 self.assertEqual(rc, 0)
                 in_dir = os.path.dirname(path)
                 in_base = os.path.splitext(os.path.basename(path))[0]
-                gbl_path = os.path.join(in_dir, f'{in_base}_GBL.json')
-                fra_path = os.path.join(in_dir, f'{in_base}_FRA.json')
+                gbl_path = os.path.join(in_dir, f"{in_base}_GBL.json")
+                fra_path = os.path.join(in_dir, f"{in_base}_FRA.json")
                 self.assertTrue(os.path.isfile(gbl_path))
                 self.assertTrue(os.path.isfile(fra_path))
-                with open(gbl_path, 'r', encoding='utf-8') as f:
+                with open(gbl_path, "r", encoding="utf-8") as f:
                     gbl = json.load(f)
-                with open(fra_path, 'r', encoding='utf-8') as f:
+                with open(fra_path, "r", encoding="utf-8") as f:
                     fra = json.load(f)
-                self.assertEqual(gbl['metadataGlobal']['country'], 'GBL')
-                self.assertEqual(fra['metadataGlobal']['country'], 'FRA')
+                self.assertEqual(gbl["metadataGlobal"]["country"], "GBL")
+                self.assertEqual(fra["metadataGlobal"]["country"], "FRA")
         finally:
             # Clean up input and auto-generated outputs
             try:
@@ -53,91 +53,100 @@ class CliOutputTests(unittest.TestCase):
             try:
                 in_dir = os.path.dirname(path)
                 in_base = os.path.splitext(os.path.basename(path))[0]
-                os.remove(os.path.join(in_dir, f'{in_base}_GBL.json'))
-                os.remove(os.path.join(in_dir, f'{in_base}_FRA.json'))
+                os.remove(os.path.join(in_dir, f"{in_base}_GBL.json"))
+                os.remove(os.path.join(in_dir, f"{in_base}_FRA.json"))
             except Exception:
                 pass
 
     def test_output_pattern_custom(self):
         csv_content = (
-            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
-            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
-            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
-            'meta_local;V2;;;;title;N;ALL;T2;;;;\n'
-            'sub;V2;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "meta_local;V2;;;;title;N;ALL;T2;;;;\n"
+            "sub;V2;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n"
         )
         path = tmp_csv(csv_content)
         try:
             with tempfile.TemporaryDirectory() as td:
-                pattern = os.path.join(td, 'nested', 'out-{country}.json')
-                rc = mod.main([path, pattern, '--split-by-country'])
+                pattern = os.path.join(td, "nested", "out-{country}.json")
+                rc = mod.main([path, pattern, "--split-by-country"])
                 self.assertEqual(rc, 0)
-                gbl_path = os.path.join(td, 'nested', 'out-GBL.json')
-                fra_path = os.path.join(td, 'nested', 'out-FRA.json')
+                gbl_path = os.path.join(td, "nested", "out-GBL.json")
+                fra_path = os.path.join(td, "nested", "out-FRA.json")
                 self.assertTrue(os.path.isfile(gbl_path))
                 self.assertTrue(os.path.isfile(fra_path))
-                with open(gbl_path, 'r', encoding='utf-8') as f:
+                with open(gbl_path, "r", encoding="utf-8") as f:
                     gbl = json.load(f)
-                with open(fra_path, 'r', encoding='utf-8') as f:
+                with open(fra_path, "r", encoding="utf-8") as f:
                     fra = json.load(f)
-                self.assertEqual(gbl['metadataGlobal']['country'], 'GBL')
-                self.assertEqual(fra['metadataGlobal']['country'], 'FRA')
+                self.assertEqual(gbl["metadataGlobal"]["country"], "GBL")
+                self.assertEqual(fra["metadataGlobal"]["country"], "FRA")
         finally:
             os.remove(path)
 
     def test_output_pattern_single_country_via_placeholder(self):
         # Two countries unified CSV
         csv_content = (
-            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
-            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
-            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
-            'meta_local;V3;;;;title;N;ALL;T3;;;;\n'
-            'sub;V3;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "meta_local;V3;;;;title;N;ALL;T3;;;;\n"
+            "sub;V3;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n"
         )
         path = tmp_csv(csv_content)
         try:
             with tempfile.TemporaryDirectory() as td:
                 # Select first country (GBL) but use {country} in output path
-                out_path = os.path.join(td, 'only-{country}.json')
-                rc = mod.main([path, out_path, '--country-column', '1'])
+                out_path = os.path.join(td, "only-{country}.json")
+                rc = mod.main([path, out_path, "--country-column", "1"])
                 self.assertEqual(rc, 0)
-                gbl_path = os.path.join(td, 'only-GBL.json')
+                gbl_path = os.path.join(td, "only-GBL.json")
                 self.assertTrue(os.path.isfile(gbl_path))
-                with open(gbl_path, 'r', encoding='utf-8') as f:
+                with open(gbl_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                self.assertEqual(data['metadataGlobal']['country'], 'GBL')
+                self.assertEqual(data["metadataGlobal"]["country"], "GBL")
                 # Ensure no FRA file created
-                self.assertFalse(os.path.exists(os.path.join(td, 'only-FRA.json')))
+                self.assertFalse(os.path.exists(os.path.join(td, "only-FRA.json")))
         finally:
             os.remove(path)
 
     def test_output_pattern_single_country_flag(self):
         # Two countries unified CSV
         csv_content = (
-            'record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n'
-            'meta_global;;;;;briefVersion;Y;ALL;53;;;;\n'
-            'meta_global;;;;;fps;Y;ALL;25;;;;\n'
-            'meta_local;V4;;;;title;N;ALL;T4;;;;\n'
-            'sub;V4;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n'
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "meta_local;V4;;;;title;N;ALL;T4;;;;\n"
+            "sub;V4;1;00:00:00:00;00:00:01:00;;;;;;;;x;y\n"
         )
         path = tmp_csv(csv_content)
         try:
             with tempfile.TemporaryDirectory() as td:
                 # Use --output-pattern in single-country mode; select second country (FRA)
-                dummy_out = os.path.join(td, 'ignored.json')
-                pattern = os.path.join(td, 'just-{country}.json')
-                rc = mod.main([path, dummy_out, '--country-column', '2', '--output-pattern', pattern])
+                dummy_out = os.path.join(td, "ignored.json")
+                pattern = os.path.join(td, "just-{country}.json")
+                rc = mod.main(
+                    [
+                        path,
+                        dummy_out,
+                        "--country-column",
+                        "2",
+                        "--output-pattern",
+                        pattern,
+                    ]
+                )
                 self.assertEqual(rc, 0)
-                fra_path = os.path.join(td, 'just-FRA.json')
+                fra_path = os.path.join(td, "just-FRA.json")
                 self.assertTrue(os.path.isfile(fra_path))
-                with open(fra_path, 'r', encoding='utf-8') as f:
+                with open(fra_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                self.assertEqual(data['metadataGlobal']['country'], 'FRA')
+                self.assertEqual(data["metadataGlobal"]["country"], "FRA")
                 # Ensure no GBL file created
-                self.assertFalse(os.path.exists(os.path.join(td, 'just-GBL.json')))
+                self.assertFalse(os.path.exists(os.path.join(td, "just-GBL.json")))
         finally:
             os.remove(path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

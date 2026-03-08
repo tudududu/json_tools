@@ -21,7 +21,9 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             d.mkdir()
             (d / "a.log").write_text("Pipeline complete.\n", encoding="utf-8")
             out = pathlib.Path(td) / "out.log"
-            rc = log_picker.main(["--input-dir", str(d), "--output-file", str(out), "--regex", "("])
+            rc = log_picker.main(
+                ["--input-dir", str(d), "--output-file", str(out), "--regex", "("]
+            )
             self.assertEqual(rc, 3)
 
     def test_no_log_files(self):
@@ -42,15 +44,23 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             nested = base / "sub" / "deeper"
             nested.mkdir(parents=True)
 
-            (base / "a.log").write_text("Pipeline complete.\nnope\n", encoding="utf-8")  # no match after prefix change
-            (nested / "b.log").write_text("RunId=XYZ\nPipeline complete.\n", encoding="utf-8")  # 1 match after prefix change
+            (base / "a.log").write_text(
+                "Pipeline complete.\nnope\n", encoding="utf-8"
+            )  # no match after prefix change
+            (nested / "b.log").write_text(
+                "RunId=XYZ\nPipeline complete.\n", encoding="utf-8"
+            )  # 1 match after prefix change
 
             out = pathlib.Path(td) / "out_recursive.log"
-            rc = log_picker.main([
-                "--input-dir", str(base),
-                "--output-file", str(out),
-                "--recursive",
-            ])
+            rc = log_picker.main(
+                [
+                    "--input-dir",
+                    str(base),
+                    "--output-file",
+                    str(out),
+                    "--recursive",
+                ]
+            )
             self.assertEqual(rc, 0)
             txt = out.read_text(encoding="utf-8")
             # Both files should be present
@@ -70,11 +80,16 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             (d / "enc.log").write_bytes(line.encode("latin-1") + b"\n")
 
             out = pathlib.Path(td) / "out_enc.log"
-            rc = log_picker.main([
-                "--input-dir", str(d),
-                "--output-file", str(out),
-                "--encoding", "latin-1",
-            ])
+            rc = log_picker.main(
+                [
+                    "--input-dir",
+                    str(d),
+                    "--output-file",
+                    str(out),
+                    "--encoding",
+                    "latin-1",
+                ]
+            )
             self.assertEqual(rc, 0)
             txt = out.read_text(encoding="utf-8")
             # Ensure the exact characters survived (no replacement char)
@@ -89,30 +104,45 @@ class LogPickerEdgeCaseTests(unittest.TestCase):
             d = pathlib.Path(td) / "logs"
             d.mkdir()
             (d / "x.log").write_text(
-                "\n".join([
-                    "HELLO one",                 # regex ^HELLO
-                    "meh",
-                    "greeting: HELLO two",      # regex greeting: HELLO
-                    "CustomPrefix value",        # custom prefix
-                    "Counts => created=1",       # base prefix
-                    "Timing (s) => addLayers=0.5" # base prefix
-                ]) + "\n", encoding="utf-8"
+                "\n".join(
+                    [
+                        "HELLO one",  # regex ^HELLO
+                        "meh",
+                        "greeting: HELLO two",  # regex greeting: HELLO
+                        "CustomPrefix value",  # custom prefix
+                        "Counts => created=1",  # base prefix
+                        "Timing (s) => addLayers=0.5",  # base prefix
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
             )
             (d / "y.log").write_text(
-                "\n".join([
-                    "CustomPrefix again",        # custom prefix
-                    "HELLO three"                # regex ^HELLO
-                ]) + "\n", encoding="utf-8"
+                "\n".join(
+                    [
+                        "CustomPrefix again",  # custom prefix
+                        "HELLO three",  # regex ^HELLO
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
             )
 
             out = pathlib.Path(td) / "out_mix.log"
-            rc = log_picker.main([
-                "--input-dir", str(d),
-                "--output-file", str(out),
-                "--prefix", "CustomPrefix",
-                "--regex", r"^HELLO",
-                "--regex", r"greeting: HELLO",
-            ])
+            rc = log_picker.main(
+                [
+                    "--input-dir",
+                    str(d),
+                    "--output-file",
+                    str(out),
+                    "--prefix",
+                    "CustomPrefix",
+                    "--regex",
+                    r"^HELLO",
+                    "--regex",
+                    r"greeting: HELLO",
+                ]
+            )
             self.assertEqual(rc, 0)
             txt = out.read_text(encoding="utf-8")
             # Header includes both sections

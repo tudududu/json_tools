@@ -64,7 +64,9 @@ def test_gather_unreleased_captures_and_strips_section():
     assert "- fix A" not in "\n".join(new_lines)
 
 
-def test_main_patch_dry_run_moves_unreleased_and_increments(tmp_path, capsys, monkeypatch):
+def test_main_patch_dry_run_moves_unreleased_and_increments(
+    tmp_path, capsys, monkeypatch
+):
     changelog = tmp_path / "CHANGELOG.md"
     lines = [
         "# 1.2.3 - 2024-01-01",
@@ -90,7 +92,9 @@ def test_main_patch_dry_run_moves_unreleased_and_increments(tmp_path, capsys, mo
 
 
 @pytest.mark.parametrize("no_placeholder", [False, True])
-def test_main_minor_placeholder_toggle(tmp_path, capsys, monkeypatch, no_placeholder: bool):
+def test_main_minor_placeholder_toggle(
+    tmp_path, capsys, monkeypatch, no_placeholder: bool
+):
     changelog = tmp_path / "CHANGELOG.md"
     lines = [
         "# 2.0.0 - 2024-01-01",
@@ -119,7 +123,9 @@ def test_main_set_with_pre_and_build_metadata(tmp_path, capsys, monkeypatch):
     write_changelog(str(changelog), ["# 1.2.3 - 2024-01-01", "", "body"])
     monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
 
-    code = bc.main(["--set", "3.0.0+exp.sha", "--pre", "rc1", "--dry-run", "--date", "2025-02-10"])
+    code = bc.main(
+        ["--set", "3.0.0+exp.sha", "--pre", "rc1", "--dry-run", "--date", "2025-02-10"]
+    )
     assert code == 0
     out = capsys.readouterr().out
     assert "# 3.0.0-rc1+exp.sha - 2025-02-10" in out
@@ -188,7 +194,9 @@ def test_main_set_with_pre_without_build_metadata(tmp_path, capsys, monkeypatch)
     write_changelog(str(changelog), ["# 1.2.3 - 2024-01-01", "", "body"])
     monkeypatch.setattr(bc, "CHANGELOG_PATH", str(changelog))
 
-    code = bc.main(["--set", "2.5.0", "--pre", "rc2", "--dry-run", "--date", "2025-05-01"])
+    code = bc.main(
+        ["--set", "2.5.0", "--pre", "rc2", "--dry-run", "--date", "2025-05-01"]
+    )
     assert code == 0
     out = capsys.readouterr().out
     assert "# 2.5.0-rc2 - 2025-05-01" in out
@@ -211,13 +219,17 @@ def test_main_git_force_tag_overwrite(tmp_path, capsys, monkeypatch):
 
     monkeypatch.setattr(bc, "git_run", fake_git_run)
 
-    code = bc.main(["--part", "patch", "--commit", "--tag", "--force-tag", "--date", "2025-06-01"])
+    code = bc.main(
+        ["--part", "patch", "--commit", "--tag", "--force-tag", "--date", "2025-06-01"]
+    )
     assert code == 0
     out = capsys.readouterr().out
     assert "Git tag created: v0.1.1" in out
     # Ensure deletion then creation order
-    del_idx = next(i for i,a in enumerate(calls) if a[:3] == ["git","tag","-d"])
-    create_idx = next(i for i,a in enumerate(calls) if a[:2] == ["git","tag"] and a[2] != "-d")
+    del_idx = next(i for i, a in enumerate(calls) if a[:3] == ["git", "tag", "-d"])
+    create_idx = next(
+        i for i, a in enumerate(calls) if a[:2] == ["git", "tag"] and a[2] != "-d"
+    )
     assert del_idx < create_idx
 
 
@@ -230,6 +242,7 @@ def test_main_fallback_date_branch(tmp_path, capsys, monkeypatch):
     # Provide a shim for _dt without UTC
     import types
     import datetime as real_dt
+
     shim = types.SimpleNamespace(datetime=real_dt.datetime)
     monkeypatch.setattr(bc, "_dt", shim)
 

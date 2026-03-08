@@ -52,13 +52,18 @@ except Exception:
     # Fallback: load from local tools path when executed as a script from within the package directory
     try:
         import importlib.util as _ilu
-        _tools_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools", "csv_json_media.py")
+
+        _tools_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "tools", "csv_json_media.py"
+        )
         _spec = _ilu.spec_from_file_location("_csv_json_media", _tools_path)
         if _spec and _spec.loader:
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
             media_read_csv = getattr(_mod, "read_csv", None)
-            media_group_by_country_language = getattr(_mod, "group_by_country_language", None)
+            media_group_by_country_language = getattr(
+                _mod, "group_by_country_language", None
+            )
             media_convert_rows = getattr(_mod, "convert_rows", None)
         else:
             media_read_csv = None  # type: ignore[assignment]
@@ -146,7 +151,9 @@ def _resolve_column(
             if 0 <= idx < len(headers):
                 return headers[idx]
             else:
-                raise IndexError(f"Column index {override} out of range 1..{len(headers)}")
+                raise IndexError(
+                    f"Column index {override} out of range 1..{len(headers)}"
+                )
         # Else, match by case-insensitive exact header
         for h in headers:
             if h.lower().strip() == override.lower().strip():
@@ -166,18 +173,35 @@ def _resolve_column(
     return None
 
 
-def detect_columns(headers: List[str], start_override: Optional[str] = None, end_override: Optional[str] = None, text_override: Optional[str] = None) -> Tuple[str, str, str]:
+def detect_columns(
+    headers: List[str],
+    start_override: Optional[str] = None,
+    end_override: Optional[str] = None,
+    text_override: Optional[str] = None,
+) -> Tuple[str, str, str]:
     """Map CSV headers to canonical names (start, end, text).
 
     We match case-insensitively and ignore non-alphanumerics.
     """
-    start_key = _resolve_column(headers, start_override, ("starttime", "start", "in", "inpoint"))
-    end_key = _resolve_column(headers, end_override, ("endtime", "end", "out", "outpoint"))
-    text_key = _resolve_column(headers, text_override, ("text", "subtitle", "caption", "line"))
+    start_key = _resolve_column(
+        headers, start_override, ("starttime", "start", "in", "inpoint")
+    )
+    end_key = _resolve_column(
+        headers, end_override, ("endtime", "end", "out", "outpoint")
+    )
+    text_key = _resolve_column(
+        headers, text_override, ("text", "subtitle", "caption", "line")
+    )
 
     if not (start_key and end_key and text_key):
-        missing = [k for k, v in {"start": start_key, "end": end_key, "text": text_key}.items() if not v]
-        raise KeyError(f"Missing required column(s): {', '.join(missing)}. Found headers: {headers}")
+        missing = [
+            k
+            for k, v in {"start": start_key, "end": end_key, "text": text_key}.items()
+            if not v
+        ]
+        raise KeyError(
+            f"Missing required column(s): {', '.join(missing)}. Found headers: {headers}"
+        )
 
     return start_key, end_key, text_key
 
@@ -247,7 +271,9 @@ def _read_table(
                     )
                 ws = wb[xlsx_sheet]
             else:
-                default_sheet_name = "data" if "data" in wb.sheetnames else wb.sheetnames[0]
+                default_sheet_name = (
+                    "data" if "data" in wb.sheetnames else wb.sheetnames[0]
+                )
                 ws = wb[default_sheet_name]
 
             if delimiter and str(delimiter).lower() not in ("", "auto"):
@@ -325,7 +351,9 @@ def convert_csv_to_json(
        columns include line, Start Time, End Time, and one or more Text columns (per-country). Metadata rows
        provide key/value pairs; a row with key 'country' defines per-country codes.
     """
-    headers, rows, delim = _read_table(input_csv, encoding=encoding, delimiter=delimiter, xlsx_sheet=xlsx_sheet)
+    headers, rows, delim = _read_table(
+        input_csv, encoding=encoding, delimiter=delimiter, xlsx_sheet=xlsx_sheet
+    )
     if verbose:
         print(f"Detected delimiter: {repr(delim)} | Headers: {headers}")
     if not rows:
@@ -339,15 +367,27 @@ def convert_csv_to_json(
     if "record_type" in lower_headers:
         # Column indices
         idx_record_type = lower_headers.index("record_type")
-        idx_video_id = lower_headers.index("video_id") if "video_id" in lower_headers else None
+        idx_video_id = (
+            lower_headers.index("video_id") if "video_id" in lower_headers else None
+        )
         idx_line = lower_headers.index("line") if "line" in lower_headers else None
         idx_start = lower_headers.index("start") if "start" in lower_headers else None
         idx_end = lower_headers.index("end") if "end" in lower_headers else None
         idx_key = lower_headers.index("key") if "key" in lower_headers else None
-        idx_target_duration = lower_headers.index("target_duration") if "target_duration" in lower_headers else None
+        idx_target_duration = (
+            lower_headers.index("target_duration")
+            if "target_duration" in lower_headers
+            else None
+        )
         # idx_is_global = lower_headers.index("is_global") if "is_global" in lower_headers else None
-        idx_country_scope = lower_headers.index("country_scope") if "country_scope" in lower_headers else None
-        idx_metadata_val = lower_headers.index("metadata") if "metadata" in lower_headers else None
+        idx_country_scope = (
+            lower_headers.index("country_scope")
+            if "country_scope" in lower_headers
+            else None
+        )
+        idx_metadata_val = (
+            lower_headers.index("metadata") if "metadata" in lower_headers else None
+        )
 
         # Country columns: all columns after metadata value column (if present) else after country_scope
         country_start_idx = None
@@ -356,7 +396,9 @@ def convert_csv_to_json(
         elif idx_country_scope is not None:
             country_start_idx = idx_country_scope + 1
         else:
-            country_start_idx = max([c for c in [idx_end, idx_key] if c is not None] or [0]) + 1
+            country_start_idx = (
+                max([c for c in [idx_end, idx_key] if c is not None] or [0]) + 1
+            )
 
         country_cols = []
         for i in range(country_start_idx, len(headers)):
@@ -385,10 +427,16 @@ def convert_csv_to_json(
             # Select which pair to use based on variant index (default 0)
             vi = country_variant_index or 0
             land = occ[2 * vi] if len(occ) > 2 * vi else (occ[0] if occ else None)
-            port = occ[2 * vi + 1] if len(occ) > 2 * vi + 1 else (occ[1] if len(occ) > 1 else None)
+            port = (
+                occ[2 * vi + 1]
+                if len(occ) > 2 * vi + 1
+                else (occ[1] if len(occ) > 1 else None)
+            )
             country_orientation_cols[c] = {"landscape": land, "portrait": port}
         if verbose:
-            print(f"Unified schema detected. Countries: {countries} (orientation column mapping: {country_orientation_cols})")
+            print(
+                f"Unified schema detected. Countries: {countries} (orientation column mapping: {country_orientation_cols})"
+            )
 
         def parse_time_optional(val: str) -> Optional[float]:
             v = (val or "").strip()
@@ -500,20 +548,42 @@ def convert_csv_to_json(
             if not rt:
                 continue
 
-            video_id = r[idx_video_id].strip() if (idx_video_id is not None and r[idx_video_id]) else ""
-            line_raw = r[idx_line].strip() if (idx_line is not None and r[idx_line]) else ""
+            video_id = (
+                r[idx_video_id].strip()
+                if (idx_video_id is not None and r[idx_video_id])
+                else ""
+            )
+            line_raw = (
+                r[idx_line].strip() if (idx_line is not None and r[idx_line]) else ""
+            )
             try:
                 line_num = int(line_raw) if line_raw else None
             except Exception:
                 line_num = None
-            start_tc = parse_time_optional(r[idx_start]) if idx_start is not None else None
+            start_tc = (
+                parse_time_optional(r[idx_start]) if idx_start is not None else None
+            )
             end_tc = parse_time_optional(r[idx_end]) if idx_end is not None else None
 
-            key_name = r[idx_key].strip() if (idx_key is not None and r[idx_key]) else ""
-            target_duration_val = r[idx_target_duration].strip() if (idx_target_duration is not None and r[idx_target_duration]) else ""
-            country_scope_raw = r[idx_country_scope].strip() if (idx_country_scope is not None and r[idx_country_scope]) else ""
+            key_name = (
+                r[idx_key].strip() if (idx_key is not None and r[idx_key]) else ""
+            )
+            target_duration_val = (
+                r[idx_target_duration].strip()
+                if (idx_target_duration is not None and r[idx_target_duration])
+                else ""
+            )
+            country_scope_raw = (
+                r[idx_country_scope].strip()
+                if (idx_country_scope is not None and r[idx_country_scope])
+                else ""
+            )
             country_scope_val = country_scope_raw.upper()
-            metadata_cell_val = r[idx_metadata_val].strip() if (idx_metadata_val is not None and r[idx_metadata_val]) else ""
+            metadata_cell_val = (
+                r[idx_metadata_val].strip()
+                if (idx_metadata_val is not None and r[idx_metadata_val])
+                else ""
+            )
 
             # Gather per-country texts for both orientations (portrait optional)
             texts: Dict[str, str] = {}
@@ -521,8 +591,16 @@ def convert_csv_to_json(
             for c in countries:
                 land_idx = country_orientation_cols[c]["landscape"]
                 port_idx = country_orientation_cols[c]["portrait"]
-                land_val = r[land_idx].replace("\r", "").rstrip() if land_idx is not None and land_idx < len(r) else ""
-                port_val = r[port_idx].replace("\r", "").rstrip() if port_idx is not None and port_idx < len(r) else ""
+                land_val = (
+                    r[land_idx].replace("\r", "").rstrip()
+                    if land_idx is not None and land_idx < len(r)
+                    else ""
+                )
+                port_val = (
+                    r[port_idx].replace("\r", "").rstrip()
+                    if port_idx is not None and port_idx < len(r)
+                    else ""
+                )
                 texts[c] = land_val
                 texts_portrait[c] = port_val
 
@@ -530,7 +608,9 @@ def convert_csv_to_json(
             if country_scope_val == "ALL":
                 # Propagate separately for each orientation
                 base_land = next((texts[c] for c in countries if texts[c]), "")
-                base_port = next((texts_portrait[c] for c in countries if texts_portrait[c]), "")
+                base_port = next(
+                    (texts_portrait[c] for c in countries if texts_portrait[c]), ""
+                )
                 if base_land:
                     for c in countries:
                         if not texts[c]:
@@ -551,7 +631,9 @@ def convert_csv_to_json(
                     # 2. Else use the metadata cell value (global fallback) for that country
                     # 3. Else explicitly set empty string so key is still emitted later
                     for c in countries:
-                        per_country_val = (texts.get(c, "") or texts_portrait.get(c, "")).strip()
+                        per_country_val = (
+                            texts.get(c, "") or texts_portrait.get(c, "")
+                        ).strip()
                         if per_country_val:
                             job_number_per_country[c] = per_country_val
                         else:
@@ -577,7 +659,10 @@ def convert_csv_to_json(
                     # Backward compatibility for legacy logo_anim_flag rows that used country_scope.
                     if not duration_subkey and flag_key_name == "logo_anim_flag":
                         duration_subkey = _normalize_duration_token(country_scope_raw)
-                        if duration_subkey and not warned_logo_anim_legacy_country_scope:
+                        if (
+                            duration_subkey
+                            and not warned_logo_anim_legacy_country_scope
+                        ):
                             print(
                                 "Warning: logo_anim_flag duration from 'country_scope' is deprecated; use 'target_duration' column.",
                                 file=sys.stderr,
@@ -585,22 +670,39 @@ def convert_csv_to_json(
                             warned_logo_anim_legacy_country_scope = True
                     for c in countries:
                         if flag_key_name == "logo_anim_flag":
-                            per_val = (texts_portrait.get(c, "") or texts.get(c, "") or metadata_cell_val).strip()
+                            per_val = (
+                                texts_portrait.get(c, "")
+                                or texts.get(c, "")
+                                or metadata_cell_val
+                            ).strip()
                         else:
-                            per_val = (texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val).strip()
+                            per_val = (
+                                texts.get(c, "")
+                                or texts_portrait.get(c, "")
+                                or metadata_cell_val
+                            ).strip()
                         if not per_val:
                             continue
                         if duration_subkey:
-                            global_flag_targeted_per_country.setdefault(c, {}).setdefault(flag_key_name, {})[duration_subkey] = per_val
+                            global_flag_targeted_per_country.setdefault(
+                                c, {}
+                            ).setdefault(flag_key_name, {})[duration_subkey] = per_val
                         else:
-                            global_flag_defaults_per_country.setdefault(c, {})[flag_key_name] = per_val
+                            global_flag_defaults_per_country.setdefault(c, {})[
+                                flag_key_name
+                            ] = per_val
                     # Do not store as a single shared global_meta value; flags are per-country/per-duration.
                     continue
                 # Per-country language value for metadataGlobal.language (CSV to JSON 167)
                 if key_name == "language":
                     for ctry in countries:
                         # Prefer portrait > landscape > metadata cell; if none present, set empty string
-                        val = (texts_portrait.get(ctry, "") or texts.get(ctry, "") or metadata_cell_val or "").strip()
+                        val = (
+                            texts_portrait.get(ctry, "")
+                            or texts.get(ctry, "")
+                            or metadata_cell_val
+                            or ""
+                        ).strip()
                         language_per_country[ctry] = val
                     # Do not store a single shared language in global_meta; injected per-country later
                     continue
@@ -614,7 +716,12 @@ def convert_csv_to_json(
                 if not key_name or not video_id:
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                    videos[video_id] = {
+                        "metadata": {},
+                        "sub_rows": [],
+                        "super_a_rows": [],
+                        "super_b_rows": [],
+                    }
                     video_order.append(video_id)
                 # Special per-country meta_local keys: collect *_flag values per country.
                 local_flag_key = _normalize_flag_key(key_name)
@@ -628,7 +735,9 @@ def convert_csv_to_json(
                             # Fallback if metadata cell provided (legacy style)
                             val = metadata_cell_val.strip()
                         if val:
-                            bucket = per_video_meta_local_country[video_id].setdefault(c, {})
+                            bucket = per_video_meta_local_country[video_id].setdefault(
+                                c, {}
+                            )
                             bucket[local_flag_key] = val
                     # Do not store shared value in videos[video_id]["metadata"] for these keys
                 else:
@@ -648,24 +757,28 @@ def convert_csv_to_json(
                     if line_num is None:
                         line_num = auto_claim_line_per_video[video_id]
                         auto_claim_line_per_video[video_id] += 1
-                    per_video_claim_rows[video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    per_video_claim_rows[video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
                     if line_num is None:
                         line_num = auto_claim_line
                         auto_claim_line += 1
-                    claims_rows.append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    claims_rows.append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # Disclaimer rows (will merge later)
@@ -675,34 +788,42 @@ def convert_csv_to_json(
                         per_video_disc_rows_raw[video_id] = []
                     if video_id not in auto_disc_line_per_video:
                         auto_disc_line_per_video[video_id] = 1
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_disc_line_per_video[video_id]
                     if line_num is None:
                         line_num = auto_disc_line_per_video[video_id]
                     else:
                         auto_disc_line_per_video[video_id] = line_num
-                    per_video_disc_rows_raw[video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    per_video_disc_rows_raw[video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_disc_line
                     if line_num is None:
                         # Continuation lines inherit previous line
                         line_num = auto_disc_line
                     else:
                         auto_disc_line = line_num
-                    disc_rows_raw.append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    disc_rows_raw.append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # Disclaimer_02 rows (will merge later)
@@ -712,34 +833,42 @@ def convert_csv_to_json(
                         per_video_disc_02_rows_raw[video_id] = []
                     if video_id not in auto_disc_02_line_per_video:
                         auto_disc_02_line_per_video[video_id] = 1
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_disc_02_line_per_video[video_id]
                     if line_num is None:
                         line_num = auto_disc_02_line_per_video[video_id]
                     else:
                         auto_disc_02_line_per_video[video_id] = line_num
-                    per_video_disc_02_rows_raw[video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    per_video_disc_02_rows_raw[video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_disc_02_line
                     if line_num is None:
                         # Continuation lines inherit previous line
                         line_num = auto_disc_02_line
                     else:
                         auto_disc_02_line = line_num
-                    disc_02_rows_raw.append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    disc_02_rows_raw.append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # Logo rows (timed per-video, text defined globally)
@@ -749,33 +878,41 @@ def convert_csv_to_json(
                         per_video_logo_rows_raw[video_id] = []
                     if video_id not in auto_logo_line_per_video:
                         auto_logo_line_per_video[video_id] = 1
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_logo_line_per_video[video_id]
                     if line_num is None:
                         line_num = auto_logo_line_per_video[video_id]
                     else:
                         auto_logo_line_per_video[video_id] = line_num
-                    per_video_logo_rows_raw[video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    per_video_logo_rows_raw[video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_logo_line
                     if line_num is None:
                         line_num = auto_logo_line
                     else:
                         auto_logo_line = line_num
-                    logo_rows_raw.append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    logo_rows_raw.append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # endFrame rows (timed per-video, optional text like logo)
@@ -785,33 +922,41 @@ def convert_csv_to_json(
                         per_video_endframe_rows_raw[video_id] = []
                     if video_id not in auto_endframe_line_per_video:
                         auto_endframe_line_per_video[video_id] = 1
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_endframe_line_per_video[video_id]
                     if line_num is None:
                         line_num = auto_endframe_line_per_video[video_id]
                     else:
                         auto_endframe_line_per_video[video_id] = line_num
-                    per_video_endframe_rows_raw[video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    per_video_endframe_rows_raw[video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
-                    if line_num is None and (start_tc is not None or end_tc is not None):
+                    if line_num is None and (
+                        start_tc is not None or end_tc is not None
+                    ):
                         line_num = auto_endframe_line
                     if line_num is None:
                         line_num = auto_endframe_line
                     else:
                         auto_endframe_line = line_num
-                    endframe_rows_raw.append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    endframe_rows_raw.append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # Subtitle rows
@@ -820,7 +965,12 @@ def convert_csv_to_json(
                     # Skip if no video id
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                    videos[video_id] = {
+                        "metadata": {},
+                        "sub_rows": [],
+                        "super_a_rows": [],
+                        "super_b_rows": [],
+                    }
                     video_order.append(video_id)
                 if video_id not in auto_sub_line_per_video:
                     auto_sub_line_per_video[video_id] = start_line_index
@@ -830,13 +980,15 @@ def convert_csv_to_json(
                 else:
                     # Explicit line number provided; sync counter for next auto line
                     auto_sub_line_per_video[video_id] = line_num + 1
-                videos[video_id]["sub_rows"].append({
-                    "line": line_num,
-                    "start": start_tc,
-                    "end": end_tc,
-                    "texts": texts,
-                    "texts_portrait": texts_portrait,
-                })
+                videos[video_id]["sub_rows"].append(
+                    {
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    }
+                )
                 continue
 
             # Super_A rows (follows subtitle pattern exactly)
@@ -845,7 +997,11 @@ def convert_csv_to_json(
                     # Skip if no video id
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": []}
+                    videos[video_id] = {
+                        "metadata": {},
+                        "sub_rows": [],
+                        "super_a_rows": [],
+                    }
                     video_order.append(video_id)
                 if video_id not in auto_super_a_line_per_video:
                     auto_super_a_line_per_video[video_id] = start_line_index
@@ -855,13 +1011,15 @@ def convert_csv_to_json(
                 else:
                     # Explicit line number provided; sync counter for next auto line
                     auto_super_a_line_per_video[video_id] = line_num + 1
-                videos[video_id]["super_a_rows"].append({
-                    "line": line_num,
-                    "start": start_tc,
-                    "end": end_tc,
-                    "texts": texts,
-                    "texts_portrait": texts_portrait,
-                })
+                videos[video_id]["super_a_rows"].append(
+                    {
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    }
+                )
                 continue
 
             # Super_B rows (follows super_A pattern exactly)
@@ -869,7 +1027,12 @@ def convert_csv_to_json(
                 if not video_id:
                     continue
                 if video_id not in videos:
-                    videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                    videos[video_id] = {
+                        "metadata": {},
+                        "sub_rows": [],
+                        "super_a_rows": [],
+                        "super_b_rows": [],
+                    }
                     video_order.append(video_id)
                 if video_id not in auto_super_b_line_per_video:
                     auto_super_b_line_per_video[video_id] = start_line_index
@@ -878,13 +1041,15 @@ def convert_csv_to_json(
                     auto_super_b_line_per_video[video_id] += 1
                 else:
                     auto_super_b_line_per_video[video_id] = line_num + 1
-                videos[video_id]["super_b_rows"].append({
-                    "line": line_num,
-                    "start": start_tc,
-                    "end": end_tc,
-                    "texts": texts,
-                    "texts_portrait": texts_portrait,
-                })
+                videos[video_id]["super_b_rows"].append(
+                    {
+                        "line": line_num,
+                        "start": start_tc,
+                        "end": end_tc,
+                        "texts": texts,
+                        "texts_portrait": texts_portrait,
+                    }
+                )
                 continue
 
             # Generic timed rows (scalable): generic_01 .. generic_NN
@@ -893,25 +1058,38 @@ def convert_csv_to_json(
                 generic_keys_seen.add(generic_key)
                 if video_id:
                     if video_id not in videos:
-                        videos[video_id] = {"metadata": {}, "sub_rows": [], "super_a_rows": [], "super_b_rows": []}
+                        videos[video_id] = {
+                            "metadata": {},
+                            "sub_rows": [],
+                            "super_a_rows": [],
+                            "super_b_rows": [],
+                        }
                         video_order.append(video_id)
                     per_video_generic_rows_raw.setdefault(generic_key, {})
                     per_video_generic_rows_raw[generic_key].setdefault(video_id, [])
                     auto_generic_line_per_video_per_key.setdefault(generic_key, {})
                     if video_id not in auto_generic_line_per_video_per_key[generic_key]:
-                        auto_generic_line_per_video_per_key[generic_key][video_id] = start_line_index
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = (
+                            start_line_index
+                        )
                     if line_num is None:
-                        line_num = auto_generic_line_per_video_per_key[generic_key][video_id]
+                        line_num = auto_generic_line_per_video_per_key[generic_key][
+                            video_id
+                        ]
                         auto_generic_line_per_video_per_key[generic_key][video_id] += 1
                     else:
-                        auto_generic_line_per_video_per_key[generic_key][video_id] = line_num + 1
-                    per_video_generic_rows_raw[generic_key][video_id].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = (
+                            line_num + 1
+                        )
+                    per_video_generic_rows_raw[generic_key][video_id].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 else:
                     generic_rows_raw.setdefault(generic_key, [])
                     if generic_key not in auto_generic_line_per_key:
@@ -921,13 +1099,15 @@ def convert_csv_to_json(
                         auto_generic_line_per_key[generic_key] += 1
                     else:
                         auto_generic_line_per_key[generic_key] = line_num + 1
-                    generic_rows_raw[generic_key].append({
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    })
+                    generic_rows_raw[generic_key].append(
+                        {
+                            "line": line_num,
+                            "start": start_tc,
+                            "end": end_tc,
+                            "texts": texts,
+                            "texts_portrait": texts_portrait,
+                        }
+                    )
                 continue
 
             # Unknown record type ignored
@@ -948,7 +1128,10 @@ def convert_csv_to_json(
                         "end": row["end"],
                         # Preserve both landscape and portrait per-country texts
                         "texts": {c: row["texts"][c] for c in countries},
-                        "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        "texts_portrait": {
+                            c: row.get("texts_portrait", {}).get(c, "")
+                            for c in countries
+                        },
                     }
                 else:
                     # Continuation lines
@@ -959,7 +1142,10 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"][c] for c in countries},
-                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                            "texts_portrait": {
+                                c: row.get("texts_portrait", {}).get(c, "")
+                                for c in countries
+                            },
                         }
                     else:
                         for c in countries:
@@ -995,7 +1181,10 @@ def convert_csv_to_json(
                         "end": row["end"],
                         # Preserve both landscape and portrait per-country texts
                         "texts": {c: row["texts"][c] for c in countries},
-                        "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                        "texts_portrait": {
+                            c: row.get("texts_portrait", {}).get(c, "")
+                            for c in countries
+                        },
                     }
                 else:
                     # Continuation lines
@@ -1006,7 +1195,10 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"][c] for c in countries},
-                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                            "texts_portrait": {
+                                c: row.get("texts_portrait", {}).get(c, "")
+                                for c in countries
+                            },
                         }
                     else:
                         for c in countries:
@@ -1034,9 +1226,12 @@ def convert_csv_to_json(
             merged: List[Dict[str, Any]] = []
             prev: Optional[Dict[str, Any]] = None
             for row in vdata.get("sub_rows", []):
-                if prev and row["line"] == prev["line"] and (
-                    (row["start"] is None and row["end"] is None) or (
-                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                if (
+                    prev
+                    and row["line"] == prev["line"]
+                    and (
+                        (row["start"] is None and row["end"] is None)
+                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
                     )
                 ):
                     # Continuation
@@ -1071,9 +1266,12 @@ def convert_csv_to_json(
             merged: List[Dict[str, Any]] = []
             prev: Optional[Dict[str, Any]] = None
             for row in vdata.get("super_a_rows", []):
-                if prev and row["line"] == prev["line"] and (
-                    (row["start"] is None and row["end"] is None) or (
-                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                if (
+                    prev
+                    and row["line"] == prev["line"]
+                    and (
+                        (row["start"] is None and row["end"] is None)
+                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
                     )
                 ):
                     # Continuation
@@ -1108,9 +1306,12 @@ def convert_csv_to_json(
             merged: List[Dict[str, Any]] = []
             prev: Optional[Dict[str, Any]] = None
             for row in vdata.get("super_b_rows", []):
-                if prev and row["line"] == prev["line"] and (
-                    (row["start"] is None and row["end"] is None) or (
-                        row["start"] == prev["start"] and row["end"] == prev["end"]
+                if (
+                    prev
+                    and row["line"] == prev["line"]
+                    and (
+                        (row["start"] is None and row["end"] is None)
+                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
                     )
                 ):
                     for c in countries:
@@ -1140,7 +1341,9 @@ def convert_csv_to_json(
         for vid, vdata in videos.items():
             # Subtitles
             if vdata.get("sub_rows"):
-                grouped_sub: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                grouped_sub: Dict[
+                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
+                ] = {}
                 order_sub: List[Tuple[int, Optional[float], Optional[float]]] = []
                 for row in vdata["sub_rows"]:
                     key = (row["line"], row["start"], row["end"])
@@ -1150,7 +1353,10 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                            "texts_portrait": {
+                                c: row.get("texts_portrait", {}).get(c, "")
+                                for c in countries
+                            },
                         }
                         order_sub.append(key)
                     else:
@@ -1172,11 +1378,15 @@ def convert_csv_to_json(
                                     grouped_sub[key]["texts_portrait"][c] = extra_p
                                 else:
                                     if extra_p not in existing_p.split("\n"):
-                                        grouped_sub[key]["texts_portrait"][c] += "\n" + extra_p
+                                        grouped_sub[key]["texts_portrait"][c] += (
+                                            "\n" + extra_p
+                                        )
                 vdata["sub_rows"] = [grouped_sub[k] for k in order_sub]
             # super_A
             if vdata.get("super_a_rows"):
-                grouped_sa: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                grouped_sa: Dict[
+                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
+                ] = {}
                 order_sa: List[Tuple[int, Optional[float], Optional[float]]] = []
                 for row in vdata["super_a_rows"]:
                     key = (row["line"], row["start"], row["end"])
@@ -1186,7 +1396,10 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                            "texts_portrait": {
+                                c: row.get("texts_portrait", {}).get(c, "")
+                                for c in countries
+                            },
                         }
                         order_sa.append(key)
                     else:
@@ -1206,12 +1419,16 @@ def convert_csv_to_json(
                                     grouped_sa[key]["texts_portrait"][c] = extra_p
                                 else:
                                     if extra_p not in existing_p.split("\n"):
-                                        grouped_sa[key]["texts_portrait"][c] += "\n" + extra_p
+                                        grouped_sa[key]["texts_portrait"][c] += (
+                                            "\n" + extra_p
+                                        )
                 vdata["super_a_rows"] = [grouped_sa[k] for k in order_sa]
 
             # super_B
             if vdata.get("super_b_rows"):
-                grouped_sb: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+                grouped_sb: Dict[
+                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
+                ] = {}
                 order_sb: List[Tuple[int, Optional[float], Optional[float]]] = []
                 for row in vdata["super_b_rows"]:
                     key = (row["line"], row["start"], row["end"])
@@ -1221,7 +1438,10 @@ def convert_csv_to_json(
                             "start": row["start"],
                             "end": row["end"],
                             "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {c: row.get("texts_portrait", {}).get(c, "") for c in countries},
+                            "texts_portrait": {
+                                c: row.get("texts_portrait", {}).get(c, "")
+                                for c in countries
+                            },
                         }
                         order_sb.append(key)
                     else:
@@ -1241,14 +1461,20 @@ def convert_csv_to_json(
                                     grouped_sb[key]["texts_portrait"][c] = extra_p
                                 else:
                                     if extra_p not in existing_p.split("\n"):
-                                        grouped_sb[key]["texts_portrait"][c] += "\n" + extra_p
+                                        grouped_sb[key]["texts_portrait"][c] += (
+                                            "\n" + extra_p
+                                        )
                 vdata["super_b_rows"] = [grouped_sb[k] for k in order_sb]
 
         # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
             grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
             for row in claims_rows:
-                key = (row["start"], row["end"]) if (row["start"] is not None and row["end"] is not None) else (None, None)
+                key = (
+                    (row["start"], row["end"])
+                    if (row["start"] is not None and row["end"] is not None)
+                    else (None, None)
+                )
                 if key not in grouped:
                     grouped[key] = {
                         "start": row["start"],
@@ -1267,21 +1493,29 @@ def convert_csv_to_json(
             new_claims: List[Dict[str, Any]] = []
             ln = 1
             for key, data in grouped.items():
-                new_claims.append({
-                    "line": ln,
-                    "start": data["start"],
-                    "end": data["end"],
-                    "texts": data["texts"],
-                })
+                new_claims.append(
+                    {
+                        "line": ln,
+                        "start": data["start"],
+                        "end": data["end"],
+                        "texts": data["texts"],
+                    }
+                )
                 ln += 1
             claims_rows = new_claims
 
         # Optional join for per-video claim rows
         if join_claim and per_video_claim_rows:
             for vid, rows_list in list(per_video_claim_rows.items()):
-                grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
+                grouped: Dict[
+                    Tuple[Optional[float], Optional[float]], Dict[str, Any]
+                ] = {}
                 for row in rows_list:
-                    key = (row["start"], row["end"]) if (row["start"] is not None and row["end"] is not None) else (None, None)
+                    key = (
+                        (row["start"], row["end"])
+                        if (row["start"] is not None and row["end"] is not None)
+                        else (None, None)
+                    )
                     if key not in grouped:
                         grouped[key] = {
                             "start": row["start"],
@@ -1299,12 +1533,14 @@ def convert_csv_to_json(
                 new_rows: List[Dict[str, Any]] = []
                 ln = 1
                 for key, data in grouped.items():
-                    new_rows.append({
-                        "line": ln,
-                        "start": data["start"],
-                        "end": data["end"],
-                        "texts": data["texts"],
-                    })
+                    new_rows.append(
+                        {
+                            "line": ln,
+                            "start": data["start"],
+                            "end": data["end"],
+                            "texts": data["texts"],
+                        }
+                    )
                     ln += 1
                 per_video_claim_rows[vid] = new_rows
 
@@ -1312,7 +1548,9 @@ def convert_csv_to_json(
         by_country: Dict[str, Any] = {}
         generic_keys_sorted = sorted(
             generic_keys_seen,
-            key=lambda k: int(re.search(r"(\d+)$", k).group(1)) if re.search(r"(\d+)$", k) else 9999,
+            key=lambda k: int(re.search(r"(\d+)$", k).group(1))
+            if re.search(r"(\d+)$", k)
+            else 9999,
         )
         for c in countries:
             # Build orientation-specific top-level arrays
@@ -1389,24 +1627,30 @@ def convert_csv_to_json(
                         continue
                     if srow["start"] is None or srow["end"] is None:
                         continue
-                    subs_land.append({
-                        "line": srow["line"],
-                        "in": fmt_time(srow["start"]),
-                        "out": fmt_time(srow["end"]),
-                        "text": txt_l,
-                    })
+                    subs_land.append(
+                        {
+                            "line": srow["line"],
+                            "in": fmt_time(srow["start"]),
+                            "out": fmt_time(srow["end"]),
+                            "text": txt_l,
+                        }
+                    )
                     # Portrait: use portrait text if provided else mirror landscape
                     txt_port_final = txt_p if txt_p else txt_l
-                    subs_port.append({
-                        "line": srow["line"],
-                        "in": fmt_time(srow["start"]),
-                        "out": fmt_time(srow["end"]),
-                        "text": txt_port_final,
-                    })
+                    subs_port.append(
+                        {
+                            "line": srow["line"],
+                            "in": fmt_time(srow["start"]),
+                            "out": fmt_time(srow["end"]),
+                            "text": txt_port_final,
+                        }
+                    )
                 # Super_A processing (follows subtitle pattern exactly)
                 super_a_land: List[Dict[str, Any]] = []
                 super_a_port: List[Dict[str, Any]] = []
-                super_b_land: List[Dict[str, Any]] = []  # ensure defined even if no rows
+                super_b_land: List[
+                    Dict[str, Any]
+                ] = []  # ensure defined even if no rows
                 super_b_port: List[Dict[str, Any]] = []
 
                 for sarow in vdata.get("super_a_rows", []):
@@ -1417,20 +1661,24 @@ def convert_csv_to_json(
                         continue
                     if sarow["start"] is None or sarow["end"] is None:
                         continue
-                    super_a_land.append({
-                        "line": sarow["line"],
-                        "in": fmt_time(sarow["start"]),
-                        "out": fmt_time(sarow["end"]),
-                        "text": txt_l,
-                    })
+                    super_a_land.append(
+                        {
+                            "line": sarow["line"],
+                            "in": fmt_time(sarow["start"]),
+                            "out": fmt_time(sarow["end"]),
+                            "text": txt_l,
+                        }
+                    )
                     # Portrait: use portrait text if provided else mirror landscape
                     txt_port_final = txt_p if txt_p else txt_l
-                    super_a_port.append({
-                        "line": sarow["line"],
-                        "in": fmt_time(sarow["start"]),
-                        "out": fmt_time(sarow["end"]),
-                        "text": txt_port_final,
-                    })
+                    super_a_port.append(
+                        {
+                            "line": sarow["line"],
+                            "in": fmt_time(sarow["start"]),
+                            "out": fmt_time(sarow["end"]),
+                            "text": txt_port_final,
+                        }
+                    )
                 # Super_B processing (mirrors super_A)
                 for sbrow in vdata.get("super_b_rows", []):
                     txt_l = (sbrow["texts"].get(c, "") or "").rstrip()
@@ -1440,19 +1688,23 @@ def convert_csv_to_json(
                         continue
                     if sbrow["start"] is None or sbrow["end"] is None:
                         continue
-                    super_b_land.append({
-                        "line": sbrow["line"],
-                        "in": fmt_time(sbrow["start"]),
-                        "out": fmt_time(sbrow["end"]),
-                        "text": txt_l,
-                    })
+                    super_b_land.append(
+                        {
+                            "line": sbrow["line"],
+                            "in": fmt_time(sbrow["start"]),
+                            "out": fmt_time(sbrow["end"]),
+                            "text": txt_l,
+                        }
+                    )
                     txt_port_final_b = txt_p if txt_p else txt_l
-                    super_b_port.append({
-                        "line": sbrow["line"],
-                        "in": fmt_time(sbrow["start"]),
-                        "out": fmt_time(sbrow["end"]),
-                        "text": txt_port_final_b,
-                    })
+                    super_b_port.append(
+                        {
+                            "line": sbrow["line"],
+                            "in": fmt_time(sbrow["start"]),
+                            "out": fmt_time(sbrow["end"]),
+                            "text": txt_port_final_b,
+                        }
+                    )
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject global *_flag defaults and duration-targeted values.
                 # Precedence so far: targeted meta_global > untargeted meta_global.
@@ -1467,52 +1719,101 @@ def convert_csv_to_json(
                         if dur_key in duration_map:
                             base_meta[mk] = duration_map[dur_key]
                 # Then apply per-video overrides (which may overwrite the global defaults if provided)
-                if vid in per_video_meta_local_country and c in per_video_meta_local_country[vid]:
+                if (
+                    vid in per_video_meta_local_country
+                    and c in per_video_meta_local_country[vid]
+                ):
                     for mk, mv in per_video_meta_local_country[vid][c].items():
                         base_meta[mk] = mv
                 land_meta = base_meta.copy()
                 land_meta["orientation"] = "landscape"
                 port_meta = base_meta.copy()
                 port_meta["orientation"] = "portrait"
-                videos_list.append({
-                    "videoId": f"{vid}_landscape",
-                    "metadata": land_meta,
-                    "subtitles": subs_land,
-                    "super_A": super_a_land,
-                    "super_B": super_b_land,
-                })
-                videos_list.append({
-                    "videoId": f"{vid}_portrait",
-                    "metadata": port_meta,
-                    "subtitles": subs_port,
-                    "super_A": super_a_port,
-                    "super_B": super_b_port,
-                })
+                videos_list.append(
+                    {
+                        "videoId": f"{vid}_landscape",
+                        "metadata": land_meta,
+                        "subtitles": subs_land,
+                        "super_A": super_a_land,
+                        "super_B": super_b_land,
+                    }
+                )
+                videos_list.append(
+                    {
+                        "videoId": f"{vid}_portrait",
+                        "metadata": port_meta,
+                        "subtitles": subs_port,
+                        "super_A": super_a_port,
+                        "super_B": super_b_port,
+                    }
+                )
 
             # Attach per-video claim/disclaimer with timings and choose text (prefer local if requested)
             # Build quick maps for global texts by timing key
-            def timing_key(r: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+            def timing_key(
+                r: Dict[str, Any],
+            ) -> Tuple[Optional[float], Optional[float]]:
                 return (r.get("start"), r.get("end"))
 
-            global_claim_map_land = {timing_key(r): (r["texts"].get(c, "") or "").strip() for r in claims_rows}
-            global_claim_map_port = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in claims_rows}
-            global_generic_map_land: Dict[str, Dict[Tuple[Optional[float], Optional[float]], str]] = {}
-            global_generic_map_port: Dict[str, Dict[Tuple[Optional[float], Optional[float]], str]] = {}
+            global_claim_map_land = {
+                timing_key(r): (r["texts"].get(c, "") or "").strip()
+                for r in claims_rows
+            }
+            global_claim_map_port = {
+                timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip()
+                for r in claims_rows
+            }
+            global_generic_map_land: Dict[
+                str, Dict[Tuple[Optional[float], Optional[float]], str]
+            ] = {}
+            global_generic_map_port: Dict[
+                str, Dict[Tuple[Optional[float], Optional[float]], str]
+            ] = {}
             for gk in generic_keys_sorted:
-                global_generic_map_land[gk] = {timing_key(r): (r.get("texts", {}).get(c, "") or "").strip() for r in generic_rows_raw.get(gk, [])}
-                global_generic_map_port[gk] = {timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip() for r in generic_rows_raw.get(gk, [])}
+                global_generic_map_land[gk] = {
+                    timing_key(r): (r.get("texts", {}).get(c, "") or "").strip()
+                    for r in generic_rows_raw.get(gk, [])
+                }
+                global_generic_map_port[gk] = {
+                    timing_key(r): (
+                        r.get("texts_portrait", {}).get(c, "") or ""
+                    ).strip()
+                    for r in generic_rows_raw.get(gk, [])
+                }
             # For disclaimers, order matters but often it's one block; use index-based fallback too
-            global_disc_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
-            global_disc_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_rows_merged]
+            global_disc_land = [
+                (r.get("texts", {}).get(c, "") or "").rstrip()
+                for r in disclaimers_rows_merged
+            ]
+            global_disc_port = [
+                (r.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                for r in disclaimers_rows_merged
+            ]
             # For disclaimer_02, same as disclaimer
-            global_disc_02_land = [(r.get("texts", {}).get(c, "") or "").rstrip() for r in disclaimers_02_rows_merged]
-            global_disc_02_port = [(r.get("texts_portrait", {}).get(c, "") or "").rstrip() for r in disclaimers_02_rows_merged]
+            global_disc_02_land = [
+                (r.get("texts", {}).get(c, "") or "").rstrip()
+                for r in disclaimers_02_rows_merged
+            ]
+            global_disc_02_port = [
+                (r.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                for r in disclaimers_02_rows_merged
+            ]
             # For logos, typically one line; use index-based fallback as well
-            global_logo_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw]
-            global_logo_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in logo_rows_raw]
+            global_logo_land = [
+                (r.get("texts", {}).get(c, "") or "").strip() for r in logo_rows_raw
+            ]
+            global_logo_port = [
+                (r.get("texts_portrait", {}).get(c, "") or "").strip()
+                for r in logo_rows_raw
+            ]
             # For endFrame (if any global rows), mirror logo behavior
-            global_endframe_land = [(r.get("texts", {}).get(c, "") or "").strip() for r in endframe_rows_raw]
-            global_endframe_port = [(r.get("texts_portrait", {}).get(c, "") or "").strip() for r in endframe_rows_raw]
+            global_endframe_land = [
+                (r.get("texts", {}).get(c, "") or "").strip() for r in endframe_rows_raw
+            ]
+            global_endframe_port = [
+                (r.get("texts_portrait", {}).get(c, "") or "").strip()
+                for r in endframe_rows_raw
+            ]
 
             # Prepare per-video merged disclaimers
             per_video_disc_merged: Dict[str, List[Dict[str, Any]]] = {}
@@ -1529,7 +1830,10 @@ def convert_csv_to_json(
                                 "start": row["start"],
                                 "end": row["end"],
                                 "texts": {cc: row["texts"][cc] for cc in countries},
-                                "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                                "texts_portrait": {
+                                    cc: row.get("texts_portrait", {}).get(cc, "")
+                                    for cc in countries
+                                },
                             }
                         else:
                             if not current_block:
@@ -1538,7 +1842,10 @@ def convert_csv_to_json(
                                     "start": row["start"],
                                     "end": row["end"],
                                     "texts": {cc: row["texts"][cc] for cc in countries},
-                                    "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                                    "texts_portrait": {
+                                        cc: row.get("texts_portrait", {}).get(cc, "")
+                                        for cc in countries
+                                    },
                                 }
                             else:
                                 for cc in countries:
@@ -1550,10 +1857,16 @@ def convert_csv_to_json(
                                             current_block["texts"][cc] = extra
                                     extra_p = row.get("texts_portrait", {}).get(cc, "")
                                     if extra_p:
-                                        if current_block.get("texts_portrait", {}).get(cc, ""):
-                                            current_block["texts_portrait"][cc] += "\n" + extra_p
+                                        if current_block.get("texts_portrait", {}).get(
+                                            cc, ""
+                                        ):
+                                            current_block["texts_portrait"][cc] += (
+                                                "\n" + extra_p
+                                            )
                                         else:
-                                            current_block["texts_portrait"][cc] = extra_p
+                                            current_block["texts_portrait"][cc] = (
+                                                extra_p
+                                            )
                     if current_block:
                         merged.append(current_block)
                 else:
@@ -1575,7 +1888,10 @@ def convert_csv_to_json(
                                 "start": row["start"],
                                 "end": row["end"],
                                 "texts": {cc: row["texts"][cc] for cc in countries},
-                                "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                                "texts_portrait": {
+                                    cc: row.get("texts_portrait", {}).get(cc, "")
+                                    for cc in countries
+                                },
                             }
                         else:
                             if not current_block:
@@ -1584,7 +1900,10 @@ def convert_csv_to_json(
                                     "start": row["start"],
                                     "end": row["end"],
                                     "texts": {cc: row["texts"][cc] for cc in countries},
-                                    "texts_portrait": {cc: row.get("texts_portrait", {}).get(cc, "") for cc in countries},
+                                    "texts_portrait": {
+                                        cc: row.get("texts_portrait", {}).get(cc, "")
+                                        for cc in countries
+                                    },
                                 }
                             else:
                                 for cc in countries:
@@ -1596,10 +1915,16 @@ def convert_csv_to_json(
                                             current_block["texts"][cc] = extra
                                     extra_p = row.get("texts_portrait", {}).get(cc, "")
                                     if extra_p:
-                                        if current_block.get("texts_portrait", {}).get(cc, ""):
-                                            current_block["texts_portrait"][cc] += "\n" + extra_p
+                                        if current_block.get("texts_portrait", {}).get(
+                                            cc, ""
+                                        ):
+                                            current_block["texts_portrait"][cc] += (
+                                                "\n" + extra_p
+                                            )
                                         else:
-                                            current_block["texts_portrait"][cc] = extra_p
+                                            current_block["texts_portrait"][cc] = (
+                                                extra_p
+                                            )
                     if current_block:
                         merged.append(current_block)
                 else:
@@ -1609,22 +1934,53 @@ def convert_csv_to_json(
             # Now fill claim/disclaimer in each video object
             for vobj in videos_list:
                 vid_full = vobj["videoId"]
-                orientation = "portrait" if vid_full.endswith("_portrait") else "landscape"
+                orientation = (
+                    "portrait" if vid_full.endswith("_portrait") else "landscape"
+                )
                 # Pick appropriate global maps
-                global_claim_map = global_claim_map_port if orientation == "portrait" else global_claim_map_land
-                global_disc_texts = global_disc_port if orientation == "portrait" else global_disc_land
-                global_disc_02_texts = global_disc_02_port if orientation == "portrait" else global_disc_02_land
-                global_logo_texts = global_logo_port if orientation == "portrait" else global_logo_land
+                global_claim_map = (
+                    global_claim_map_port
+                    if orientation == "portrait"
+                    else global_claim_map_land
+                )
+                global_disc_texts = (
+                    global_disc_port if orientation == "portrait" else global_disc_land
+                )
+                global_disc_02_texts = (
+                    global_disc_02_port
+                    if orientation == "portrait"
+                    else global_disc_02_land
+                )
+                global_logo_texts = (
+                    global_logo_port if orientation == "portrait" else global_logo_land
+                )
                 # Claims source rows
-                src_claims = per_video_claim_rows.get(vid_full.rsplit("_", 1)[0]) or claims_rows
+                src_claims = (
+                    per_video_claim_rows.get(vid_full.rsplit("_", 1)[0]) or claims_rows
+                )
                 claim_items: List[Dict[str, Any]] = []
                 # Top-level claim text arrays for current orientation (to support index fallback)
-                claim_texts_global = claim_portrait if orientation == "portrait" else claim_landscape
+                claim_texts_global = (
+                    claim_portrait if orientation == "portrait" else claim_landscape
+                )
                 for idx, row in enumerate(src_claims):
-                    txt_local = ( (row.get("texts_portrait", {}) if orientation == "portrait" else row.get("texts", {})).get(c, "") or "").rstrip()
+                    txt_local = (
+                        (
+                            row.get("texts_portrait", {})
+                            if orientation == "portrait"
+                            else row.get("texts", {})
+                        ).get(c, "")
+                        or ""
+                    ).rstrip()
                     # Portrait local fallback to landscape local when override flag enabled
-                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
+                    if (
+                        orientation == "portrait"
+                        and prefer_local_claim_disclaimer
+                        and not txt_local
+                    ):
+                        alt_land_local = (
+                            row.get("texts", {}).get(c, "") or ""
+                        ).rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global_timing = global_claim_map.get(timing_key(row), "")
@@ -1649,9 +2005,17 @@ def convert_csv_to_json(
                     text2 = (
                         claim_texts_global[1]
                         if len(claim_texts_global) >= 2
-                        else (claim_texts_global[0] if claim_texts_global else base.get("text", ""))
+                        else (
+                            claim_texts_global[0]
+                            if claim_texts_global
+                            else base.get("text", "")
+                        )
                     )
-                    if test_mode and text2 and not str(text2).startswith(f"{vid_full}_"):
+                    if (
+                        test_mode
+                        and text2
+                        and not str(text2).startswith(f"{vid_full}_")
+                    ):
                         text2 = f"{vid_full}_{text2}"
                     second = {"line": 2, "text": text2}
                     if "in" in base:
@@ -1665,24 +2029,43 @@ def convert_csv_to_json(
                         vobj[f"claim_{i:02d}"] = [item]
                     del vobj["claim"]
                 # Disclaimers
-                src_discs = per_video_disc_merged.get(vid_full.rsplit("_",1)[0]) or disclaimers_rows_merged
+                src_discs = (
+                    per_video_disc_merged.get(vid_full.rsplit("_", 1)[0])
+                    or disclaimers_rows_merged
+                )
                 disc_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                        txt_local = (
+                            row.get("texts_portrait", {}).get(c, "") or ""
+                        ).rstrip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local disclaimer when override flag enabled
-                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
+                    if (
+                        orientation == "portrait"
+                        and prefer_local_claim_disclaimer
+                        and not txt_local
+                    ):
+                        alt_land_local = (
+                            row.get("texts", {}).get(c, "") or ""
+                        ).rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
-                    txt_global = global_disc_texts[i] if i < len(global_disc_texts) else (global_disc_texts[0] if global_disc_texts else "")
+                    txt_global = (
+                        global_disc_texts[i]
+                        if i < len(global_disc_texts)
+                        else (global_disc_texts[0] if global_disc_texts else "")
+                    )
                     # If portrait and both local/global portrait empty, mirror landscape global text for same index
                     if orientation == "portrait" and not txt_local and not txt_global:
                         if i < len(global_disc_land):
                             txt_global = global_disc_land[i]
-                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                    text_value = (
+                        txt_local
+                        if (prefer_local_claim_disclaimer and txt_local)
+                        else txt_global
+                    )
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
@@ -1695,24 +2078,43 @@ def convert_csv_to_json(
                     disc_items.append(entry)
                 vobj["disclaimer"] = disc_items
                 # Disclaimer_02
-                src_discs_02 = per_video_disc_02_merged.get(vid_full.rsplit("_",1)[0]) or disclaimers_02_rows_merged
+                src_discs_02 = (
+                    per_video_disc_02_merged.get(vid_full.rsplit("_", 1)[0])
+                    or disclaimers_02_rows_merged
+                )
                 disc_02_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_discs_02):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                        txt_local = (
+                            row.get("texts_portrait", {}).get(c, "") or ""
+                        ).rstrip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local disclaimer_02 when override flag enabled
-                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
+                    if (
+                        orientation == "portrait"
+                        and prefer_local_claim_disclaimer
+                        and not txt_local
+                    ):
+                        alt_land_local = (
+                            row.get("texts", {}).get(c, "") or ""
+                        ).rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
-                    txt_global = global_disc_02_texts[i] if i < len(global_disc_02_texts) else (global_disc_02_texts[0] if global_disc_02_texts else "")
+                    txt_global = (
+                        global_disc_02_texts[i]
+                        if i < len(global_disc_02_texts)
+                        else (global_disc_02_texts[0] if global_disc_02_texts else "")
+                    )
                     # If portrait and both local/global portrait empty, mirror landscape global text for same index
                     if orientation == "portrait" and not txt_local and not txt_global:
                         if i < len(global_disc_02_land):
                             txt_global = global_disc_02_land[i]
-                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                    text_value = (
+                        txt_local
+                        if (prefer_local_claim_disclaimer and txt_local)
+                        else txt_global
+                    )
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
@@ -1725,23 +2127,42 @@ def convert_csv_to_json(
                     disc_02_items.append(entry)
                 vobj["disclaimer_02"] = disc_02_items
                 # Logo
-                src_logos = per_video_logo_rows_raw.get(vid_full.rsplit("_",1)[0]) or logo_rows_raw
+                src_logos = (
+                    per_video_logo_rows_raw.get(vid_full.rsplit("_", 1)[0])
+                    or logo_rows_raw
+                )
                 logo_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_logos):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                        txt_local = (
+                            row.get("texts_portrait", {}).get(c, "") or ""
+                        ).rstrip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local logo when override flag enabled
-                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
+                    if (
+                        orientation == "portrait"
+                        and prefer_local_claim_disclaimer
+                        and not txt_local
+                    ):
+                        alt_land_local = (
+                            row.get("texts", {}).get(c, "") or ""
+                        ).rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
-                    txt_global = global_logo_texts[i] if i < len(global_logo_texts) else (global_logo_texts[0] if global_logo_texts else "")
+                    txt_global = (
+                        global_logo_texts[i]
+                        if i < len(global_logo_texts)
+                        else (global_logo_texts[0] if global_logo_texts else "")
+                    )
                     if orientation == "portrait" and not txt_local and not txt_global:
                         if i < len(global_logo_land):
                             txt_global = global_logo_land[i]
-                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                    text_value = (
+                        txt_local
+                        if (prefer_local_claim_disclaimer and txt_local)
+                        else txt_global
+                    )
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
@@ -1755,27 +2176,63 @@ def convert_csv_to_json(
                 vobj["logo"] = logo_items
 
                 # endFrame (same shape as logo items)
-                src_end = per_video_endframe_rows_raw.get(vid_full.rsplit("_",1)[0]) or endframe_rows_raw
+                src_end = (
+                    per_video_endframe_rows_raw.get(vid_full.rsplit("_", 1)[0])
+                    or endframe_rows_raw
+                )
                 end_items: List[Dict[str, Any]] = []
                 for i, row in enumerate(src_end):
                     if orientation == "portrait":
-                        txt_local = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
+                        txt_local = (
+                            row.get("texts_portrait", {}).get(c, "") or ""
+                        ).rstrip()
                     else:
                         txt_local = (row.get("texts", {}).get(c, "") or "").rstrip()
                     # Portrait local fallback to landscape local endFrame when override flag enabled
-                    if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                        alt_land_local = (row.get("texts", {}).get(c, "") or "").rstrip()
+                    if (
+                        orientation == "portrait"
+                        and prefer_local_claim_disclaimer
+                        and not txt_local
+                    ):
+                        alt_land_local = (
+                            row.get("texts", {}).get(c, "") or ""
+                        ).rstrip()
                         if alt_land_local:
                             txt_local = alt_land_local
                     txt_global = (
-                        global_endframe_port[i] if orientation == "portrait" else global_endframe_land[i]
-                    ) if i < (len(global_endframe_port) if orientation == "portrait" else len(global_endframe_land)) else (
-                        (global_endframe_port[0] if orientation == "portrait" else global_endframe_land[0]) if (global_endframe_port if orientation == "portrait" else global_endframe_land) else ""
+                        (
+                            global_endframe_port[i]
+                            if orientation == "portrait"
+                            else global_endframe_land[i]
+                        )
+                        if i
+                        < (
+                            len(global_endframe_port)
+                            if orientation == "portrait"
+                            else len(global_endframe_land)
+                        )
+                        else (
+                            (
+                                global_endframe_port[0]
+                                if orientation == "portrait"
+                                else global_endframe_land[0]
+                            )
+                            if (
+                                global_endframe_port
+                                if orientation == "portrait"
+                                else global_endframe_land
+                            )
+                            else ""
+                        )
                     )
                     if orientation == "portrait" and not txt_local and not txt_global:
                         if i < len(global_endframe_land):
                             txt_global = global_endframe_land[i]
-                    text_value = txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                    text_value = (
+                        txt_local
+                        if (prefer_local_claim_disclaimer and txt_local)
+                        else txt_global
+                    )
                     if test_mode and text_value:
                         text_value = f"{vid_full}_{text_value}"
                     entry = {"line": row.get("line", i + 1), "text": text_value}
@@ -1790,27 +2247,59 @@ def convert_csv_to_json(
 
                 # Generic timed keys (no merge/dedup) with top-level + per-video output
                 for gk in generic_keys_sorted:
-                    src_generic = (per_video_generic_rows_raw.get(gk, {}).get(vid_full.rsplit("_", 1)[0]) or generic_rows_raw.get(gk, []))
+                    src_generic = per_video_generic_rows_raw.get(gk, {}).get(
+                        vid_full.rsplit("_", 1)[0]
+                    ) or generic_rows_raw.get(gk, [])
                     generic_items: List[Dict[str, Any]] = []
-                    generic_texts_global = generic_top_port[gk] if orientation == "portrait" else generic_top_land[gk]
-                    global_generic_map = global_generic_map_port[gk] if orientation == "portrait" else global_generic_map_land[gk]
+                    generic_texts_global = (
+                        generic_top_port[gk]
+                        if orientation == "portrait"
+                        else generic_top_land[gk]
+                    )
+                    global_generic_map = (
+                        global_generic_map_port[gk]
+                        if orientation == "portrait"
+                        else global_generic_map_land[gk]
+                    )
                     for idx, grow in enumerate(src_generic):
-                        txt_local = (((grow.get("texts_portrait", {}) if orientation == "portrait" else grow.get("texts", {})).get(c, "") or "").rstrip())
-                        if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                            alt_land_local = (grow.get("texts", {}).get(c, "") or "").rstrip()
+                        txt_local = (
+                            (
+                                grow.get("texts_portrait", {})
+                                if orientation == "portrait"
+                                else grow.get("texts", {})
+                            ).get(c, "")
+                            or ""
+                        ).rstrip()
+                        if (
+                            orientation == "portrait"
+                            and prefer_local_claim_disclaimer
+                            and not txt_local
+                        ):
+                            alt_land_local = (
+                                grow.get("texts", {}).get(c, "") or ""
+                            ).rstrip()
                             if alt_land_local:
                                 txt_local = alt_land_local
                         txt_global_timing = global_generic_map.get(timing_key(grow), "")
                         txt_global_index = (
                             generic_texts_global[idx]
                             if idx < len(generic_texts_global)
-                            else (generic_texts_global[0] if generic_texts_global else "")
+                            else (
+                                generic_texts_global[0] if generic_texts_global else ""
+                            )
                         )
-                        text_value = txt_local if txt_local else (txt_global_timing or txt_global_index or txt_local)
+                        text_value = (
+                            txt_local
+                            if txt_local
+                            else (txt_global_timing or txt_global_index or txt_local)
+                        )
                         if test_mode and text_value:
                             text_value = f"{vid_full}_{text_value}"
                         entry = {"line": grow.get("line", idx + 1), "text": text_value}
-                        if grow.get("start") is not None and grow.get("end") is not None:
+                        if (
+                            grow.get("start") is not None
+                            and grow.get("end") is not None
+                        ):
                             entry["in"] = fmt_time(grow["start"])
                             entry["out"] = fmt_time(grow["end"])
                         generic_items.append(entry)
@@ -1840,7 +2329,9 @@ def convert_csv_to_json(
             # Optional mode: always object per flag.
             defaults_for_country = global_flag_defaults_per_country.get(c, {})
             targeted_for_country = global_flag_targeted_per_country.get(c, {})
-            flag_keys_for_country = sorted(set(defaults_for_country.keys()) | set(targeted_for_country.keys()))
+            flag_keys_for_country = sorted(
+                set(defaults_for_country.keys()) | set(targeted_for_country.keys())
+            )
             for flag_key in flag_keys_for_country:
                 dur_map = targeted_for_country.get(flag_key, {})
                 default_value = defaults_for_country.get(flag_key)
@@ -1921,17 +2412,31 @@ def convert_csv_to_json(
                 payload = {
                     "metadataGlobal": gm_cast,
                     "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
-                    "disclaimer": {"landscape": disc_landscape, "portrait": disc_portrait},
-                    "disclaimer_02": {"landscape": disc_02_landscape, "portrait": disc_02_portrait},
+                    "disclaimer": {
+                        "landscape": disc_landscape,
+                        "portrait": disc_portrait,
+                    },
+                    "disclaimer_02": {
+                        "landscape": disc_02_landscape,
+                        "portrait": disc_02_portrait,
+                    },
                     "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
                 }
                 for gk in generic_keys_sorted:
-                    payload[gk] = {"landscape": generic_top_land.get(gk, []), "portrait": generic_top_port.get(gk, [])}
+                    payload[gk] = {
+                        "landscape": generic_top_land.get(gk, []),
+                        "portrait": generic_top_port.get(gk, []),
+                    }
                 payload["videos"] = vlist_cast
             by_country[c] = payload
 
         # Multi output
-        return {"_multi": True, "countries": countries, "byCountry": by_country, "_countryVariantCount": country_variant_counts}
+        return {
+            "_multi": True,
+            "countries": countries,
+            "byCountry": by_country,
+            "_countryVariantCount": country_variant_counts,
+        }
 
     # Normalize headers for index lookup, preserving duplicates
     norm_headers = [re.sub(r"[^a-z]", "", (h or "").lower()) for h in headers]
@@ -1951,7 +2456,14 @@ def convert_csv_to_json(
     text_cols = [i for i, nh in enumerate(norm_headers) if nh == "text"]
 
     # If we failed to find essentials, fall back to old DictReader logic for simple CSVs
-    simple_mode = (find_col(("starttime", "start", "in", "inpoint")) is not None) and (len(text_cols) <= 1) and (headers[0].strip().lower() not in ("subtitles", "claim", "disclaimer", "metadata"))
+    simple_mode = (
+        (find_col(("starttime", "start", "in", "inpoint")) is not None)
+        and (len(text_cols) <= 1)
+        and (
+            headers[0].strip().lower()
+            not in ("subtitles", "claim", "disclaimer", "metadata")
+        )
+    )
     if simple_mode:
         # Reuse old path via DictReader for compatibility
         # Build fieldnames → use first row as headers directly
@@ -1960,7 +2472,12 @@ def convert_csv_to_json(
         for r in rows:
             d = {headers[i]: (r[i] if i < len(r) else "") for i in range(len(headers))}
             dict_rows.append(d)
-        start_name, end_name, text_name = detect_columns(headers, start_override=start_col, end_override=end_col, text_override=text_col)
+        start_name, end_name, text_name = detect_columns(
+            headers,
+            start_override=start_col,
+            end_override=end_col,
+            text_override=text_col,
+        )
 
         def fmt_time(val: float) -> Any:
             if round_ndigits is not None:
@@ -1975,7 +2492,11 @@ def convert_csv_to_json(
         line_no = start_line_index
         for d in dict_rows:
             text_val = d.get(text_name, "")
-            text = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
+            text = (
+                text_val.strip()
+                if strip_text and isinstance(text_val, str)
+                else text_val
+            )
             if skip_empty_text and (text is None or str(text).strip() == ""):
                 continue
             try:
@@ -1983,7 +2504,12 @@ def convert_csv_to_json(
                 tout = parse_timecode(str(d.get(end_name, "")).strip(), fps)
             except Exception as e:
                 raise ValueError(f"Failed to parse timecodes for row {d}: {e}")
-            item = {"line": line_no, "in": fmt_time(tin), "out": fmt_time(tout), "text": text}
+            item = {
+                "line": line_no,
+                "in": fmt_time(tin),
+                "out": fmt_time(tout),
+                "text": text,
+            }
             out_items.append(item)
             line_no += 1
         return {"subtitles": out_items}
@@ -2009,10 +2535,18 @@ def convert_csv_to_json(
         if idx >= len(country_codes):
             # Extend with placeholders
             for k in range(len(country_codes), idx + 1):
-                country_codes.append(code or f"col{k - (len(text_cols) - len(country_codes)) + 1}")
+                country_codes.append(
+                    code or f"col{k - (len(text_cols) - len(country_codes)) + 1}"
+                )
         c = country_codes[idx]
         if c not in per_country:
-            per_country[c] = {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}}
+            per_country[c] = {
+                "subtitles": [],
+                "claim": [],
+                "disclaimer": [],
+                "disclaimer_02": [],
+                "metadata": {},
+            }
         return c
 
     def fmt_time(val: float) -> Any:
@@ -2055,7 +2589,16 @@ def convert_csv_to_json(
                     # Ensure bucket name matches code
                     if ccode != val:
                         # Move bucket if previously created with placeholder
-                        per_country[val] = per_country.pop(ccode, {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}})
+                        per_country[val] = per_country.pop(
+                            ccode,
+                            {
+                                "subtitles": [],
+                                "claim": [],
+                                "disclaimer": [],
+                                "disclaimer_02": [],
+                                "metadata": {},
+                            },
+                        )
                     ccode = val
                 if key_norm.lower() != "country":
                     per_country[ccode]["metadata"][key_norm] = val
@@ -2074,8 +2617,12 @@ def convert_csv_to_json(
 
             # Timecodes
             try:
-                tin = parse_timecode(str(r[idx_start]).strip() if idx_start is not None else "", fps)
-                tout = parse_timecode(str(r[idx_end]).strip() if idx_end is not None else "", fps)
+                tin = parse_timecode(
+                    str(r[idx_start]).strip() if idx_start is not None else "", fps
+                )
+                tout = parse_timecode(
+                    str(r[idx_end]).strip() if idx_end is not None else "", fps
+                )
             except Exception:
                 # If times are missing in a non-data marker row (e.g., metadata), skip
                 continue
@@ -2083,11 +2630,22 @@ def convert_csv_to_json(
             # Per-country texts
             for ti, tcol in enumerate(text_cols):
                 text_val = r[tcol] if tcol < len(r) else ""
-                text_val = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
-                if skip_empty_text and (text_val is None or str(text_val).strip() == ""):
+                text_val = (
+                    text_val.strip()
+                    if strip_text and isinstance(text_val, str)
+                    else text_val
+                )
+                if skip_empty_text and (
+                    text_val is None or str(text_val).strip() == ""
+                ):
                     continue
                 ccode = ensure_country(ti)
-                item = {"line": line_no_val, "in": fmt_time(tin), "out": fmt_time(tout), "text": text_val}
+                item = {
+                    "line": line_no_val,
+                    "in": fmt_time(tin),
+                    "out": fmt_time(tout),
+                    "text": text_val,
+                }
                 per_country[ccode][current_section].append(item)
 
             auto_line += 1
@@ -2100,7 +2658,13 @@ def convert_csv_to_json(
     if not country_codes:
         country_codes = ["default"]
         if "default" not in per_country:
-            per_country["default"] = {"subtitles": [], "claim": [], "disclaimer": [], "disclaimer_02": [], "metadata": {}}
+            per_country["default"] = {
+                "subtitles": [],
+                "claim": [],
+                "disclaimer": [],
+                "disclaimer_02": [],
+                "metadata": {},
+            }
 
     # If only one country requested, and matches original return shape
     if len(country_codes) == 1:
@@ -2125,14 +2689,48 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Convert subtitle CSV/XLSX to JSON")
     p.add_argument("input", help="Path to input CSV file")
     p.add_argument("output", help="Path to output JSON file")
-    p.add_argument("--fps", type=float, default=25.0, help="Frames per second for HH:MM:SS:FF timecodes (default: 25)")
-    p.add_argument("--no-orientation", action="store_true", help="Emit legacy non-orientation shape: flat claim/disclaimer/logo arrays and single videoId (landscape only)")
-    p.add_argument("--start-line", type=int, default=1, help="Starting line index in output (default: 1)")
-    p.add_argument("--round", dest="round_digits", type=int, default=2, help="Round seconds to N digits (default: 2; use -1 to disable)")
-    p.add_argument("--times-as-string", action="store_true", help="Write time values as strings (keeps trailing zeros)")
-    p.add_argument("--no-strip-text", action="store_true", help="Do not strip whitespace from text cells")
-    p.add_argument("--keep-empty-text", action="store_true", help="Keep rows where text is empty/whitespace")
-    p.add_argument("--encoding", default="utf-8-sig", help="CSV file encoding (default: utf-8-sig)")
+    p.add_argument(
+        "--fps",
+        type=float,
+        default=25.0,
+        help="Frames per second for HH:MM:SS:FF timecodes (default: 25)",
+    )
+    p.add_argument(
+        "--no-orientation",
+        action="store_true",
+        help="Emit legacy non-orientation shape: flat claim/disclaimer/logo arrays and single videoId (landscape only)",
+    )
+    p.add_argument(
+        "--start-line",
+        type=int,
+        default=1,
+        help="Starting line index in output (default: 1)",
+    )
+    p.add_argument(
+        "--round",
+        dest="round_digits",
+        type=int,
+        default=2,
+        help="Round seconds to N digits (default: 2; use -1 to disable)",
+    )
+    p.add_argument(
+        "--times-as-string",
+        action="store_true",
+        help="Write time values as strings (keeps trailing zeros)",
+    )
+    p.add_argument(
+        "--no-strip-text",
+        action="store_true",
+        help="Do not strip whitespace from text cells",
+    )
+    p.add_argument(
+        "--keep-empty-text",
+        action="store_true",
+        help="Keep rows where text is empty/whitespace",
+    )
+    p.add_argument(
+        "--encoding", default="utf-8-sig", help="CSV file encoding (default: utf-8-sig)"
+    )
     p.add_argument(
         "--delimiter",
         default="auto",
@@ -2146,44 +2744,154 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="XLSX only: sheet name to read (default: 'data' if present, otherwise first sheet)",
     )
-    p.add_argument("--start-col", help="Override Start column by name or 1-based index", default=None)
-    p.add_argument("--end-col", help="Override End column by name or 1-based index", default=None)
-    p.add_argument("--text-col", help="Override Text column by name or 1-based index", default=None)
-    p.add_argument("--verbose", action="store_true", help="Print detected delimiter and headers")
-    p.add_argument("--schema-version", default="v2", help="Schema version tag to use if not supplied via meta_global 'schemaVersion' row (default v2)")
-    p.add_argument("--no-merge-subtitles", action="store_true", help="Disable merging of multi-line subtitles with same line number")
-    p.add_argument("--merge-disclaimer", action="store_false", help="Disable merging of multi-line disclaimer continuation lines")
-    p.add_argument("--merge-disclaimer-02", action="store_false", help="Disable merging of multi-line disclaimer_02 continuation lines")
-    p.add_argument("--cast-metadata", action="store_true", help="Attempt numeric casting of metadata values (int/float detection)")
-    p.add_argument("--join-claim", action="store_true", help="Join multiple claim rows with same timing into one block (newline separated)")
-    p.add_argument("--prefer-local-claim-disclaimer", action="store_false", dest="prefer_local_claim_disclaimer", help="(Deprecated name) Disable per-video local claim/disclaimer override (default: enabled)")
-    p.add_argument("--no-local-claim-override", action="store_false", dest="prefer_local_claim_disclaimer", help="Alias: disable per-video local claim/disclaimer override (default: enabled)")
-    p.add_argument("--test-mode", action="store_true", help="Prefix per-video claim/disclaimer/disclaimer_02 text with '<videoId>_' for testing")
-    p.add_argument("--claims-as-objects", action="store_true", help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array")
-    p.add_argument("--validate-only", action="store_true", help="Parse and validate input; do not write output files")
-    p.add_argument("--dry-run", action="store_true", help="List discovered countries/videos without writing JSON")
+    p.add_argument(
+        "--start-col",
+        help="Override Start column by name or 1-based index",
+        default=None,
+    )
+    p.add_argument(
+        "--end-col", help="Override End column by name or 1-based index", default=None
+    )
+    p.add_argument(
+        "--text-col", help="Override Text column by name or 1-based index", default=None
+    )
+    p.add_argument(
+        "--verbose", action="store_true", help="Print detected delimiter and headers"
+    )
+    p.add_argument(
+        "--schema-version",
+        default="v2",
+        help="Schema version tag to use if not supplied via meta_global 'schemaVersion' row (default v2)",
+    )
+    p.add_argument(
+        "--no-merge-subtitles",
+        action="store_true",
+        help="Disable merging of multi-line subtitles with same line number",
+    )
+    p.add_argument(
+        "--merge-disclaimer",
+        action="store_false",
+        help="Disable merging of multi-line disclaimer continuation lines",
+    )
+    p.add_argument(
+        "--merge-disclaimer-02",
+        action="store_false",
+        help="Disable merging of multi-line disclaimer_02 continuation lines",
+    )
+    p.add_argument(
+        "--cast-metadata",
+        action="store_true",
+        help="Attempt numeric casting of metadata values (int/float detection)",
+    )
+    p.add_argument(
+        "--join-claim",
+        action="store_true",
+        help="Join multiple claim rows with same timing into one block (newline separated)",
+    )
+    p.add_argument(
+        "--prefer-local-claim-disclaimer",
+        action="store_false",
+        dest="prefer_local_claim_disclaimer",
+        help="(Deprecated name) Disable per-video local claim/disclaimer override (default: enabled)",
+    )
+    p.add_argument(
+        "--no-local-claim-override",
+        action="store_false",
+        dest="prefer_local_claim_disclaimer",
+        help="Alias: disable per-video local claim/disclaimer override (default: enabled)",
+    )
+    p.add_argument(
+        "--test-mode",
+        action="store_true",
+        help="Prefix per-video claim/disclaimer/disclaimer_02 text with '<videoId>_' for testing",
+    )
+    p.add_argument(
+        "--claims-as-objects",
+        action="store_true",
+        help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array",
+    )
+    p.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Parse and validate input; do not write output files",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List discovered countries/videos without writing JSON",
+    )
     p.add_argument(
         "--required-global-keys",
         default="briefVersion,fps",
         help="Comma-separated list of required keys that must appear in metadataGlobal (default: briefVersion,fps). Empty string to disable.",
     )
-    p.add_argument("--missing-keys-warn", action="store_true", help="Treat missing required global metadata keys as warnings (do not fail validation)")
-    p.add_argument("--validation-report", default=None, help="Write a JSON validation report to this path during --validate-only or --dry-run")
-    p.add_argument("--auto-output", action="store_true", help="Derive output name from input base (adds _{country} when splitting)")
-    p.add_argument("--output-dir", default=None, help="Directory for auto-derived outputs (default: input file directory)")
-    p.add_argument("--split-by-country", action="store_true", help="When multiple Text columns exist, write one JSON per country using output pattern")
-    p.add_argument("--country-column", type=int, default=None, help="1-based index among Text columns to select when not splitting")
-    p.add_argument("--output-pattern", default=None, help="Pattern for outputs; use {country}. Applies to split mode and to single-country exports with --country-column. If omitted, infer from output path by inserting _{country} before extension.")
-    p.add_argument("--country-variant-index", type=int, default=None, help=(
-        "Select which duplicated country column pair (variant) to use (0-based). When omitted, first pair is used."
-    ))
-    p.add_argument("--sample", action="store_true", help="Also write a truncated preview JSON alongside each output (adds _sample before extension)")
-    p.add_argument("--converter-version", default="auto", help=(
-        "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
-        "1) CONVERTER_VERSION env var, 2) first heading in CHANGELOG.md, 3) latest git tag, 4) '0.0.0+<shortcommit>', else 'dev'."
-    ))
-    p.add_argument("--no-generation-meta", action="store_true", help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)")
-    p.add_argument("--no-logo-anim-overview", action="store_true", help="Do not embed aggregated logo_anim_flag mapping object in metadataGlobal (CSV to JSON 47)")
+    p.add_argument(
+        "--missing-keys-warn",
+        action="store_true",
+        help="Treat missing required global metadata keys as warnings (do not fail validation)",
+    )
+    p.add_argument(
+        "--validation-report",
+        default=None,
+        help="Write a JSON validation report to this path during --validate-only or --dry-run",
+    )
+    p.add_argument(
+        "--auto-output",
+        action="store_true",
+        help="Derive output name from input base (adds _{country} when splitting)",
+    )
+    p.add_argument(
+        "--output-dir",
+        default=None,
+        help="Directory for auto-derived outputs (default: input file directory)",
+    )
+    p.add_argument(
+        "--split-by-country",
+        action="store_true",
+        help="When multiple Text columns exist, write one JSON per country using output pattern",
+    )
+    p.add_argument(
+        "--country-column",
+        type=int,
+        default=None,
+        help="1-based index among Text columns to select when not splitting",
+    )
+    p.add_argument(
+        "--output-pattern",
+        default=None,
+        help="Pattern for outputs; use {country}. Applies to split mode and to single-country exports with --country-column. If omitted, infer from output path by inserting _{country} before extension.",
+    )
+    p.add_argument(
+        "--country-variant-index",
+        type=int,
+        default=None,
+        help=(
+            "Select which duplicated country column pair (variant) to use (0-based). When omitted, first pair is used."
+        ),
+    )
+    p.add_argument(
+        "--sample",
+        action="store_true",
+        help="Also write a truncated preview JSON alongside each output (adds _sample before extension)",
+    )
+    p.add_argument(
+        "--converter-version",
+        default="auto",
+        help=(
+            "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
+            "1) CONVERTER_VERSION env var, 2) first heading in CHANGELOG.md, 3) latest git tag, 4) '0.0.0+<shortcommit>', else 'dev'."
+        ),
+    )
+    p.add_argument(
+        "--no-generation-meta",
+        action="store_true",
+        help="Disable injection of generation metadata (generatedAt, inputSha256, converterVersion, etc.)",
+    )
+    p.add_argument(
+        "--no-logo-anim-overview",
+        action="store_true",
+        help="Do not embed aggregated logo_anim_flag mapping object in metadataGlobal (CSV to JSON 47)",
+    )
     p.add_argument(
         "--flags-overview-object-always",
         action="store_true",
@@ -2191,10 +2899,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     # Media injection (CSV to JSON media)
-    p.add_argument("--media-csv", default=None, help="Optional path to media CSV for injection per country/language (exact match only)")
-    p.add_argument("--media-delimiter", default=";", help="Delimiter for media CSV (default ';')")
-    p.add_argument("--media-country-col", default="Country", help="Country column name in media CSV (default 'Country')")
-    p.add_argument("--media-language-col", default="Language", help="Language column name in media CSV (default 'Language')")
+    p.add_argument(
+        "--media-csv",
+        default=None,
+        help="Optional path to media CSV for injection per country/language (exact match only)",
+    )
+    p.add_argument(
+        "--media-delimiter", default=";", help="Delimiter for media CSV (default ';')"
+    )
+    p.add_argument(
+        "--media-country-col",
+        default="Country",
+        help="Country column name in media CSV (default 'Country')",
+    )
+    p.add_argument(
+        "--media-language-col",
+        default="Language",
+        help="Language column name in media CSV (default 'Language')",
+    )
 
     args = p.parse_args(argv)
 
@@ -2217,34 +2939,52 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if os.path.isfile(changelog_path):
                     with open(changelog_path, "r", encoding="utf-8") as chf:
                         for line in chf:
-                            stripped_line= line.strip()
-                            if stripped_line.startswith('#'):
+                            stripped_line = line.strip()
+                            if stripped_line.startswith("#"):
                                 # Extract first token after '#'
-                                heading = stripped_line.lstrip('#').strip()
+                                heading = stripped_line.lstrip("#").strip()
                                 # Common forms: "1.3.1 - 2025-09-29" or "[1.3.1]" etc.
-                                m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
+                                m = re.match(
+                                    r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)",
+                                    heading,
+                                )
                                 if m:
                                     return m.group(1)
                                 # Fallback: take first contiguous non-space chunk
                                 token = heading.split()[0]
                                 if re.match(r"v?[0-9]+\.[0-9]+(\.[0-9]+)?", token):
-                                    return token.lstrip('v')
+                                    return token.lstrip("v")
                                 break
         except Exception:
             pass
         # 3) Latest git tag
         try:
             import subprocess  # local import to avoid cost when unused
-            tag = subprocess.check_output(['git','describe','--tags','--abbrev=0'], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+
+            tag = (
+                subprocess.check_output(
+                    ["git", "describe", "--tags", "--abbrev=0"],
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode("utf-8")
+                .strip()
+            )
             if tag:
                 # Normalize leading 'v'
-                return tag[1:] if tag.startswith('v') else tag
+                return tag[1:] if tag.startswith("v") else tag
         except Exception:
             pass
         # 4) Short commit hash appended to 0.0.0+
         try:
             import subprocess
-            sc = subprocess.check_output(['git','rev-parse','--short','HEAD'], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+
+            sc = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .decode("utf-8")
+                .strip()
+            )
             if sc:
                 return f"0.0.0+{sc}"
         except Exception:
@@ -2260,9 +3000,18 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.auto_output:
         in_base = os.path.splitext(os.path.basename(args.input))[0]
-        out_dir = args.output_dir or os.path.dirname(os.path.abspath(args.input)) or os.getcwd()
+        out_dir = (
+            args.output_dir
+            or os.path.dirname(os.path.abspath(args.input))
+            or os.getcwd()
+        )
         # Auto-output now supports single-country {country} expansion when --country-column provided
-        if args.split_by_country or ("{country}" in (args.output or "")) or args.output_pattern or args.country_column:
+        if (
+            args.split_by_country
+            or ("{country}" in (args.output or ""))
+            or args.output_pattern
+            or args.country_column
+        ):
             args.output = os.path.join(out_dir, f"{in_base}_{{country}}.json")
         else:
             args.output = os.path.join(out_dir, f"{in_base}.json")
@@ -2304,10 +3053,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Optionally strip overview if disabled flag set
     if args.no_logo_anim_overview and isinstance(data, dict):
+
         def _strip(obj: Dict[str, Any]):
             mg = obj.get("metadataGlobal") or obj.get("metadata")
             if isinstance(mg, dict) and "logo_anim_flag" in mg:
                 del mg["logo_anim_flag"]
+
         if data.get("_multi"):
             for _c, node in (data.get("byCountry") or {}).items():
                 if isinstance(node, dict):
@@ -2320,8 +3071,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             # Compute SHA256 of input CSV once
             h = hashlib.sha256()
-            with open(args.input, 'rb') as f_in:
-                for chunk in iter(lambda: f_in.read(8192), b''):
+            with open(args.input, "rb") as f_in:
+                for chunk in iter(lambda: f_in.read(8192), b""):
                     h.update(chunk)
             checksum = h.hexdigest()
         except Exception:
@@ -2332,6 +3083,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             utc_now = datetime.now(datetime.UTC)  # type: ignore[attr-defined]
         except AttributeError:  # Fallback for older Python versions
             from datetime import timezone
+
             utc_now = datetime.now(timezone.utc)
         # Normalize to Z suffix and drop microseconds for stability
         timestamp = utc_now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -2339,9 +3091,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Attempt to resolve git commit (best-effort, cached)
         git_commit: Optional[str] = None
         try:
-            git_commit = subprocess.check_output([
-                'git','rev-parse','--short','HEAD'
-            ], stderr=subprocess.DEVNULL).decode('utf-8').strip() or None
+            git_commit = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .decode("utf-8")
+                .strip()
+                or None
+            )
         except Exception:
             git_commit = None
 
@@ -2355,19 +3112,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             py_dir = os.path.dirname(os.path.abspath(__file__))
             changelog_candidates = [
-                os.path.join(py_dir, 'CHANGELOG.md'),
-                os.path.join(py_dir, 'readMe', 'CHANGELOG.md'),
+                os.path.join(py_dir, "CHANGELOG.md"),
+                os.path.join(py_dir, "readMe", "CHANGELOG.md"),
             ]
             for changelog_path in changelog_candidates:
                 if os.path.isfile(changelog_path):
-                    with open(changelog_path, 'r', encoding='utf-8') as chf:
+                    with open(changelog_path, "r", encoding="utf-8") as chf:
                         for line in chf:
                             stripped_line = line.strip()
-                            if stripped_line.startswith('#'):
+                            if stripped_line.startswith("#"):
                                 # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
-                                last_change_id = stripped_line.lstrip('#').strip()
+                                last_change_id = stripped_line.lstrip("#").strip()
                                 break
-                            if stripped_line and ('202' in stripped_line or '20' in stripped_line) and any(c.isdigit() for c in stripped_line):
+                            if (
+                                stripped_line
+                                and ("202" in stripped_line or "20" in stripped_line)
+                                and any(c.isdigit() for c in stripped_line)
+                            ):
                                 last_change_id = stripped_line
                                 break
                         if last_change_id:
@@ -2390,7 +3151,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 mg.setdefault("platform", platform_str)
                 if last_change_id and "lastChangeId" not in mg:
                     mg["lastChangeId"] = last_change_id
-            elif "metadata" in pld and isinstance(pld.get("metadata"), dict):  # simple/legacy single output shape
+            elif "metadata" in pld and isinstance(
+                pld.get("metadata"), dict
+            ):  # simple/legacy single output shape
                 mg = pld["metadata"]
                 mg["generatedAt"] = timestamp
                 mg["inputSha256"] = checksum
@@ -2405,7 +3168,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                     mg["lastChangeId"] = last_change_id
 
         # Multi-country wrapper
-        if isinstance(obj, dict) and obj.get("_multi") and isinstance(obj.get("byCountry"), dict):
+        if (
+            isinstance(obj, dict)
+            and obj.get("_multi")
+            and isinstance(obj.get("byCountry"), dict)
+        ):
             for _c, p in obj.get("byCountry", {}).items():
                 if isinstance(p, dict):
                     _augment_payload(p)
@@ -2414,14 +3181,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                 _augment_payload(obj)
 
     # Only inject when we are actually writing outputs (skip validate-only / dry-run)
-    if (not args.no_generation_meta) and (not getattr(args, 'validate_only', False)) and (not getattr(args, 'dry_run', False)):
+    if (
+        (not args.no_generation_meta)
+        and (not getattr(args, "validate_only", False))
+        and (not getattr(args, "dry_run", False))
+    ):
         _inject_generation_metadata(data)
 
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
     if args.media_csv:
-        if media_read_csv is None or media_group_by_country_language is None or media_convert_rows is None:
-            print("Warning: media tools not available; skipping --media-csv integration")
+        if (
+            media_read_csv is None
+            or media_group_by_country_language is None
+            or media_convert_rows is None
+        ):
+            print(
+                "Warning: media tools not available; skipping --media-csv integration"
+            )
         else:
             try:
                 m_rows = media_read_csv(args.media_csv, delimiter=args.media_delimiter)
@@ -2473,7 +3250,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     parts.append(seg)
             required_global_keys = parts
         # Legacy/simple structure
-        if any(k in obj for k in ("subtitles", "claim", "disclaimer", "disclaimer_02")) and "videos" not in obj:
+        if (
+            any(k in obj for k in ("subtitles", "claim", "disclaimer", "disclaimer_02"))
+            and "videos" not in obj
+        ):
             for arr_name in ("subtitles", "claim", "disclaimer", "disclaimer_02"):
                 arr = obj.get(arr_name)
                 if arr is None:
@@ -2493,9 +3273,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                             ftin = float(tin)
                             ftout = float(tout)
                             if ftin > ftout:
-                                errs.append(f"{arr_name}[{i}] in > out ({tin} > {tout})")
+                                errs.append(
+                                    f"{arr_name}[{i}] in > out ({tin} > {tout})"
+                                )
                             if prev_out is not None and ftin < prev_out:
-                                errs.append(f"{arr_name}[{i}] overlaps previous (start {ftin} < prev end {prev_out})")
+                                errs.append(
+                                    f"{arr_name}[{i}] overlaps previous (start {ftin} < prev end {prev_out})"
+                                )
                             prev_out = ftout
                     except Exception:
                         pass
@@ -2515,7 +3299,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if val is None:
                     return
                 if not isinstance(val, dict):
-                    errs.append(f"{name} must be an object with landscape/portrait keys")
+                    errs.append(
+                        f"{name} must be an object with landscape/portrait keys"
+                    )
                     return
                 for key in ("landscape", "portrait"):
                     if key not in val:
@@ -2532,13 +3318,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                             if not isinstance(elem, str):
                                 errs.append(f"{name}.{key}[{i}] not a string")
                 # Mirroring rule: if portrait empty but landscape not, should be mirrored equal length
-                if isinstance(val.get("landscape"), list) and isinstance(val.get("portrait"), list):
+                if isinstance(val.get("landscape"), list) and isinstance(
+                    val.get("portrait"), list
+                ):
                     land = val["landscape"]
                     port = val["portrait"]
                     if land and not port:
-                        warnings.append(f"{name}: portrait empty while landscape has data (expected mirror)")
+                        warnings.append(
+                            f"{name}: portrait empty while landscape has data (expected mirror)"
+                        )
                     if land and port and len(port) != len(land):
-                        warnings.append(f"{name}: landscape/portrait length mismatch {len(land)}!={len(port)}")
+                        warnings.append(
+                            f"{name}: landscape/portrait length mismatch {len(land)}!={len(port)}"
+                        )
 
             _validate_orientation_array("claim", obj.get("claim"))
             _validate_orientation_array("disclaimer", obj.get("disclaimer"))
@@ -2565,18 +3357,32 @@ def main(argv: Optional[List[str]] = None) -> int:
                         continue
                     vid = v.get("videoId")
                     if isinstance(vid, str):
-                        if not (vid.endswith("_landscape") or vid.endswith("_portrait")):
-                            warnings.append(f"videos[{v_index}].videoId missing orientation suffix")
+                        if not (
+                            vid.endswith("_landscape") or vid.endswith("_portrait")
+                        ):
+                            warnings.append(
+                                f"videos[{v_index}].videoId missing orientation suffix"
+                            )
                     meta = v.get("metadata", {})
                     if isinstance(meta, dict):
                         orient = meta.get("orientation")
-                        if isinstance(vid, str) and (vid.endswith("_landscape") or vid.endswith("_portrait")):
-                            expected = "landscape" if vid.endswith("_landscape") else "portrait"
+                        if isinstance(vid, str) and (
+                            vid.endswith("_landscape") or vid.endswith("_portrait")
+                        ):
+                            expected = (
+                                "landscape"
+                                if vid.endswith("_landscape")
+                                else "portrait"
+                            )
                             if orient != expected:
-                                errs.append(f"videos[{v_index}].metadata.orientation '{orient}' != expected '{expected}'")
+                                errs.append(
+                                    f"videos[{v_index}].metadata.orientation '{orient}' != expected '{expected}'"
+                                )
                         # Orientation key should exist for duplicated videos
                         if "orientation" not in meta:
-                            warnings.append(f"videos[{v_index}].metadata missing orientation")
+                            warnings.append(
+                                f"videos[{v_index}].metadata missing orientation"
+                            )
                     subs = v.get("subtitles")
                     if subs is None:
                         continue
@@ -2586,7 +3392,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     prev_out: Optional[float] = None
                     for si, s in enumerate(subs):
                         if not isinstance(s, dict):
-                            errs.append(f"videos[{v_index}].subtitles[{si}] not an object")
+                            errs.append(
+                                f"videos[{v_index}].subtitles[{si}] not an object"
+                            )
                             continue
                         tin = s.get("in")
                         tout = s.get("out")
@@ -2595,7 +3403,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 ftin = float(tin)
                                 ftout = float(tout)
                                 if ftin > ftout:
-                                    errs.append(f"videos[{v_index}].subtitles[{si}] in > out ({tin} > {tout})")
+                                    errs.append(
+                                        f"videos[{v_index}].subtitles[{si}] in > out ({tin} > {tout})"
+                                    )
                                 if prev_out is not None and ftin < prev_out:
                                     errs.append(
                                         f"videos[{v_index}].subtitles[{si}] overlaps previous (start {ftin} < prev end {prev_out})"
@@ -2604,6 +3414,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         except Exception:
                             pass
         return {"errors": errs, "warnings": warnings}
+
     def write_json(path: str, payload: Dict[str, Any]):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -2620,16 +3431,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             "subtitles": 5,
             "video_claim": 2,  # per-video claim array length
         }
+
         def _truncate_top_arrays(obj: Dict[str, Any]):
             out = obj
             if "claim" in out and isinstance(out["claim"], list):
-                out["claim"] = out["claim"][:SAMPLE_LIMITS["claim"]]
+                out["claim"] = out["claim"][: SAMPLE_LIMITS["claim"]]
             if "disclaimer" in out and isinstance(out["disclaimer"], list):
-                out["disclaimer"] = out["disclaimer"][:SAMPLE_LIMITS["disclaimer"]]
+                out["disclaimer"] = out["disclaimer"][: SAMPLE_LIMITS["disclaimer"]]
             if "disclaimer_02" in out and isinstance(out["disclaimer_02"], list):
-                out["disclaimer_02"] = out["disclaimer_02"][:SAMPLE_LIMITS["disclaimer_02"]]
+                out["disclaimer_02"] = out["disclaimer_02"][
+                    : SAMPLE_LIMITS["disclaimer_02"]
+                ]
             if "logo" in out and isinstance(out["logo"], list):
-                out["logo"] = out["logo"][:SAMPLE_LIMITS["logo"]]
+                out["logo"] = out["logo"][: SAMPLE_LIMITS["logo"]]
             # Orientation-aware objects
             for key in ("claim", "disclaimer", "disclaimer_02", "logo"):
                 val = out.get(key)
@@ -2637,14 +3451,25 @@ def main(argv: Optional[List[str]] = None) -> int:
                     for orient in ("landscape", "portrait"):
                         arr = val.get(orient)
                         if isinstance(arr, list):
-                            limit = SAMPLE_LIMITS["claim"] if key == "claim" else SAMPLE_LIMITS["disclaimer"] if key == "disclaimer" else SAMPLE_LIMITS["disclaimer_02"] if key == "disclaimer_02" else SAMPLE_LIMITS["logo"]
+                            limit = (
+                                SAMPLE_LIMITS["claim"]
+                                if key == "claim"
+                                else SAMPLE_LIMITS["disclaimer"]
+                                if key == "disclaimer"
+                                else SAMPLE_LIMITS["disclaimer_02"]
+                                if key == "disclaimer_02"
+                                else SAMPLE_LIMITS["logo"]
+                            )
                             val[orient] = arr[:limit]
             return out
+
         sample = copy.deepcopy(payload)
         # Unified per-country wrapper (we only sample the per-country payloads)
         if sample.get("_multi") and isinstance(sample.get("byCountry"), dict):
             for c, pld in sample.get("byCountry", {}).items():
-                sample["byCountry"][c] = make_sample(pld)  # recursive call on each per-country payload
+                sample["byCountry"][c] = make_sample(
+                    pld
+                )  # recursive call on each per-country payload
             # Also maybe truncate list of countries
             countries = sample.get("countries")
             if isinstance(countries, list):
@@ -2656,23 +3481,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         vids = sample.get("videos")
         if isinstance(vids, list):
             vids_trunc = []
-            for v in vids[:SAMPLE_LIMITS["videos"]]:
+            for v in vids[: SAMPLE_LIMITS["videos"]]:
                 v2 = copy.deepcopy(v)
                 subs = v2.get("subtitles")
                 if isinstance(subs, list):
-                    v2["subtitles"] = subs[:SAMPLE_LIMITS["subtitles"]]
+                    v2["subtitles"] = subs[: SAMPLE_LIMITS["subtitles"]]
                 # Claim array
                 if "claim" in v2 and isinstance(v2["claim"], list):
-                    v2["claim"] = v2["claim"][:SAMPLE_LIMITS["video_claim"]]
+                    v2["claim"] = v2["claim"][: SAMPLE_LIMITS["video_claim"]]
                 # claim_XX objects (claims-as-objects mode) -> keep only first two by sorted key
                 claim_keys = sorted([k for k in v2.keys() if k.startswith("claim_")])
-                for ck in claim_keys[SAMPLE_LIMITS["video_claim"]:]:
+                for ck in claim_keys[SAMPLE_LIMITS["video_claim"] :]:
                     del v2[ck]
                 vids_trunc.append(v2)
             sample["videos"] = vids_trunc
         # Simple single-structure legacy (subtitles only)
         if "subtitles" in sample and isinstance(sample["subtitles"], list):
-            sample["subtitles"] = sample["subtitles"][:SAMPLE_LIMITS["subtitles"]]
+            sample["subtitles"] = sample["subtitles"][: SAMPLE_LIMITS["subtitles"]]
         return sample
 
     def derive_sample_path(path: str) -> str:
@@ -2690,7 +3515,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             for c in countries:
                 payload = by_country.get(c, {})
                 res = _validate_structure(payload)
-                vids_objs = [v for v in payload.get("videos", []) if isinstance(v, dict)]
+                vids_objs = [
+                    v for v in payload.get("videos", []) if isinstance(v, dict)
+                ]
                 vids = [v.get("videoId") for v in vids_objs]
                 subtitle_count = sum(len(v.get("subtitles", [])) for v in vids_objs)
                 print(
@@ -2698,18 +3525,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                 )
                 all_errors.extend([f"{c}: {e}" for e in res["errors"]])
                 all_warnings.extend([f"{c}: {w}" for w in res["warnings"]])
-                reports.append({
-                    "country": c,
-                    "errors": res["errors"],
-                    "warnings": res["warnings"],
-                    "videos": [
-                        {"videoId": v.get("videoId"), "subtitleCount": len(v.get("subtitles", []))} for v in vids_objs
-                    ],
-                    "claimLines": len(payload.get("claim", [])),
-                    "disclaimerLines": len(payload.get("disclaimer", [])),
-                    "disclaimer_02Lines": len(payload.get("disclaimer_02", [])),
-                    "logoLines": len(payload.get("logo", [])),
-                })
+                reports.append(
+                    {
+                        "country": c,
+                        "errors": res["errors"],
+                        "warnings": res["warnings"],
+                        "videos": [
+                            {
+                                "videoId": v.get("videoId"),
+                                "subtitleCount": len(v.get("subtitles", [])),
+                            }
+                            for v in vids_objs
+                        ],
+                        "claimLines": len(payload.get("claim", [])),
+                        "disclaimerLines": len(payload.get("disclaimer", [])),
+                        "disclaimer_02Lines": len(payload.get("disclaimer_02", [])),
+                        "logoLines": len(payload.get("logo", [])),
+                    }
+                )
             if all_warnings:
                 print("Validation warnings:")
                 for w in all_warnings:
@@ -2730,7 +3563,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     },
                 }
                 try:
-                    os.makedirs(os.path.dirname(os.path.abspath(args.validation_report)), exist_ok=True)
+                    os.makedirs(
+                        os.path.dirname(os.path.abspath(args.validation_report)),
+                        exist_ok=True,
+                    )
                     with open(args.validation_report, "w", encoding="utf-8") as rf:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
@@ -2740,8 +3576,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if all_errors and not args.missing_keys_warn:
                     exit_code = 1
                 print(
-                    "Validation complete (no files written)." + (
-                        " Errors found." if exit_code == 1 else " OK (warnings only)." if all_warnings else " OK."
+                    "Validation complete (no files written)."
+                    + (
+                        " Errors found."
+                        if exit_code == 1
+                        else " OK (warnings only)."
+                        if all_warnings
+                        else " OK."
                     )
                 )
                 return exit_code
@@ -2756,12 +3597,22 @@ def main(argv: Optional[List[str]] = None) -> int:
                 root, ext = os.path.splitext(pattern)
                 pattern = f"{root}_{{country}}{ext}"
             # Variant counts per country (if provided by convert)
-            variant_counts: Dict[str, int] = data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
+            variant_counts: Dict[str, int] = (
+                data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
+            )
             for c in countries:
                 count = max(1, int(variant_counts.get(c, 1)))
                 for vi in range(count):
                     if vi == 0:
-                        payload = by_country.get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                        payload = by_country.get(
+                            c,
+                            {
+                                "subtitles": [],
+                                "claim": [],
+                                "disclaimer": [],
+                                "metadata": {},
+                            },
+                        )
                     else:
                         # Re-convert selecting alternate variant pair
                         alt = convert_csv_to_json(
@@ -2798,12 +3649,26 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 _inject_generation_metadata(alt)  # type: ignore[arg-type]
                             except Exception:
                                 pass
-                        payload = (alt.get("byCountry", {}) if isinstance(alt, dict) else {}).get(c, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+                        payload = (
+                            alt.get("byCountry", {}) if isinstance(alt, dict) else {}
+                        ).get(
+                            c,
+                            {
+                                "subtitles": [],
+                                "claim": [],
+                                "disclaimer": [],
+                                "metadata": {},
+                            },
+                        )
                     # Inject media (exact country+language) before writing
                     if isinstance(payload, dict):
                         _inject_media(payload, c)
                     # Per-country export: reduce logo_anim_flag overview to only this country's values
-                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                    mg = (
+                        payload.get("metadataGlobal")
+                        if isinstance(payload, dict)
+                        else None
+                    )
                     if isinstance(mg, dict) and "logo_anim_flag" in mg:
                         overview = mg["logo_anim_flag"]
                         if isinstance(overview, dict):
@@ -2839,7 +3704,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 csel = countries[args.country_column - 1]
             else:
                 csel = countries[-1]
-            payload = by_country.get(csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}})
+            payload = by_country.get(
+                csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
+            )
             # Also trim overview for single selected country (same logic as split loop)
             mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
             if isinstance(mg, dict) and "logo_anim_flag" in mg:
@@ -2912,7 +3779,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "warnings": warnings,
                 }
                 try:
-                    os.makedirs(os.path.dirname(os.path.abspath(args.validation_report)), exist_ok=True)
+                    os.makedirs(
+                        os.path.dirname(os.path.abspath(args.validation_report)),
+                        exist_ok=True,
+                    )
                     with open(args.validation_report, "w", encoding="utf-8") as rf:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
@@ -2920,8 +3790,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.validate_only:
                 exit_code = 0 if (not errors or args.missing_keys_warn) else 1
                 print(
-                    "Validation complete (no file written)." + (
-                        " Errors found." if exit_code == 1 else " OK (warnings only)." if warnings else " OK."
+                    "Validation complete (no file written)."
+                    + (
+                        " Errors found."
+                        if exit_code == 1
+                        else " OK (warnings only)."
+                        if warnings
+                        else " OK."
                     )
                 )
                 return exit_code
