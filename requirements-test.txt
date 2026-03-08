@@ -1,3 +1,6 @@
+# Install local package (needed for imports like `from python import csv_to_json` in tests)
+-e .
+
 pytest>=8.2.0
 coverage>=7.6.1
 coverage-badge>=1.1.0
