@@ -19,8 +19,10 @@ def test_blank_separator_rows_are_ignored_with_country_language_header():
         BEL;FRA;9x16;1080x1920;06sC1;Snapchat Story BEL FRA;regular;
         """
     )
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
-    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json')
+    os.close(fd_out)
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
     args = [sys.executable, SCRIPT, path_in, path_out]
@@ -30,7 +32,8 @@ def test_blank_separator_rows_are_ignored_with_country_language_header():
     # Expect two keys from the two non-blank rows
     keys = list(data.keys())
     assert '9x16|15s' in keys or '9x16|06s' in keys
-    os.remove(path_in); os.remove(path_out)
+    os.remove(path_in)
+    os.remove(path_out)
 
 
 def test_blank_separator_rows_with_split_do_not_crash():
@@ -42,7 +45,8 @@ def test_blank_separator_rows_with_split_do_not_crash():
         BEL;FRA;9x16;1080x1920;15sC1;Snapchat Story BEL FRA;regular;
         """
     )
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
     out_dir = tempfile.mkdtemp()
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
@@ -55,4 +59,6 @@ def test_blank_separator_rows_with_split_do_not_crash():
     assert os.path.exists(deu)
     assert os.path.exists(bel_fra)
     os.remove(path_in)
-    os.remove(deu); os.remove(bel_fra); os.rmdir(out_dir)
+    os.remove(deu)
+    os.remove(bel_fra)
+    os.rmdir(out_dir)

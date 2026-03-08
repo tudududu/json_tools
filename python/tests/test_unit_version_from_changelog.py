@@ -19,9 +19,9 @@ def read_expected_version() -> str:
     assert os.path.isfile(changelog_path), f"Missing {changelog_path}"
     with open(changelog_path, 'r', encoding='utf-8') as f:
         for line in f:
-            l = line.strip()
-            if l.startswith('#'):
-                heading = l.lstrip('#').strip()
+            stripped_line = line.strip()
+            if stripped_line.startswith('#'):
+                heading = stripped_line.lstrip('#').strip()
                 m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
                 if m:
                     return m.group(1)

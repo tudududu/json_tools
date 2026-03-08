@@ -27,20 +27,24 @@ def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:
 
 
 def run_tool(csv_text: str, delimiter=';'):
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
-    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json')
+    os.close(fd_out)
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
     args = [sys.executable, SCRIPT, path_in, path_out, '--delimiter', delimiter]
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     data = json.load(open(path_out, 'r', encoding='utf-8'))
-    os.remove(path_in); os.remove(path_out)
+    os.remove(path_in)
+    os.remove(path_out)
     return data
 
 
 def run_tool_path(path_in: str, extra_args: list[str] | None = None):
-    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json')
+    os.close(fd_out)
     args = [sys.executable, SCRIPT, path_in, path_out]
     if extra_args:
         args.extend(extra_args)
@@ -122,15 +126,18 @@ def test_compact_output_inline_items():
         """
     )
     # Write compact output to a temp file and inspect text
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
-    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json')
+    os.close(fd_out)
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
     args = [sys.executable, SCRIPT, path_in, path_out, '--compact']
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     txt = open(path_out, 'r', encoding='utf-8').read()
-    os.remove(path_in); os.remove(path_out)
+    os.remove(path_in)
+    os.remove(path_out)
     # Expect inline items pattern in compact mode
     assert '{ "size"' in txt and '"media"' in txt
     # Objects should be single-line entries inside array
@@ -173,7 +180,8 @@ def test_dimensions_normalization_removes_spaces():
 
 
 def test_xlsx_default_prefers_media_sheet():
-    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd_in)
     try:
         write_xlsx(path_in, {
             "Sheet1": [
@@ -193,7 +201,8 @@ def test_xlsx_default_prefers_media_sheet():
 
 
 def test_xlsx_fallback_to_first_sheet_when_media_missing():
-    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd_in)
     try:
         write_xlsx(path_in, {
             "primary": [
@@ -213,7 +222,8 @@ def test_xlsx_fallback_to_first_sheet_when_media_missing():
 
 
 def test_xlsx_sheet_override_uses_requested_sheet():
-    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd_in)
     try:
         write_xlsx(path_in, {
             "media": [
@@ -233,7 +243,8 @@ def test_xlsx_sheet_override_uses_requested_sheet():
 
 
 def test_xlsx_sheet_override_missing_fails():
-    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd_in)
     try:
         write_xlsx(path_in, {
             "media": [
@@ -241,7 +252,8 @@ def test_xlsx_sheet_override_missing_fails():
                 ["1x1", "640x640", "6sC1", "TikTok", "regular", ""],
             ],
         })
-        fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+        fd_out, path_out = tempfile.mkstemp(suffix='.json')
+        os.close(fd_out)
         try:
             proc = subprocess.run(
                 [sys.executable, SCRIPT, path_in, path_out, "--xlsx-sheet", "missing"],

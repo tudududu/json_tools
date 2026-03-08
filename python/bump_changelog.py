@@ -86,9 +86,12 @@ def bump_version(cur: str, part: str, pre: Optional[str]) -> str:
     core = re.split(r'[-+]', cur)[0]
     major, minor, patch = [int(x) for x in core.split('.')[:3]]
     if part == 'major':
-        major += 1; minor = 0; patch = 0
+        major += 1
+        minor = 0
+        patch = 0
     elif part == 'minor':
-        minor += 1; patch = 0
+        minor += 1
+        patch = 0
     else:  # patch
         patch += 1
     new_ver = f"{major}.{minor}.{patch}"

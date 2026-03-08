@@ -34,7 +34,8 @@ def test_split_by_country_writes_multiple_files_with_default_pattern():
         1x1;1440x1440;6sC1;Meta InFeed;regular;;US;
         """
     )
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
     out_dir = tempfile.mkdtemp()
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
@@ -61,7 +62,8 @@ def test_split_by_country_writes_multiple_files_with_default_pattern():
 
     # Cleanup
     os.remove(path_in)
-    os.remove(f1); os.remove(f2)
+    os.remove(f1)
+    os.remove(f2)
     os.rmdir(out_dir)
 
 
@@ -74,8 +76,10 @@ def test_split_dry_run_prints_group_summary():
         1x1;640x640;6sC1;Meta InFeed;regular;;DE;
         """
     )
-    fd_in, path_in = tempfile.mkstemp(suffix='.csv'); os.close(fd_in)
-    fd_out, path_out = tempfile.mkstemp(suffix='.json'); os.close(fd_out)
+    fd_in, path_in = tempfile.mkstemp(suffix='.csv')
+    os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix='.json')
+    os.close(fd_out)
     with open(path_in, 'w', encoding='utf-8') as f:
         f.write(csv_text)
 
@@ -89,11 +93,13 @@ def test_split_dry_run_prints_group_summary():
     assert '- DE:' in out
 
     # Cleanup
-    os.remove(path_in); os.remove(path_out)
+    os.remove(path_in)
+    os.remove(path_out)
 
 
 def test_split_by_country_from_xlsx_default_media_sheet():
-    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx'); os.close(fd_in)
+    fd_in, path_in = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd_in)
     out_dir = tempfile.mkdtemp()
     try:
         write_xlsx(path_in, {

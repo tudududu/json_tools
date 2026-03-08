@@ -2217,10 +2217,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if os.path.isfile(changelog_path):
                     with open(changelog_path, "r", encoding="utf-8") as chf:
                         for line in chf:
-                            l = line.strip()
-                            if l.startswith('#'):
+                            stripped_line= line.strip()
+                            if stripped_line.startswith('#'):
                                 # Extract first token after '#'
-                                heading = l.lstrip('#').strip()
+                                heading = stripped_line.lstrip('#').strip()
                                 # Common forms: "1.3.1 - 2025-09-29" or "[1.3.1]" etc.
                                 m = re.match(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)", heading)
                                 if m:
@@ -2362,13 +2362,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if os.path.isfile(changelog_path):
                     with open(changelog_path, 'r', encoding='utf-8') as chf:
                         for line in chf:
-                            l = line.strip()
-                            if l.startswith('#'):
+                            stripped_line = line.strip()
+                            if stripped_line.startswith('#'):
                                 # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
-                                last_change_id = l.lstrip('#').strip()
+                                last_change_id = stripped_line.lstrip('#').strip()
                                 break
-                            if l and ('202' in l or '20' in l) and any(c.isdigit() for c in l):
-                                last_change_id = l
+                            if stripped_line and ('202' in stripped_line or '20' in stripped_line) and any(c.isdigit() for c in stripped_line):
+                                last_change_id = stripped_line
                                 break
                         if last_change_id:
                             break

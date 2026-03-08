@@ -146,7 +146,13 @@ def convert_rows(rows: Iterable[dict], trim: bool = True) -> Dict[str, List[Dict
     template_name = (row.get("Template_name") or "")
 
     if trim:
-      ar = ar.strip(); dims = dims.strip(); creative = creative.strip(); duration = duration.strip(); media = media.strip(); template = template.strip(); template_name = template_name.strip()
+      ar = ar.strip()
+      dims = dims.strip()
+      creative = creative.strip()
+      duration = duration.strip()
+      media = media.strip()
+      template = template.strip()
+      template_name = template_name.strip()
 
     # Skip spacer/blank rows and rows without essential fields.
     # Essential: ar, dims, media; plus at least one of duration or creative.

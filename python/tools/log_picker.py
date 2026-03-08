@@ -129,8 +129,8 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			sep = f"{'-' * SEPARATOR_WIDTH} {src.name}"
 			out.write(sep + "\n")
 			if lines:
-				for l in lines:
-					out.write(l + "\n")
+				for line in lines:
+					out.write(line + "\n")
 			else:
 				out.write("<NO MATCHING LINES>\n")
 			# Add blank line after each block for readability
@@ -165,9 +165,9 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			if not src.name.startswith("pipeline_run_"):
 				continue
 			latest_timing = None
-			for l in reversed(lines):
-				if l.startswith("Timing (s) =>"):
-					latest_timing = l
+			for line in reversed(lines):
+				if line.startswith("Timing (s) =>"):
+					latest_timing = line
 					break
 			if latest_timing is None:
 				continue
@@ -211,11 +211,11 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			counts_val = None
 			timing_val = None
 			# Walk lines in reverse to prefer the last occurrence
-			for l in reversed(lines):
-				if counts_val is None and l.startswith("Counts =>"):
-					counts_val = _extract_value_from_line(l, "layersAddedTotal")
-				if timing_val is None and l.startswith("Timing (s) =>"):
-					timing_val = _extract_value_from_line(l, "addLayers")
+			for line in reversed(lines):
+				if counts_val is None and line.startswith("Counts =>"):
+					counts_val = _extract_value_from_line(line, "layersAddedTotal")
+				if timing_val is None and line.startswith("Timing (s) =>"):
+					timing_val = _extract_value_from_line(line, "addLayers")
 				if counts_val is not None and timing_val is not None:
 					break
 			counts_out = counts_val if counts_val is not None else "-"
@@ -228,11 +228,11 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 			timing_val1 = None
 			timing_val2 = None
 			# Walk lines in reverse to prefer the last occurrence
-			for l in reversed(lines):
-				if timing_val1 is None and l.startswith("Timing (s) =>"):
-					timing_val1 = _extract_value_from_line(l, "addLayers")
-				if timing_val2 is None and l.startswith("Timing (s) =>"):
-					timing_val2 = _extract_value_from_line(l, "total")
+			for line in reversed(lines):
+				if timing_val1 is None and line.startswith("Timing (s) =>"):
+					timing_val1 = _extract_value_from_line(line, "addLayers")
+				if timing_val2 is None and line.startswith("Timing (s) =>"):
+					timing_val2 = _extract_value_from_line(line, "total")
 				if timing_val1 is not None and timing_val2 is not None:
 					break
 			# Compute percentage addLayers/total
@@ -254,9 +254,9 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 		totals: list[tuple[Path, str | None, float | None]] = []
 		for src, lines in gathered:
 			timing_total = None
-			for l in reversed(lines):
-				if l.startswith("Timing (s) =>"):
-					timing_total = _extract_value_from_line(l, "total")
+			for line in reversed(lines):
+				if line.startswith("Timing (s) =>"):
+					timing_total = _extract_value_from_line(line, "total")
 					break
 			val: float | None = None
 			if timing_total is not None:
@@ -282,9 +282,9 @@ def write_summary(out_path: Path, gathered: List[tuple[Path, List[str]]], input_
 		out.write("==== Summary percentage ====\n")
 		for src, lines in gathered:
 			latest = None
-			for l in reversed(lines):
-				if l.startswith("Timing (s) =>"):
-					latest = l
+			for line in reversed(lines):
+				if line.startswith("Timing (s) =>"):
+					latest = line
 					break
 			if latest is None:
 				out.write(f"{src.name}: -\n")

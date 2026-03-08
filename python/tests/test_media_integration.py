@@ -61,10 +61,14 @@ class MediaIntegrationTests(unittest.TestCase):
                 # Basic sanity of media content
                 self.assertIn('1x1|06s', gbl['media'])
         finally:
-            try: os.remove(in_path)
-            except Exception: pass
-            try: os.remove(media_path)
-            except Exception: pass
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(media_path)
+            except Exception:
+                pass
 
     @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
     def test_media_injected_from_xlsx_media_file(self):
@@ -104,10 +108,14 @@ class MediaIntegrationTests(unittest.TestCase):
                 self.assertNotIn('media', fra)
                 self.assertIn('1x1|06s', gbl['media'])
         finally:
-            try: os.remove(in_path)
-            except Exception: pass
-            try: os.remove(media_path)
-            except Exception: pass
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(media_path)
+            except Exception:
+                pass
 
 
 if __name__ == '__main__':

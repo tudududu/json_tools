@@ -281,7 +281,8 @@ class LogoAnimFlagTests(unittest.TestCase):
                 'meta_local;WTA_45s;;;;title;N;ALL;WTA;;;;;;\n'
                 'sub;WTA_45s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
             )
-            with open(csv_path, 'w', encoding='utf-8') as f: f.write(csv_content)
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
             out_pattern = os.path.join(tmpdir, 'out_{country}.json')
             run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
             deu_path = out_pattern.replace('{country}', 'DEU')
@@ -308,7 +309,8 @@ class LogoAnimFlagTests(unittest.TestCase):
                 'meta_local;WTA_60s;;;;title;N;ALL;WTA;;;;;;\n'
                 'sub;WTA_60s;1;00:00:01:00;00:00:02:00;;;;;Hello;;Hallo;;مرحبا;\n'
             )
-            with open(csv_path, 'w', encoding='utf-8') as f: f.write(csv_content)
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(csv_content)
             out_pattern = os.path.join(tmpdir, 'out_{country}.json')
             run([sys.executable, CONVERTER, csv_path, os.path.join(tmpdir, 'out.json'), '--split-by-country', '--output-pattern', out_pattern])
             deu_path = out_pattern.replace('{country}', 'DEU')

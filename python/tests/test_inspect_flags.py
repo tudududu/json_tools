@@ -42,7 +42,7 @@ def run_cli(args):
         code = inspect_flags.main(args)
     finally:
         sys.stdout = old_out
-    return code, [l for l in buf.getvalue().splitlines() if l.strip()]
+    return code, [line for line in buf.getvalue().splitlines() if line.strip()]
 
 
 def test_gather_json_files_glob_and_directory(tmp_path):
@@ -67,7 +67,7 @@ def test_single_country_metadata_extraction(tmp_path, show_missing: bool):
     code, lines = run_cli(args)
     assert code == 0
     # Only one metadataGlobal line expected (single country)
-    mg_line = next(l for l in lines if "[metadataGlobal]" in l)
+    mg_line = next(line for line in lines if "[metadataGlobal]" in line)
     assert "jobNumber='123'" in mg_line
     assert ("subtitle_flag=True" in mg_line)
     if show_missing:
@@ -81,9 +81,9 @@ def test_single_country_per_video_enabled(tmp_path):
     code, lines = run_cli([str(f), "--per-video", "--keys", "jobNumber,subtitle_flag"])
     assert code == 0
     # Expect metadataGlobal + two video lines
-    assert sum("[video:" in l for l in lines) == 2
-    assert any("video:vid0" in l and "subtitle_flag=False" in l for l in lines)
-    assert any("video:vid1" in l and "jobNumber='v2'" in l for l in lines)
+    assert sum("[video:" in line for line in lines) == 2
+    assert any("video:vid0" in line and "subtitle_flag=False" in line for line in lines)
+    assert any("video:vid1" in line and "jobNumber='v2'" in line for line in lines)
 
 
 def test_multi_country_basic(tmp_path):
@@ -91,10 +91,10 @@ def test_multi_country_basic(tmp_path):
     code, lines = run_cli([str(f), "--keys", "jobNumber,subtitle_flag", "--per-video"])
     assert code == 0
     # Expect both countries metadataGlobal lines
-    assert any("[GBR][metadataGlobal]" in l and "jobNumber='gb'" in l for l in lines)
-    assert any("[DEU][metadataGlobal]" in l and "subtitle_flag=True" in l for l in lines)
+    assert any("[GBR][metadataGlobal]" in line and "jobNumber='gb'" in line for line in lines)
+    assert any("[DEU][metadataGlobal]" in line and "subtitle_flag=True" in line for line in lines)
     # Per-video lines include country prefix videoIds
-    assert any("[GBR][video:GBR_vid0]" in l for l in lines)
+    assert any("[GBR][video:GBR_vid0]" in line for line in lines)
 
 
 def test_error_on_no_files(tmp_path, capsys):
@@ -109,7 +109,7 @@ def test_invalid_json_is_reported(tmp_path):
     f.write_text("{not valid", encoding="utf-8")
     code, lines = run_cli([str(f)])
     assert code == 0  # continues processing other files (none here)
-    assert any("<ERROR reading JSON" in l for l in lines)
+    assert any("<ERROR reading JSON" in line for line in lines)
 
 
 def test_single_country_per_video_empty_list(tmp_path):
@@ -118,8 +118,8 @@ def test_single_country_per_video_empty_list(tmp_path):
     f.write_text(json.dumps({"metadataGlobal": {"jobNumber": "top"}, "videos": []}), encoding="utf-8")
     code, lines = run_cli([str(f), "--per-video", "--keys", "jobNumber"])
     assert code == 0
-    assert any("[metadataGlobal]" in l and "jobNumber='top'" in l for l in lines)
-    assert not any("[video:" in l for l in lines)
+    assert any("[metadataGlobal]" in line and "jobNumber='top'" in line for line in lines)
+    assert not any("[video:" in line for line in lines)
 
 
 def test_single_country_fallback_metadata_when_metadataGlobal_missing(tmp_path):
@@ -127,7 +127,7 @@ def test_single_country_fallback_metadata_when_metadataGlobal_missing(tmp_path):
     f.write_text(json.dumps({"metadata": {"subtitle_flag": False}}), encoding="utf-8")
     code, lines = run_cli([str(f), "--keys", "subtitle_flag,jobNumber"])
     assert code == 0
-    mg = next(l for l in lines if "[metadataGlobal]" in l)
+    mg = next(line for line in lines if "[metadataGlobal]" in line)
     assert "subtitle_flag=False" in mg
     assert "jobNumber=" not in mg
 
@@ -139,9 +139,9 @@ def test_multi_country_without_multi_flag_treated_as_single(tmp_path):
     f.write_text(json.dumps(data), encoding="utf-8")
     code, lines = run_cli([str(f), "--keys", "jobNumber", "--per-video"])
     assert code == 0
-    assert any("[metadataGlobal]" in l and "jobNumber='root'" in l for l in lines)
+    assert any("[metadataGlobal]" in line and "jobNumber='root'" in line for line in lines)
     # Ensure we did not emit country-scoped lines
-    assert not any("[GBR][metadataGlobal]" in l for l in lines)
+    assert not any("[GBR][metadataGlobal]" in line for line in lines)
 
 
 def test_multi_country_with_non_dict_payload_entry(tmp_path):
@@ -151,9 +151,9 @@ def test_multi_country_with_non_dict_payload_entry(tmp_path):
     code, lines = run_cli([str(f), "--keys", "subtitle_flag", "--per-video"])
     assert code == 0
     # For GBR, payload is not dict -> prints (no keys) line
-    assert any(l.startswith(str(f)) and "[GBR][metadataGlobal]" in l for l in lines)
+    assert any(line.startswith(str(f)) and "[GBR][metadataGlobal]" in line for line in lines)
     # For DEU, metadataGlobal exists
-    assert any("[DEU][metadataGlobal]" in l and "subtitle_flag=True" in l for l in lines)
+    assert any("[DEU][metadataGlobal]" in line and "subtitle_flag=True" in line for line in lines)
 
 
 def test_multi_country_per_video_show_missing(tmp_path):
@@ -175,9 +175,9 @@ def test_multi_country_per_video_show_missing(tmp_path):
     code, lines = run_cli([str(f), "--per-video", "--show-missing", "--keys", "jobNumber,subtitle_flag"])
     assert code == 0
     # two per-video lines expected, both with some <MISSING>
-    v0 = next(l for l in lines if "[GBR][video:g0]" in l)
+    v0 = next(line for line in lines if "[GBR][video:g0]" in line)
     assert "jobNumber=<MISSING>" in v0 and "subtitle_flag=<MISSING>" in v0
-    v1 = next(l for l in lines if "[GBR][video:g1]" in l)
+    v1 = next(line for line in lines if "[GBR][video:g1]" in line)
     assert "jobNumber=<MISSING>" in v1 and "subtitle_flag=True" in v1
 
 
@@ -194,9 +194,9 @@ def test_multi_country_metadata_show_missing_no_per_video(tmp_path):
     f.write_text(json.dumps(data), encoding="utf-8")
     code, lines = run_cli([str(f), "--show-missing", "--keys", "jobNumber,subtitle_flag"])
     assert code == 0
-    gbr = next(l for l in lines if "[GBR][metadataGlobal]" in l)
+    gbr = next(line for line in lines if "[GBR][metadataGlobal]" in line)
     assert "subtitle_flag=True" in gbr and "jobNumber=<MISSING>" in gbr
-    deu = next(l for l in lines if "[DEU][metadataGlobal]" in l)
+    deu = next(line for line in lines if "[DEU][metadataGlobal]" in line)
     assert "jobNumber=<MISSING>" in deu and "subtitle_flag=<MISSING>" in deu
 
 
@@ -208,7 +208,7 @@ def test_default_keys_omitted_uses_defaults(tmp_path):
     )
     code, lines = run_cli([str(f)])  # no --keys provided
     assert code == 0
-    mg_line = next(l for l in lines if "[metadataGlobal]" in l)
+    mg_line = next(line for line in lines if "[metadataGlobal]" in line)
     # Present default key should appear
     assert "subtitle_flag=True" in mg_line
     # Missing default keys should be omitted (since --show-missing not set)
