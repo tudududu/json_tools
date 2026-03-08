@@ -329,7 +329,7 @@ def read_csv(path: str, delimiter: str = ";", xlsx_sheet: str | None = None) -> 
   start_idx = 0
   while start_idx < len(lines) and lines[start_idx].strip() == "":
     start_idx += 1
-  header = lines[start_idx] if start_idx < len(lines) else ""
+  # header = lines[start_idx] if start_idx < len(lines) else ""
 
   # Resolve delimiter: prefer provided value; if headers not split as expected, fallback heuristics
   delims_to_try = [delimiter]

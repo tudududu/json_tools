@@ -345,7 +345,7 @@ def convert_csv_to_json(
         idx_end = lower_headers.index("end") if "end" in lower_headers else None
         idx_key = lower_headers.index("key") if "key" in lower_headers else None
         idx_target_duration = lower_headers.index("target_duration") if "target_duration" in lower_headers else None
-        idx_is_global = lower_headers.index("is_global") if "is_global" in lower_headers else None
+        # idx_is_global = lower_headers.index("is_global") if "is_global" in lower_headers else None
         idx_country_scope = lower_headers.index("country_scope") if "country_scope" in lower_headers else None
         idx_metadata_val = lower_headers.index("metadata") if "metadata" in lower_headers else None
 

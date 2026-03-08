@@ -62,7 +62,7 @@ def test_delimiter_sniff_vs_forced(tmp_path, delim, force_flag):
     args = [str(csv), str(out), "--fps", "25"]
     if force_flag:
         args += ["--delimiter", force_flag]
-    proc = run_cli(args)
+    run_cli(args)
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["subtitles"][0]["text"] == "Hello"
 
