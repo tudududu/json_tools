@@ -1,16 +1,13 @@
 import os
 import re
-import sys
 import json
 import tempfile
 import unittest
 
+from python import csv_to_json as mod
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))
-if PYTHON_DIR not in sys.path:
-    sys.path.insert(0, PYTHON_DIR)
-
-import csv_to_json as mod
 
 
 def read_expected_version() -> str:

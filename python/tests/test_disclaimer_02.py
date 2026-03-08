@@ -5,13 +5,10 @@ Tests parsing, merging, portrait fallback, and local override for disclaimer_02 
 """
 
 import os
-import sys
 import unittest
 import tempfile
 
-# Add parent dir to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import csv_to_json as mod
+from python import csv_to_json as mod
 
 
 def tmp_csv(content: str) -> str:

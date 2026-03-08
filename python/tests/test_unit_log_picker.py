@@ -1,15 +1,6 @@
 import pathlib
-import os
-import sys
 import tempfile
 import unittest
-
-# Ensure repository root is on sys.path; with package markers, `python.*` imports work
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_REPOROOT = os.path.abspath(os.path.join(_HERE, '..', '..'))
-for _p in (_REPOROOT,):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 from python.tools import log_picker
 

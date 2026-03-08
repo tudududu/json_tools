@@ -31,10 +31,6 @@ def _ensure_env():
         os.environ['PYTHONPATH'] = os.pathsep.join(paths + [env_pp])
     else:
         os.environ['PYTHONPATH'] = os.pathsep.join(paths)
-    # Also fix sys.path for current pytest process
-    for p in reversed(paths):
-        if p not in sys.path:
-            sys.path.insert(0, p)
     # Instruct tests to wrap CLI subprocesses with coverage run -p
     os.environ.setdefault('COVERAGE_SUBPROCESS', '1')
 

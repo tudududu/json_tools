@@ -1,15 +1,9 @@
 import os
-import sys
 import json
 import tempfile
 import unittest
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PYTHON_DIR = os.path.abspath(os.path.join(HERE, '..'))
-if PYTHON_DIR not in sys.path:
-    sys.path.insert(0, PYTHON_DIR)
-
-import csv_to_json as mod
+from python import csv_to_json as mod
 
 
 def tmp_csv(content: str) -> str:

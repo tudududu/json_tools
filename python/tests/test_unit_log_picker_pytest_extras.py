@@ -1,14 +1,6 @@
-import os
-import sys
 from pathlib import Path
 
 import pytest
-
-# Ensure repository root is on sys.path; package markers allow python.* imports
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_REPOROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
-if _REPOROOT not in sys.path:
-    sys.path.insert(0, _REPOROOT)
 
 from python.tools import log_picker
 

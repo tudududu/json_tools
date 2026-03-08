@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import csv_to_json as mod
+from python import csv_to_json as mod
 import tempfile
 import os
 import json
