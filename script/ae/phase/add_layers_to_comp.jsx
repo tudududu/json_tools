@@ -1541,6 +1541,26 @@ function __AddLayers_coreRun(opts) {
             var gspan = resolveTimingSpan(v, gtk, TIMING_ITEM_SELECTOR);
             if (gspan) __genericTimingMap[gtk] = gspan;
         }
+        // For modular variants, generic timing can be resolved from the comp module token
+        // (e.g., comp tag B3 => generic_02 line 3) instead of a fixed selector line.
+        var __timingCompModuleTagMap = moduleTagMapFromCompName(comp ? comp.name : null);
+        function resolveGenericTimingSpanForComp(videoObj, genericKey) {
+            var fallback = __genericTimingMap[genericKey] || null;
+            try {
+                var tagPrefix = resolveModuleTagPrefixForGenericKey(genericKey);
+                if (!tagPrefix) return fallback;
+                var token = (__timingCompModuleTagMap && __timingCompModuleTagMap[tagPrefix]) ? String(__timingCompModuleTagMap[tagPrefix]).toUpperCase() : '';
+                if (!token) return fallback;
+                var mTok = token.match(/^[A-Z](\d+)$/);
+                if (!mTok) return fallback;
+                var lineNo = parseInt(mTok[1], 10);
+                if (isNaN(lineNo) || lineNo < 1) return fallback;
+                var spanByToken = resolveTimingSpanOnArray(videoObj, genericKey, { mode: 'line', value: lineNo });
+                return spanByToken || fallback;
+            } catch(eGT) {
+                return fallback;
+            }
+        }
         // Helper to extract flag value given a configured key (checks video then video.metadata)
         function extractFlag(videoObj, keyName) {
             if (!videoObj || !keyName) return null;
@@ -1759,7 +1779,7 @@ function __AddLayers_coreRun(opts) {
                     }
                 }
                 if (genericTimingBeh === 'asIs' && !explicitForGenericKey && !explicitForLiteral) genericTimingBeh = 'timed';
-                var gmm = __genericTimingMap[matchedGenericKey] || null;
+                var gmm = resolveGenericTimingSpanForComp(v, matchedGenericKey);
                 if (genericTimingBeh === 'timed') {
                     if (gmm) {
                         setLayerInOut(ly, gmm.tin, gmm.tout, comp.duration);
