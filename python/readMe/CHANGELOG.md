@@ -1,3 +1,19 @@
+# 1.8.7 - 2026-03-09
+
+Changed:
+- Quality gates and lint/format stabilization (CSV to JSON 249–268):
+	* Standardized repository lint/format workflow on Ruff checks (`ruff check` + `ruff format --check`) and removed duplicate formatter/linter overlap in CI.
+	* Completed focused lint debt cleanup for style-only violations (`E701`, `E702`, `E741`, `F841`) across converter/tools/tests files.
+	* Removed unused variables and dead assignments flagged by Ruff (including `idx_is_global`, `header`, and unused test locals).
+	* Reworked test imports to avoid per-file `sys.path` mutation (`E402`) and use package imports consistently.
+	* Added editable package install support for tests/CI (`pip install -e .`) via `pyproject.toml` packaging metadata and workflow updates.
+	* Pinned Ruff in `requirements-test.txt` to `0.14.4` to eliminate local-vs-CI formatter drift.
+
+Maintenance:
+- Dependencies and docs cleanup:
+	* Simplified top-level `requirements.txt` to minimal runtime dependency set (kept `openpyxl` as the only required runtime package).
+	* Kept test/tooling dependencies in `requirements-test.txt`, including editable local install for stable test imports.
+
 # 1.8.6 - 2026-03-07
 
 Added:

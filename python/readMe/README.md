@@ -1,4 +1,4 @@
-# CSV → JSON Subtitle Converter (Python CLI)
+# CSV → JSON Converter (Python CLI)
 
 ![Coverage](../tests/coverage/coverage.svg "Test Coverage")
 

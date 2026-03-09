@@ -4,6 +4,7 @@ This repository contains two main parts:
 
 1) Adobe After Effects scripting pipeline (ExtendScript) for composition setup, output pathing, and queueing to AME.
 2) A Python CLI that converts campaign CSVs to structured JSON consumed by the AE pipeline.
+![Coverage](python/tests/coverage/coverage.svg "Test Coverage")
 
 Use this page as a docs index to navigate the project.
 
