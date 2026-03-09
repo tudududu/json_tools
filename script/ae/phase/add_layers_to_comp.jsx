@@ -1556,6 +1556,15 @@ function __AddLayers_coreRun(opts) {
                 var lineNo = parseInt(mTok[1], 10);
                 if (isNaN(lineNo) || lineNo < 1) return fallback;
                 var spanByToken = resolveTimingSpanOnArray(videoObj, genericKey, { mode: 'line', value: lineNo });
+                if (spanByToken) {
+                    if (String(genericKey).toLowerCase() === 'generic_02') {
+                        log("generic_02 timing source: " + token + " -> line " + lineNo);
+                    } else {
+                        log(String(genericKey) + " timing source: " + token + " -> line " + lineNo);
+                    }
+                } else if (fallback) {
+                    log(String(genericKey) + " timing source: " + token + " -> line " + lineNo + " (fallback to selector/minMax)");
+                }
                 return spanByToken || fallback;
             } catch(eGT) {
                 return fallback;

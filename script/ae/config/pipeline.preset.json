@@ -38,7 +38,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup_v03.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup2_v02.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -106,7 +106,7 @@
     }
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false,
     
@@ -168,7 +168,7 @@
             "contains": [] 
             },
         "claim_02": { 
-            "exact": ["claim_02", "Size_Holder_Claim_02", "web"],
+            "exact": ["claim_02", "Size_Holder_Claim_02"],
             "contains": [] 
             },
         "claim_auxiliary": { 
@@ -199,6 +199,14 @@
             "exact": [], 
             "contains": ["module_B"] 
             },
+        "generic_03": {
+            "exact": ["web"],
+            "contains": [] 
+            },
+        "generic_04": {
+            "exact": ["web2"],
+            "contains": [] 
+            },
         "dataJson": { 
             "exact": ["DATA_JSON", "data.json"], 
             "contains": [] 
@@ -219,6 +227,8 @@
         "claim_auxiliary": "timed",
         "generic_01": "timed",
         "generic_02": "timed",
+        "generic_03": "timed",
+        "generic_04": "timed",
 
         "logo_03": "span",
         "logo_04": "span",
@@ -248,7 +258,9 @@
         "claim_02": { "mode": "line", "value": 2 },
         "claim_auxiliary": { "mode": "line", "value": 1 },
         "generic_01": { "mode": "line", "value": 1 },
-        "generic_02": { "mode": "line", "value": 1 }
+        "generic_02": { "mode": "line", "value": 1 },
+        "generic_03": { "mode": "line", "value": 1 },
+        "generic_04": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff": true, 
