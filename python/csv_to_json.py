@@ -2247,9 +2247,11 @@ def convert_csv_to_json(
 
                 # Generic timed keys (no merge/dedup) with top-level + per-video output
                 for gk in generic_keys_sorted:
+                    # Per-video generic emission is controlled by local presence:
+                    # when no local rows exist for this key+video, emit an empty list.
                     src_generic = per_video_generic_rows_raw.get(gk, {}).get(
-                        vid_full.rsplit("_", 1)[0]
-                    ) or generic_rows_raw.get(gk, [])
+                        vid_full.rsplit("_", 1)[0], []
+                    )
                     generic_items: List[Dict[str, Any]] = []
                     generic_texts_global = (
                         generic_top_port[gk]

@@ -1,3 +1,10 @@
+# 1.8.8 - 2026-03-12
+
+Added:
+- Updated per-video generic key emission logic in csv_to_json.py:
+	Before: if local generic rows were missing for a video/key, it fell back to global generic rows.
+	Now: it uses local rows only; if missing, it emits an empty list for that per-video key.
+
 # 1.8.7 - 2026-03-09
 
 Changed:
