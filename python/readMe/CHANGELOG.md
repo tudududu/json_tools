@@ -1,3 +1,13 @@
+# 1.8.9 - 2026-03-14
+
+Added:
+- backward-compatible flag (--generic-always-emit) with default off, 
+	Function param: generic_always_emit: bool = False
+	CLI flag: --generic-always-emit
+	Behavior now:
+	Default (no flag): per-video generic_NN uses only local rows; missing local rows -> [] (your current desired behavior).
+	With --generic-always-emit: restores legacy fallback; missing local rows fall back to global generic_NN rows for that video.
+
 # 1.8.8 - 2026-03-12
 
 Added:

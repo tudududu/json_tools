@@ -343,6 +343,7 @@ def convert_csv_to_json(
     country_variant_index: Optional[int] = None,
     flags_overview_object_always: bool = False,
     xlsx_sheet: Optional[str] = None,
+    generic_always_emit: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -2247,10 +2248,16 @@ def convert_csv_to_json(
 
                 # Generic timed keys (no merge/dedup) with top-level + per-video output
                 for gk in generic_keys_sorted:
-                    # Per-video generic emission is controlled by local presence:
-                    # when no local rows exist for this key+video, emit an empty list.
-                    src_generic = per_video_generic_rows_raw.get(gk, {}).get(
+                    # Per-video generic emission is controlled by local presence by default.
+                    # Legacy behavior can be restored via generic_always_emit, which falls back
+                    # to global generic rows when local rows are missing for this key+video.
+                    local_generic = per_video_generic_rows_raw.get(gk, {}).get(
                         vid_full.rsplit("_", 1)[0], []
+                    )
+                    src_generic = (
+                        local_generic or generic_rows_raw.get(gk, [])
+                        if generic_always_emit
+                        else local_generic
                     )
                     generic_items: List[Dict[str, Any]] = []
                     generic_texts_global = (
@@ -2899,6 +2906,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Emit metadataGlobal *_flag overviews always as objects (default behavior emits scalar when default-only and object when targeted exists)",
     )
+    p.add_argument(
+        "--generic-always-emit",
+        action="store_true",
+        help="Legacy behavior: emit per-video generic_NN rows from global generic_NN when local rows are missing",
+    )
 
     # Media injection (CSV to JSON media)
     p.add_argument(
@@ -3051,6 +3063,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         country_variant_index=args.country_variant_index,
         flags_overview_object_always=args.flags_overview_object_always,
         xlsx_sheet=args.xlsx_sheet,
+        generic_always_emit=args.generic_always_emit,
     )
 
     # Optionally strip overview if disabled flag set

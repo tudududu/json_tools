@@ -154,6 +154,37 @@ class GenericTimedKeysTests(unittest.TestCase):
         self.assertEqual(v_b_land["generic_02"], [])
         self.assertEqual(v_b_port["generic_02"], [])
 
+    def test_generic_always_emit_opt_in_restores_global_fallback(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;\n"
+            "generic_01;;1;00:00:01:00;00:00:02:00;;;;;G1_L1;G1_P1\n"
+            "generic_02;;1;00:00:03:00;00:00:04:00;;;;;G2_L1;G2_P1\n"
+            "meta_local;VID_A;;;;title;N;ALL;TitleA;;\n"
+            "sub;VID_A;1;00:00:00:00;00:00:01:00;;;;;aL;aP\n"
+            "generic_01;VID_A;1;00:00:01:00;00:00:02:00;;;;;A1_L;A1_P\n"
+            "generic_02;VID_A;1;00:00:03:00;00:00:04:00;;;;;A2_L;A2_P\n"
+            "meta_local;VID_B;;;;title;N;ALL;TitleB;;\n"
+            "sub;VID_B;1;00:00:00:00;00:00:01:00;;;;;bL;bP\n"
+            "generic_01;VID_B;1;00:00:01:00;00:00:02:00;;;;;B1_L;B1_P\n"
+        )
+        path = tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path, fps=25, generic_always_emit=True)
+        finally:
+            os.remove(path)
+
+        node = out["byCountry"]["GBL"]
+
+        v_b_land = next(v for v in node["videos"] if v["videoId"] == "VID_B_landscape")
+        v_b_port = next(v for v in node["videos"] if v["videoId"] == "VID_B_portrait")
+
+        self.assertEqual([x["text"] for x in v_b_land["generic_01"]], ["B1_L"])
+        self.assertEqual([x["text"] for x in v_b_port["generic_01"]], ["B1_P"])
+        self.assertEqual([x["text"] for x in v_b_land["generic_02"]], ["G2_L1"])
+        self.assertEqual([x["text"] for x in v_b_port["generic_02"]], ["G2_P1"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
