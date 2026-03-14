@@ -421,7 +421,8 @@
                 ENABLE_MODULE_TOKENS: false,
                 TOKEN_ORDER: ["A", "B"],
                 OMIT_MISSING_TOKENS: true,
-                KEEP_MODULE_TOKENS: false
+                KEEP_MODULE_TOKENS: false,
+                MODULE_POSITION: "BEFORE_DURATION"
             }
         },
         ame: {

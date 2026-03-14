@@ -361,7 +361,8 @@
         "ENABLE_MODULE_TOKENS": true,
         "TOKEN_ORDER": ["A", "B", "C", "D"],
         "OMIT_MISSING_TOKENS": true,
-        "KEEP_MODULE_TOKENS": true
+        "KEEP_MODULE_TOKENS": true,
+        "MODULE_POSITION": "AFTER_DURATION"
     }
     },
 "ame": {

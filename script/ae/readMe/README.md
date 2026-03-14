@@ -405,6 +405,7 @@ Table of contents
   | `pack.MODULAR_NAMING.TOKEN_ORDER` | `['A','B']` | Order of module tag prefixes to emit (maps through shared `modular.MODULE_MAP`). |
   | `pack.MODULAR_NAMING.OMIT_MISSING_TOKENS` | `true` | Skip empty/unresolved module values instead of emitting empty placeholders. |
   | `pack.MODULAR_NAMING.KEEP_MODULE_TOKENS` | `false` | When true, emit raw module tokens (for example `A1`, `B2`) instead of resolved text values. |
+  | `pack.MODULAR_NAMING.MODULE_POSITION` | `BEFORE_DURATION` | Modular token position mode: `BEFORE_DURATION` emits after `TITLE`, `AFTER_DURATION` emits after `DURATION`. |
   | `OUTPUT_ESSENTIALS_DIRNAME` | `essentials` | Name of the subfolder for regular outputs when extras are enabled; inserted after `YYMMDD` when present. |
   | `OUTPUT_EXTRAS_DIRNAME` | `extras` | Name of the subfolder for extra outputs; inserted after `YYMMDD` when present. |
   | `DEV_VIDEOID_SELF_TEST` | — | Development-only self-test for videoId derivation. |
@@ -412,7 +413,9 @@ Table of contents
   Modular naming (Step 6)
   - Gate: `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS=true`.
   - Source: comp tags after duration (for example `..._15s_A2_B1`) are resolved via shared `modular.MODULE_MAP` (for example `A -> generic_01`, `B -> generic_02`) to the corresponding line `text` value in the matched `video` record.
-  - Position: injected immediately after `TITLE` in the output token stream.
+  - Position: controlled by `pack.MODULAR_NAMING.MODULE_POSITION`.
+    - `BEFORE_DURATION` (default): `..._TITLE_<modular>_DURATION_...`
+    - `AFTER_DURATION`: `..._TITLE_DURATION_<modular>_...`
   - Mode: default resolves tokens to text values; set `pack.MODULAR_NAMING.KEEP_MODULE_TOKENS=true` to emit raw tokens (`A2`, `B1`) directly.
   - Fallback: in resolved-text mode, if a module value cannot be resolved, Step 6 falls back to the raw tag token (for example `A2`) unless omitted by config.
 
@@ -430,7 +433,8 @@ Table of contents
         "ENABLE_MODULE_TOKENS": true,
         "TOKEN_ORDER": ["A", "B"],
         "OMIT_MISSING_TOKENS": true,
-        "KEEP_MODULE_TOKENS": false
+        "KEEP_MODULE_TOKENS": false,
+        "MODULE_POSITION": "BEFORE_DURATION"
       }
     }
   }
