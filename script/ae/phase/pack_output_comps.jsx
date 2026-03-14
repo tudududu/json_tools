@@ -150,7 +150,8 @@ function __Pack_coreRun(opts) {
     var MODULAR_NAMING = {
         ENABLE_MODULE_TOKENS: false,
         TOKEN_ORDER: ["A", "B"],
-        OMIT_MISSING_TOKENS: true
+        OMIT_MISSING_TOKENS: true,
+        KEEP_MODULE_TOKENS: false
     };
     // Shared map from modular.MODULE_MAP: tag prefix -> source key (e.g., A -> generic_01)
     var MODULAR_SOURCEKEY_BY_TAG = {};
@@ -198,6 +199,7 @@ function __Pack_coreRun(opts) {
                 if (o.MODULAR_NAMING.ENABLE_MODULE_TOKENS !== undefined) MODULAR_NAMING.ENABLE_MODULE_TOKENS = !!o.MODULAR_NAMING.ENABLE_MODULE_TOKENS;
                 if (o.MODULAR_NAMING.TOKEN_ORDER instanceof Array) MODULAR_NAMING.TOKEN_ORDER = o.MODULAR_NAMING.TOKEN_ORDER;
                 if (o.MODULAR_NAMING.OMIT_MISSING_TOKENS !== undefined) MODULAR_NAMING.OMIT_MISSING_TOKENS = !!o.MODULAR_NAMING.OMIT_MISSING_TOKENS;
+                if (o.MODULAR_NAMING.KEEP_MODULE_TOKENS !== undefined) MODULAR_NAMING.KEEP_MODULE_TOKENS = !!o.MODULAR_NAMING.KEEP_MODULE_TOKENS;
             }
         }
         try {
@@ -227,6 +229,7 @@ function __Pack_coreRun(opts) {
                     if (pmn.ENABLE_MODULE_TOKENS !== undefined) MODULAR_NAMING.ENABLE_MODULE_TOKENS = !!pmn.ENABLE_MODULE_TOKENS;
                     if (pmn.TOKEN_ORDER instanceof Array) MODULAR_NAMING.TOKEN_ORDER = pmn.TOKEN_ORDER;
                     if (pmn.OMIT_MISSING_TOKENS !== undefined) MODULAR_NAMING.OMIT_MISSING_TOKENS = !!pmn.OMIT_MISSING_TOKENS;
+                    if (pmn.KEEP_MODULE_TOKENS !== undefined) MODULAR_NAMING.KEEP_MODULE_TOKENS = !!pmn.KEEP_MODULE_TOKENS;
                 } } catch(ePMN) {}
                 try {
                     if (__AE_PIPE__.optionsEffective.modular && __AE_PIPE__.optionsEffective.modular.MODULE_MAP) {
@@ -1103,7 +1106,7 @@ function __Pack_coreRun(opts) {
                     var prefix = String(order[mi] || '').toUpperCase();
                     if (!prefix) continue;
                     var tok = moduleTagMap[prefix] || '';
-                    var mval = resolveModuleValueFromToken(prefix, tok, video);
+                    var mval = MODULAR_NAMING.KEEP_MODULE_TOKENS ? tok : resolveModuleValueFromToken(prefix, tok, video);
                     if (!mval && MODULAR_NAMING.OMIT_MISSING_TOKENS) continue;
                     parts.push(mval || '');
                     if (DEBUG_NAMING) log("Token MODULE[" + prefix + "] => '" + (mval || '') + "'");

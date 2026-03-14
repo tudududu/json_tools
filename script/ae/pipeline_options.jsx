@@ -420,7 +420,8 @@
             MODULAR_NAMING: {
                 ENABLE_MODULE_TOKENS: false,
                 TOKEN_ORDER: ["A", "B"],
-                OMIT_MISSING_TOKENS: true
+                OMIT_MISSING_TOKENS: true,
+                KEEP_MODULE_TOKENS: false
             }
         },
         ame: {

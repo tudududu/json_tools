@@ -38,7 +38,7 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup2_v02.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup2_v10.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
@@ -78,9 +78,14 @@
     "GENERATION_MODE": "hybrid",
     "MODULE_MAP": {
         "A": { "ENABLED": true, "SOURCE_KEY": "generic_01" },
-        "B": { "ENABLED": true, "SOURCE_KEY": "generic_02" }
+        "B": { "ENABLED": true, "SOURCE_KEY": "generic_02" },
+        "C": { "ENABLED": true, "SOURCE_KEY": "generic_03" },
+        "D": { "ENABLED": true, "SOURCE_KEY": "generic_04" }
     },
-    "EXPLICIT_VARIANTS_BY_VIDEOID": {},
+    "EXPLICIT_VARIANTS_BY_VIDEOID": {
+        "Travel_20s": ["A1_B2_C1_D4", "A2_B4_C2_D2"],
+        "TravelOOH_10s": ["A1_B2_C1", "A2_B1_C2"]
+    },
     "MAX_VARIANTS_PER_BASE": 128,
     "TAG_DELIMITER": "_",
     "TAG_POSITION": "after_duration",
@@ -101,7 +106,7 @@
     "AUDIO_TITLE_TOKEN_COUNT": 2,
     "AUDIO_TOKENS_REQUIRE_ADJACENT": false,
     "MODULAR_AUDIO": {
-        "ENABLED": false,
+        "ENABLED": true,
         "FALLBACK_TO_SHARED": true
     }
     },
@@ -129,7 +134,7 @@
     "SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO": false,
     "SIMPLE_PREP_MUTE_FOOTAGE_AUDIO": false,
 
-    "ENABLE_AUTOCENTER_ON_AR_MISMATCH": false,
+    "ENABLE_AUTOCENTER_ON_AR_MISMATCH": true,
     "APPLY_INPOINT_TO_LAYER_STARTTIME": true,
 
     "LAYER_NAME_CONFIG": {
@@ -200,12 +205,20 @@
             "contains": ["module_B"] 
             },
         "generic_03": {
-            "exact": ["web"],
-            "contains": [] 
+            "exact": [], 
+            "contains": ["module_C"] 
             },
         "generic_04": {
-            "exact": ["web2"],
+            "exact": [], 
+            "contains": ["module_D"] 
+            },
+        "generic_05": {
+            "exact": ["ECRAN_03_01_AWARENESS_EN"],
             "contains": [] 
+            },
+        "generic_06": {
+            "exact": [],
+            "contains": ["website"] 
             },
         "dataJson": { 
             "exact": ["DATA_JSON", "data.json"], 
@@ -229,6 +242,8 @@
         "generic_02": "timed",
         "generic_03": "timed",
         "generic_04": "timed",
+        "generic_05": "timed",
+        "generic_06": "timed",
 
         "logo_03": "span",
         "logo_04": "span",
@@ -260,7 +275,9 @@
         "generic_01": { "mode": "line", "value": 1 },
         "generic_02": { "mode": "line", "value": 1 },
         "generic_03": { "mode": "line", "value": 1 },
-        "generic_04": { "mode": "line", "value": 1 }
+        "generic_04": { "mode": "line", "value": 1 },
+        "generic_05": { "mode": "line", "value": 1 },
+        "generic_06": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff": true, 
@@ -279,14 +296,14 @@
         },
     "MODULAR_FILTER": {
         "ENABLED": true,
-        "USE_GENERIC_FLAG_GATES": false
+        "USE_GENERIC_FLAG_GATES": true
     },
     "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
 
     "TEMPLATE_MATCH_CONFIG": { 
         "arTolerance": 0.001, 
         "requireAspectRatioMatch": false,
-        "enableDurationMatch": false,
+        "enableDurationMatch": true,
         "requireDurationMatch": false,
         "durationToleranceSeconds": 0.5
         },
@@ -342,8 +359,9 @@
     "OUTPUT_EXTRAS_DIRNAME": "extras",
     "MODULAR_NAMING": {
         "ENABLE_MODULE_TOKENS": true,
-        "TOKEN_ORDER": ["A", "B"],
-        "OMIT_MISSING_TOKENS": true
+        "TOKEN_ORDER": ["A", "B", "C", "D"],
+        "OMIT_MISSING_TOKENS": true,
+        "KEEP_MODULE_TOKENS": true
     }
     },
 "ame": {
