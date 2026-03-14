@@ -295,6 +295,7 @@ Table of contents
 
     Start Time Alignment
     - `APPLY_INPOINT_TO_LAYER_STARTTIME` (default: true) aligns `layer.startTime` to the computed `inPoint` whenever `timed` behavior is applied. This helps expressions relying on layer-local time.
+    - `PRESERVE_TRIM_OFFSET_ON_TIMING` (default: true) preserves each template layer trim offset (`inPoint - startTime`) when `timed`/`span` timing is applied. This keeps the same source slice visible while moving the layer to the target timing window.
 
     Example `TIMING_BEHAVIOR`
     ```js
@@ -325,6 +326,7 @@ Table of contents
     | `addLayers.TEMPLATE_MATCH_CONFIG.durationToleranceSeconds` | `0.50` | Duration tolerance (seconds). |
     | `addLayers.TIMING_BEHAVIOR` | map | Per-group/literal timing: `timed` | `span` | `asIs`. Defaults documented above. |
     | `addLayers.APPLY_INPOINT_TO_LAYER_STARTTIME` | `true` | Align `layer.startTime` to `inPoint` for `timed` layers. |
+    | `addLayers.PRESERVE_TRIM_OFFSET_ON_TIMING` | `true` | Preserve template trim offset (`inPoint-startTime`) while applying `timed`/`span` in/out windows. |
     | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names; includes `genericByFlagOff` for scalable `generic_NN_flag` handling. |
     | `addLayers.EXTRA_TEMPLATES.*` | various | Controls duplicate “extras” comps (allowed ARs, tags, suffix, duration strictness). |
     | `addLayers.EXTRA_TEMPLATES.USE_DEDICATED_TARGET_FOLDERS` | `false` | Place extras in sibling `<AR>_<extraTag>` folders and create `<NNs>` duration subfolders under them. |
@@ -342,7 +344,8 @@ Table of contents
           "super_A": "span",
           "Pin": "span"
         },
-        "APPLY_INPOINT_TO_LAYER_STARTTIME": true
+        "APPLY_INPOINT_TO_LAYER_STARTTIME": true,
+        "PRESERVE_TRIM_OFFSET_ON_TIMING": true
       }
     }
     ```

@@ -155,6 +155,9 @@ function __AddLayers_coreRun(opts) {
     // General startTime alignment: when true, for any timed layer we set layer.startTime
     // to the computed inPoint (tin). This helps expressions relying on layer time.
     var APPLY_INPOINT_TO_LAYER_STARTTIME = true;
+    // Preserve source trim offset (inPoint-startTime) while applying JSON timing windows.
+    // When true, timing sets comp in/out to [tin,tout) but keeps each layer's source offset.
+    var PRESERVE_TRIM_OFFSET_ON_TIMING = true;
 
     // Time-stretch configuration for 'logo_anim' layers
     // Enables speeding up the first N seconds of the logo_anim source so that the animation ends around
@@ -400,6 +403,9 @@ function __AddLayers_coreRun(opts) {
             if (o.APPLY_INPOINT_TO_LAYER_STARTTIME !== undefined) {
                 APPLY_INPOINT_TO_LAYER_STARTTIME = __toBool(o.APPLY_INPOINT_TO_LAYER_STARTTIME, true);
             }
+            if (o.PRESERVE_TRIM_OFFSET_ON_TIMING !== undefined) {
+                PRESERVE_TRIM_OFFSET_ON_TIMING = __toBool(o.PRESERVE_TRIM_OFFSET_ON_TIMING, true);
+            }
             if (o.TEMPLATE_MATCH_CONFIG) {
                 if (typeof o.TEMPLATE_MATCH_CONFIG.arTolerance === 'number') TEMPLATE_MATCH_CONFIG.arTolerance = o.TEMPLATE_MATCH_CONFIG.arTolerance;
                 if (typeof o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch === 'boolean') TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch = o.TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch;
@@ -474,6 +480,7 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO')) SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO = !!ao.SIMPLE_PREP_DISABLE_FOOTAGE_VIDEO;
                 if (ao.hasOwnProperty('SIMPLE_PREP_MUTE_FOOTAGE_AUDIO')) SIMPLE_PREP_MUTE_FOOTAGE_AUDIO = !!ao.SIMPLE_PREP_MUTE_FOOTAGE_AUDIO;
                 if (ao.hasOwnProperty('ENABLE_VIDEOID_BASED_LAYER_SKIP')) ENABLE_VIDEOID_BASED_LAYER_SKIP = !!ao.ENABLE_VIDEOID_BASED_LAYER_SKIP;
+                if (ao.hasOwnProperty('PRESERVE_TRIM_OFFSET_ON_TIMING')) PRESERVE_TRIM_OFFSET_ON_TIMING = !!ao.PRESERVE_TRIM_OFFSET_ON_TIMING;
                 if (ao.MODULAR_FILTER && typeof ao.MODULAR_FILTER === 'object') {
                     if (ao.MODULAR_FILTER.ENABLED !== undefined) MODULAR_FILTER.ENABLED = __toBool(ao.MODULAR_FILTER.ENABLED, false);
                     if (ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== undefined) MODULAR_FILTER.USE_GENERIC_FLAG_GATES = __toBool(ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES, true);
@@ -1462,6 +1469,25 @@ function __AddLayers_coreRun(opts) {
         var start = (tin < 0) ? 0 : tin;
         var end = tout;
         if (compDuration && end > compDuration) end = compDuration;
+        if (end < start) end = start;
+
+        if (PRESERVE_TRIM_OFFSET_ON_TIMING) {
+            var trimOffset = 0;
+            try {
+                if (typeof layer.inPoint === 'number' && typeof layer.startTime === 'number') {
+                    trimOffset = layer.inPoint - layer.startTime;
+                }
+            } catch (eOff) {}
+            if (trimOffset < 0) trimOffset = 0;
+
+            var targetIn = start;
+            var targetStart = APPLY_INPOINT_TO_LAYER_STARTTIME ? (targetIn - trimOffset) : 0;
+            try { layer.startTime = targetStart; } catch (eST) {}
+            try { layer.inPoint = targetIn; } catch (eIP) {}
+            try { layer.outPoint = end; } catch (eOP) {}
+            return;
+        }
+
         try { layer.startTime = (APPLY_INPOINT_TO_LAYER_STARTTIME ? start : 0); } catch (e) {}
         try { layer.inPoint = start; } catch (e1) {}
         try { layer.outPoint = end; } catch (e2) {}
@@ -1755,18 +1781,8 @@ function __AddLayers_coreRun(opts) {
 
             // Apply for generic 'logo'
             if (logoMM && isGenericLogo) {
-                if (APPLY_INPOINT_TO_LAYER_STARTTIME) {
-                    var tinL = logoMM.tin < 0 ? 0 : logoMM.tin;
-                    var toutL = logoMM.tout;
-                    if (toutL > comp.duration) toutL = comp.duration;
-                    try { ly.startTime = tinL; } catch (eLS) {}
-                    try { ly.inPoint = tinL; } catch (eLI) {}
-                    try { ly.outPoint = toutL; } catch (eLO) {}
-                    log("Set logo layer '" + nm + "' (startTime=inPoint mode) to [" + tinL + ", " + toutL + ")");
-                } else {
-                    setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
-                    log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
-                }
+                setLayerInOut(ly, logoMM.tin, logoMM.tout, comp.duration);
+                log("Set logo layer '" + nm + "' to [" + logoMM.tin + ", " + logoMM.tout + ")");
                 // visibility per logo_anim_flag inverse
                 try { ly.enabled = (effectiveLogoAnimMode !== 'on'); } catch (eLVis) {}
                 log("logo_anim_flag => " + effectiveLogoAnimMode.toUpperCase() + " | '"+nm+"' -> " + (ly.enabled ? "ON" : "OFF"));

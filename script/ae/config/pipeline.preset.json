@@ -38,13 +38,13 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/BrandSuperiority/POST/WORK/brandSup2_v10.aep",
+    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/bs2/POST/WORK/brandSup2_v10.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "GBL",
+    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -83,7 +83,7 @@
         "D": { "ENABLED": true, "SOURCE_KEY": "generic_04" }
     },
     "EXPLICIT_VARIANTS_BY_VIDEOID": {
-        "Travel_20s": ["A1_B2_C1_D4", "A2_B4_C2_D2"],
+        "Travel_20s": ["A1_B1_C1_D4", "A2_B4_C2_D2"],
         "TravelOOH_10s": ["A1_B2_C1", "A2_B1_C2"]
     },
     "MAX_VARIANTS_PER_BASE": 128,
@@ -136,6 +136,7 @@
 
     "ENABLE_AUTOCENTER_ON_AR_MISMATCH": false,
     "APPLY_INPOINT_TO_LAYER_STARTTIME": true,
+    "PRESERVE_TRIM_OFFSET_ON_TIMING": true,
 
     "LAYER_NAME_CONFIG": {
         "info": { 
@@ -361,7 +362,7 @@
         "ENABLE_MODULE_TOKENS": true,
         "TOKEN_ORDER": ["A", "B", "C", "D"],
         "OMIT_MISSING_TOKENS": true,
-        "KEEP_MODULE_TOKENS": true,
+        "KEEP_MODULE_TOKENS": false,
         "MODULE_POSITION": "AFTER_DURATION"
     }
     },

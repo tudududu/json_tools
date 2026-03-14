@@ -251,6 +251,7 @@
                 USE_GENERIC_FLAG_GATES: true
             },
             APPLY_INPOINT_TO_LAYER_STARTTIME: true,
+            PRESERVE_TRIM_OFFSET_ON_TIMING: true,
             // VideoID-based layer skip: when enabled, layers whose names contain a videoID token are skipped
             // unless the videoID matches the target comp's videoID. Layers without videoID tokens are always copied.
             ENABLE_VIDEOID_BASED_LAYER_SKIP: false,
