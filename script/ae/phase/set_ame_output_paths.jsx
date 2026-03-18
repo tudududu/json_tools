@@ -377,6 +377,15 @@ function __AME_coreRun(opts) {
         }
         return false;
     }
+    function findAncestorByName(item, nameLower) {
+        if (!item || !nameLower) return null;
+        var ancestors = collectAncestorItems(item);
+        for (var i = 0; i < ancestors.length; i++) {
+            var f = ancestors[i];
+            if (String((f && f.name) || '').toLowerCase() === nameLower) return f;
+        }
+        return null;
+    }
     function __normToken(s){ try { return String(s||"").replace(/[^A-Za-z0-9]+/g, "").toLowerCase(); } catch(e){ return ""; } }
     function detectExtraInfo(compName) {
         try {
@@ -1028,7 +1037,14 @@ function __AME_coreRun(opts) {
                         }
                         if ((!segs || !segs.length) && __selectionCutInfo && __selectionCutInfo.hasComp) {
                             try {
-                                segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null);
+                                // For comp selections, infer cut root from the nearest 'comps' ancestor first
+                                // so nested paths under comps are preserved (e.g., comps/DOOH/a -> DOOH/a).
+                                var compsRoot = findAncestorByName(rqi.comp, 'comps');
+                                if (compsRoot) {
+                                    segs = relativeSegmentsAfterSelection(rqi.comp, compsRoot);
+                                } else {
+                                    segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null);
+                                }
                                 usedSelectionCut = true;
                             } catch (eSelComp) { segs = []; }
                         }
