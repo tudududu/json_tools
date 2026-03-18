@@ -343,7 +343,8 @@ function __AME_coreRun(opts) {
         }
         if (idx < 0) return [];
         var out = [];
-        for (var j = idx; j < ancestors.length; j++) {
+        // Cut AFTER the selected root folder (do not include the selected root itself).
+        for (var j = idx + 1; j < ancestors.length; j++) {
             out.push(String(ancestors[j].name || ''));
         }
         return out;
@@ -367,6 +368,14 @@ function __AME_coreRun(opts) {
             }
         }
         return best;
+    }
+    function hasAncestorNamed(item, nameLower) {
+        if (!item || !nameLower) return false;
+        var ancestors = collectAncestorNames(item);
+        for (var i = 0; i < ancestors.length; i++) {
+            if (String(ancestors[i]).toLowerCase() === nameLower) return true;
+        }
+        return false;
     }
     function __normToken(s){ try { return String(s||"").replace(/[^A-Za-z0-9]+/g, "").toLowerCase(); } catch(e){ return ""; } }
     function detectExtraInfo(compName) {
@@ -1003,19 +1012,29 @@ function __AME_coreRun(opts) {
             var usedMimic = false;
             if (MIMIC_PROJECT_FOLDER_STRUCTURE) {
                 try {
-                    var anchorSegs = relativeSegmentsAfterAnchor(rqi.comp, String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase());
+                    var anchorLower = String(PROJECT_FOLDER_ANCHOR_NAME||'out').toLowerCase();
+                    var anchorSegs = relativeSegmentsAfterAnchor(rqi.comp, anchorLower);
+                    var hasAnchor = hasAncestorNamed(rqi.comp, anchorLower);
                     var segs = anchorSegs;
+                    var usedSelectionCut = false;
                     // Anchor wins; only use selection-cut when anchor not found
-                    if ((!segs || !segs.length)) {
+                    if (!hasAnchor) {
                         if (__selectionCutInfo && __selectionCutInfo.folders && __selectionCutInfo.folders.length) {
                             var matchRoot = findMatchingSelectionRoot(rqi.comp, __selectionCutInfo.folders);
-                            if (matchRoot) segs = relativeSegmentsAfterSelection(rqi.comp, matchRoot);
+                            if (matchRoot) {
+                                segs = relativeSegmentsAfterSelection(rqi.comp, matchRoot);
+                                usedSelectionCut = true;
+                            }
                         }
                         if ((!segs || !segs.length) && __selectionCutInfo && __selectionCutInfo.hasComp) {
-                            try { segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null); } catch (eSelComp) { segs = []; }
+                            try {
+                                segs = relativeSegmentsAfterSelection(rqi.comp, rqi.comp ? rqi.comp.parentFolder : null);
+                                usedSelectionCut = true;
+                            } catch (eSelComp) { segs = []; }
                         }
                     }
-                    if (segs && segs.length) {
+                    // Even with zero segments, mimic should map to date-folder root (not fallback AR/duration sorting).
+                    if (hasAnchor || usedSelectionCut || (segs && segs.length)) {
                         var cur = dateFolder;
                         for (var ms=0; ms<segs.length; ms++) {
                             var segName = segs[ms]; if (!segName) continue;
@@ -1028,6 +1047,9 @@ function __AME_coreRun(opts) {
                         usedMimic = true;
                         if ((!anchorSegs || !anchorSegs.length) && (__selectionCutInfo && ((__selectionCutInfo.folders && __selectionCutInfo.folders.length) || __selectionCutInfo.hasComp))) {
                             pushDetail("MIMIC PATH (selection) -> " + cur.fsName);
+                            if (!segs || !segs.length) {
+                                pushDetail("MIMIC PATH (selection): root-only (no segments after selection root)");
+                            }
                         } else {
                             pushDetail("MIMIC PATH -> " + cur.fsName);
                         }
