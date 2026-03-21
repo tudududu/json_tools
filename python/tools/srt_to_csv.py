@@ -174,13 +174,15 @@ def write_tabular_output(
 
     if output_type != "xlsx":
         raise ValueError("output_type must be 'csv' or 'xlsx'")
-    if Workbook is None:
+    if Workbook is None or Color is None or PatternFill is None:
         raise SystemExit(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
     wb = Workbook()
     ws = wb.active
+    if ws is None:
+        raise SystemExit("Failed to create XLSX worksheet")
     ws.title = "subtitles"
     ws.append(HEADER)
     # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
