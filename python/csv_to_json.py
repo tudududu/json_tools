@@ -1548,11 +1548,16 @@ def convert_csv_to_json(
 
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
+
+        def _generic_sort_key(key_name: str) -> int:
+            match = re.search(r"(\d+)$", key_name)
+            if not match:
+                return 9999
+            return int(match.group(1))
+
         generic_keys_sorted = sorted(
             generic_keys_seen,
-            key=lambda k: int(re.search(r"(\d+)$", k).group(1))
-            if re.search(r"(\d+)$", k)
-            else 9999,
+            key=_generic_sort_key,
         )
         for c in countries:
             # Build orientation-specific top-level arrays
