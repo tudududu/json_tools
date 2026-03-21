@@ -680,7 +680,7 @@ def main() -> None:
     # Determine mode: single file or batch directory
     import os
 
-    if args.reverse:
+    if args.reverse or args.reverse_joined:
         if args.join_output:
             raise SystemExit(
                 "--join-output is not supported in reverse mode yet"
