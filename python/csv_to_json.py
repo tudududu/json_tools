@@ -638,8 +638,9 @@ def convert_csv_to_json(
                         if per_country_val:
                             job_number_per_country[c] = per_country_val
                         else:
-                            # Will fill from metadata cell (same for all) or empty after loop
-                            job_number_per_country.setdefault(c, None)  # placeholder
+                            # Will fill from metadata cell (same for all) or final sentinel after loop
+                            if c not in job_number_per_country:
+                                job_number_per_country[c] = ""  # placeholder
                     # Apply metadata cell fallback for any country still unset / None
                     if metadata_cell_val:
                         for c in countries:
