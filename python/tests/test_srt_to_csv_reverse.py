@@ -175,3 +175,131 @@ def test_reverse_rejects_mixed_time_formats_in_one_file():
             os.rmdir(in_dir)
         except Exception:
             pass
+
+
+def test_reverse_joined_splits_and_sanitizes_marker_filenames():
+    in_dir = tempfile.mkdtemp()
+    out_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "joined.csv")
+        _write(
+            in_csv,
+            "Start Time,End Time,Text\n"
+            ",,A / B?.srt\n"
+            "00:00:00:00,00:00:01:00,One\n"
+            ",,A / B?.srt\n"
+            "00:00:02:00,00:00:03:00,Two\n",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                "--reverse-joined",
+                in_csv,
+                "--output-dir",
+                out_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        out_files = sorted(
+            [n for n in os.listdir(out_dir) if n.lower().endswith(".srt")]
+        )
+        assert out_files == ["A_B.srt", "A_B_2.srt"]
+        first = open(os.path.join(out_dir, "A_B.srt"), "r", encoding="utf-8").read()
+        second = open(os.path.join(out_dir, "A_B_2.srt"), "r", encoding="utf-8").read()
+        assert "One" in first
+        assert "Two" in second
+    finally:
+        for folder in (in_dir, out_dir):
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path):
+                    os.remove(path)
+            try:
+                os.rmdir(folder)
+            except Exception:
+                pass
+
+
+def test_reverse_joined_requires_markers():
+    in_dir = tempfile.mkdtemp()
+    out_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "no_markers.csv")
+        _write(
+            in_csv,
+            "Start Time,End Time,Text\n"
+            "00:00:00:00,00:00:01:00,Line 1\n",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                "--reverse-joined",
+                in_csv,
+                "--output-dir",
+                out_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode != 0
+        assert "requires marker rows" in (proc.stderr + proc.stdout)
+    finally:
+        for folder in (in_dir, out_dir):
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path):
+                    os.remove(path)
+            try:
+                os.rmdir(folder)
+            except Exception:
+                pass
+
+
+def test_reverse_joined_rejects_positional_output_path():
+    in_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "joined.csv")
+        _write(
+            in_csv,
+            "Start Time,End Time,Text\n"
+            ",,a.srt\n"
+            "00:00:00:00,00:00:01:00,One\n",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                "--reverse-joined",
+                in_csv,
+                os.path.join(in_dir, "should_not_work.srt"),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode != 0
+        assert "writes multiple files" in (proc.stderr + proc.stdout)
+    finally:
+        for name in os.listdir(in_dir):
+            path = os.path.join(in_dir, name)
+            if os.path.isfile(path):
+                os.remove(path)
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass

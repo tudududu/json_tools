@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Type
 
@@ -422,6 +423,76 @@ def _records_to_srt_text(records: List[Tuple[float, float, str]]) -> str:
     return "\n".join(lines)
 
 
+def _extract_joined_reverse_blocks(
+    rows: List[List[str]],
+    idx_start: int,
+    idx_end: int,
+    idx_text: int,
+) -> List[Tuple[str, List[List[str]]]]:
+    blocks: List[Tuple[str, List[List[str]]]] = []
+    current_name: Optional[str] = None
+    current_rows: List[List[str]] = []
+    marker_count = 0
+
+    for row in rows:
+        start = (row[idx_start] if idx_start < len(row) else "").strip()
+        end = (row[idx_end] if idx_end < len(row) else "").strip()
+        text = (row[idx_text] if idx_text < len(row) else "").strip()
+
+        if not start and not end:
+            if not text:
+                continue
+            marker_count += 1
+            if current_name is not None:
+                blocks.append((current_name, current_rows))
+            current_name = text
+            current_rows = []
+            continue
+
+        if not start or not end:
+            raise ValueError(
+                "Row has only one time value; both Start Time and End Time are required"
+            )
+        if current_name is None:
+            raise ValueError(
+                "Joined reverse input requires marker rows before timed rows"
+            )
+        current_rows.append(row)
+
+    if current_name is not None:
+        blocks.append((current_name, current_rows))
+
+    if marker_count == 0:
+        raise ValueError(
+            "Joined reverse input requires marker rows (empty Start/End with filename in Text)"
+        )
+
+    return blocks
+
+
+def _sanitize_joined_marker_filename(marker: str) -> str:
+    raw = (marker or "").strip()
+    raw = re.sub(r"\.srt$", "", raw, flags=re.I)
+    raw = re.sub(r"[\\/]+", "_", raw)
+    raw = re.sub(r"[^A-Za-z0-9._ -]", "_", raw)
+    raw = re.sub(r"\s+", "_", raw)
+    raw = re.sub(r"_+", "_", raw).strip("._ ")
+    if not raw:
+        raw = "subtitle"
+    return f"{raw}.srt"
+
+
+def _dedupe_output_filename(name: str, used: set[str]) -> str:
+    base, ext = os.path.splitext(name)
+    candidate = name
+    i = 2
+    while candidate.lower() in used:
+        candidate = f"{base}_{i}{ext}"
+        i += 1
+    used.add(candidate.lower())
+    return candidate
+
+
 def csv_to_srt(
     in_path: str,
     out_path: str,
@@ -468,6 +539,68 @@ def csv_to_srt(
         f.write(_records_to_srt_text(records))
 
 
+def csv_to_srt_joined(
+    in_path: str,
+    out_dir: str,
+    fps: float,
+    encoding: str,
+    start_col: Optional[str] = None,
+    end_col: Optional[str] = None,
+    text_col: Optional[str] = None,
+) -> List[str]:
+    headers, rows = _read_reverse_table(in_path, encoding=encoding)
+    if not headers:
+        raise ValueError(f"Input table is empty: {in_path}")
+
+    idx_start = _resolve_column_index(
+        headers,
+        start_col,
+        aliases=("Start Time", "start", "in", "inpoint"),
+    )
+    idx_end = _resolve_column_index(
+        headers,
+        end_col,
+        aliases=("End Time", "end", "out", "outpoint"),
+    )
+    idx_text = _resolve_column_index(
+        headers,
+        text_col,
+        aliases=("Text", "subtitle", "caption"),
+    )
+
+    blocks = _extract_joined_reverse_blocks(rows, idx_start, idx_end, idx_text)
+    timed_rows = [r for _, block_rows in blocks for r in block_rows]
+    time_format = _detect_reverse_time_format(timed_rows, idx_start, idx_end)
+
+    os.makedirs(out_dir, exist_ok=True)
+    used_names: set[str] = set()
+    written: List[str] = []
+
+    for marker_name, block_rows in blocks:
+        if not block_rows:
+            continue
+        records = _rows_to_reverse_records(
+            block_rows,
+            idx_start=idx_start,
+            idx_end=idx_end,
+            idx_text=idx_text,
+            time_format=time_format,
+            fps=fps,
+        )
+        if not records:
+            continue
+        fname = _sanitize_joined_marker_filename(marker_name)
+        fname = _dedupe_output_filename(fname, used_names)
+        out_path = os.path.join(out_dir, fname)
+        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(_records_to_srt_text(records))
+        written.append(out_path)
+
+    if not written:
+        raise ValueError("No timed subtitle blocks found under joined markers")
+    return written
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Convert SRT<->CSV/XLSX subtitles")
     p.add_argument(
@@ -491,6 +624,11 @@ def main() -> None:
         "--reverse",
         action="store_true",
         help="Reverse mode: convert CSV/XLSX back to SRT",
+    )
+    p.add_argument(
+        "--reverse-joined",
+        action="store_true",
+        help="Reverse mode: parse joined CSV/XLSX input (marker rows) and split to multiple SRT files",
     )
     p.add_argument(
         "--fps",
@@ -547,6 +685,50 @@ def main() -> None:
             raise SystemExit(
                 "--join-output is not supported in reverse mode yet"
             )
+
+        if args.reverse_joined:
+            if args.output:
+                raise SystemExit(
+                    "--reverse-joined writes multiple files; use --output-dir (or omit to use input directory)"
+                )
+            if args.input_dir:
+                in_dir = args.input_dir
+                if not os.path.isdir(in_dir):
+                    raise SystemExit(f"Input directory not found: {in_dir}")
+                names = [
+                    n
+                    for n in sorted(os.listdir(in_dir))
+                    if n.lower().endswith(".csv") or n.lower().endswith(".xlsx")
+                ]
+                out_dir = args.output_dir or args.input_dir
+                os.makedirs(out_dir, exist_ok=True)
+                for name in names:
+                    in_path = os.path.join(in_dir, name)
+                    csv_to_srt_joined(
+                        in_path,
+                        out_dir,
+                        fps=args.fps,
+                        encoding=args.encoding,
+                        start_col=args.start_col,
+                        end_col=args.end_col,
+                        text_col=args.text_col,
+                    )
+            else:
+                if not args.input:
+                    raise SystemExit(
+                        "Provide input path, or use --input-dir/--output-dir for batch mode"
+                    )
+                out_dir = args.output_dir or os.path.dirname(args.input) or "."
+                csv_to_srt_joined(
+                    args.input,
+                    out_dir,
+                    fps=args.fps,
+                    encoding=args.encoding,
+                    start_col=args.start_col,
+                    end_col=args.end_col,
+                    text_col=args.text_col,
+                )
+            return
 
         if args.input_dir:
             in_dir = args.input_dir
