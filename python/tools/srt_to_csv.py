@@ -33,15 +33,28 @@ from __future__ import annotations
 import argparse
 import csv
 import re
-from typing import List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
+
+# openpyxl is an optional runtime dependency (only needed for XLSX output).
+# The TYPE_CHECKING block gives Pylance accurate type information without
+# requiring the package to be installed. The try/except block captures the
+# actual runtime values; all three names are checked together before use.
+if TYPE_CHECKING:
+    from openpyxl import Workbook as WorkbookType
+    from openpyxl.styles import Color as ColorType
+    from openpyxl.styles import PatternFill as PatternFillType
 
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Color, PatternFill
 except Exception:  # pragma: no cover - optional dependency
-    Workbook = None
-    Color = None
-    PatternFill = None
+    Workbook = None  # type: ignore[assignment,misc]
+    Color = None  # type: ignore[assignment,misc]
+    PatternFill = None  # type: ignore[assignment,misc]
+
+_Workbook: Optional[Type["WorkbookType"]] = Workbook
+_Color: Optional[Type["ColorType"]] = Color
+_PatternFill: Optional[Type["PatternFillType"]] = PatternFill
 
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
@@ -174,24 +187,28 @@ def write_tabular_output(
 
     if output_type != "xlsx":
         raise ValueError("output_type must be 'csv' or 'xlsx'")
-    if Workbook is None or Color is None or PatternFill is None:
+    # All three openpyxl symbols are checked together: Workbook, Color, and
+    # PatternFill are imported as a unit, so if any one is unavailable the
+    # others will be too. Checking all three keeps the type narrowed to
+    # non-None for the remainder of the XLSX path.
+    if _Workbook is None or _Color is None or _PatternFill is None:
         raise SystemExit(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
-    wb = Workbook()
+    wb = _Workbook()
     ws = wb.active
     if ws is None:
         raise SystemExit("Failed to create XLSX worksheet")
     ws.title = "subtitles"
     ws.append(HEADER)
     # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
-    header_fill = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.5))
+    header_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.5))
     # Excel theme color: Turquoise, Accent 4, Lighter 40%.
-    title_fill = PatternFill(fill_type="solid", fgColor=Color(theme=2, tint=0.3))
+    title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=2, tint=0.3))
     # Excel theme color: Text 2 (Dark Blue) alternating variants.
-    plain_fill_1 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.75))
-    plain_fill_2 = PatternFill(fill_type="solid", fgColor=Color(theme=3, tint=0.85))
+    plain_fill_1 = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.75))
+    plain_fill_2 = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.85))
     # Apply fill only to used output columns.
     for col_idx in range(1, len(HEADER) + 1):
         ws.cell(row=1, column=col_idx).fill = header_fill
