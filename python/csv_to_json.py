@@ -2488,7 +2488,7 @@ def convert_csv_to_json(
             text_override=text_col,
         )
 
-        def fmt_time(val: float) -> Any:
+        def fmt_time_simple(val: float) -> Any:
             if round_ndigits is not None:
                 val = round(val, round_ndigits)
             if times_as_string:
@@ -2515,8 +2515,8 @@ def convert_csv_to_json(
                 raise ValueError(f"Failed to parse timecodes for row {d}: {e}")
             item = {
                 "line": line_no,
-                "in": fmt_time(tin),
-                "out": fmt_time(tout),
+                "in": fmt_time_simple(tin),
+                "out": fmt_time_simple(tout),
                 "text": text,
             }
             out_items.append(item)
@@ -2558,7 +2558,7 @@ def convert_csv_to_json(
             }
         return c
 
-    def fmt_time(val: float) -> Any:
+    def fmt_time_sectioned(val: float) -> Any:
         if round_ndigits is not None:
             val = round(val, round_ndigits)
         if times_as_string:
@@ -2651,8 +2651,8 @@ def convert_csv_to_json(
                 ccode = ensure_country(ti)
                 item = {
                     "line": line_no_val,
-                    "in": fmt_time(tin),
-                    "out": fmt_time(tout),
+                    "in": fmt_time_sectioned(tin),
+                    "out": fmt_time_sectioned(tout),
                     "text": text_val,
                 }
                 per_country[ccode][current_section].append(item)
