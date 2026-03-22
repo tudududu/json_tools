@@ -718,6 +718,8 @@ def main() -> None:
                     raise SystemExit(
                         "Provide input path, or use --input-dir/--output-dir for batch mode"
                     )
+                if not os.path.isfile(args.input):
+                    raise SystemExit(f"No such file or directory: '{args.input}'")
                 out_dir = args.output_dir or os.path.dirname(args.input) or "."
                 csv_to_srt_joined(
                     args.input,
@@ -759,6 +761,8 @@ def main() -> None:
                 raise SystemExit(
                     "Provide input and output paths, or use --input-dir/--output-dir for batch mode"
                 )
+            if not os.path.isfile(args.input):
+                raise SystemExit(f"No such file or directory: '{args.input}'")
             csv_to_srt(
                 args.input,
                 args.output,
@@ -832,6 +836,8 @@ def main() -> None:
             raise SystemExit(
                 "Provide input and output paths, or use --input-dir/--output-dir for batch mode"
             )
+        if not os.path.isfile(args.input):
+            raise SystemExit(f"No such file or directory: '{args.input}'")
         srt_to_csv(
             args.input,
             args.output,
