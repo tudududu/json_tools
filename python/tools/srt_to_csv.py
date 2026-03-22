@@ -34,7 +34,7 @@ import argparse
 import csv
 import os
 import re
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 # openpyxl is an optional runtime dependency (only needed for XLSX output).
 # The TYPE_CHECKING block gives Pylance accurate type information without
@@ -57,7 +57,7 @@ except Exception:  # pragma: no cover - optional dependency
     PatternFill = None  # type: ignore[assignment,misc]
 
 _Workbook: Optional[Type["WorkbookType"]] = Workbook
-_load_workbook: Optional[Callable[..., Any]] = load_workbook
+_load_workbook: Optional["LoadWorkbookType"] = load_workbook
 _Color: Optional[Type["ColorType"]] = Color
 _PatternFill: Optional[Type["PatternFillType"]] = PatternFill
 
