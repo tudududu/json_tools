@@ -353,7 +353,9 @@ def _detect_reverse_time_format(
         if not start and not end:
             continue
         if not start or not end:
-            raise ValueError("Row has only one time value; both Start Time and End Time are required")
+            raise ValueError(
+                "Row has only one time value; both Start Time and End Time are required"
+            )
         for token in (start, end):
             current: Optional[str] = None
             if FRAME_TC_RE.fullmatch(token):
@@ -403,7 +405,9 @@ def _rows_to_reverse_records(
         if not start and not end:
             continue
         if not start or not end:
-            raise ValueError("Row has only one time value; both Start Time and End Time are required")
+            raise ValueError(
+                "Row has only one time value; both Start Time and End Time are required"
+            )
 
         tin = _parse_reverse_timecode(start, time_format, fps)
         tout = _parse_reverse_timecode(end, time_format, fps)
@@ -681,9 +685,7 @@ def main() -> None:
 
     if args.reverse or args.reverse_joined:
         if args.join_output:
-            raise SystemExit(
-                "--join-output is not supported in reverse mode yet"
-            )
+            raise SystemExit("--join-output is not supported in reverse mode yet")
 
         if args.reverse_joined:
             if args.output:

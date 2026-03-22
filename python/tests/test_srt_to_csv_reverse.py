@@ -57,8 +57,7 @@ def test_reverse_batch_csv_to_srt():
     try:
         _write(
             os.path.join(in_dir, "a.csv"),
-            "Start Time,End Time,Text\n"
-            "00:00:00:00,00:00:01:00,A\n",
+            "Start Time,End Time,Text\n00:00:00:00,00:00:01:00,A\n",
         )
         # Write semicolon CSV to verify delimiter sniffing in batch mode.
         _write(
@@ -234,8 +233,7 @@ def test_reverse_joined_requires_markers():
         in_csv = os.path.join(in_dir, "no_markers.csv")
         _write(
             in_csv,
-            "Start Time,End Time,Text\n"
-            "00:00:00:00,00:00:01:00,Line 1\n",
+            "Start Time,End Time,Text\n00:00:00:00,00:00:01:00,Line 1\n",
         )
 
         proc = subprocess.run(
@@ -273,9 +271,7 @@ def test_reverse_joined_rejects_positional_output_path():
         in_csv = os.path.join(in_dir, "joined.csv")
         _write(
             in_csv,
-            "Start Time,End Time,Text\n"
-            ",,a.srt\n"
-            "00:00:00:00,00:00:01:00,One\n",
+            "Start Time,End Time,Text\n,,a.srt\n00:00:00:00,00:00:01:00,One\n",
         )
 
         proc = subprocess.run(
