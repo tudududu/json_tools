@@ -1,3 +1,15 @@
+# 1.9.0 - 2026-03-23
+
+Added:
+- SRT/Tabular bidirectional conversion updates in `python/tools/srt_to_csv.py` (py 277-280):
+	* Added reverse conversion mode `--reverse` for CSV/XLSX -> SRT in both single-file and batch directory workflows.
+	* Added joined reverse mode `--reverse-joined` to parse marker-row joined CSV/XLSX input and split output into multiple SRT files.
+	* Added reverse column overrides `--start-col`, `--end-col`, `--text-col` (name or 1-based index).
+	* Added strict per-file timecode detection/validation (frames vs milliseconds) and mixed-format rejection.
+	* Added marker block validation, filename sanitization, and duplicate output-name deduping in joined reverse mode.
+	* Added missing-input CLI handling for positional input with user-friendly message: `No such file or directory: '<path>'`.
+	* Added reverse-mode test coverage for single, batch, joined split, marker validation, and invalid mode combinations.
+
 # 1.8.9 - 2026-03-14
 
 Added:

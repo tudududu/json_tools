@@ -316,8 +316,13 @@ python3 python/run_tests.py --coverage  # wrapper + badge
 
 Helper utilities live under `python/tools/`.
 
-- `srt_to_csv.py`: Convert SubRip (`.srt`) files to tabular output with `Start Time, End Time, Text` columns. Supports output in frames (`HH:MM:SS:FF`) or milliseconds (`HH:MM:SS,SSS`), and output containers CSV/XLSX (via `--output-type` override or output-extension inference). Also supports batch directory mode (`--input-dir` + `--output-dir`) and a joined-output mode (`--join-output`) to combine multiple `.srt` files into one output file with filename markers.
-  See `python/tools/README.md` for usage, flags like `--quote-all`, `--delimiter`, `--output-type`, and examples.
+- `srt_to_csv.py`: Bidirectional subtitle converter.
+  * Forward mode: SubRip (`.srt`) to tabular `Start Time, End Time, Text` output in CSV/XLSX.
+  * Reverse mode: tabular CSV/XLSX back to `.srt` (`--reverse`).
+  * Joined reverse mode: split one joined CSV/XLSX with marker rows into multiple `.srt` files (`--reverse-joined`).
+  * Supports frames (`HH:MM:SS:FF`) and milliseconds (`HH:MM:SS,SSS`) timecodes with per-file format validation.
+  * Supports batch directory mode (`--input-dir` + `--output-dir`) and forward joined output (`--join-output`).
+  See `python/tools/README.md` for usage and full flag details.
 
   Common invocations:
   ```sh
@@ -329,6 +334,18 @@ Helper utilities live under `python/tools/`.
 
   # Batch join: combine all .srt → one .xlsx (worksheet: subtitles)
   python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/joined.xlsx --join-output --fps 25 --out-format frames
+
+  # Reverse single file: CSV/XLSX -> SRT
+  python -m python.tools.srt_to_csv in/input.csv out/output.srt --fps 25 --reverse
+
+  # Reverse batch: directory CSV/XLSX -> one SRT per file
+  python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/ --fps 25 --reverse
+
+  # Reverse joined single file: split marker blocks to many SRT files
+  python -m python.tools.srt_to_csv in/joined.csv --output-dir out/ --fps 25 --reverse-joined
+
+  # Reverse joined batch: process each joined CSV/XLSX in a directory
+  python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/ --fps 25 --reverse-joined
   ```
 
 - `csv_json_media.py`: Convert media deliverables CSV/XLSX (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.

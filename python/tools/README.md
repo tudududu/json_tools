@@ -4,8 +4,10 @@ This folder contains helper scripts used alongside the CSV → JSON converter.
 
 ## srt_to_csv.py
 
-Converts a SubRip (`.srt`) subtitle file into tabular output with columns:
-`Start Time, End Time, Text`.
+Bidirectional subtitle converter:
+- Forward mode: converts SubRip (`.srt`) into tabular output with columns `Start Time, End Time, Text`.
+- Reverse mode: converts tabular CSV/XLSX back to `.srt` (`--reverse`).
+- Joined reverse mode: splits a joined CSV/XLSX (marker rows) to multiple `.srt` files (`--reverse-joined`).
 
 - Input: Standard SRT blocks
   ```
@@ -33,6 +35,10 @@ python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_csv/ --fp
 python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_xlsx/ --output-type xlsx --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ joined.csv --join-output --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ joined.xlsx --join-output --fps 25 --out-format frames
+python -m python.tools.srt_to_csv input.csv output.srt --fps 25 --reverse
+python -m python.tools.srt_to_csv --input-dir in_tabular/ --output-dir out_srt/ --fps 25 --reverse
+python -m python.tools.srt_to_csv joined.csv --output-dir out_srt/ --fps 25 --reverse-joined
+python -m python.tools.srt_to_csv --input-dir in_joined/ --output-dir out_srt/ --fps 25 --reverse-joined
 ```
 
 Options:
@@ -45,6 +51,16 @@ Options:
 - `--input-dir`: Batch mode — iterate all `.srt` files in the directory
 - `--output-dir`: Batch mode — directory to write separate output files (defaults to `--input-dir`)
 - `--join-output`: Batch join — write a single combined output file (provide an output file path either positionally after `--input-dir` or via `--output-dir`)
+- `--reverse`: Reverse mode — read CSV/XLSX and emit SRT
+- `--reverse-joined`: Reverse joined mode — read joined CSV/XLSX with marker rows and split to multiple SRT files
+- `--start-col <name|index>`: Reverse modes — override Start Time column name or 1-based index
+- `--end-col <name|index>`: Reverse modes — override End Time column name or 1-based index
+- `--text-col <name|index>`: Reverse modes — override Text column name or 1-based index
+
+Reverse mode notes:
+- Timecode format is auto-detected per input file (`HH:MM:SS:FF` or `HH:MM:SS,SSS`); mixed formats in one file are rejected.
+- Joined reverse mode requires marker rows: empty Start/End with filename in Text.
+- Missing positional input files fail with friendly CLI messaging: `No such file or directory: '<path>'`.
 
 XLSX notes:
 - XLSX output writes a single worksheet named `subtitles`.
