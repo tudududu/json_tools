@@ -2,7 +2,7 @@
 
 - Ensures repo root and python/ are on PYTHONPATH so root sitecustomize.py loads.
 - Sets COVERAGE_PROCESS_START to repo .coveragerc when present.
-- Signals tests to wrap CLI subprocesses under coverage (COVERAGE_SUBPROCESS=1).
+- Leaves CLI subprocess wrapping opt-in via COVERAGE_SUBPROCESS=1.
 - After tests, combines any parallel data files and prints a final coverage summary.
 
 This makes a plain `pytest --cov=python ...` produce non-zero coverage for
@@ -15,6 +15,15 @@ import os
 import sys
 from pathlib import Path
 import subprocess
+import warnings
+
+# coverage.py can emit this on some Python/runner combinations (notably when
+# collecting coverage via IDE test adapters). It is non-fatal and noisy.
+warnings.filterwarnings(
+    "ignore",
+    message=r"unclosed database in <sqlite3\.Connection object at .*>",
+    category=ResourceWarning,
+)
 
 
 def _ensure_env():
@@ -32,8 +41,8 @@ def _ensure_env():
         os.environ["PYTHONPATH"] = os.pathsep.join(paths + [env_pp])
     else:
         os.environ["PYTHONPATH"] = os.pathsep.join(paths)
-    # Instruct tests to wrap CLI subprocesses with coverage run -p
-    os.environ.setdefault("COVERAGE_SUBPROCESS", "1")
+    # Keep subprocess wrapping opt-in; some runners already provide subprocess
+    # coverage via COVERAGE_PROCESS_START + sitecustomize.
 
 
 _ensure_env()

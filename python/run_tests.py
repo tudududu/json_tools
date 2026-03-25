@@ -12,6 +12,7 @@ Outputs:
 import os
 import sys
 import subprocess
+import importlib.util
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 TEST_DIR = os.path.join(ROOT, "tests")
@@ -50,22 +51,33 @@ def run():
         )
         return 2
 
-    # On success with coverage, refresh badge
+    # On success with coverage, refresh badge (best effort)
     if rc == 0 and use_cov:
         svg_path = os.path.join(cov_dir, "coverage.svg")
-        # Combine parallel coverage data (important when parallel=True in .coveragerc)
-        try:
-            subprocess.call([sys.executable, "-m", "coverage", "combine"])
-        except Exception:
-            pass
-        try:
-            # coverage-badge reads the .coverage data produced by pytest-cov
-            subprocess.call(
-                [sys.executable, "-m", "coverage_badge", "-o", svg_path, "-f"]
-            )
-        except Exception:
-            # Badge generation is best-effort; do not fail the build on this
-            pass
+        # pytest-cov already handles coverage data merging for this run, so avoid
+        # an extra manual combine pass that can print noisy "No data to combine".
+
+        # coverage-badge depends on pkg_resources (from setuptools). Skip silently
+        # if either module is unavailable in the current venv.
+        has_badge = importlib.util.find_spec("coverage_badge") is not None
+        has_pkg_resources = importlib.util.find_spec("pkg_resources") is not None
+        if has_badge and has_pkg_resources:
+            try:
+                badge_proc = subprocess.run(
+                    [sys.executable, "-m", "coverage_badge", "-o", svg_path, "-f"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if badge_proc.returncode != 0 and badge_proc.stderr:
+                    print(
+                        "coverage-badge skipped: "
+                        + badge_proc.stderr.strip().splitlines()[-1],
+                        file=sys.stderr,
+                    )
+            except Exception:
+                # Badge generation is best-effort; do not fail the build on this.
+                pass
 
     return rc
 
