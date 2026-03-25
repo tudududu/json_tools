@@ -120,3 +120,44 @@ python python/tools/csv_json_media.py input.csv dummy.json --split-by-country --
 ### Notes on CSV formatting
 - Spacer/separator rows (e.g., `;;;;;;;` or `…;;;;;;;`) are ignored.
 - Split mode skips writing files for groups that produce no keys (empty groups).
+
+## layer_name_config.py
+
+Converts an XLSX workbook into `LAYER_NAME_CONFIG` JSON data.
+
+Workbook shape:
+- Sheet `LayerNames` (case-insensitive match): columns `key`, `exact`, `contains`
+- Sheet `RecenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
+
+Rules:
+- `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
+- `exact` and `contains` are always emitted as arrays, even when empty.
+- `recenterRules` is emitted with all four arrays.
+
+Usage:
+```sh
+python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json
+python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --separator ';'
+python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --dry-run
+```
+
+Options:
+- `--separator <str>`: explicit token separator for `exact`/`contains` cells (no sniffing)
+- `--layer-names-sheet <name>`: default `LayerNames`
+- `--recenter-rules-sheet <name>`: default `RecenterRules`
+- `--root-key <name>`: default `LAYER_NAME_CONFIG`
+- `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
+- `--dry-run`: parse and print summary only
+
+## generate_layer_name_template.py
+
+Generates a ready-to-use XLSX template from a sample `LAYER_NAME_CONFIG` JSON file.
+
+Usage:
+```sh
+python -m python.tools.generate_layer_name_template out/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
+```
+
+This creates:
+- Sheet `LayerNames` with rows prefilled from JSON keys and list values
+- Sheet `RecenterRules` with rule columns and values expanded row-by-row
