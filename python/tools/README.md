@@ -137,6 +137,7 @@ Rules:
 Usage:
 ```sh
 python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json
+python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --indent 0
 python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --separator ';'
 python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --dry-run
 ```
