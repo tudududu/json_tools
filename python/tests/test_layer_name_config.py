@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from typing import Any, List, Optional, Tuple
 
 import pytest
 
@@ -48,11 +49,11 @@ def _write_json(path: str, data: object) -> None:
 
 
 def _write_minimal_xlsx(
-    openpyxl_mod: object,
+    openpyxl_mod: Any,
     path: str,
-    layer_rows: list = None,
-    rule_rows: list = None,
-    sheet_names: tuple = None,
+    layer_rows: Optional[List[list]] = None,
+    rule_rows: Optional[List[list]] = None,
+    sheet_names: Optional[Tuple[str, str]] = None,
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or ("LayerNames", "RecenterRules")
