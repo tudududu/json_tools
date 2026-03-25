@@ -17,7 +17,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Dict, Iterable, List, Sequence
+from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence, cast
+
+if TYPE_CHECKING:
+    from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
 
 try:
     from openpyxl import load_workbook as _openpyxl_load_workbook
@@ -31,7 +34,7 @@ def _norm_header(value: object) -> str:
     return str(value or "").strip().lower().replace(" ", "")
 
 
-def _sheet_by_name_ci(workbook: object, configured_name: str) -> object:
+def _sheet_by_name_ci(workbook: object, configured_name: str) -> "WorksheetType":
     target = configured_name.strip().lower()
     sheets = getattr(workbook, "worksheets", [])
     for ws in sheets:
@@ -47,7 +50,7 @@ def _split_list_cell(value: object, separator: str) -> List[str]:
     return [part.strip() for part in token.split(separator) if part.strip()]
 
 
-def _read_headers(worksheet: object) -> List[str]:
+def _read_headers(worksheet: "WorksheetType") -> List[str]:
     row_iter = worksheet.iter_rows(min_row=1, max_row=1, values_only=True)
     first = next(row_iter, None)
     if first is None:
@@ -64,7 +67,7 @@ def _cell(row: Sequence[object], idx: int) -> object:
 
 
 def _parse_layer_names(
-    worksheet: object, separator: str
+    worksheet: "WorksheetType", separator: str
 ) -> Dict[str, Dict[str, List[str]]]:
     headers = _read_headers(worksheet)
     idx = _index_map(headers)
@@ -86,7 +89,7 @@ def _parse_layer_names(
     return out
 
 
-def _parse_recenter_rules(worksheet: object) -> Dict[str, List[str]]:
+def _parse_recenter_rules(worksheet: "WorksheetType") -> Dict[str, List[str]]:
     headers = _read_headers(worksheet)
     idx = _index_map(headers)
 
@@ -113,7 +116,7 @@ def convert_workbook(
     layer_names_sheet: str,
     recenter_rules_sheet: str,
     root_key: str,
-) -> Dict[str, object]:
+) -> Dict[str, Dict[str, object]]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
             "XLSX support requires openpyxl. Install with: pip install openpyxl"
@@ -189,7 +192,7 @@ def main() -> None:
     if args.dry_run:
         body = data.get(args.root_key, {})
         layer_count = len([k for k in body.keys() if k != "recenterRules"])
-        rule_count = len(body.get("recenterRules", {}))
+        rule_count = len(cast(Dict[str, object], body.get("recenterRules", {})))
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups"
         )
