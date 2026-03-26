@@ -30,6 +30,30 @@ except Exception:
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
 
 
+def _json_scalar(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _format_indent_three(value: object, level: int = 0) -> str:
+    if isinstance(value, dict):
+        if not value:
+            return "{}"
+        indent = " " * 3 * level
+        child_indent = " " * 3 * (level + 1)
+        parts = []
+        for key, item in value.items():
+            rendered = _format_indent_three(item, level + 1)
+            parts.append(f"{child_indent}{_json_scalar(key)}: {rendered}")
+        return "{\n" + ",\n".join(parts) + "\n" + indent + "}"
+
+    if isinstance(value, list):
+        if not value:
+            return "[]"
+        return "[" + ", ".join(_json_scalar(item) for item in value) + "]"
+
+    return _json_scalar(value)
+
+
 def _norm_header(value: object) -> str:
     return str(value or "").strip().lower().replace(" ", "")
 
@@ -137,6 +161,15 @@ def convert_workbook(
         wb.close()
 
 
+def _write_json_output(path: str, data: object, indent: int) -> None:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        if indent == 3:
+            f.write(_format_indent_three(data))
+        else:
+            json.dump(data, f, ensure_ascii=False, indent=None if indent <= 0 else indent)
+        f.write("\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert LAYER_NAME_CONFIG Excel workbook to JSON"
@@ -167,7 +200,7 @@ def main() -> None:
         "--indent",
         type=int,
         default=4,
-        help="JSON indentation (default 4; set 0 for compact)",
+        help="JSON indentation (default 4; set 0 for compact; set 3 for inline arrays)",
     )
     parser.add_argument(
         "--dry-run",
@@ -199,10 +232,7 @@ def main() -> None:
         return
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    indent = None if args.indent <= 0 else args.indent
-    with open(args.output, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(data, f, ensure_ascii=False, indent=indent)
-        f.write("\n")
+    _write_json_output(args.output, data, args.indent)
 
 
 if __name__ == "__main__":

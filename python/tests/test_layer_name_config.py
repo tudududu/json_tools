@@ -231,6 +231,27 @@ def test_converter_respects_custom_root_key():
         _cleanup_dir(d)
 
 
+def test_converter_indent_three_formats_arrays_as_one_liners():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            layer_rows=[["logoAnim", "logo_01_anim;Size_Holder_Logo", ""]],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json, "--indent", "3")
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            content = f.read()
+        assert '["logo_01_anim", "Size_Holder_Logo"]' in content
+        assert '"contains": []' in content
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # generate_layer_name_template CLI tests
 # ──────────────────────────────────────────────────────────────────────────────
