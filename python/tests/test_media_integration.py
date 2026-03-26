@@ -50,8 +50,10 @@ class MediaIntegrationTests(unittest.TestCase):
                 fra_path = os.path.join(td, "out-FRA.json")
                 self.assertTrue(os.path.isfile(gbl_path))
                 self.assertTrue(os.path.isfile(fra_path))
-                gbl = json.load(open(gbl_path, "r", encoding="utf-8"))
-                fra = json.load(open(fra_path, "r", encoding="utf-8"))
+                with open(gbl_path, "r", encoding="utf-8") as f:
+                    gbl = json.load(f)
+                with open(fra_path, "r", encoding="utf-8") as f:
+                    fra = json.load(f)
                 self.assertIn("media", gbl)
                 self.assertNotIn("media", fra)
                 # Basic sanity of media content
@@ -111,8 +113,10 @@ class MediaIntegrationTests(unittest.TestCase):
                 fra_path = os.path.join(td, "out-FRA.json")
                 self.assertTrue(os.path.isfile(gbl_path))
                 self.assertTrue(os.path.isfile(fra_path))
-                gbl = json.load(open(gbl_path, "r", encoding="utf-8"))
-                fra = json.load(open(fra_path, "r", encoding="utf-8"))
+                with open(gbl_path, "r", encoding="utf-8") as f:
+                    gbl = json.load(f)
+                with open(fra_path, "r", encoding="utf-8") as f:
+                    fra = json.load(f)
                 self.assertIn("media", gbl)
                 self.assertNotIn("media", fra)
                 self.assertIn("1x1|06s", gbl["media"])

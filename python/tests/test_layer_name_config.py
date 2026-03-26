@@ -169,7 +169,8 @@ def test_converter_produces_valid_json_with_correct_values():
         )
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
-        data = json.loads(open(out_json, encoding="utf-8").read())
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
         body = data["LAYER_NAME_CONFIG"]
         assert body["logo"]["exact"] == ["logo_01", "logo_02"]
         assert body["logo"]["contains"] == []
@@ -189,7 +190,8 @@ def test_converter_empty_exact_and_contains_always_emitted():
         _write_minimal_xlsx(openpyxl, xlsx, layer_rows=[["subtitles", "", ""]])
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
-        body = json.loads(open(out_json, encoding="utf-8").read())["LAYER_NAME_CONFIG"]
+        with open(out_json, encoding="utf-8") as f:
+            body = json.load(f)["LAYER_NAME_CONFIG"]
         assert body["subtitles"] == {"exact": [], "contains": []}
     finally:
         _cleanup_dir(d)
@@ -205,7 +207,8 @@ def test_converter_case_insensitive_sheet_names():
         _write_minimal_xlsx(openpyxl, xlsx, sheet_names=("layernames", "recenterrules"))
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
-        data = json.loads(open(out_json, encoding="utf-8").read())
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
         assert "LAYER_NAME_CONFIG" in data
     finally:
         _cleanup_dir(d)
@@ -220,7 +223,8 @@ def test_converter_respects_custom_root_key():
         _write_minimal_xlsx(openpyxl, xlsx)
         proc = _run(_CONVERTER, xlsx, out_json, "--root-key", "MY_CONFIG")
         assert proc.returncode == 0, proc.stderr
-        data = json.loads(open(out_json, encoding="utf-8").read())
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
         assert "MY_CONFIG" in data
         assert "LAYER_NAME_CONFIG" not in data
     finally:
@@ -358,12 +362,10 @@ def test_roundtrip_via_sample_json():
         proc = _run(_CONVERTER, template_xlsx, roundtrip_json, "--separator", sep)
         assert proc.returncode == 0, proc.stderr
 
-        src = json.loads(open(sample_json, encoding="utf-8").read())[
-            "LAYER_NAME_CONFIG"
-        ]
-        rt = json.loads(open(roundtrip_json, encoding="utf-8").read())[
-            "LAYER_NAME_CONFIG"
-        ]
+        with open(sample_json, encoding="utf-8") as f:
+            src = json.load(f)["LAYER_NAME_CONFIG"]
+        with open(roundtrip_json, encoding="utf-8") as f:
+            rt = json.load(f)["LAYER_NAME_CONFIG"]
 
         # All layer + recenterRules keys must match
         assert set(src.keys()) == set(rt.keys()), (

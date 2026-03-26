@@ -36,7 +36,8 @@ def run_tool(csv_text: str, delimiter=";"):
     args = [sys.executable, SCRIPT, path_in, path_out, "--delimiter", delimiter]
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
-    data = json.load(open(path_out, "r", encoding="utf-8"))
+    with open(path_out, "r", encoding="utf-8") as f:
+        data = json.load(f)
     os.remove(path_in)
     os.remove(path_out)
     return data
@@ -55,7 +56,8 @@ def run_tool_path(path_in: str, extra_args: list[str] | None = None):
         except Exception:
             pass
         return proc, None
-    data = json.load(open(path_out, "r", encoding="utf-8"))
+    with open(path_out, "r", encoding="utf-8") as f:
+        data = json.load(f)
     os.remove(path_out)
     return proc, data
 
@@ -135,7 +137,8 @@ def test_compact_output_inline_items():
     args = [sys.executable, SCRIPT, path_in, path_out, "--compact"]
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
-    txt = open(path_out, "r", encoding="utf-8").read()
+    with open(path_out, "r", encoding="utf-8") as f:
+        txt = f.read()
     os.remove(path_in)
     os.remove(path_out)
     # Expect inline items pattern in compact mode

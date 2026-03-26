@@ -36,7 +36,8 @@ def test_join_output_positional_after_input_dir():
             text=True,
         )
         assert proc.returncode == 0, proc.stderr
-        content = open(out_csv, "r", encoding="utf-8").read().splitlines()
+        with open(out_csv, "r", encoding="utf-8") as f:
+            content = f.read().splitlines()
         # Header + marker for a.srt + 1 row + marker for b.srt + 1 row
         assert content[0] == "Start Time,End Time,Text"
         assert content[1].endswith(",a.srt")
@@ -80,7 +81,8 @@ def test_join_output_output_dir_as_file_path():
             text=True,
         )
         assert proc.returncode == 0, proc.stderr
-        content = open(out_csv, "r", encoding="utf-8").read().splitlines()
+        with open(out_csv, "r", encoding="utf-8") as f:
+            content = f.read().splitlines()
         assert content[0] == "Start Time,End Time,Text"
         assert any(line.endswith(",c.srt") for line in content)
     finally:
@@ -174,7 +176,8 @@ def test_single_output_type_flag_overrides_extension():
         )
         assert proc.returncode == 0, proc.stderr
 
-        content = open(out_xlsx_name, "r", encoding="utf-8").read().splitlines()
+        with open(out_xlsx_name, "r", encoding="utf-8") as f:
+            content = f.read().splitlines()
         assert content[0] == "Start Time,End Time,Text"
         assert content[1] == "00:00:00:00,00:00:01:00,Override"
     finally:

@@ -28,7 +28,8 @@ def test_blank_separator_rows_are_ignored_with_country_language_header():
     args = [sys.executable, SCRIPT, path_in, path_out]
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
-    data = json.load(open(path_out, "r", encoding="utf-8"))
+    with open(path_out, "r", encoding="utf-8") as f:
+        data = json.load(f)
     # Expect two keys from the two non-blank rows
     keys = list(data.keys())
     assert "9x16|15s" in keys or "9x16|06s" in keys

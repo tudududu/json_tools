@@ -51,8 +51,10 @@ def test_split_by_country_writes_multiple_files_with_default_pattern():
     assert os.path.exists(f1), f"Missing {f1}"
     assert os.path.exists(f2), f"Missing {f2}"
 
-    data1 = json.load(open(f1, "r", encoding="utf-8"))
-    data2 = json.load(open(f2, "r", encoding="utf-8"))
+    with open(f1, "r", encoding="utf-8") as f:
+        data1 = json.load(f)
+    with open(f2, "r", encoding="utf-8") as f:
+        data2 = json.load(f)
 
     # Basic sanity: keys exist and items count
     assert "1x1|06s" in data1
@@ -163,8 +165,10 @@ def test_split_by_country_from_xlsx_default_media_sheet():
         assert os.path.exists(f1)
         assert os.path.exists(f2)
 
-        data1 = json.load(open(f1, "r", encoding="utf-8"))
-        data2 = json.load(open(f2, "r", encoding="utf-8"))
+        with open(f1, "r", encoding="utf-8") as f:
+            data1 = json.load(f)
+        with open(f2, "r", encoding="utf-8") as f:
+            data2 = json.load(f)
         assert data1["1x1|06s"][0]["media"] == "TikTok"
         assert data2["1x1|06s"][0]["media"] == "Meta InFeed"
     finally:

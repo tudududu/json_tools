@@ -37,7 +37,8 @@ def test_reverse_single_csv_to_srt_frames():
         )
 
         assert proc.returncode == 0, proc.stderr
-        out = open(out_srt, "r", encoding="utf-8").read()
+        with open(out_srt, "r", encoding="utf-8") as f:
+            out = f.read()
         assert "1\n00:00:00,000 --> 00:00:01,000\nHello\n" in out
         assert "2\n00:00:01,400 --> 00:00:02,000\nWorld\n" in out
     finally:
@@ -123,7 +124,8 @@ def test_reverse_skips_join_marker_rows():
         )
 
         assert proc.returncode == 0, proc.stderr
-        out = open(out_srt, "r", encoding="utf-8").read()
+        with open(out_srt, "r", encoding="utf-8") as f:
+            out = f.read()
         assert "a.srt" not in out
         assert "b.srt" not in out
         assert "One" in out and "Two" in out
@@ -210,8 +212,10 @@ def test_reverse_joined_splits_and_sanitizes_marker_filenames():
             [n for n in os.listdir(out_dir) if n.lower().endswith(".srt")]
         )
         assert out_files == ["A_B.srt", "A_B_2.srt"]
-        first = open(os.path.join(out_dir, "A_B.srt"), "r", encoding="utf-8").read()
-        second = open(os.path.join(out_dir, "A_B_2.srt"), "r", encoding="utf-8").read()
+        with open(os.path.join(out_dir, "A_B.srt"), "r", encoding="utf-8") as f:
+            first = f.read()
+        with open(os.path.join(out_dir, "A_B_2.srt"), "r", encoding="utf-8") as f:
+            second = f.read()
         assert "One" in first
         assert "Two" in second
     finally:
