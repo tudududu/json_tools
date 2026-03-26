@@ -12,7 +12,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Dict, List, Sequence
+from typing import TYPE_CHECKING, Dict, List, Sequence, cast
+
+if TYPE_CHECKING:
+    from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
 
 try:
     from openpyxl import Workbook as _Workbook
@@ -53,7 +56,7 @@ def generate_template(
     body: Dict[str, object] = raw[root_key]
 
     wb = _Workbook()
-    ws_layers = wb.active
+    ws_layers = cast("WorksheetType", wb.active)
     ws_layers.title = layer_names_sheet
     ws_layers.append(["key", "exact", "contains"])
 
