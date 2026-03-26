@@ -358,8 +358,12 @@ def test_roundtrip_via_sample_json():
         proc = _run(_CONVERTER, template_xlsx, roundtrip_json, "--separator", sep)
         assert proc.returncode == 0, proc.stderr
 
-        src = json.loads(open(sample_json, encoding="utf-8").read())["LAYER_NAME_CONFIG"]
-        rt = json.loads(open(roundtrip_json, encoding="utf-8").read())["LAYER_NAME_CONFIG"]
+        src = json.loads(open(sample_json, encoding="utf-8").read())[
+            "LAYER_NAME_CONFIG"
+        ]
+        rt = json.loads(open(roundtrip_json, encoding="utf-8").read())[
+            "LAYER_NAME_CONFIG"
+        ]
 
         # All layer + recenterRules keys must match
         assert set(src.keys()) == set(rt.keys()), (
@@ -370,7 +374,9 @@ def test_roundtrip_via_sample_json():
         for key in ("logo", "subtitles", "dataJson"):
             if key in src:
                 assert rt[key]["exact"] == src[key]["exact"], f"exact mismatch: {key}"
-                assert rt[key]["contains"] == src[key]["contains"], f"contains mismatch: {key}"
+                assert rt[key]["contains"] == src[key]["contains"], (
+                    f"contains mismatch: {key}"
+                )
 
         # recenterRules values must survive the round trip
         for rule_key in ("force", "noRecenter", "alignH", "alignV"):

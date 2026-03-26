@@ -6,6 +6,15 @@ collection in subprocesses before application code runs.
 """
 
 import os
+import warnings
+
+# Suppress a known non-fatal warning emitted at interpreter shutdown by some
+# coverage+adapter combinations (e.g. VS Code pytest adapter).
+warnings.filterwarnings(
+    "ignore",
+    message=r"unclosed database in <sqlite3\.Connection object at .*>",
+    category=ResourceWarning,
+)
 
 if os.getenv("COVERAGE_PROCESS_START"):
     try:
