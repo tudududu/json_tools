@@ -15,6 +15,16 @@ warnings.filterwarnings(
     message=r"unclosed database in <sqlite3\.Connection object at .*>",
     category=ResourceWarning,
 )
+warnings.filterwarnings(
+    "ignore",
+    message=r".*unclosed database.*sqlite3\.Connection.*",
+    category=ResourceWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    category=ResourceWarning,
+    module=r"coverage(\..*)?",
+)
 
 if os.getenv("COVERAGE_PROCESS_START"):
     try:
