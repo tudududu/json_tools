@@ -3255,8 +3255,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         key = (country_code, lang)
         media_map = media_groups_map.get(key)
         if media_map:
-            # Append after 'videos' by adding as a new key (dicts preserve insertion order)
-            payload["media"] = media_map
+            # Inject into config namespace: config.pack.EXTRA_OUTPUT_COMPS
+            config = payload.setdefault("config", {})
+            if isinstance(config, dict):
+                pack = config.setdefault("pack", {})
+                if isinstance(pack, dict):
+                    pack["EXTRA_OUTPUT_COMPS"] = media_map
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:

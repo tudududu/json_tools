@@ -836,7 +836,7 @@ Outputs:
 
 ### Media Injection (csv_json_media)
 
-Use a separate media CSV to inject a per-country `media` object into the converter’s output. Injection occurs only for exact `(country, language)` matches (language may be empty). The `media` key is appended immediately after `videos` in each per-country payload.
+Use a separate media CSV to inject per-country media mapping into `config.pack.EXTRA_OUTPUT_COMPS`. Injection occurs only for exact `(country, language)` matches (language may be empty).
 
 Flags:
 - `--media-config`: Path to the media source CSV/XLSX (enables injection).
@@ -846,8 +846,9 @@ Flags:
 
 Behavior:
 - Exact match only: `(DEU, "")` matches a media row with `Country=DEU` and `Language` empty; `(BEL, FRA)` matches only rows with both `BEL` and `FRA`.
-- No fallbacks: if there is no exact match, `media` is not injected.
+- No fallbacks: if there is no exact match, media config is not injected.
 - Mapping shape is produced by the media tool: keys like `1x1|06s` → array of `{ size, media }`.
+- Written location: `config.pack.EXTRA_OUTPUT_COMPS`.
 
 Example (split by country):
 ```sh

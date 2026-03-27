@@ -60,10 +60,14 @@ class MediaIntegrationTests(unittest.TestCase):
                     gbl = json.load(f)
                 with open(fra_path, "r", encoding="utf-8") as f:
                     fra = json.load(f)
-                self.assertIn("media", gbl)
+                self.assertIn("config", gbl)
+                self.assertIn("pack", gbl["config"])
+                self.assertIn("EXTRA_OUTPUT_COMPS", gbl["config"]["pack"])
+                self.assertNotIn("config", fra)
+                self.assertNotIn("media", gbl)
                 self.assertNotIn("media", fra)
                 # Basic sanity of media content
-                self.assertIn("1x1|06s", gbl["media"])
+                self.assertIn("1x1|06s", gbl["config"]["pack"]["EXTRA_OUTPUT_COMPS"])
         finally:
             try:
                 os.remove(in_path)
@@ -129,9 +133,13 @@ class MediaIntegrationTests(unittest.TestCase):
                     gbl = json.load(f)
                 with open(fra_path, "r", encoding="utf-8") as f:
                     fra = json.load(f)
-                self.assertIn("media", gbl)
+                self.assertIn("config", gbl)
+                self.assertIn("pack", gbl["config"])
+                self.assertIn("EXTRA_OUTPUT_COMPS", gbl["config"]["pack"])
+                self.assertNotIn("config", fra)
+                self.assertNotIn("media", gbl)
                 self.assertNotIn("media", fra)
-                self.assertIn("1x1|06s", gbl["media"])
+                self.assertIn("1x1|06s", gbl["config"]["pack"]["EXTRA_OUTPUT_COMPS"])
         finally:
             try:
                 os.remove(in_path)
