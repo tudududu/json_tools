@@ -839,7 +839,7 @@ Outputs:
 Use a separate media CSV to inject a per-country `media` object into the converter’s output. Injection occurs only for exact `(country, language)` matches (language may be empty). The `media` key is appended immediately after `videos` in each per-country payload.
 
 Flags:
-- `--media-csv`: Path to the media source CSV/XLSX (enables injection).
+- `--media-config`: Path to the media source CSV/XLSX (enables injection).
 - `--media-delimiter`: Media CSV delimiter (default `;`, ignored for XLSX media source).
 - `--media-country-col`: Country column header in the media source (default `Country`).
 - `--media-language-col`: Language column header in the media source (default `Language`).
@@ -853,7 +853,7 @@ Example (split by country):
 ```sh
 python3 python/csv_to_json.py data.csv out/{country}.json \
   --split-by-country \
-  --media-csv media.csv \
+  --media-config media.csv \
   --media-delimiter ';' \
   --media-country-col Country \
   --media-language-col Language
@@ -861,7 +861,7 @@ python3 python/csv_to_json.py data.csv out/{country}.json \
 python3 python/csv_to_json.py in.csv out.json \
   --country-column 1 \
   --fps 25 \
-  --media-csv media.csv
+  --media-config media.csv
 ```
 
 ## Troubleshooting

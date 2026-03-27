@@ -43,7 +43,13 @@ class MediaIntegrationTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as td:
                 pattern = os.path.join(td, "out-{country}.json")
                 rc = mod.main(
-                    [in_path, pattern, "--split-by-country", "--media-csv", media_path]
+                    [
+                        in_path,
+                        pattern,
+                        "--split-by-country",
+                        "--media-config",
+                        media_path,
+                    ]
                 )
                 self.assertEqual(rc, 0)
                 gbl_path = os.path.join(td, "out-GBL.json")
@@ -106,7 +112,13 @@ class MediaIntegrationTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as td:
                 pattern = os.path.join(td, "out-{country}.json")
                 rc = mod.main(
-                    [in_path, pattern, "--split-by-country", "--media-csv", media_path]
+                    [
+                        in_path,
+                        pattern,
+                        "--split-by-country",
+                        "--media-config",
+                        media_path,
+                    ]
                 )
                 self.assertEqual(rc, 0)
                 gbl_path = os.path.join(td, "out-GBL.json")

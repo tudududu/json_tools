@@ -177,7 +177,7 @@ Added:
 	* Converts deliverables CSV into a media index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`.
 	* Supports duration parsing/normalization, consecutive creative dedup, and stable ordering of `{size, media}` pairs.
 	* Optional split-by-country output with filename templating and dry-run summaries.
-	* Media injection integrated into `csv_to_json.py` via `--media-csv` with exact country+language matching.
+	* Media injection integrated into `csv_to_json.py` via `--media-config` with exact country+language matching.
 
 # 1.5.7 - 2025-12-11
 

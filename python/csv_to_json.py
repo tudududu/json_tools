@@ -2920,9 +2920,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Media injection (CSV to JSON media)
     p.add_argument(
-        "--media-csv",
+        "--media-config",
         default=None,
-        help="Optional path to media CSV for injection per country/language (exact match only)",
+        help="Optional path to media config CSV/XLSX for injection per country/language (exact match only)",
     )
     p.add_argument(
         "--media-delimiter", default=";", help="Delimiter for media CSV (default ';')"
@@ -3211,18 +3211,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    if args.media_csv:
+    if args.media_config:
         if (
             media_read_csv is None
             or media_group_by_country_language is None
             or media_convert_rows is None
         ):
             print(
-                "Warning: media tools not available; skipping --media-csv integration"
+                "Warning: media tools not available; skipping --media-config integration"
             )
         else:
             try:
-                m_rows = media_read_csv(args.media_csv, delimiter=args.media_delimiter)
+                m_rows = media_read_csv(
+                    args.media_config, delimiter=args.media_delimiter
+                )
                 groups = media_group_by_country_language(
                     m_rows,
                     country_col=args.media_country_col,
@@ -3236,7 +3238,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     if mapping:
                         media_groups_map[(ctry, lang)] = mapping
             except Exception as ex:
-                print(f"Warning: failed to load media CSV '{args.media_csv}': {ex}")
+                print(
+                    f"Warning: failed to load media config '{args.media_config}': {ex}"
+                )
 
     def _inject_media(payload: Dict[str, Any], country_code: str):
         if not media_groups_map:
