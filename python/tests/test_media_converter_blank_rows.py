@@ -5,7 +5,7 @@ import textwrap
 import subprocess
 import sys
 
-SCRIPT = "python/tools/csv_json_media.py"
+SCRIPT = "python/tools/media_converter.py"
 
 
 def test_blank_separator_rows_are_ignored_with_country_language_header():

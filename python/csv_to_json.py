@@ -43,7 +43,7 @@ except Exception:
 
 # Optional media injection support (CSV → JSON media tool)
 try:
-    from python.tools.csv_json_media import (
+    from python.tools.media_converter import (
         read_csv as media_read_csv,
         group_by_country_language as media_group_by_country_language,
         convert_rows as media_convert_rows,
@@ -54,9 +54,9 @@ except Exception:
         import importlib.util as _ilu
 
         _tools_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "tools", "csv_json_media.py"
+            os.path.dirname(os.path.abspath(__file__)), "tools", "media_converter.py"
         )
-        _spec = _ilu.spec_from_file_location("_csv_json_media", _tools_path)
+        _spec = _ilu.spec_from_file_location("_media_converter", _tools_path)
         if _spec and _spec.loader:
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)  # type: ignore[arg-type]

@@ -28,7 +28,7 @@ Rules:
 - Media labels are trimmed but case is preserved.
 
 Usage:
-  python3 python/tools/csv_json_media.py input.csv output.json
+    python3 python/tools/media_converter.py input.csv output.json
 
 Options:
   --delimiter <char>   CSV delimiter (default ';')

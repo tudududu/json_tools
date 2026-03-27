@@ -66,7 +66,7 @@ XLSX notes:
 - XLSX output writes a single worksheet named `subtitles`.
 - XLSX output requires `openpyxl`.
 
-## csv_json_media.py
+## media_converter.py
 
 Converts a media deliverables CSV/XLSX into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
 
@@ -81,11 +81,11 @@ Converts a media deliverables CSV/XLSX into a compact JSON index mapping `<Aspec
 
 Usage:
 ```sh
-python python/tools/csv_json_media.py input.csv output.json
-python python/tools/csv_json_media.py input.xlsx output.json
-python python/tools/csv_json_media.py input.csv out/ --split-by-country
-python python/tools/csv_json_media.py input.csv out/ --split-by-country --output-pattern "media_{COUNTRY}[_{LANG}].json"
-python python/tools/csv_json_media.py input.csv out/ --split-by-country --country-col Territory --language-col Lang
+python python/tools/media_converter.py input.csv output.json
+python python/tools/media_converter.py input.xlsx output.json
+python python/tools/media_converter.py input.csv out/ --split-by-country
+python python/tools/media_converter.py input.csv out/ --split-by-country --output-pattern "media_{COUNTRY}[_{LANG}].json"
+python python/tools/media_converter.py input.csv out/ --split-by-country --country-col Territory --language-col Lang
 ```
 
 Options:
@@ -102,7 +102,7 @@ Options:
 Dry run examples:
 ```sh
 # Summarize split groups without writing files
-python python/tools/csv_json_media.py input.csv dummy.json --split-by-country --dry-run
+python python/tools/media_converter.py input.csv dummy.json --split-by-country --dry-run
 ```
 
 ### Changes since CSV to JSON 198 (SRT to CSV script)

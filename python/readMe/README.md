@@ -348,17 +348,17 @@ Helper utilities live under `python/tools/`.
   python -m python.tools.srt_to_csv --input-dir in/ --output-dir out/ --fps 25 --reverse-joined
   ```
 
-- `csv_json_media.py`: Convert media deliverables CSV/XLSX (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.
+- `media_converter.py`: Convert media deliverables CSV/XLSX (preferred columns: `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`) into a JSON index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`, with values as `{size, media}` arrays. Duration is sourced from the `Duration` column when present (normalized to tokens like `06s`, `15s`, `30s`), and falls back to parsing `Creative` when `Duration` is missing. Consecutive rows differing only by creative variant/title are deduped (first kept). Surrounding whitespace is trimmed and `Dimensions` is normalized by removing spaces (e.g., `1440 x 1800` → `1440x1800`). See `python/tools/README.md` for full rules and options.
 
   Common invocation:
   ```sh
-  python -m python.tools.csv_json_media path/to/input.csv out/media_outputs.json
-  python -m python.tools.csv_json_media path/to/input.xlsx out/media_outputs.json --xlsx-sheet media
+  python -m python.tools.media_converter path/to/input.csv out/media_outputs.json
+  python -m python.tools.media_converter path/to/input.xlsx out/media_outputs.json --xlsx-sheet media
   ```
   Note: add `--compact` to write JSON with inline array items.
   Split by country/language:
   ```sh
-  python -m python.tools.csv_json_media path/to/input.csv out/ --split-by-country \
+  python -m python.tools.media_converter path/to/input.csv out/ --split-by-country \
     --output-pattern "media_{COUNTRY}[_{LANG}].json"
   ```
 

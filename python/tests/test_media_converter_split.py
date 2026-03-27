@@ -6,7 +6,7 @@ import subprocess
 import sys
 import pytest
 
-SCRIPT = "python/tools/csv_json_media.py"
+SCRIPT = "python/tools/media_converter.py"
 
 
 def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:

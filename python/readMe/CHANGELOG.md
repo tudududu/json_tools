@@ -88,7 +88,7 @@ Fixed:
 
 Added:
 - CSV → JSON media tool (CSV to JSON 238):
-	* Added direct XLSX input support to `python/tools/csv_json_media.py` alongside existing CSV support.
+	* Added direct XLSX input support to `python/tools/media_converter.py` alongside existing CSV support.
 	* Added `--xlsx-sheet` option for explicit sheet selection.
 	* Default XLSX sheet resolution: use sheet named `media` when present, otherwise use first sheet.
 	* XLSX reader uses cached formula values (`data_only=True`) and keeps CSV parsing logic unchanged after row ingestion.
@@ -173,7 +173,7 @@ Added:
 # 1.5.8 - 2025-12-31
 
 Added:
-- CSV → JSON media tool `csv_json_media.py` (CSV to JSON 206–211):
+- CSV → JSON media tool `media_converter.py` (CSV to JSON 206–211):
 	* Converts deliverables CSV into a media index keyed by `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>`.
 	* Supports duration parsing/normalization, consecutive creative dedup, and stable ordering of `{size, media}` pairs.
 	* Optional split-by-country output with filename templating and dry-run summaries.
