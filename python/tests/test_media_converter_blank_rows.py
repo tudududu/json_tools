@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 SCRIPT = "python/tools/media_converter.py"
+OUTPUT_ROOT_KEY = "EXTRA_OUTPUT_COMPS"
 
 
 def test_blank_separator_rows_are_ignored_with_country_language_header():
@@ -29,7 +30,7 @@ def test_blank_separator_rows_are_ignored_with_country_language_header():
     proc = subprocess.run(args, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     with open(path_out, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = json.load(f)[OUTPUT_ROOT_KEY]
     # Expect two keys from the two non-blank rows
     keys = list(data.keys())
     assert "9x16|15s" in keys or "9x16|06s" in keys

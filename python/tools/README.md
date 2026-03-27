@@ -68,7 +68,7 @@ XLSX notes:
 
 ## media_converter.py
 
-Converts a media deliverables CSV/XLSX into a compact JSON index mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
+Converts a media deliverables CSV/XLSX into a compact JSON index nested under `EXTRA_OUTPUT_COMPS`, mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
 
 - Input columns (preferred): `AspectRatio;Dimensions;Duration;Title;Creative;Media;Template;Template_name`
   - `Duration` and `Title` are preferred; `Creative` is optional for backward compatibility.
@@ -77,6 +77,7 @@ Converts a media deliverables CSV/XLSX into a compact JSON index mapping `<Aspec
   - Append `_<Template_name>` to the AR part only when `Template == extra` (spaces/underscores removed; case preserved).
   - Example keys: `1x1|06s`, `9x16_tiktok|15s`.
 - Values: `{ "size": <Dimensions>, "media": <Media> }` with surrounding whitespace trimmed; `Dimensions` is normalized by removing whitespace (e.g., `1440 x 1800` → `1440x1800`).
+  - Written JSON shape: `{ "EXTRA_OUTPUT_COMPS": { ... } }`
 - Deduplication: for consecutive rows that differ only by creative variant/title while other columns and base duration match, only the first is kept (consecutive dedup).
 
 Usage:

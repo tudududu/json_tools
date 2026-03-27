@@ -7,6 +7,7 @@ import sys
 import pytest
 
 SCRIPT = "python/tools/media_converter.py"
+OUTPUT_ROOT_KEY = "EXTRA_OUTPUT_COMPS"
 
 
 def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:
@@ -40,7 +41,7 @@ def run_tool(csv_text: str, delimiter=";"):
         data = json.load(f)
     os.remove(path_in)
     os.remove(path_out)
-    return data
+    return data[OUTPUT_ROOT_KEY]
 
 
 def run_tool_path(path_in: str, extra_args: list[str] | None = None):
@@ -59,7 +60,36 @@ def run_tool_path(path_in: str, extra_args: list[str] | None = None):
     with open(path_out, "r", encoding="utf-8") as f:
         data = json.load(f)
     os.remove(path_out)
-    return proc, data
+    return proc, data[OUTPUT_ROOT_KEY]
+
+
+def test_output_is_wrapped_under_extra_output_comps():
+    csv_text = textwrap.dedent(
+        """
+        AspectRatio;Dimensions;Creative;Media;Template;Template_name
+        1x1;640x640;6sC1;TikTok;regular;
+        """
+    )
+    fd_in, path_in = tempfile.mkstemp(suffix=".csv")
+    os.close(fd_in)
+    fd_out, path_out = tempfile.mkstemp(suffix=".json")
+    os.close(fd_out)
+    try:
+        with open(path_in, "w", encoding="utf-8") as f:
+            f.write(csv_text)
+        proc = subprocess.run(
+            [sys.executable, SCRIPT, path_in, path_out],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+        with open(path_out, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        assert list(payload.keys()) == [OUTPUT_ROOT_KEY]
+        assert "1x1|06s" in payload[OUTPUT_ROOT_KEY]
+    finally:
+        os.remove(path_in)
+        os.remove(path_out)
 
 
 def test_duration_parsing_and_padding_and_suffix():
@@ -142,6 +172,7 @@ def test_compact_output_inline_items():
     os.remove(path_in)
     os.remove(path_out)
     # Expect inline items pattern in compact mode
+    assert '"EXTRA_OUTPUT_COMPS"' in txt
     assert '{ "size"' in txt and '"media"' in txt
     # Objects should be single-line entries inside array
     assert '"size": "640x640"' in txt or '"size":"640x640"' in txt

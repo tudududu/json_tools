@@ -7,6 +7,7 @@ import sys
 import pytest
 
 SCRIPT = "python/tools/media_converter.py"
+OUTPUT_ROOT_KEY = "EXTRA_OUTPUT_COMPS"
 
 
 def write_xlsx(path: str, sheets: dict[str, list[list[object]]]) -> None:
@@ -52,9 +53,9 @@ def test_split_by_country_writes_multiple_files_with_default_pattern():
     assert os.path.exists(f2), f"Missing {f2}"
 
     with open(f1, "r", encoding="utf-8") as f:
-        data1 = json.load(f)
+        data1 = json.load(f)[OUTPUT_ROOT_KEY]
     with open(f2, "r", encoding="utf-8") as f:
-        data2 = json.load(f)
+        data2 = json.load(f)[OUTPUT_ROOT_KEY]
 
     # Basic sanity: keys exist and items count
     assert "1x1|06s" in data1
@@ -166,9 +167,9 @@ def test_split_by_country_from_xlsx_default_media_sheet():
         assert os.path.exists(f2)
 
         with open(f1, "r", encoding="utf-8") as f:
-            data1 = json.load(f)
+            data1 = json.load(f)[OUTPUT_ROOT_KEY]
         with open(f2, "r", encoding="utf-8") as f:
-            data2 = json.load(f)
+            data2 = json.load(f)[OUTPUT_ROOT_KEY]
         assert data1["1x1|06s"][0]["media"] == "TikTok"
         assert data2["1x1|06s"][0]["media"] == "Meta InFeed"
     finally:

@@ -47,7 +47,7 @@ import re
 import sys
 from datetime import date, datetime
 from collections import OrderedDict
-from typing import Dict, Iterable, List, Tuple, DefaultDict
+from typing import Dict, Iterable, List, TextIO, Tuple
 
 try:
     from openpyxl import load_workbook as _openpyxl_load_workbook
@@ -56,6 +56,7 @@ except Exception:
 
 
 CREATIVE_RE = re.compile(r"^(?P<dur>[0-9]+s)(?:C(?P<idx>[1-5]))?\s*$", re.I)
+OUTPUT_ROOT_KEY = "EXTRA_OUTPUT_COMPS"
 
 
 def _pad_duration_token(token: str) -> str:
@@ -147,7 +148,7 @@ def convert_rows(
     seen_pairs: Dict[str, set] = {}
 
     # For contiguous duplicate suppression (C2–C5 following the first of same group)
-    last_group_no_index: Tuple[str, str, str, str, str] | None = None
+    last_group_no_index: Tuple[str, str, str, str, str, str] | None = None
 
     for row in rows:
         # Safely extract values (DictReader may set missing fields to None)
@@ -213,9 +214,7 @@ def group_by_country_language(
     language_col: str = "Language",
     trim: bool = True,
 ) -> Dict[Tuple[str, str], List[dict]]:
-    groups: DefaultDict[Tuple[str, str], List[dict]] = (
-        OrderedDict()
-    )  # preserve insertion order
+    groups: Dict[Tuple[str, str], List[dict]] = OrderedDict()
     for row in rows:
         country = row.get(country_col) or ""
         language = row.get(language_col) or ""
@@ -390,30 +389,42 @@ def read_csv(
     )
 
 
-def write_json(path: str, data: dict, compact: bool = False) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        if not compact:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-            return
-        # Compact formatter: keep arrays multiline but items inline
-        f.write("{\n")
-        items = list(data.items())
-        for ki, (key, arr) in enumerate(items):
-            f.write(f'  "{key}": [ \n')
-            for ai, it in enumerate(arr):
-                size_js = json.dumps(it.get("size", ""), ensure_ascii=False)
-                media_js = json.dumps(it.get("media", ""), ensure_ascii=False)
-                f.write(f'    {{ "size":{size_js}, "media":{media_js} }}')
-                if ai < len(arr) - 1:
-                    f.write(",\n")
-                else:
-                    f.write("\n")
-            f.write("  ]")
-            if ki < len(items) - 1:
+def _wrap_output(data: dict) -> dict:
+    return {OUTPUT_ROOT_KEY: data}
+
+
+def _write_compact_mapping(f: TextIO, data: dict, base_indent: str = "") -> None:
+    f.write("{\n")
+    items = list(data.items())
+    for ki, (key, arr) in enumerate(items):
+        f.write(f'{base_indent}  "{key}": [ \n')
+        for ai, it in enumerate(arr):
+            size_js = json.dumps(it.get("size", ""), ensure_ascii=False)
+            media_js = json.dumps(it.get("media", ""), ensure_ascii=False)
+            f.write(f'{base_indent}    {{ "size":{size_js}, "media":{media_js} }}')
+            if ai < len(arr) - 1:
                 f.write(",\n")
             else:
                 f.write("\n")
-        f.write("}\n")
+        f.write(f"{base_indent}  ]")
+        if ki < len(items) - 1:
+            f.write(",\n")
+        else:
+            f.write("\n")
+    f.write(f"{base_indent}}}")
+
+
+def write_json(path: str, data: dict, compact: bool = False) -> None:
+    payload = _wrap_output(data)
+    with open(path, "w", encoding="utf-8") as f:
+        if not compact:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+            return
+        f.write("{\n")
+        f.write(f'  "{OUTPUT_ROOT_KEY}": ')
+        _write_compact_mapping(f, data, base_indent="  ")
+        f.write("\n}\n")
 
 
 def main() -> None:
