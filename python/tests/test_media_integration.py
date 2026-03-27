@@ -18,6 +18,20 @@ def tmp_file(suffix=".csv"):
 
 
 class MediaIntegrationTests(unittest.TestCase):
+    @staticmethod
+    @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+    def _write_layer_config_xlsx(path: str):
+        wb = Workbook()
+        ws_layers = wb.active
+        ws_layers.title = "LayerNames"
+        ws_layers.append(["key", "exact", "contains"])
+        ws_layers.append(["logo", "logo_01;Size_Holder_Logo", ""])
+        ws_rules = wb.create_sheet(title="RecenterRules")
+        ws_rules.append(["force", "noRecenter", "alignH", "alignV"])
+        ws_rules.append(["Logo", "BG", "Claim", "Disclaimer"])
+        wb.save(path)
+        wb.close()
+
     def test_media_injected_for_exact_country_language(self):
         # Unified CSV with two countries; language meta_global empty
         csv_content = (
@@ -147,6 +161,44 @@ class MediaIntegrationTests(unittest.TestCase):
                 pass
             try:
                 os.remove(media_path)
+            except Exception:
+                pass
+
+    @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+    def test_layer_config_injected_under_config_add_layers(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_global;;;;;language;Y;ALL;;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        layer_cfg_path = tmp_file(".xlsx")
+        self._write_layer_config_xlsx(layer_cfg_path)
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                rc = mod.main([in_path, out_json, "--layer-config", layer_cfg_path])
+                self.assertEqual(rc, 0)
+                with open(out_json, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                self.assertIn("config", payload)
+                self.assertIn("addLayers", payload["config"])
+                self.assertIn("LAYER_NAME_CONFIG", payload["config"]["addLayers"])
+                self.assertIn("logo", payload["config"]["addLayers"]["LAYER_NAME_CONFIG"])
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(layer_cfg_path)
             except Exception:
                 pass
 

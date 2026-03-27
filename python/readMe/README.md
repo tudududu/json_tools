@@ -834,7 +834,7 @@ Outputs:
 - Badge: [coverage.svg](../tests/coverage/coverage.svg)
 - XML: [coverage.xml](../tests/coverage/coverage.xml)
 
-### Media Injection (csv_json_media)
+### Media Injection (media_converter)
 
 Use a separate media CSV to inject per-country media mapping into `config.pack.EXTRA_OUTPUT_COMPS`. Injection occurs only for exact `(country, language)` matches (language may be empty).
 
@@ -862,6 +862,26 @@ python3 python/csv_to_json.py data.csv out/{country}.json \
 python3 python/csv_to_json.py in.csv out.json \
   --country-column 1 \
   --fps 25 \
+  --media-config media.csv
+```
+
+### Layer Config Injection (config_converter)
+
+Use an external layer config workbook to inject addLayers mappings into output JSON.
+
+Flags:
+- `--layer-config`: Path to layer config XLSX to convert and inject.
+
+Behavior:
+- The workbook is loaded once per run and reused for all generated payloads.
+- Injection target: `config.addLayers.LAYER_NAME_CONFIG`.
+- Works alongside media injection (`config.pack.EXTRA_OUTPUT_COMPS`) when both flags are provided.
+
+Example:
+```sh
+python3 python/csv_to_json.py data.csv out/{country}.json \
+  --split-by-country \
+  --layer-config LAYER_NAME_CONFIG.xlsx \
   --media-config media.csv
 ```
 

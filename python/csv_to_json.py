@@ -74,6 +74,28 @@ except Exception:
         media_group_by_country_language = None  # type: ignore[assignment]
         media_convert_rows = None  # type: ignore[assignment]
 
+# Optional addLayers injection support (XLSX -> LAYER_NAME_CONFIG)
+try:
+    from python.tools.config_converter import (
+        convert_workbook as layercfg_convert_workbook,
+    )
+except Exception:
+    try:
+        import importlib.util as _ilu
+
+        _tools_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "tools", "config_converter.py"
+        )
+        _spec = _ilu.spec_from_file_location("_config_converter", _tools_path)
+        if _spec and _spec.loader:
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
+            layercfg_convert_workbook = getattr(_mod, "convert_workbook", None)
+        else:
+            layercfg_convert_workbook = None  # type: ignore[assignment]
+    except Exception:
+        layercfg_convert_workbook = None  # type: ignore[assignment]
+
 
 def parse_timecode(value: str, fps: float) -> float:
     """Parse a timecode string into seconds as float.
@@ -2937,6 +2959,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="Language",
         help="Language column name in media CSV (default 'Language')",
     )
+    p.add_argument(
+        "--layer-config",
+        default=None,
+        help="Optional path to layer config XLSX for injection into config.addLayers.LAYER_NAME_CONFIG",
+    )
 
     args = p.parse_args(argv)
 
@@ -3209,6 +3236,32 @@ def main(argv: Optional[List[str]] = None) -> int:
     ):
         _inject_generation_metadata(data)
 
+    # Prepare addLayers config once (if provided)
+    layer_name_config_payload: Optional[Dict[str, Any]] = None
+    if args.layer_config:
+        if not os.path.isfile(args.layer_config):
+            raise SystemExit(f"No such file or directory: '{args.layer_config}'")
+        if layercfg_convert_workbook is None:
+            raise SystemExit(
+                "Layer config converter not available; cannot process --layer-config"
+            )
+        try:
+            converted = layercfg_convert_workbook(
+                in_path=args.layer_config,
+                separator=";",
+                layer_names_sheet="LayerNames",
+                recenter_rules_sheet="RecenterRules",
+                root_key="LAYER_NAME_CONFIG",
+            )
+            if isinstance(converted, dict):
+                body = converted.get("LAYER_NAME_CONFIG")
+                if isinstance(body, dict):
+                    layer_name_config_payload = body
+                else:
+                    layer_name_config_payload = converted
+        except Exception as ex:
+            raise SystemExit(f"Failed to load layer config '{args.layer_config}': {ex}")
+
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
     if args.media_config:
@@ -3261,6 +3314,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 pack = config.setdefault("pack", {})
                 if isinstance(pack, dict):
                     pack["EXTRA_OUTPUT_COMPS"] = media_map
+
+    def _inject_layer_config(payload: Dict[str, Any]):
+        if not layer_name_config_payload:
+            return
+        config = payload.setdefault("config", {})
+        if isinstance(config, dict):
+            add_layers = config.setdefault("addLayers", {})
+            if isinstance(add_layers, dict):
+                add_layers["LAYER_NAME_CONFIG"] = copy.deepcopy(layer_name_config_payload)
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:
@@ -3689,9 +3751,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 "metadata": {},
                             },
                         )
-                    # Inject media (exact country+language) before writing
+                    # Inject media/layer config before writing
                     if isinstance(payload, dict):
                         _inject_media(payload, c)
+                        _inject_layer_config(payload)
                     # Per-country export: reduce logo_anim_flag overview to only this country's values
                     mg = (
                         payload.get("metadataGlobal")
@@ -3778,9 +3841,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 out_path_single = root_pattern.replace("{country}", token)
             if args.verbose:
                 print(f"Writing {out_path_single} (selected country: {csel})")
-            # Inject media for selected country before writing
+            # Inject media/layer config for selected country before writing
             if isinstance(payload, dict):
                 _inject_media(payload, csel)
+                _inject_layer_config(payload)
             write_json(out_path_single, payload)
             if args.sample:
                 sample_path = derive_sample_path(out_path_single)
@@ -3832,6 +3896,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.dry_run:
                 print("Dry run complete (no file written).")
                 return 0
+        if isinstance(data, dict):
+            _inject_layer_config(data)
         write_json(args.output, data)
         if args.sample and not (args.validate_only or args.dry_run):
             sample_path = derive_sample_path(args.output)
