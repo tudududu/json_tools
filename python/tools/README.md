@@ -121,7 +121,7 @@ python python/tools/csv_json_media.py input.csv dummy.json --split-by-country --
 - Spacer/separator rows (e.g., `;;;;;;;` or `…;;;;;;;`) are ignored.
 - Split mode skips writing files for groups that produce no keys (empty groups).
 
-## layer_name_config.py
+## config_converter.py
 
 Converts an XLSX workbook into `LAYER_NAME_CONFIG` JSON data.
 
@@ -136,10 +136,10 @@ Rules:
 
 Usage:
 ```sh
-python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json
-python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --indent 0
-python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --separator ';'
-python -m python.tools.layer_name_config in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --dry-run
+python -m python.tools.config_converter in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json
+python -m python.tools.config_converter in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --indent 0
+python -m python.tools.config_converter in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --separator ';'
+python -m python.tools.config_converter in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME_CONFIG.json --dry-run
 ```
 
 Options:

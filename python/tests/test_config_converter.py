@@ -1,4 +1,4 @@
-"""Unit + CLI tests for layer_name_config.py and generate_layer_name_template.py."""
+"""Unit + CLI tests for config_converter.py and generate_layer_name_template.py."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ from typing import Any, List, Optional, Tuple
 
 import pytest
 
-from python.tools.layer_name_config import _split_list_cell
+from python.tools.config_converter import _split_list_cell
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-_CONVERTER = "python.tools.layer_name_config"
+_CONVERTER = "python.tools.config_converter"
 _GENERATOR = "python.tools.generate_layer_name_template"
 
 # Minimal JSON used as input for generator tests.
