@@ -23,10 +23,10 @@ class MediaIntegrationTests(unittest.TestCase):
     def _write_layer_config_xlsx(path: str):
         wb = Workbook()
         ws_layers = wb.active
-        ws_layers.title = "LayerNames"
+        ws_layers.title = "LAYER_NAME_CONFIG_items"
         ws_layers.append(["key", "exact", "contains"])
         ws_layers.append(["logo", "logo_01;Size_Holder_Logo", ""])
-        ws_rules = wb.create_sheet(title="RecenterRules")
+        ws_rules = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
         ws_rules.append(["force", "noRecenter", "alignH", "alignV"])
         ws_rules.append(["Logo", "BG", "Claim", "Disclaimer"])
         wb.save(path)

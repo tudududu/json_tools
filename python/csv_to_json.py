@@ -3249,8 +3249,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             converted = layercfg_convert_workbook(
                 in_path=args.layer_config,
                 separator=";",
-                layer_names_sheet="LayerNames",
-                recenter_rules_sheet="RecenterRules",
+                layer_names_sheet="LAYER_NAME_CONFIG_items",
+                recenter_rules_sheet="LAYER_NAME_CONFIG_recenterRules",
                 root_key="LAYER_NAME_CONFIG",
             )
             if isinstance(converted, dict):

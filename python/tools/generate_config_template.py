@@ -3,8 +3,8 @@
 Generate an Excel template for LAYER_NAME_CONFIG from a sample JSON file.
 
 Output workbook shape:
-- Sheet "LayerNames" with columns: key, exact, contains
-- Sheet "RecenterRules" with columns: force, noRecenter, alignH, alignV
+- Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
+- Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
 """
 
 from __future__ import annotations
@@ -112,13 +112,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--layer-names-sheet",
-        default="LayerNames",
-        help="Name of the layer names sheet to create (default LayerNames)",
+        default="LAYER_NAME_CONFIG_items",
+        help="Name of the layer names sheet to create (default LAYER_NAME_CONFIG_items)",
     )
     parser.add_argument(
         "--recenter-rules-sheet",
-        default="RecenterRules",
-        help="Name of the recenter rules sheet to create (default RecenterRules)",
+        default="LAYER_NAME_CONFIG_recenterRules",
+        help="Name of the recenter rules sheet to create (default LAYER_NAME_CONFIG_recenterRules)",
     )
     args = parser.parse_args()
 

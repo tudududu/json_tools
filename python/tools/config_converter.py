@@ -3,8 +3,8 @@
 XLSX -> LAYER_NAME_CONFIG JSON converter.
 
 Expected workbook shape:
-- Sheet "LayerNames" with columns: key, exact, contains
-- Sheet "RecenterRules" with columns: force, noRecenter, alignH, alignV
+- Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
+- Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
 
 Rules:
 - Sheet names are matched case-insensitively.
@@ -98,7 +98,9 @@ def _parse_layer_names(
 
     for required in ("key", "exact", "contains"):
         if required not in idx:
-            raise ValueError(f"LayerNames sheet is missing required column: {required}")
+            raise ValueError(
+                f"LAYER_NAME_CONFIG_items sheet is missing required column: {required}"
+            )
 
     out: Dict[str, Dict[str, List[str]]] = {}
     for row in worksheet.iter_rows(min_row=2, values_only=True):
@@ -120,7 +122,7 @@ def _parse_recenter_rules(worksheet: "WorksheetType") -> Dict[str, List[str]]:
     for required in RE_CENTER_KEYS:
         if _norm_header(required) not in idx:
             raise ValueError(
-                f"RecenterRules sheet is missing required column: {required}"
+                f"LAYER_NAME_CONFIG_recenterRules sheet is missing required column: {required}"
             )
 
     out: Dict[str, List[str]] = {k: [] for k in RE_CENTER_KEYS}
@@ -183,13 +185,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--layer-names-sheet",
-        default="LayerNames",
-        help="Layer names sheet name (case-insensitive match, default LayerNames)",
+        default="LAYER_NAME_CONFIG_items",
+        help="Layer names sheet name (case-insensitive match, default LAYER_NAME_CONFIG_items)",
     )
     parser.add_argument(
         "--recenter-rules-sheet",
-        default="RecenterRules",
-        help="Recenter rules sheet name (case-insensitive match, default RecenterRules)",
+        default="LAYER_NAME_CONFIG_recenterRules",
+        help="Recenter rules sheet name (case-insensitive match, default LAYER_NAME_CONFIG_recenterRules)",
     )
     parser.add_argument(
         "--root-key",

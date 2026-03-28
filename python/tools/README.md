@@ -127,8 +127,8 @@ python python/tools/media_converter.py input.csv dummy.json --split-by-country -
 Converts an XLSX workbook into `LAYER_NAME_CONFIG` JSON data.
 
 Workbook shape:
-- Sheet `LayerNames` (case-insensitive match): columns `key`, `exact`, `contains`
-- Sheet `RecenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
+- Sheet `LAYER_NAME_CONFIG_items` (case-insensitive match): columns `key`, `exact`, `contains`
+- Sheet `LAYER_NAME_CONFIG_recenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
 
 Rules:
 - `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
@@ -145,8 +145,8 @@ python -m python.tools.config_converter in/LAYER_NAME_CONFIG.xlsx out/LAYER_NAME
 
 Options:
 - `--separator <str>`: explicit token separator for `exact`/`contains` cells (no sniffing)
-- `--layer-names-sheet <name>`: default `LayerNames`
-- `--recenter-rules-sheet <name>`: default `RecenterRules`
+- `--layer-names-sheet <name>`: default `LAYER_NAME_CONFIG_items`
+- `--recenter-rules-sheet <name>`: default `LAYER_NAME_CONFIG_recenterRules`
 - `--root-key <name>`: default `LAYER_NAME_CONFIG`
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only
@@ -157,9 +157,9 @@ Generates a ready-to-use XLSX template from a sample `LAYER_NAME_CONFIG` JSON fi
 
 Usage:
 ```sh
-python -m python.tools.generate_config_template out/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
+python -m python.tools.generate_config_template in/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
 ```
 
 This creates:
-- Sheet `LayerNames` with rows prefilled from JSON keys and list values
-- Sheet `RecenterRules` with rule columns and values expanded row-by-row
+- Sheet `LAYER_NAME_CONFIG_items` with rows prefilled from JSON keys and list values
+- Sheet `LAYER_NAME_CONFIG_recenterRules` with rule columns and values expanded row-by-row

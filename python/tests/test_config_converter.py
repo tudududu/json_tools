@@ -56,7 +56,10 @@ def _write_minimal_xlsx(
     sheet_names: Optional[Tuple[str, str]] = None,
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
-    ws_name, rules_name = sheet_names or ("LayerNames", "RecenterRules")
+    ws_name, rules_name = sheet_names or (
+        "LAYER_NAME_CONFIG_items",
+        "LAYER_NAME_CONFIG_recenterRules",
+    )
     wb = openpyxl_mod.Workbook()
     ws = wb.active
     ws.title = ws_name
@@ -204,7 +207,14 @@ def test_converter_case_insensitive_sheet_names():
         xlsx = os.path.join(d, "in.xlsx")
         out_json = os.path.join(d, "out.json")
         # sheets named in lowercase; default CLI flags use mixed case
-        _write_minimal_xlsx(openpyxl, xlsx, sheet_names=("layernames", "recenterrules"))
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            sheet_names=(
+                "layer_name_config_items",
+                "layer_name_config_recenterrules",
+            ),
+        )
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
@@ -292,8 +302,8 @@ def test_generator_creates_xlsx_with_correct_sheet_names():
         assert os.path.isfile(out_xlsx)
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "LayerNames" in titles
-        assert "RecenterRules" in titles
+        assert "LAYER_NAME_CONFIG_items" in titles
+        assert "LAYER_NAME_CONFIG_recenterRules" in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -309,7 +319,7 @@ def test_generator_layer_names_sheet_headers():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LayerNames")
+        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["key", "exact", "contains"]
         wb.close()
@@ -327,7 +337,11 @@ def test_generator_recenter_rules_sheet_headers():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "RecenterRules")
+        ws = next(
+            w
+            for w in wb.worksheets
+            if w.title == "LAYER_NAME_CONFIG_recenterRules"
+        )
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["force", "noRecenter", "alignH", "alignV"]
         wb.close()
@@ -345,7 +359,7 @@ def test_generator_layer_names_row_count_excludes_recenter_rules():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LayerNames")
+        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
         # header + 2 layer entries (logo, subtitles); recenterRules is excluded
         rows = list(ws.iter_rows(values_only=True))
         assert len(rows) == 3
