@@ -151,13 +151,13 @@ Options:
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only
 
-## generate_layer_name_template.py
+## generate_config_template.py
 
 Generates a ready-to-use XLSX template from a sample `LAYER_NAME_CONFIG` JSON file.
 
 Usage:
 ```sh
-python -m python.tools.generate_layer_name_template out/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
+python -m python.tools.generate_config_template out/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
 ```
 
 This creates:

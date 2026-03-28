@@ -1,4 +1,4 @@
-"""Unit + CLI tests for config_converter.py and generate_layer_name_template.py."""
+"""Unit + CLI tests for config_converter.py and generate_config_template.py."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from python.tools.config_converter import _split_list_cell
 # ──────────────────────────────────────────────────────────────────────────────
 
 _CONVERTER = "python.tools.config_converter"
-_GENERATOR = "python.tools.generate_layer_name_template"
+_GENERATOR = "python.tools.generate_config_template"
 
 # Minimal JSON used as input for generator tests.
 _MINIMAL_JSON = {
@@ -253,7 +253,7 @@ def test_converter_indent_three_formats_arrays_as_one_liners():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# generate_layer_name_template CLI tests
+# generate_config_template CLI tests
 # ──────────────────────────────────────────────────────────────────────────────
 
 
