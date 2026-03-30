@@ -180,7 +180,7 @@ def test_converter_produces_valid_json_with_correct_values():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        body = data["LAYER_NAME_CONFIG"]
+        body = data["config"]["addLayers"]["LAYER_NAME_CONFIG"]
         assert body["logo"]["exact"] == ["logo_01", "logo_02"]
         assert body["logo"]["contains"] == []
         assert body["recenterRules"]["force"] == ["Logo"]
@@ -200,7 +200,7 @@ def test_converter_empty_exact_and_contains_always_emitted():
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
-            body = json.load(f)["LAYER_NAME_CONFIG"]
+            body = json.load(f)["config"]["addLayers"]["LAYER_NAME_CONFIG"]
         assert body["subtitles"] == {"exact": [], "contains": []}
     finally:
         _cleanup_dir(d)
@@ -225,7 +225,7 @@ def test_converter_case_insensitive_sheet_names():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        assert "LAYER_NAME_CONFIG" in data
+        assert "LAYER_NAME_CONFIG" in data["config"]["addLayers"]
     finally:
         _cleanup_dir(d)
 
@@ -241,8 +241,9 @@ def test_converter_respects_custom_root_key():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        assert "MY_CONFIG" in data
-        assert "LAYER_NAME_CONFIG" not in data
+        add_layers = data["config"]["addLayers"]
+        assert "MY_CONFIG" in add_layers
+        assert "LAYER_NAME_CONFIG" not in add_layers
     finally:
         _cleanup_dir(d)
 
@@ -283,8 +284,9 @@ def test_converter_timing_behavior_included_by_default_when_sheet_exists():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        assert data["TIMING_BEHAVIOR"]["logo"] == "timed"
-        assert data["TIMING_BEHAVIOR"]["logo_03"] == "span"
+        timing = data["config"]["addLayers"]["TIMING_BEHAVIOR"]
+        assert timing["logo"] == "timed"
+        assert timing["logo_03"] == "span"
     finally:
         _cleanup_dir(d)
 
@@ -300,7 +302,7 @@ def test_converter_timing_behavior_not_included_when_sheet_missing():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        assert "TIMING_BEHAVIOR" not in data
+        assert "TIMING_BEHAVIOR" not in data["config"]["addLayers"]
     finally:
         _cleanup_dir(d)
 
@@ -326,8 +328,9 @@ def test_converter_timing_behavior_included_when_flag_set():
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
-        assert data["TIMING_BEHAVIOR"]["logo"] == "timed"
-        assert data["TIMING_BEHAVIOR"]["logo_03"] == "span"
+        timing = data["config"]["addLayers"]["TIMING_BEHAVIOR"]
+        assert timing["logo"] == "timed"
+        assert timing["logo_03"] == "span"
     finally:
         _cleanup_dir(d)
 
@@ -596,7 +599,9 @@ def test_roundtrip_via_sample_json():
         src_add_layers = src_raw["config"]["addLayers"]
         src = src_add_layers["LAYER_NAME_CONFIG"]
         with open(roundtrip_json, encoding="utf-8") as f:
-            rt = json.load(f)["LAYER_NAME_CONFIG"]
+            rt_full = json.load(f)
+        rt_add_layers = rt_full["config"]["addLayers"]
+        rt = rt_add_layers["LAYER_NAME_CONFIG"]
 
         # All layer + recenterRules keys must match
         assert set(src.keys()) == set(rt.keys()), (
@@ -618,8 +623,8 @@ def test_roundtrip_via_sample_json():
             )
 
         # TIMING_BEHAVIOR should survive the roundtrip too.
-        with open(roundtrip_json, encoding="utf-8") as f:
-            rt_full = json.load(f)
-        assert rt_full.get("TIMING_BEHAVIOR") == src_add_layers.get("TIMING_BEHAVIOR")
+        assert rt_add_layers.get("TIMING_BEHAVIOR") == src_add_layers.get(
+            "TIMING_BEHAVIOR"
+        )
     finally:
         _cleanup_dir(d)

@@ -3254,7 +3254,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 root_key="LAYER_NAME_CONFIG",
             )
             if isinstance(converted, dict):
-                body = converted.get("LAYER_NAME_CONFIG")
+                body = None
+                cfg = converted.get("config")
+                if isinstance(cfg, dict):
+                    add_layers = cfg.get("addLayers")
+                    if isinstance(add_layers, dict):
+                        nested = add_layers.get("LAYER_NAME_CONFIG")
+                        if isinstance(nested, dict):
+                            body = nested
+                if body is None:
+                    legacy = converted.get("LAYER_NAME_CONFIG")
+                    if isinstance(legacy, dict):
+                        body = legacy
                 if isinstance(body, dict):
                     layer_name_config_payload = body
                 else:

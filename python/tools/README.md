@@ -124,7 +124,7 @@ python python/tools/media_converter.py input.csv dummy.json --split-by-country -
 
 ## config_converter.py
 
-Converts an XLSX workbook into `LAYER_NAME_CONFIG` JSON data.
+Converts an XLSX workbook into AE-style nested JSON under `config.addLayers`.
 
 Workbook shape:
 - Sheet `LAYER_NAME_CONFIG_items` (case-insensitive match): columns `key`, `exact`, `contains`
@@ -136,6 +136,7 @@ Rules:
 - `exact` and `contains` are always emitted as arrays, even when empty.
 - `recenterRules` is emitted with all four arrays.
 - `TIMING_BEHAVIOR` is parsed by default when a matching sheet is present in the workbook.
+- Output shape is nested and only includes parsed sections, e.g. `{"config":{"addLayers":{"LAYER_NAME_CONFIG":{...},"TIMING_BEHAVIOR":{...}}}}`.
 
 Usage:
 ```sh

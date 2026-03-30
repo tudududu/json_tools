@@ -202,12 +202,12 @@ def convert_workbook(
 
         body: Dict[str, object] = dict(layer_map)
         body["recenterRules"] = rules_map
-        result: Dict[str, object] = {root_key: body}
+        add_layers: Dict[str, object] = {root_key: body}
         if timing_behavior_sheet:
             ws_timing = _sheet_by_name_ci_or_none(wb, timing_behavior_sheet)
             if ws_timing is not None:
-                result["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
-        return result
+                add_layers["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
+        return {"config": {"addLayers": add_layers}}
     finally:
         wb.close()
 
@@ -282,12 +282,14 @@ def main() -> None:
     )
 
     if args.dry_run:
-        body = cast(Dict[str, object], data.get(args.root_key, {}))
+        config = cast(Dict[str, object], data.get("config", {}))
+        add_layers = cast(Dict[str, object], config.get("addLayers", {}))
+        body = cast(Dict[str, object], add_layers.get(args.root_key, {}))
         layer_count = len([k for k in body.keys() if k != "recenterRules"])
         rule_count = len(cast(Dict[str, object], body.get("recenterRules", {})))
         extra = ""
-        if "TIMING_BEHAVIOR" in data:
-            timing_count = len(cast(Dict[str, object], data["TIMING_BEHAVIOR"]))
+        if "TIMING_BEHAVIOR" in add_layers:
+            timing_count = len(cast(Dict[str, object], add_layers["TIMING_BEHAVIOR"]))
             extra = f"; {timing_count} TIMING_BEHAVIOR entries"
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
