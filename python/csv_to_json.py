@@ -3322,7 +3322,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         if isinstance(config, dict):
             add_layers = config.setdefault("addLayers", {})
             if isinstance(add_layers, dict):
-                add_layers["LAYER_NAME_CONFIG"] = copy.deepcopy(layer_name_config_payload)
+                add_layers["LAYER_NAME_CONFIG"] = copy.deepcopy(
+                    layer_name_config_payload
+                )
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:

@@ -119,7 +119,9 @@ def generate_template(
             ws_tb.append([str(layer_name), str(behavior)])
 
         if _DataValidation is not None:
-            dv = _DataValidation(type="list", formula1='"timed,span,asIs"', allow_blank=True)
+            dv = _DataValidation(
+                type="list", formula1='"timed,span,asIs"', allow_blank=True
+            )
             ws_tb.add_data_validation(dv)
             # Lock behavior values in column B for template editing.
             dv.add(f"B2:B{max(ws_tb.max_row, 2)}")

@@ -441,9 +441,7 @@ def test_generator_recenter_rules_sheet_headers():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         ws = next(
-            w
-            for w in wb.worksheets
-            if w.title == "LAYER_NAME_CONFIG_recenterRules"
+            w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_recenterRules"
         )
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["force", "noRecenter", "alignH", "alignV"]

@@ -191,7 +191,9 @@ class MediaIntegrationTests(unittest.TestCase):
                 self.assertIn("config", payload)
                 self.assertIn("addLayers", payload["config"])
                 self.assertIn("LAYER_NAME_CONFIG", payload["config"]["addLayers"])
-                self.assertIn("logo", payload["config"]["addLayers"]["LAYER_NAME_CONFIG"])
+                self.assertIn(
+                    "logo", payload["config"]["addLayers"]["LAYER_NAME_CONFIG"]
+                )
         finally:
             try:
                 os.remove(in_path)

@@ -205,7 +205,9 @@ def _write_json_output(path: str, data: object, indent: int) -> None:
         if indent == 3:
             f.write(_format_indent_three(data))
         else:
-            json.dump(data, f, ensure_ascii=False, indent=None if indent <= 0 else indent)
+            json.dump(
+                data, f, ensure_ascii=False, indent=None if indent <= 0 else indent
+            )
         f.write("\n")
 
 
