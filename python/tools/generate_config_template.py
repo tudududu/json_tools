@@ -6,6 +6,7 @@ Output workbook shape:
 - Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
 - Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
 - Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
+- Sheet "TIMING_ITEM_SELECTOR" (optional) with columns: itemName, mode, value
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ except Exception:
     _DataValidation = None
 
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
+VALID_SELECTOR_MODES: Sequence[str] = ("line", "index", "minMax")
 
 
 def _to_list(value: object) -> List[str]:
@@ -56,12 +58,16 @@ def generate_template(
 
     body: Optional[Dict[str, object]] = None
     timing_behavior_map: Optional[Dict[str, object]] = None
+    timing_item_selector_map: Optional[Dict[str, object]] = None
 
     if root_key in raw and isinstance(raw[root_key], dict):
         body = raw[root_key]
         tb_raw = raw.get("TIMING_BEHAVIOR")
         if isinstance(tb_raw, dict):
             timing_behavior_map = tb_raw
+        tis_raw = raw.get("TIMING_ITEM_SELECTOR")
+        if isinstance(tis_raw, dict):
+            timing_item_selector_map = tis_raw
     else:
         config = raw.get("config")
         if isinstance(config, dict):
@@ -73,6 +79,9 @@ def generate_template(
                 tb_raw = add_layers.get("TIMING_BEHAVIOR")
                 if isinstance(tb_raw, dict):
                     timing_behavior_map = tb_raw
+                tis_raw = add_layers.get("TIMING_ITEM_SELECTOR")
+                if isinstance(tis_raw, dict):
+                    timing_item_selector_map = tis_raw
 
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
@@ -125,6 +134,23 @@ def generate_template(
             ws_tb.add_data_validation(dv)
             # Lock behavior values in column B for template editing.
             dv.add(f"B2:B{max(ws_tb.max_row, 2)}")
+
+    if timing_item_selector_map is not None:
+        ws_tis = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws_tis.append(["itemName", "mode", "value"])
+        for item_name, config_value in timing_item_selector_map.items():
+            if not isinstance(config_value, dict):
+                continue
+            mode = config_value.get("mode", "")
+            value = config_value.get("value", "")
+            ws_tis.append([str(item_name), str(mode), value])
+
+        if _DataValidation is not None:
+            dv = _DataValidation(
+                type="list", formula1='"line,index,minMax"', allow_blank=True
+            )
+            ws_tis.add_data_validation(dv)
+            dv.add(f"B2:B{max(ws_tis.max_row, 2)}")
 
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)

@@ -549,6 +549,63 @@ def test_generator_creates_timing_behavior_sheet_with_validation():
         _cleanup_dir(d)
 
 
+def test_generator_creates_timing_item_selector_sheet():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "TIMING_ITEM_SELECTOR": {
+                        "logo": {"mode": "line", "value": 1},
+                        "logo_02": {"mode": "index", "value": 2},
+                    },
+                }
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "TIMING_ITEM_SELECTOR")
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        assert headers == ["itemName", "mode", "value"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("logo", "line", 1) in rows
+        assert ("logo_02", "index", 2) in rows
+        formulas = [dv.formula1 for dv in ws.data_validations.dataValidation]
+        assert '"line,index,minMax"' in formulas
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_reads_timing_item_selector_from_sample_shape():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        here = os.path.dirname(__file__)
+        sample_json = os.path.normpath(
+            os.path.join(here, "..", "..", "samples", "sample_config_data.json")
+        )
+        if not os.path.isfile(sample_json):
+            pytest.skip("Sample file samples/sample_config_data.json not found")
+
+        out_xlsx = os.path.join(d, "out.xlsx")
+        proc = _run(_GENERATOR, sample_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "TIMING_ITEM_SELECTOR")
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("logo", "line", 1) in rows
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Roundtrip integration test
 # ──────────────────────────────────────────────────────────────────────────────
