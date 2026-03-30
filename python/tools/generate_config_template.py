@@ -5,6 +5,7 @@ Generate an Excel template for LAYER_NAME_CONFIG from a sample JSON file.
 Output workbook shape:
 - Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
 - Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
+- Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
 """
 
 from __future__ import annotations
@@ -12,15 +13,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import TYPE_CHECKING, Dict, List, Sequence, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
 
 try:
     from openpyxl import Workbook as _Workbook
+    from openpyxl.worksheet.datavalidation import DataValidation as _DataValidation
 except Exception:
     _Workbook = None
+    _DataValidation = None
 
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
 
@@ -41,6 +44,7 @@ def generate_template(
     root_key: str,
     layer_names_sheet: str,
     recenter_rules_sheet: str,
+    timing_behavior_sheet: Optional[str],
 ) -> None:
     if _Workbook is None:
         raise RuntimeError(
@@ -50,10 +54,28 @@ def generate_template(
     with open(input_json, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    if root_key not in raw or not isinstance(raw[root_key], dict):
-        raise ValueError(f"Root key not found or invalid: {root_key}")
+    body: Optional[Dict[str, object]] = None
+    timing_behavior_map: Optional[Dict[str, object]] = None
 
-    body: Dict[str, object] = raw[root_key]
+    if root_key in raw and isinstance(raw[root_key], dict):
+        body = raw[root_key]
+        tb_raw = raw.get("TIMING_BEHAVIOR")
+        if isinstance(tb_raw, dict):
+            timing_behavior_map = tb_raw
+    else:
+        config = raw.get("config")
+        if isinstance(config, dict):
+            add_layers = config.get("addLayers")
+            if isinstance(add_layers, dict):
+                maybe_body = add_layers.get(root_key)
+                if isinstance(maybe_body, dict):
+                    body = maybe_body
+                tb_raw = add_layers.get("TIMING_BEHAVIOR")
+                if isinstance(tb_raw, dict):
+                    timing_behavior_map = tb_raw
+
+    if body is None:
+        raise ValueError(f"Root key not found or invalid: {root_key}")
 
     wb = _Workbook()
     ws_layers = cast("WorksheetType", wb.active)
@@ -90,6 +112,18 @@ def generate_template(
             ]
         )
 
+    if timing_behavior_sheet is not None and timing_behavior_map is not None:
+        ws_tb = wb.create_sheet(title=timing_behavior_sheet)
+        ws_tb.append(["layerName", "behavior"])
+        for layer_name, behavior in timing_behavior_map.items():
+            ws_tb.append([str(layer_name), str(behavior)])
+
+        if _DataValidation is not None:
+            dv = _DataValidation(type="list", formula1='"timed,span,asIs"', allow_blank=True)
+            ws_tb.add_data_validation(dv)
+            # Lock behavior values in column B for template editing.
+            dv.add(f"B2:B{max(ws_tb.max_row, 2)}")
+
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
 
@@ -120,6 +154,11 @@ def main() -> None:
         default="LAYER_NAME_CONFIG_recenterRules",
         help="Name of the recenter rules sheet to create (default LAYER_NAME_CONFIG_recenterRules)",
     )
+    parser.add_argument(
+        "--timing-behavior-sheet",
+        default=None,
+        help="Optional TIMING_BEHAVIOR sheet to create (disabled by default)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
@@ -132,6 +171,7 @@ def main() -> None:
         root_key=args.root_key,
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
+        timing_behavior_sheet=args.timing_behavior_sheet,
     )
 
 

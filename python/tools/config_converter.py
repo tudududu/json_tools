@@ -5,6 +5,7 @@ XLSX -> LAYER_NAME_CONFIG JSON converter.
 Expected workbook shape:
 - Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
 - Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
+- Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
 
 Rules:
 - Sheet names are matched case-insensitively.
@@ -17,7 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
@@ -28,6 +29,7 @@ except Exception:
     _openpyxl_load_workbook = None
 
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
+VALID_BEHAVIORS: Sequence[str] = ("timed", "span", "asIs")
 
 
 def _json_scalar(value: object) -> str:
@@ -136,13 +138,44 @@ def _parse_recenter_rules(worksheet: "WorksheetType") -> Dict[str, List[str]]:
     return out
 
 
+def _parse_timing_behavior(worksheet: "WorksheetType") -> Dict[str, str]:
+    headers = _read_headers(worksheet)
+    idx = _index_map(headers)
+
+    for required in ("layername", "behavior"):
+        if required not in idx:
+            raise ValueError(
+                f"TIMING_BEHAVIOR sheet is missing required column: {required}"
+            )
+
+    out: Dict[str, str] = {}
+    allowed = set(VALID_BEHAVIORS)
+    for row in worksheet.iter_rows(min_row=2, values_only=True):
+        layer_name = str(_cell(row, idx["layername"]) or "").strip()
+        if not layer_name:
+            continue
+        behavior = str(_cell(row, idx["behavior"]) or "").strip()
+        if not behavior:
+            continue
+        if behavior not in allowed:
+            allowed_text = ", ".join(VALID_BEHAVIORS)
+            raise ValueError(
+                f"Invalid behavior '{behavior}' for layer '{layer_name}'. "
+                f"Allowed values: {allowed_text}"
+            )
+        out[layer_name] = behavior
+
+    return out
+
+
 def convert_workbook(
     in_path: str,
     separator: str,
     layer_names_sheet: str,
     recenter_rules_sheet: str,
     root_key: str,
-) -> Dict[str, Dict[str, object]]:
+    timing_behavior_sheet: Optional[str] = None,
+) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
             "XLSX support requires openpyxl. Install with: pip install openpyxl"
@@ -158,7 +191,11 @@ def convert_workbook(
 
         body: Dict[str, object] = dict(layer_map)
         body["recenterRules"] = rules_map
-        return {root_key: body}
+        result: Dict[str, object] = {root_key: body}
+        if timing_behavior_sheet is not None:
+            ws_timing = _sheet_by_name_ci(wb, timing_behavior_sheet)
+            result["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
+        return result
     finally:
         wb.close()
 
@@ -194,6 +231,11 @@ def main() -> None:
         help="Recenter rules sheet name (case-insensitive match, default LAYER_NAME_CONFIG_recenterRules)",
     )
     parser.add_argument(
+        "--timing-behavior-sheet",
+        default=None,
+        help="Optional TIMING_BEHAVIOR sheet name (disabled by default)",
+    )
+    parser.add_argument(
         "--root-key",
         default="LAYER_NAME_CONFIG",
         help="Root key in output JSON (default LAYER_NAME_CONFIG)",
@@ -222,14 +264,19 @@ def main() -> None:
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
         root_key=args.root_key,
+        timing_behavior_sheet=args.timing_behavior_sheet,
     )
 
     if args.dry_run:
-        body = data.get(args.root_key, {})
+        body = cast(Dict[str, object], data.get(args.root_key, {}))
         layer_count = len([k for k in body.keys() if k != "recenterRules"])
         rule_count = len(cast(Dict[str, object], body.get("recenterRules", {})))
+        extra = ""
+        if "TIMING_BEHAVIOR" in data:
+            timing_count = len(cast(Dict[str, object], data["TIMING_BEHAVIOR"]))
+            extra = f"; {timing_count} TIMING_BEHAVIOR entries"
         print(
-            f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups"
+            f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
         )
         return
 

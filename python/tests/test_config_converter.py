@@ -54,6 +54,7 @@ def _write_minimal_xlsx(
     layer_rows: Optional[List[list]] = None,
     rule_rows: Optional[List[list]] = None,
     sheet_names: Optional[Tuple[str, str]] = None,
+    timing_rows: Optional[List[list]] = None,
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
@@ -70,6 +71,11 @@ def _write_minimal_xlsx(
     wr.append(["force", "noRecenter", "alignH", "alignV"])
     for row in rule_rows or [["Logo", "BG", "Claim", "Disclaimer"]]:
         wr.append(row)
+    if timing_rows is not None:
+        wt = wb.create_sheet(title="TIMING_BEHAVIOR")
+        wt.append(["layerName", "behavior"])
+        for row in timing_rows:
+            wt.append(row)
     wb.save(path)
 
 
@@ -262,6 +268,103 @@ def test_converter_indent_three_formats_arrays_as_one_liners():
         _cleanup_dir(d)
 
 
+def test_converter_timing_behavior_not_included_by_default():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            timing_rows=[["logo", "timed"], ["logo_03", "span"]],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert "TIMING_BEHAVIOR" not in data
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_behavior_included_when_flag_set():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            timing_rows=[["logo", "timed"], ["logo_03", "span"]],
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["TIMING_BEHAVIOR"]["logo"] == "timed"
+        assert data["TIMING_BEHAVIOR"]["logo_03"] == "span"
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_behavior_invalid_value_fails():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            timing_rows=[["logo", "INVALID"]],
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
+        assert proc.returncode != 0
+        assert "INVALID" in (proc.stdout + proc.stderr)
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_behavior_dry_run_includes_entry_count():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            timing_rows=[["logo", "timed"], ["logo_03", "span"]],
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--dry-run",
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "TIMING_BEHAVIOR" in proc.stdout
+        assert "2 TIMING_BEHAVIOR entries" in proc.stdout
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # generate_config_template CLI tests
 # ──────────────────────────────────────────────────────────────────────────────
@@ -368,6 +471,68 @@ def test_generator_layer_names_row_count_excludes_recenter_rules():
         _cleanup_dir(d)
 
 
+def test_generator_no_timing_behavior_sheet_by_default():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "TIMING_BEHAVIOR": {"logo": "timed"},
+                }
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert "TIMING_BEHAVIOR" not in titles
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_creates_timing_behavior_sheet_with_validation():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "TIMING_BEHAVIOR": {"logo": "timed", "logo_03": "span"},
+                }
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(
+            _GENERATOR,
+            in_json,
+            out_xlsx,
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "TIMING_BEHAVIOR")
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        assert headers == ["layerName", "behavior"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("logo", "timed") in rows
+        assert ("logo_03", "span") in rows
+        formulas = [dv.formula1 for dv in ws.data_validations.dataValidation]
+        assert '"timed,span,asIs"' in formulas
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Roundtrip integration test
 # ──────────────────────────────────────────────────────────────────────────────
@@ -378,10 +543,10 @@ def test_roundtrip_via_sample_json():
     pytest.importorskip("openpyxl")
     here = os.path.dirname(__file__)
     sample_json = os.path.normpath(
-        os.path.join(here, "..", "..", "out", "LAYER_NAME_CONFIG.json")
+        os.path.join(here, "..", "..", "samples", "sample_config_data.json")
     )
     if not os.path.isfile(sample_json):
-        pytest.skip("Sample file out/LAYER_NAME_CONFIG.json not found")
+        pytest.skip("Sample file samples/sample_config_data.json not found")
 
     d = tempfile.mkdtemp()
     try:
@@ -390,15 +555,33 @@ def test_roundtrip_via_sample_json():
         sep = ";"
 
         # Step 1: sample JSON → XLSX template
-        proc = _run(_GENERATOR, sample_json, template_xlsx, "--separator", sep)
+        proc = _run(
+            _GENERATOR,
+            sample_json,
+            template_xlsx,
+            "--separator",
+            sep,
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
         assert proc.returncode == 0, proc.stderr
 
         # Step 2: XLSX template → JSON
-        proc = _run(_CONVERTER, template_xlsx, roundtrip_json, "--separator", sep)
+        proc = _run(
+            _CONVERTER,
+            template_xlsx,
+            roundtrip_json,
+            "--separator",
+            sep,
+            "--timing-behavior-sheet",
+            "TIMING_BEHAVIOR",
+        )
         assert proc.returncode == 0, proc.stderr
 
         with open(sample_json, encoding="utf-8") as f:
-            src = json.load(f)["LAYER_NAME_CONFIG"]
+            src_raw = json.load(f)
+        src_add_layers = src_raw["config"]["addLayers"]
+        src = src_add_layers["LAYER_NAME_CONFIG"]
         with open(roundtrip_json, encoding="utf-8") as f:
             rt = json.load(f)["LAYER_NAME_CONFIG"]
 
@@ -420,5 +603,10 @@ def test_roundtrip_via_sample_json():
             assert rt["recenterRules"][rule_key] == src["recenterRules"][rule_key], (
                 f"recenterRules.{rule_key} mismatch"
             )
+
+        # TIMING_BEHAVIOR should survive the roundtrip too.
+        with open(roundtrip_json, encoding="utf-8") as f:
+            rt_full = json.load(f)
+        assert rt_full.get("TIMING_BEHAVIOR") == src_add_layers.get("TIMING_BEHAVIOR")
     finally:
         _cleanup_dir(d)

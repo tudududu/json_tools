@@ -129,11 +129,13 @@ Converts an XLSX workbook into `LAYER_NAME_CONFIG` JSON data.
 Workbook shape:
 - Sheet `LAYER_NAME_CONFIG_items` (case-insensitive match): columns `key`, `exact`, `contains`
 - Sheet `LAYER_NAME_CONFIG_recenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
+- Sheet `TIMING_BEHAVIOR` (optional): columns `layerName`, `behavior` (`timed`|`span`|`asIs`)
 
 Rules:
 - `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
 - `exact` and `contains` are always emitted as arrays, even when empty.
 - `recenterRules` is emitted with all four arrays.
+- `TIMING_BEHAVIOR` is parsed only when `--timing-behavior-sheet` is provided.
 
 Usage:
 ```sh
@@ -147,6 +149,7 @@ Options:
 - `--separator <str>`: explicit token separator for `exact`/`contains` cells (no sniffing)
 - `--layer-names-sheet <name>`: default `LAYER_NAME_CONFIG_items`
 - `--recenter-rules-sheet <name>`: default `LAYER_NAME_CONFIG_recenterRules`
+- `--timing-behavior-sheet <name>`: optional TIMING_BEHAVIOR sheet name (disabled by default)
 - `--root-key <name>`: default `LAYER_NAME_CONFIG`
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only
@@ -157,9 +160,10 @@ Generates a ready-to-use XLSX template from a sample `LAYER_NAME_CONFIG` JSON fi
 
 Usage:
 ```sh
-python -m python.tools.generate_config_template in/LAYER_NAME_CONFIG.json out/LAYER_NAME_CONFIG.template.xlsx
+python -m python.tools.generate_config_template samples/sample_config_data.json out/CONFIG.template.xlsx --timing-behavior-sheet TIMING_BEHAVIOR
 ```
 
 This creates:
 - Sheet `LAYER_NAME_CONFIG_items` with rows prefilled from JSON keys and list values
 - Sheet `LAYER_NAME_CONFIG_recenterRules` with rule columns and values expanded row-by-row
+- Sheet `TIMING_BEHAVIOR` when `--timing-behavior-sheet` is provided and the input JSON contains `config.addLayers.TIMING_BEHAVIOR`
