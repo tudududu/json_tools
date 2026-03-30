@@ -487,7 +487,7 @@ def test_generator_layer_names_row_count_excludes_recenter_rules():
         _cleanup_dir(d)
 
 
-def test_generator_no_timing_behavior_sheet_by_default():
+def test_generator_creates_timing_behavior_sheet_by_default():
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
     try:
@@ -506,7 +506,7 @@ def test_generator_no_timing_behavior_sheet_by_default():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "TIMING_BEHAVIOR" not in titles
+        assert "TIMING_BEHAVIOR" in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -527,13 +527,7 @@ def test_generator_creates_timing_behavior_sheet_with_validation():
             }
         }
         _write_json(in_json, payload)
-        proc = _run(
-            _GENERATOR,
-            in_json,
-            out_xlsx,
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
-        )
+        proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         ws = next(w for w in wb.worksheets if w.title == "TIMING_BEHAVIOR")

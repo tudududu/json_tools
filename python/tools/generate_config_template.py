@@ -121,7 +121,7 @@ def generate_template(
             ]
         )
 
-    if timing_behavior_sheet is not None and timing_behavior_map is not None:
+    if timing_behavior_sheet and timing_behavior_map is not None:
         ws_tb = wb.create_sheet(title=timing_behavior_sheet)
         ws_tb.append(["layerName", "behavior"])
         for layer_name, behavior in timing_behavior_map.items():
@@ -184,8 +184,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--timing-behavior-sheet",
-        default=None,
-        help="Optional TIMING_BEHAVIOR sheet to create (disabled by default)",
+        default="TIMING_BEHAVIOR",
+        help="TIMING_BEHAVIOR sheet name (created by default when input JSON contains config.addLayers.TIMING_BEHAVIOR)",
     )
     args = parser.parse_args()
 

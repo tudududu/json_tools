@@ -161,12 +161,12 @@ Generates a ready-to-use XLSX template from a sample `LAYER_NAME_CONFIG` JSON fi
 
 Usage:
 ```sh
-python -m python.tools.generate_config_template samples/sample_config_data.json out/CONFIG.template.xlsx --timing-behavior-sheet TIMING_BEHAVIOR
+python -m python.tools.generate_config_template samples/sample_config_data.json out/CONFIG.template.xlsx
 ```
 
 This creates:
 - Sheet `LAYER_NAME_CONFIG_items` with rows prefilled from JSON keys and list values
 - Sheet `LAYER_NAME_CONFIG_recenterRules` with rule columns and values expanded row-by-row
-- Sheet `TIMING_BEHAVIOR` when `--timing-behavior-sheet` is provided and the input JSON contains `config.addLayers.TIMING_BEHAVIOR`
+- Sheet `TIMING_BEHAVIOR` when the input JSON contains `config.addLayers.TIMING_BEHAVIOR`
 - Sheet `TIMING_ITEM_SELECTOR` when the input JSON contains `config.addLayers.TIMING_ITEM_SELECTOR`, with columns `itemName`, `mode`, `value`
 - `TIMING_ITEM_SELECTOR.mode` is locked to `line`, `index`, or `minMax`
