@@ -55,6 +55,7 @@ def _write_minimal_xlsx(
     rule_rows: Optional[List[list]] = None,
     sheet_names: Optional[Tuple[str, str]] = None,
     timing_rows: Optional[List[list]] = None,
+    selector_rows: Optional[List[list]] = None,
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
@@ -76,6 +77,11 @@ def _write_minimal_xlsx(
         wt.append(["layerName", "behavior"])
         for row in timing_rows:
             wt.append(row)
+    if selector_rows is not None:
+        ws = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws.append(["itemName", "mode", "value"])
+        for row in selector_rows:
+            ws.append(row)
     wb.save(path)
 
 
@@ -379,6 +385,97 @@ def test_converter_timing_behavior_dry_run_includes_entry_count():
         assert proc.returncode == 0, proc.stderr
         assert "TIMING_BEHAVIOR" in proc.stdout
         assert "2 TIMING_BEHAVIOR entries" in proc.stdout
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_item_selector_included_by_default_when_sheet_exists():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            selector_rows=[["logo", "line", 1], ["logo_02", "index", 2]],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        selector = data["config"]["addLayers"]["TIMING_ITEM_SELECTOR"]
+        assert selector["logo"] == {"mode": "line", "value": 1}
+        assert selector["logo_02"] == {"mode": "index", "value": 2}
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_item_selector_not_included_when_sheet_missing():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(openpyxl, xlsx)
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert "TIMING_ITEM_SELECTOR" not in data["config"]["addLayers"]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_item_selector_custom_sheet_name():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "LAYER_NAME_CONFIG_items"
+        ws.append(["key", "exact", "contains"])
+        ws.append(["logo", "logo_01", ""])
+        wr = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
+        wr.append(["force", "noRecenter", "alignH", "alignV"])
+        wr.append(["Logo", "BG", "Claim", "Disclaimer"])
+        wt = wb.create_sheet(title="SELECTOR_OVERRIDDEN")
+        wt.append(["itemName", "mode", "value"])
+        wt.append(["logo", "line", 1])
+        wb.save(xlsx)
+
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--timing-item-selector-sheet",
+            "SELECTOR_OVERRIDDEN",
+        )
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        selector = data["config"]["addLayers"]["TIMING_ITEM_SELECTOR"]
+        assert selector["logo"] == {"mode": "line", "value": 1}
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_item_selector_invalid_mode_fails():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            selector_rows=[["logo", "INVALID", 1]],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode != 0
+        assert "INVALID" in (proc.stdout + proc.stderr)
     finally:
         _cleanup_dir(d)
 

@@ -6,6 +6,7 @@ Expected workbook shape:
 - Sheet "LAYER_NAME_CONFIG_items" with columns: key, exact, contains
 - Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
 - Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
+- Sheet "TIMING_ITEM_SELECTOR" (optional) with columns: itemName, mode, value
 
 Rules:
 - Sheet names are matched case-insensitively.
@@ -30,6 +31,7 @@ except Exception:
 
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
 VALID_BEHAVIORS: Sequence[str] = ("timed", "span", "asIs")
+VALID_SELECTOR_MODES: Sequence[str] = ("line", "index", "minMax")
 
 
 def _json_scalar(value: object) -> str:
@@ -179,6 +181,44 @@ def _parse_timing_behavior(worksheet: "WorksheetType") -> Dict[str, str]:
     return out
 
 
+def _parse_timing_item_selector(worksheet: "WorksheetType") -> Dict[str, Dict[str, object]]:
+    headers = _read_headers(worksheet)
+    idx = _index_map(headers)
+
+    for required in ("itemname", "mode", "value"):
+        if required not in idx:
+            raise ValueError(
+                f"TIMING_ITEM_SELECTOR sheet is missing required column: {required}"
+            )
+
+    out: Dict[str, Dict[str, object]] = {}
+    allowed = set(VALID_SELECTOR_MODES)
+    for row in worksheet.iter_rows(min_row=2, values_only=True):
+        item_name = str(_cell(row, idx["itemname"]) or "").strip()
+        if not item_name:
+            continue
+        mode = str(_cell(row, idx["mode"]) or "").strip()
+        if not mode:
+            continue
+        if mode not in allowed:
+            allowed_text = ", ".join(VALID_SELECTOR_MODES)
+            raise ValueError(
+                f"Invalid mode '{mode}' for item '{item_name}'. "
+                f"Allowed values: {allowed_text}"
+            )
+
+        raw_value = _cell(row, idx["value"])
+        value: object
+        if isinstance(raw_value, str):
+            value = raw_value.strip()
+        else:
+            value = "" if raw_value is None else raw_value
+
+        out[item_name] = {"mode": mode, "value": value}
+
+    return out
+
+
 def convert_workbook(
     in_path: str,
     separator: str,
@@ -186,6 +226,7 @@ def convert_workbook(
     recenter_rules_sheet: str,
     root_key: str,
     timing_behavior_sheet: Optional[str] = "TIMING_BEHAVIOR",
+    timing_item_selector_sheet: Optional[str] = "TIMING_ITEM_SELECTOR",
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
@@ -207,6 +248,12 @@ def convert_workbook(
             ws_timing = _sheet_by_name_ci_or_none(wb, timing_behavior_sheet)
             if ws_timing is not None:
                 add_layers["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
+        if timing_item_selector_sheet:
+            ws_selector = _sheet_by_name_ci_or_none(wb, timing_item_selector_sheet)
+            if ws_selector is not None:
+                add_layers["TIMING_ITEM_SELECTOR"] = _parse_timing_item_selector(
+                    ws_selector
+                )
         return {"config": {"addLayers": add_layers}}
     finally:
         wb.close()
@@ -250,6 +297,11 @@ def main() -> None:
         help="TIMING_BEHAVIOR sheet name (parsed by default when present; override to use a different sheet name)",
     )
     parser.add_argument(
+        "--timing-item-selector-sheet",
+        default="TIMING_ITEM_SELECTOR",
+        help="TIMING_ITEM_SELECTOR sheet name (parsed by default when present; override to use a different sheet name)",
+    )
+    parser.add_argument(
         "--root-key",
         default="LAYER_NAME_CONFIG",
         help="Root key in output JSON (default LAYER_NAME_CONFIG)",
@@ -279,6 +331,7 @@ def main() -> None:
         recenter_rules_sheet=args.recenter_rules_sheet,
         root_key=args.root_key,
         timing_behavior_sheet=args.timing_behavior_sheet,
+        timing_item_selector_sheet=args.timing_item_selector_sheet,
     )
 
     if args.dry_run:
@@ -291,6 +344,11 @@ def main() -> None:
         if "TIMING_BEHAVIOR" in add_layers:
             timing_count = len(cast(Dict[str, object], add_layers["TIMING_BEHAVIOR"]))
             extra = f"; {timing_count} TIMING_BEHAVIOR entries"
+        if "TIMING_ITEM_SELECTOR" in add_layers:
+            selector_count = len(
+                cast(Dict[str, object], add_layers["TIMING_ITEM_SELECTOR"])
+            )
+            extra += f"; {selector_count} TIMING_ITEM_SELECTOR entries"
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
         )

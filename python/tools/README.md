@@ -130,13 +130,15 @@ Workbook shape:
 - Sheet `LAYER_NAME_CONFIG_items` (case-insensitive match): columns `key`, `exact`, `contains`
 - Sheet `LAYER_NAME_CONFIG_recenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
 - Sheet `TIMING_BEHAVIOR` (optional): columns `layerName`, `behavior` (`timed`|`span`|`asIs`)
+- Sheet `TIMING_ITEM_SELECTOR` (optional): columns `itemName`, `mode`, `value` (`mode`: `line`|`index`|`minMax`)
 
 Rules:
 - `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
 - `exact` and `contains` are always emitted as arrays, even when empty.
 - `recenterRules` is emitted with all four arrays.
 - `TIMING_BEHAVIOR` is parsed by default when a matching sheet is present in the workbook.
-- Output shape is nested and only includes parsed sections, e.g. `{"config":{"addLayers":{"LAYER_NAME_CONFIG":{...},"TIMING_BEHAVIOR":{...}}}}`.
+- `TIMING_ITEM_SELECTOR` is parsed by default when a matching sheet is present in the workbook.
+- Output shape is nested and only includes parsed sections, e.g. `{"config":{"addLayers":{"LAYER_NAME_CONFIG":{...},"TIMING_BEHAVIOR":{...},"TIMING_ITEM_SELECTOR":{...}}}}`.
 
 Usage:
 ```sh
@@ -151,6 +153,7 @@ Options:
 - `--layer-names-sheet <name>`: default `LAYER_NAME_CONFIG_items`
 - `--recenter-rules-sheet <name>`: default `LAYER_NAME_CONFIG_recenterRules`
 - `--timing-behavior-sheet <name>`: TIMING_BEHAVIOR sheet name (default: `TIMING_BEHAVIOR`)
+- `--timing-item-selector-sheet <name>`: TIMING_ITEM_SELECTOR sheet name (default: `TIMING_ITEM_SELECTOR`)
 - `--root-key <name>`: default `LAYER_NAME_CONFIG`
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only
