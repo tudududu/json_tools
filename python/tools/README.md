@@ -173,3 +173,5 @@ This creates:
 - Sheet `TIMING_BEHAVIOR` when the input JSON contains `config.addLayers.TIMING_BEHAVIOR`
 - Sheet `TIMING_ITEM_SELECTOR` when the input JSON contains `config.addLayers.TIMING_ITEM_SELECTOR`, with columns `itemName`, `mode`, `value`
 - `TIMING_ITEM_SELECTOR.mode` is locked to `line`, `index`, or `minMax`
+- Sheet `SKIP_COPY_CONFIG` when the input JSON contains `config.addLayers.SKIP_COPY_CONFIG`, with columns `key`, `value`, `names`
+- `SKIP_COPY_CONFIG.value` is locked to `TRUE` or `FALSE`

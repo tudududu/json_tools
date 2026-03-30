@@ -697,6 +697,65 @@ def test_generator_reads_timing_item_selector_from_sample_shape():
         _cleanup_dir(d)
 
 
+def test_generator_creates_skip_copy_config_sheet():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "SKIP_COPY_CONFIG": {
+                        "groups": {"enabled": True, "names": ["info", "claim"]},
+                        "adHoc": {"enabled": False, "names": ["info", "template_aspect"]},
+                        "disclaimerOff": True,
+                    },
+                }
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "SKIP_COPY_CONFIG")
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        assert headers == ["key", "value", "names"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("groups", True, "info; claim") in rows
+        assert ("adHoc", False, "info; template_aspect") in rows
+        assert ("disclaimerOff", True, None) in rows
+        formulas = [dv.formula1 for dv in ws.data_validations.dataValidation]
+        assert '"TRUE,FALSE"' in formulas
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_reads_skip_copy_config_from_sample_shape():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        here = os.path.dirname(__file__)
+        sample_json = os.path.normpath(
+            os.path.join(here, "..", "..", "samples", "sample_config_data.json")
+        )
+        if not os.path.isfile(sample_json):
+            pytest.skip("Sample file samples/sample_config_data.json not found")
+
+        out_xlsx = os.path.join(d, "out.xlsx")
+        proc = _run(_GENERATOR, sample_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "SKIP_COPY_CONFIG")
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("groups", True, "info; claim") in rows
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Roundtrip integration test
 # ──────────────────────────────────────────────────────────────────────────────

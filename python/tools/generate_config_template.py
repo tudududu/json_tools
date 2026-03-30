@@ -7,6 +7,7 @@ Output workbook shape:
 - Sheet "LAYER_NAME_CONFIG_recenterRules" with columns: force, noRecenter, alignH, alignV
 - Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
 - Sheet "TIMING_ITEM_SELECTOR" (optional) with columns: itemName, mode, value
+- Sheet "SKIP_COPY_CONFIG" (optional) with columns: key, value, names
 """
 
 from __future__ import annotations
@@ -59,6 +60,7 @@ def generate_template(
     body: Optional[Dict[str, object]] = None
     timing_behavior_map: Optional[Dict[str, object]] = None
     timing_item_selector_map: Optional[Dict[str, object]] = None
+    skip_copy_config_map: Optional[Dict[str, object]] = None
 
     if root_key in raw and isinstance(raw[root_key], dict):
         body = raw[root_key]
@@ -68,6 +70,9 @@ def generate_template(
         tis_raw = raw.get("TIMING_ITEM_SELECTOR")
         if isinstance(tis_raw, dict):
             timing_item_selector_map = tis_raw
+        scc_raw = raw.get("SKIP_COPY_CONFIG")
+        if isinstance(scc_raw, dict):
+            skip_copy_config_map = scc_raw
     else:
         config = raw.get("config")
         if isinstance(config, dict):
@@ -82,6 +87,9 @@ def generate_template(
                 tis_raw = add_layers.get("TIMING_ITEM_SELECTOR")
                 if isinstance(tis_raw, dict):
                     timing_item_selector_map = tis_raw
+                scc_raw = add_layers.get("SKIP_COPY_CONFIG")
+                if isinstance(scc_raw, dict):
+                    skip_copy_config_map = scc_raw
 
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
@@ -151,6 +159,31 @@ def generate_template(
             )
             ws_tis.add_data_validation(dv)
             dv.add(f"B2:B{max(ws_tis.max_row, 2)}")
+
+    if skip_copy_config_map is not None:
+        ws_scc = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws_scc.append(["key", "value", "names"])
+        for key, config_value in skip_copy_config_map.items():
+            if isinstance(config_value, dict):
+                names_raw = config_value.get("names")
+                if names_raw is None:
+                    names_raw = config_value.get("keys")
+                if names_raw is None:
+                    names_raw = config_value.get("tokens")
+                names = _to_list(names_raw)
+                enabled_raw = config_value.get("enabled")
+                enabled = bool(enabled_raw) if enabled_raw is not None else bool(names)
+                ws_scc.append([str(key), enabled, separator.join(names)])
+            elif isinstance(config_value, list):
+                names = _to_list(config_value)
+                ws_scc.append([str(key), bool(names), separator.join(names)])
+            else:
+                ws_scc.append([str(key), bool(config_value), ""])
+
+        if _DataValidation is not None:
+            dv = _DataValidation(type="list", formula1='"TRUE,FALSE"', allow_blank=True)
+            ws_scc.add_data_validation(dv)
+            dv.add(f"B2:B{max(ws_scc.max_row, 2)}")
 
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
