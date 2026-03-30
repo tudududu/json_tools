@@ -135,7 +135,7 @@ Rules:
 - `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
 - `exact` and `contains` are always emitted as arrays, even when empty.
 - `recenterRules` is emitted with all four arrays.
-- `TIMING_BEHAVIOR` is parsed only when `--timing-behavior-sheet` is provided.
+- `TIMING_BEHAVIOR` is parsed by default when a matching sheet is present in the workbook.
 
 Usage:
 ```sh
@@ -149,7 +149,7 @@ Options:
 - `--separator <str>`: explicit token separator for `exact`/`contains` cells (no sniffing)
 - `--layer-names-sheet <name>`: default `LAYER_NAME_CONFIG_items`
 - `--recenter-rules-sheet <name>`: default `LAYER_NAME_CONFIG_recenterRules`
-- `--timing-behavior-sheet <name>`: optional TIMING_BEHAVIOR sheet name (disabled by default)
+- `--timing-behavior-sheet <name>`: TIMING_BEHAVIOR sheet name (default: `TIMING_BEHAVIOR`)
 - `--root-key <name>`: default `LAYER_NAME_CONFIG`
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only

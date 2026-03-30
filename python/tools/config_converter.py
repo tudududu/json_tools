@@ -69,6 +69,17 @@ def _sheet_by_name_ci(workbook: object, configured_name: str) -> "WorksheetType"
     raise ValueError(f"Sheet not found (case-insensitive): {configured_name}")
 
 
+def _sheet_by_name_ci_or_none(
+    workbook: object, configured_name: str
+) -> Optional["WorksheetType"]:
+    target = configured_name.strip().lower()
+    sheets = getattr(workbook, "worksheets", [])
+    for ws in sheets:
+        if str(getattr(ws, "title", "")).strip().lower() == target:
+            return ws
+    return None
+
+
 def _split_list_cell(value: object, separator: str) -> List[str]:
     token = str(value or "").strip()
     if not token:
@@ -174,7 +185,7 @@ def convert_workbook(
     layer_names_sheet: str,
     recenter_rules_sheet: str,
     root_key: str,
-    timing_behavior_sheet: Optional[str] = None,
+    timing_behavior_sheet: Optional[str] = "TIMING_BEHAVIOR",
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
@@ -192,9 +203,10 @@ def convert_workbook(
         body: Dict[str, object] = dict(layer_map)
         body["recenterRules"] = rules_map
         result: Dict[str, object] = {root_key: body}
-        if timing_behavior_sheet is not None:
-            ws_timing = _sheet_by_name_ci(wb, timing_behavior_sheet)
-            result["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
+        if timing_behavior_sheet:
+            ws_timing = _sheet_by_name_ci_or_none(wb, timing_behavior_sheet)
+            if ws_timing is not None:
+                result["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
         return result
     finally:
         wb.close()
@@ -234,8 +246,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--timing-behavior-sheet",
-        default=None,
-        help="Optional TIMING_BEHAVIOR sheet name (disabled by default)",
+        default="TIMING_BEHAVIOR",
+        help="TIMING_BEHAVIOR sheet name (parsed by default when present; override to use a different sheet name)",
     )
     parser.add_argument(
         "--root-key",

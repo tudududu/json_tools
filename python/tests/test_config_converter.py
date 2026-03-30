@@ -268,7 +268,7 @@ def test_converter_indent_three_formats_arrays_as_one_liners():
         _cleanup_dir(d)
 
 
-def test_converter_timing_behavior_not_included_by_default():
+def test_converter_timing_behavior_included_by_default_when_sheet_exists():
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
     try:
@@ -279,6 +279,23 @@ def test_converter_timing_behavior_not_included_by_default():
             xlsx,
             timing_rows=[["logo", "timed"], ["logo_03", "span"]],
         )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["TIMING_BEHAVIOR"]["logo"] == "timed"
+        assert data["TIMING_BEHAVIOR"]["logo_03"] == "span"
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_timing_behavior_not_included_when_sheet_missing():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(openpyxl, xlsx)
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode == 0, proc.stderr
         with open(out_json, encoding="utf-8") as f:
@@ -355,8 +372,6 @@ def test_converter_timing_behavior_dry_run_includes_entry_count():
             xlsx,
             out_json,
             "--dry-run",
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
         )
         assert proc.returncode == 0, proc.stderr
         assert "TIMING_BEHAVIOR" in proc.stdout
