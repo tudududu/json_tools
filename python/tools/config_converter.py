@@ -187,7 +187,9 @@ def _parse_timing_behavior(worksheet: "WorksheetType") -> Dict[str, str]:
     return out
 
 
-def _parse_timing_item_selector(worksheet: "WorksheetType") -> Dict[str, Dict[str, object]]:
+def _parse_timing_item_selector(
+    worksheet: "WorksheetType",
+) -> Dict[str, Dict[str, object]]:
     headers = _read_headers(worksheet)
     idx = _index_map(headers)
 

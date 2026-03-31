@@ -499,7 +499,11 @@ def test_converter_skip_copy_config_included_by_default_when_sheet_exists():
             skip_rows=[
                 ["groups", "TRUE", "info; claim"],
                 ["adHoc", "FALSE", "info; template_aspect"],
-                ["alwaysCopyLogoBaseNames", "FALSE", "Size_Holder_Logo; Size_Holder_Logo_02"],
+                [
+                    "alwaysCopyLogoBaseNames",
+                    "FALSE",
+                    "Size_Holder_Logo; Size_Holder_Logo_02",
+                ],
                 ["disclaimerOff", "TRUE", ""],
                 ["logo02Off", "FALSE", ""],
             ],
@@ -595,7 +599,10 @@ def test_converter_skip_copy_config_dry_run_includes_entry_count():
         _write_minimal_xlsx(
             openpyxl,
             xlsx,
-            skip_rows=[["groups", "TRUE", "info; claim"], ["disclaimerOff", "TRUE", ""]],
+            skip_rows=[
+                ["groups", "TRUE", "info; claim"],
+                ["disclaimerOff", "TRUE", ""],
+            ],
         )
         proc = _run(
             _CONVERTER,
@@ -839,7 +846,10 @@ def test_generator_creates_skip_copy_config_sheet():
                     "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
                     "SKIP_COPY_CONFIG": {
                         "groups": {"enabled": True, "names": ["info", "claim"]},
-                        "adHoc": {"enabled": False, "names": ["info", "template_aspect"]},
+                        "adHoc": {
+                            "enabled": False,
+                            "names": ["info", "template_aspect"],
+                        },
                         "disclaimerOff": True,
                     },
                 }
