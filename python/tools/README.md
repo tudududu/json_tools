@@ -131,6 +131,7 @@ Workbook shape:
 - Sheet `LAYER_NAME_CONFIG_recenterRules` (case-insensitive match): columns `force`, `noRecenter`, `alignH`, `alignV`
 - Sheet `TIMING_BEHAVIOR` (optional): columns `layerName`, `behavior` (`timed`|`span`|`asIs`)
 - Sheet `TIMING_ITEM_SELECTOR` (optional): columns `itemName`, `mode`, `value` (`mode`: `line`|`index`|`minMax`)
+- Sheet `SKIP_COPY_CONFIG` (optional): columns `key`, `value`, `names` (`value`: `true`|`false`)
 
 Rules:
 - `exact` and `contains` are split only by an explicit separator (`--separator`, default `;`).
@@ -138,7 +139,9 @@ Rules:
 - `recenterRules` is emitted with all four arrays.
 - `TIMING_BEHAVIOR` is parsed by default when a matching sheet is present in the workbook.
 - `TIMING_ITEM_SELECTOR` is parsed by default when a matching sheet is present in the workbook.
-- Output shape is nested and only includes parsed sections, e.g. `{"config":{"addLayers":{"LAYER_NAME_CONFIG":{...},"TIMING_BEHAVIOR":{...},"TIMING_ITEM_SELECTOR":{...}}}}`.
+- `SKIP_COPY_CONFIG` is parsed by default when a matching sheet is present in the workbook.
+- `SKIP_COPY_CONFIG` key-shape rules: `groups`, `adHoc`, `alwaysCopyLogoBaseNames` are emitted as `{"enabled": <bool>, "names": [...]}`; other keys are emitted as plain booleans.
+- Output shape is nested and only includes parsed sections, e.g. `{"config":{"addLayers":{"LAYER_NAME_CONFIG":{...},"TIMING_BEHAVIOR":{...},"TIMING_ITEM_SELECTOR":{...},"SKIP_COPY_CONFIG":{...}}}}`.
 
 Usage:
 ```sh
@@ -154,6 +157,7 @@ Options:
 - `--recenter-rules-sheet <name>`: default `LAYER_NAME_CONFIG_recenterRules`
 - `--timing-behavior-sheet <name>`: TIMING_BEHAVIOR sheet name (default: `TIMING_BEHAVIOR`)
 - `--timing-item-selector-sheet <name>`: TIMING_ITEM_SELECTOR sheet name (default: `TIMING_ITEM_SELECTOR`)
+- `--skip-config-sheet <name>`: SKIP_COPY_CONFIG sheet name (default: `SKIP_COPY_CONFIG`)
 - `--root-key <name>`: default `LAYER_NAME_CONFIG`
 - `--indent <int>`: output JSON indentation (default `4`, set `0` for compact)
 - `--dry-run`: parse and print summary only

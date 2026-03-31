@@ -56,6 +56,8 @@ def _write_minimal_xlsx(
     sheet_names: Optional[Tuple[str, str]] = None,
     timing_rows: Optional[List[list]] = None,
     selector_rows: Optional[List[list]] = None,
+    skip_rows: Optional[List[list]] = None,
+    skip_sheet_name: str = "SKIP_COPY_CONFIG",
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
@@ -81,6 +83,11 @@ def _write_minimal_xlsx(
         ws = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
         ws.append(["itemName", "mode", "value"])
         for row in selector_rows:
+            ws.append(row)
+    if skip_rows is not None:
+        ws = wb.create_sheet(title=skip_sheet_name)
+        ws.append(["key", "value", "names"])
+        for row in skip_rows:
             ws.append(row)
     wb.save(path)
 
@@ -476,6 +483,129 @@ def test_converter_timing_item_selector_invalid_mode_fails():
         proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode != 0
         assert "INVALID" in (proc.stdout + proc.stderr)
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_skip_copy_config_included_by_default_when_sheet_exists():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            skip_rows=[
+                ["groups", "TRUE", "info; claim"],
+                ["adHoc", "FALSE", "info; template_aspect"],
+                ["alwaysCopyLogoBaseNames", "FALSE", "Size_Holder_Logo; Size_Holder_Logo_02"],
+                ["disclaimerOff", "TRUE", ""],
+                ["logo02Off", "FALSE", ""],
+            ],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        skip_cfg = data["config"]["addLayers"]["SKIP_COPY_CONFIG"]
+        assert skip_cfg["groups"] == {"enabled": True, "names": ["info", "claim"]}
+        assert skip_cfg["adHoc"] == {
+            "enabled": False,
+            "names": ["info", "template_aspect"],
+        }
+        assert skip_cfg["alwaysCopyLogoBaseNames"] == {
+            "enabled": False,
+            "names": ["Size_Holder_Logo", "Size_Holder_Logo_02"],
+        }
+        assert skip_cfg["disclaimerOff"] is True
+        assert skip_cfg["logo02Off"] is False
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_skip_copy_config_not_included_when_sheet_missing():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(openpyxl, xlsx)
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert "SKIP_COPY_CONFIG" not in data["config"]["addLayers"]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_skip_copy_config_custom_sheet_name():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            skip_rows=[["groups", "TRUE", "info; claim"]],
+            skip_sheet_name="SKIP_CFG_OVERRIDDEN",
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--skip-config-sheet",
+            "SKIP_CFG_OVERRIDDEN",
+        )
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        skip_cfg = data["config"]["addLayers"]["SKIP_COPY_CONFIG"]
+        assert skip_cfg["groups"] == {"enabled": True, "names": ["info", "claim"]}
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_skip_copy_config_invalid_bool_fails():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            skip_rows=[["groups", "MAYBE", "info; claim"]],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode != 0
+        assert "Invalid boolean value" in (proc.stdout + proc.stderr)
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_skip_copy_config_dry_run_includes_entry_count():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            skip_rows=[["groups", "TRUE", "info; claim"], ["disclaimerOff", "TRUE", ""]],
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--dry-run",
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "SKIP_COPY_CONFIG" in proc.stdout
+        assert "2 SKIP_COPY_CONFIG entries" in proc.stdout
     finally:
         _cleanup_dir(d)
 
