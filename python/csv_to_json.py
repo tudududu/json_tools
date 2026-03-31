@@ -34,7 +34,7 @@ from datetime import datetime
 import subprocess
 import sys
 import platform
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 try:
     from openpyxl import load_workbook as _openpyxl_load_workbook
@@ -2962,7 +2962,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--layer-config",
         default=None,
-        help="Optional path to layer config XLSX for injection into config.addLayers.LAYER_NAME_CONFIG",
+        help="Optional path to layer config XLSX for injection into config.addLayers",
     )
 
     args = p.parse_args(argv)
@@ -3237,7 +3237,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         _inject_generation_metadata(data)
 
     # Prepare addLayers config once (if provided)
-    layer_name_config_payload: Optional[Dict[str, Any]] = None
+    layer_config_payload: Optional[Dict[str, Any]] = None
     if args.layer_config:
         if not os.path.isfile(args.layer_config):
             raise SystemExit(f"No such file or directory: '{args.layer_config}'")
@@ -3254,22 +3254,27 @@ def main(argv: Optional[List[str]] = None) -> int:
                 root_key="LAYER_NAME_CONFIG",
             )
             if isinstance(converted, dict):
-                body = None
+                add_layers_payload: Optional[Dict[str, Any]] = None
                 cfg = converted.get("config")
                 if isinstance(cfg, dict):
                     add_layers = cfg.get("addLayers")
                     if isinstance(add_layers, dict):
-                        nested = add_layers.get("LAYER_NAME_CONFIG")
-                        if isinstance(nested, dict):
-                            body = nested
-                if body is None:
+                        add_layers_payload = cast(Dict[str, Any], add_layers)
+                if add_layers_payload is None:
+                    legacy_add_layers = converted.get("addLayers")
+                    if isinstance(legacy_add_layers, dict):
+                        add_layers_payload = cast(Dict[str, Any], legacy_add_layers)
+                if add_layers_payload is None:
                     legacy = converted.get("LAYER_NAME_CONFIG")
                     if isinstance(legacy, dict):
-                        body = legacy
-                if isinstance(body, dict):
-                    layer_name_config_payload = body
+                        add_layers_payload = {"LAYER_NAME_CONFIG": legacy}
+
+                if isinstance(add_layers_payload, dict):
+                    layer_config_payload = add_layers_payload
                 else:
-                    layer_name_config_payload = converted
+                    raise ValueError(
+                        "layer config payload missing config.addLayers/LAYER_NAME_CONFIG"
+                    )
         except Exception as ex:
             raise SystemExit(f"Failed to load layer config '{args.layer_config}': {ex}")
 
@@ -3327,15 +3332,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                     pack["EXTRA_OUTPUT_COMPS"] = media_map
 
     def _inject_layer_config(payload: Dict[str, Any]):
-        if not layer_name_config_payload:
+        if not layer_config_payload:
             return
         config = payload.setdefault("config", {})
         if isinstance(config, dict):
             add_layers = config.setdefault("addLayers", {})
             if isinstance(add_layers, dict):
-                add_layers["LAYER_NAME_CONFIG"] = copy.deepcopy(
-                    layer_name_config_payload
-                )
+                for cfg_key, cfg_value in layer_config_payload.items():
+                    add_layers[cfg_key] = copy.deepcopy(cfg_value)
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:

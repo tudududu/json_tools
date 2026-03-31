@@ -874,7 +874,12 @@ Flags:
 
 Behavior:
 - The workbook is loaded once per run and reused for all generated payloads.
-- Injection target: `config.addLayers.LAYER_NAME_CONFIG`.
+- Injection target: `config.addLayers`.
+- Injected keys follow `config_converter.py` output and may include:
+  - `LAYER_NAME_CONFIG`
+  - `TIMING_BEHAVIOR`
+  - `TIMING_ITEM_SELECTOR`
+  - `SKIP_COPY_CONFIG`
 - Works alongside media injection (`config.pack.EXTRA_OUTPUT_COMPS`) when both flags are provided.
 
 Example:

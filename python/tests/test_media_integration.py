@@ -29,6 +29,16 @@ class MediaIntegrationTests(unittest.TestCase):
         ws_rules = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
         ws_rules.append(["force", "noRecenter", "alignH", "alignV"])
         ws_rules.append(["Logo", "BG", "Claim", "Disclaimer"])
+        ws_tb = wb.create_sheet(title="TIMING_BEHAVIOR")
+        ws_tb.append(["layerName", "behavior"])
+        ws_tb.append(["logo", "timed"])
+        ws_tis = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws_tis.append(["itemName", "mode", "value"])
+        ws_tis.append(["logo", "line", 1])
+        ws_skip = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws_skip.append(["key", "value", "names"])
+        ws_skip.append(["groups", "TRUE", "info; claim"])
+        ws_skip.append(["disclaimerOff", "TRUE", ""])
         wb.save(path)
         wb.close()
 
@@ -190,9 +200,20 @@ class MediaIntegrationTests(unittest.TestCase):
                     payload = json.load(f)
                 self.assertIn("config", payload)
                 self.assertIn("addLayers", payload["config"])
-                self.assertIn("LAYER_NAME_CONFIG", payload["config"]["addLayers"])
-                self.assertIn(
-                    "logo", payload["config"]["addLayers"]["LAYER_NAME_CONFIG"]
+                add_layers = payload["config"]["addLayers"]
+                self.assertIn("LAYER_NAME_CONFIG", add_layers)
+                self.assertIn("TIMING_BEHAVIOR", add_layers)
+                self.assertIn("TIMING_ITEM_SELECTOR", add_layers)
+                self.assertIn("SKIP_COPY_CONFIG", add_layers)
+                self.assertIn("logo", add_layers["LAYER_NAME_CONFIG"])
+                self.assertEqual(add_layers["TIMING_BEHAVIOR"].get("logo"), "timed")
+                self.assertEqual(
+                    add_layers["TIMING_ITEM_SELECTOR"].get("logo"),
+                    {"mode": "line", "value": 1},
+                )
+                self.assertEqual(
+                    add_layers["SKIP_COPY_CONFIG"].get("groups"),
+                    {"enabled": True, "names": ["info", "claim"]},
                 )
         finally:
             try:
