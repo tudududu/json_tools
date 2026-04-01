@@ -3336,10 +3336,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         config = payload.setdefault("config", {})
         if isinstance(config, dict):
-            add_layers = config.setdefault("addLayers", {})
-            if isinstance(add_layers, dict):
-                for cfg_key, cfg_value in layer_config_payload.items():
-                    add_layers[cfg_key] = copy.deepcopy(cfg_value)
+            config["addLayers"] = copy.deepcopy(layer_config_payload)
 
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:

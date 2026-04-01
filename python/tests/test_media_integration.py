@@ -2,6 +2,7 @@ import os
 import json
 import tempfile
 import unittest
+from unittest import mock
 
 try:
     from openpyxl import Workbook
@@ -215,6 +216,63 @@ class MediaIntegrationTests(unittest.TestCase):
                     add_layers["SKIP_COPY_CONFIG"].get("groups"),
                     {"enabled": True, "names": ["info", "claim"]},
                 )
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(layer_cfg_path)
+            except Exception:
+                pass
+
+    @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+    def test_layer_config_replaces_existing_add_layers(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_global;;;;;language;Y;ALL;;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        layer_cfg_path = tmp_file(".xlsx")
+        self._write_layer_config_xlsx(layer_cfg_path)
+
+        mocked_data = {
+            "metadataGlobal": {"briefVersion": 6, "fps": 25, "language": ""},
+            "videos": [
+                {
+                    "videoId": "V_landscape",
+                    "metadata": {"orientation": "landscape"},
+                    "subtitles": [{"line": 1, "in": 0.0, "out": 1.0, "text": "x"}],
+                }
+            ],
+            "config": {"addLayers": {"stale": {"enabled": True}}},
+        }
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                with mock.patch.object(
+                    mod, "convert_csv_to_json", return_value=mocked_data
+                ):
+                    rc = mod.main([in_path, out_json, "--layer-config", layer_cfg_path])
+                self.assertEqual(rc, 0)
+                with open(out_json, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                self.assertIn("config", payload)
+                self.assertIn("addLayers", payload["config"])
+                add_layers = payload["config"]["addLayers"]
+                self.assertNotIn("stale", add_layers)
+                self.assertIn("LAYER_NAME_CONFIG", add_layers)
+                self.assertIn("TIMING_BEHAVIOR", add_layers)
+                self.assertIn("TIMING_ITEM_SELECTOR", add_layers)
+                self.assertIn("SKIP_COPY_CONFIG", add_layers)
         finally:
             try:
                 os.remove(in_path)

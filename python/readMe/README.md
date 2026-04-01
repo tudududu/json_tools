@@ -875,6 +875,7 @@ Flags:
 Behavior:
 - The workbook is loaded once per run and reused for all generated payloads.
 - Injection target: `config.addLayers`.
+- Injection behavior: replace whole `config.addLayers` with converted workbook output.
 - Injected keys follow `config_converter.py` output and may include:
   - `LAYER_NAME_CONFIG`
   - `TIMING_BEHAVIOR`
