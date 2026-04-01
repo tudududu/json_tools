@@ -1,3 +1,48 @@
+# 1.10.0 - 2026-04-01
+
+Added:
+- SRT/Tabular conversion follow-up (py 284):
+	* Finalized reverse conversion robustness in `python/tools/srt_to_csv.py` for CSV/XLSX -> SRT workflows, including stricter mode handling and end-to-end reverse-path stabilization.
+
+Changed:
+- Media tool rename (py 299):
+	* Renamed `csv_json_media.py` to `python/tools/media_converter.py` and aligned references/usages to the new module name.
+
+Added:
+- Layer config toolchain expansion (py 305-313):
+	* Promoted workbook defaults to `LAYER_NAME_CONFIG_items` and `LAYER_NAME_CONFIG_recenterRules`.
+	* Added `TIMING_BEHAVIOR` support in both directions:
+		- `config_converter.py`: parses optional `TIMING_BEHAVIOR` sheet by default when present.
+		- `generate_config_template.py`: emits `TIMING_BEHAVIOR` from `config.addLayers.TIMING_BEHAVIOR` by default when present.
+		- Validation lock in template: behavior values constrained to `timed|span|asIs`.
+	* Added `TIMING_ITEM_SELECTOR` support in both directions:
+		- `generate_config_template.py`: emits `TIMING_ITEM_SELECTOR` sheet with `itemName, mode, value`.
+		- `config_converter.py`: parses optional `TIMING_ITEM_SELECTOR` sheet by default when present.
+		- Validation lock in template: mode values constrained to `line|index|minMax`.
+	* Added `SKIP_COPY_CONFIG` support in both directions:
+		- `generate_config_template.py`: emits unified `SKIP_COPY_CONFIG` sheet (`key, value, names`) with boolean dropdown lock on `value`.
+		- `config_converter.py`: parses `SKIP_COPY_CONFIG` into mixed output shape under `config.addLayers.SKIP_COPY_CONFIG`:
+			+ fixed keys `groups`, `adHoc`, `alwaysCopyLogoBaseNames` -> `{ "enabled": <bool>, "names": [...] }`
+			+ all other keys -> plain boolean values.
+		- Added CLI override `--skip-config-sheet` and default-on parsing when matching sheet exists.
+
+Changed:
+- `config_converter.py` output structure modernization (py 310+):
+	* Standardized converter output to AE-style nested shape:
+		`config.addLayers.{LAYER_NAME_CONFIG,TIMING_BEHAVIOR,TIMING_ITEM_SELECTOR,SKIP_COPY_CONFIG}`
+	* Kept defensive backward-compatible extraction paths where needed during integration.
+
+Added:
+- `csv_to_json.py` integration for layer config injection (py 317-319):
+	* `--layer-config` now loads converter output once and injects full `config.addLayers` payload (not only `LAYER_NAME_CONFIG`).
+	* Supported injected sections: `LAYER_NAME_CONFIG`, `TIMING_BEHAVIOR`, `TIMING_ITEM_SELECTOR`, `SKIP_COPY_CONFIG`.
+	* Finalized replacement semantics (py 319): when `--layer-config` is used, `config.addLayers` is replaced as a whole by converted workbook output (merge mode removed).
+	* Maintained compatibility with media injection under `config.pack.EXTRA_OUTPUT_COMPS`.
+
+Tests/Docs:
+- Expanded unit/integration coverage across converter/template/csv pipeline for all added sheets, validation rules, custom sheet overrides, dry-run summaries, and replacement semantics.
+- Updated tool documentation to reflect new defaults, nested output shape, and `--layer-config` behavior.
+
 # 1.9.0 - 2026-03-23
 
 Added:
