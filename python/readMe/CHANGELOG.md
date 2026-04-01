@@ -1,5 +1,15 @@
 # 1.10.0 - 2026-04-01
 
+Release notes (condensed):
+- Strengthened reverse SRT workflows (CSV/XLSX -> SRT) in `srt_to_csv.py` (py 284).
+- Renamed media helper module to `python/tools/media_converter.py` (py 299).
+- Expanded layer-config workbook pipeline end-to-end:
+	* `generate_config_template.py` now emits `TIMING_BEHAVIOR`, `TIMING_ITEM_SELECTOR`, and `SKIP_COPY_CONFIG` sheets from `config.addLayers`.
+	* `config_converter.py` parses those sheets by default when present and emits nested `config.addLayers` output.
+	* `csv_to_json.py --layer-config` now injects the full `config.addLayers` payload.
+- Finalized injection semantics in `csv_to_json.py` (py 319): `config.addLayers` is replaced as a whole (merge mode removed).
+- Added/updated tests and docs for the new workbook schema, validation constraints, and integration behavior.
+
 Added:
 - SRT/Tabular conversion follow-up (py 284):
 	* Finalized reverse conversion robustness in `python/tools/srt_to_csv.py` for CSV/XLSX -> SRT workflows, including stricter mode handling and end-to-end reverse-path stabilization.
