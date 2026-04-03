@@ -472,11 +472,7 @@ Table of contents
   `config.pack`:
   | Key | Type | Description |
   |-----|------|-------------|
-  | `ENABLE_EXTRA_OUTPUT_COMPS` | bool | Enable/disable extra output comps. |
-  | `EXTRA_OUTPUT_COMPS` | object | Extras map (AR\|DUR → size specs). Replaces preset value entirely. |
-  | `EXTRA_OUTPUTS_USE_DATE_SUBFOLDER` | bool | Place extras under a date subfolder. |
-  | `OUTPUT_ESSENTIALS_DIRNAME` | string | Subfolder name for essentials output. |
-  | `OUTPUT_EXTRAS_DIRNAME` | string | Subfolder name for extras output. |
+  | `EXTRA_OUTPUT_COMPS` | object | Extras map (AR\|DUR → size specs). Replaces preset value entirely. Other extras controls remain preset-only. |
 
   `config.addLayers`:
   | Key | Type | Description |

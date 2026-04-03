@@ -1123,16 +1123,14 @@ function __Pack_coreRun(opts) {
         else { log("Naming: no suitable data JSON found (looked for '"+DATA_JSON_PRIMARY_NAME+"')."); }
     } else { if(jsonData && jsonData.metadataGlobal) { var mg = jsonData.metadataGlobal; log("Naming JSON loaded: client=" + (mg.client||'') + ", campaign=" + (mg.campaign||'') + ", briefVersion=" + (mg.briefVersion||'') ); } }
 
-    // AE 274: Apply data.json["config"]["pack"] overrides (full replace per key)
+    // AE 276: Apply data.json["config"]["pack"] overrides (narrow scope)
     try {
         var djCfgPack = jsonData && jsonData.config && jsonData.config.pack;
         if (djCfgPack && typeof djCfgPack === 'object') {
-            if (djCfgPack.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!djCfgPack.ENABLE_EXTRA_OUTPUT_COMPS;
-            if (djCfgPack.EXTRA_OUTPUT_COMPS && typeof djCfgPack.EXTRA_OUTPUT_COMPS === 'object') EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
-            if (djCfgPack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!djCfgPack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
-            if (djCfgPack.OUTPUT_ESSENTIALS_DIRNAME) OUTPUT_ESSENTIALS_DIRNAME = djCfgPack.OUTPUT_ESSENTIALS_DIRNAME;
-            if (djCfgPack.OUTPUT_EXTRAS_DIRNAME) OUTPUT_EXTRAS_DIRNAME = djCfgPack.OUTPUT_EXTRAS_DIRNAME;
-            log("data.json config.pack overrides applied.");
+            if (djCfgPack.EXTRA_OUTPUT_COMPS && typeof djCfgPack.EXTRA_OUTPUT_COMPS === 'object') {
+                EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
+                log("data.json config.pack.EXTRA_OUTPUT_COMPS override applied.");
+            }
         }
     } catch(eDjCfgPack) {}
 
