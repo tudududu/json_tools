@@ -1977,6 +1977,18 @@ function __AddLayers_coreRun(opts) {
     var jsonData = loadProjectJSONByName("data.json");
     if (!jsonData) { log("JSON 'data.json' not found or failed to parse. Timing wiring will be skipped."); }
 
+    // AE 274: Apply data.json["config"]["addLayers"] overrides (full replace per key)
+    try {
+        var djCfgAL = jsonData && jsonData.config && jsonData.config.addLayers;
+        if (djCfgAL && typeof djCfgAL === 'object') {
+            if (djCfgAL.LAYER_NAME_CONFIG && typeof djCfgAL.LAYER_NAME_CONFIG === 'object') LAYER_NAME_CONFIG = djCfgAL.LAYER_NAME_CONFIG;
+            if (djCfgAL.TIMING_BEHAVIOR && typeof djCfgAL.TIMING_BEHAVIOR === 'object') TIMING_BEHAVIOR = djCfgAL.TIMING_BEHAVIOR;
+            if (djCfgAL.TIMING_ITEM_SELECTOR && typeof djCfgAL.TIMING_ITEM_SELECTOR === 'object') TIMING_ITEM_SELECTOR = djCfgAL.TIMING_ITEM_SELECTOR;
+            if (djCfgAL.SKIP_COPY_CONFIG && typeof djCfgAL.SKIP_COPY_CONFIG === 'object') SKIP_COPY_CONFIG = djCfgAL.SKIP_COPY_CONFIG;
+            log("data.json config.addLayers overrides applied.");
+        }
+    } catch(eDjCfgAL) {}
+
     // Copy layers from template to each target, preserving exact order
     // Strategy: iterate template layers top->bottom (excluding the underlying video),
     // copy each to target (paste inserts at top), then move the newly pasted layer

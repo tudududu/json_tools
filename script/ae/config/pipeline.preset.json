@@ -354,8 +354,6 @@
     "EXTRA_OUTPUTS_DEV_FLAG_FILE": ".use_dev_extra_outputs",
     "EXTRA_OUTPUTS_DEV_REL_PATH": ["config","extra_outputs.json"],
     "EXTRA_OUTPUTS_PROMPT_IF_MISSING": false,
-    "EXTRA_OUTPUTS_LOAD_FROM_DATA_JSON": true,
-    "EXTRA_OUTPUTS_DATA_JSON_PATHS": ["media"],
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
     "OUTPUT_EXTRAS_DIRNAME": "extras",
     "MODULAR_NAMING": {
