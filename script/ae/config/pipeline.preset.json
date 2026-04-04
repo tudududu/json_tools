@@ -291,9 +291,9 @@
         "genericByFlagOff": true,
         "superAOff": true,
         "superBOff": true,
-        "groups":{"enabled":true,"keys":["info"]}, 
-        "adHoc":{"enabled":false,"tokens":[]}, 
-        "alwaysCopyLogoBaseNames":["Size_Holder_Logo"] 
+        "groups":{"enabled":true,"names":["info"]}, 
+        "adHoc":{"enabled":false,"names":[]}, 
+        "alwaysCopyLogoBaseNames":{"enabled":true,"names":["Size_Holder_Logo"]}
         },
     "MODULAR_FILTER": {
         "ENABLED": true,

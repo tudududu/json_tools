@@ -233,16 +233,19 @@
                 claim02Off: true,
                 genericByFlagOff: true,
                 // Base logo layers that must always be copied regardless of flags (case-insensitive exact names).
-                alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
+                alwaysCopyLogoBaseNames: {
+                    enabled: false,
+                    names: ["Size_Holder_Logo"]
+                },
                 // Group-based skip using LAYER_NAME_CONFIG keys. When enabled, any layers matching these groups are skipped.
                 groups: {
                     enabled: false,
-                    keys: [] // e.g., ["info", "claim"]
+                    names: [] // e.g., ["info", "claim"]
                 },
                 // Ad-hoc skip list using name tokens (case-insensitive contains match). Useful for quick one-offs.
                 adHoc: {
                     enabled: false,
-                    tokens: [] // e.g., ["template_aspect", "debug"]
+                    names: [] // e.g., ["template_aspect", "debug"]
                 }
             },
             // AE 253: Step 5 modular layer filter gate (implementation phase follows)

@@ -221,16 +221,19 @@ function __AddLayers_coreRun(opts) {
         claim02Off: true,
         genericByFlagOff: true,
         // Base logo layers that must always be copied (case-insensitive exact names)
-        alwaysCopyLogoBaseNames: ["Size_Holder_Logo"],
+        alwaysCopyLogoBaseNames: {
+            enabled: false,
+            names: ["Size_Holder_Logo"]
+        },
         // Generic group-based skip (by LAYER_NAME_CONFIG keys, no flags)
         groups: {
             enabled: false,
-            keys: ["info"/* e.g., "claim" */]
+            names: ["info"/* e.g., "claim" */]
         },
         // Ad-hoc skip list (name tokens); case-insensitive contains match
         adHoc: {
             enabled: false,
-            tokens: ["info", "template_aspect"]
+            names: ["info", "template_aspect"]
         }
     };
 
@@ -2121,7 +2124,7 @@ function __AddLayers_coreRun(opts) {
                     var isClaim02 = nameMatchesGroup(lname, 'claim_02') || (lname.toLowerCase() === 'claim_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
                     var isGenericLayerKey = findMatchingGenericKeyForLayer(lname, _genericKeys);
-                    var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames : []);
+                    var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.enabled && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.names) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.names : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
                         if (isLogoAnim && _logoAnimMode !== 'on') { log("Skip copy: '"+lname+"' (logo_anim OFF)" ); skipCopyCount++; continue; }
@@ -2161,17 +2164,17 @@ function __AddLayers_coreRun(opts) {
                             }
                         }
                     }
-                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.keys && SKIP_COPY_CONFIG.groups.keys.length) {
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.groups && SKIP_COPY_CONFIG.groups.enabled && SKIP_COPY_CONFIG.groups.names && SKIP_COPY_CONFIG.groups.names.length) {
                         var groupSkipped = false;
-                        for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.keys.length; gk++) {
-                            var key = SKIP_COPY_CONFIG.groups.keys[gk]; if (!key) continue;
+                        for (var gk = 0; gk < SKIP_COPY_CONFIG.groups.names.length; gk++) {
+                            var key = SKIP_COPY_CONFIG.groups.names[gk]; if (!key) continue;
                             if (alwaysCopyBaseLogo && (key === 'logo' || key === 'logoAnim')) continue;
                             if (nameMatchesGroup(lname, key)) { log("Skip copy: '"+lname+"' (group skip: " + key + ")"); groupSkipped = true; break; }
                         }
                         if (groupSkipped) { skipCopyCount++; continue; }
                     }
-                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.tokens && SKIP_COPY_CONFIG.adHoc.tokens.length) {
-                        if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.tokens)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.adHoc && SKIP_COPY_CONFIG.adHoc.enabled && SKIP_COPY_CONFIG.adHoc.names && SKIP_COPY_CONFIG.adHoc.names.length) {
+                        if (!alwaysCopyBaseLogo && nameMatchesAnyTokenContains(lname, SKIP_COPY_CONFIG.adHoc.names)) { log("Skip copy: '"+lname+"' (ad-hoc skip)"); skipCopyCount++; continue; }
                     }
                     
                     // VideoID-based skip check (if enabled and layer has videoID token)
