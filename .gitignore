@@ -60,3 +60,7 @@ python/tests/coverage/*
 !python/tests/coverage/coverage.svg
 !.gitignore
 .coverage
+
+# Presets toggles
+.use_dev_extra_outputs
+.use_dev_preset
