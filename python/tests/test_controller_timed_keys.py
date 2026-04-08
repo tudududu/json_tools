@@ -13,7 +13,7 @@ def tmp_csv(content: str) -> str:
     return f.name
 
 
-class GenericTimedKeysTests(unittest.TestCase):
+class ControllerTimedKeysTests(unittest.TestCase):
     def test_controller_keys_top_level_and_video_and_flag_precedence(self):
         csv_content = (
             "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL\n"
