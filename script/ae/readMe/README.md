@@ -327,7 +327,7 @@ Table of contents
     | `addLayers.TIMING_BEHAVIOR` | map | Per-group/literal timing: `timed` | `span` | `asIs`. Defaults documented above. |
     | `addLayers.APPLY_INPOINT_TO_LAYER_STARTTIME` | `true` | Align `layer.startTime` to `inPoint` for `timed` layers. |
     | `addLayers.PRESERVE_TRIM_OFFSET_ON_TIMING` | `true` | Preserve template trim offset (`inPoint-startTime`) while applying `timed`/`span` in/out windows. |
-    | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names; includes `genericByFlagOff` for scalable `generic_NN_flag` handling. |
+    | `addLayers.SKIP_COPY_CONFIG` | object | Skip-copy gates by flags/groups/tokens; always-copy base logo names; includes `controllerByFlagOff` for scalable `controller_NN_flag` handling. |
     | `addLayers.EXTRA_TEMPLATES.*` | various | Controls duplicate “extras” comps (allowed ARs, tags, suffix, duration strictness). |
     | `addLayers.EXTRA_TEMPLATES.USE_DEDICATED_TARGET_FOLDERS` | `false` | Place extras in sibling `<AR>_<extraTag>` folders and create `<NNs>` duration subfolders under them. |
     ```json
@@ -415,7 +415,7 @@ Table of contents
 
   Modular naming (Step 6)
   - Gate: `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS=true`.
-  - Source: comp tags after duration (for example `..._15s_A2_B1`) are resolved via shared `modular.MODULE_MAP` (for example `A -> generic_01`, `B -> generic_02`) to the corresponding line `text` value in the matched `video` record.
+  - Source: comp tags after duration (for example `..._15s_A2_B1`) are resolved via shared `modular.MODULE_MAP` (for example `A -> controller_01`, `B -> controller_02`) to the corresponding line `text` value in the matched `video` record.
   - Position: controlled by `pack.MODULAR_NAMING.MODULE_POSITION`.
     - `BEFORE_DURATION` (default): `..._TITLE_<modular>_DURATION_...`
     - `AFTER_DURATION`: `..._TITLE_DURATION_<modular>_...`
@@ -427,8 +427,8 @@ Table of contents
   {
     "modular": {
       "MODULE_MAP": {
-        "A": { "SOURCE_KEY": "generic_01" },
-        "B": { "SOURCE_KEY": "generic_02" }
+        "A": { "SOURCE_KEY": "controller_01" },
+        "B": { "SOURCE_KEY": "controller_02" }
       }
     },
     "pack": {

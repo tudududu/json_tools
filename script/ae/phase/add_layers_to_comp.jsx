@@ -219,7 +219,7 @@ function __AddLayers_coreRun(opts) {
         logo05Off: true,
         claim01Off: true,
         claim02Off: true,
-        genericByFlagOff: true,
+        controllerByFlagOff: true,
         // Base logo layers that must always be copied (case-insensitive exact names)
         alwaysCopyLogoBaseNames: {
             enabled: false,
@@ -240,9 +240,9 @@ function __AddLayers_coreRun(opts) {
     // AE 256: modular layer filtering for generic groups
     var MODULAR_FILTER = {
         ENABLED: false,
-        USE_GENERIC_FLAG_GATES: true
+        USE_CONTROLLER_FLAG_GATES: true
     };
-    // Built from shared `modular.MODULE_MAP`: generic source key -> module tag prefix (e.g., generic_01 -> A)
+    // Built from shared `modular.MODULE_MAP`: controller source key -> module tag prefix (e.g., controller_01 -> A)
     var MODULAR_SOURCEKEY_TO_TAG = {};
 
     // Config: Layer name configuration (case-insensitive)
@@ -422,7 +422,7 @@ function __AddLayers_coreRun(opts) {
             if (o.MODULAR_FILTER && typeof o.MODULAR_FILTER === 'object') {
                 try {
                     if (o.MODULAR_FILTER.ENABLED !== undefined) MODULAR_FILTER.ENABLED = __toBool(o.MODULAR_FILTER.ENABLED, false);
-                    if (o.MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== undefined) MODULAR_FILTER.USE_GENERIC_FLAG_GATES = __toBool(o.MODULAR_FILTER.USE_GENERIC_FLAG_GATES, true);
+                    if (o.MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES !== undefined) MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES = __toBool(o.MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES, true);
                 } catch(eMF1) {}
             }
             // EXTRA_TEMPLATES (optional) — read into local effective variables
@@ -486,7 +486,7 @@ function __AddLayers_coreRun(opts) {
                 if (ao.hasOwnProperty('PRESERVE_TRIM_OFFSET_ON_TIMING')) PRESERVE_TRIM_OFFSET_ON_TIMING = !!ao.PRESERVE_TRIM_OFFSET_ON_TIMING;
                 if (ao.MODULAR_FILTER && typeof ao.MODULAR_FILTER === 'object') {
                     if (ao.MODULAR_FILTER.ENABLED !== undefined) MODULAR_FILTER.ENABLED = __toBool(ao.MODULAR_FILTER.ENABLED, false);
-                    if (ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== undefined) MODULAR_FILTER.USE_GENERIC_FLAG_GATES = __toBool(ao.MODULAR_FILTER.USE_GENERIC_FLAG_GATES, true);
+                    if (ao.MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES !== undefined) MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES = __toBool(ao.MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES, true);
                 }
             }
             try {
@@ -570,18 +570,18 @@ function __AddLayers_coreRun(opts) {
         log("Flag '"+flagKey+"' value '"+raw+"' not recognized (ON:"+onList+", OFF:"+offList+") for '"+ctxName+"'.");
     }
 
-    function isGenericKeyName(key) {
+    function isControllerKeyName(key) {
         if (!key) return false;
-        return /^generic_\d+$/i.test(String(key));
+        return /^controller_\d+$/i.test(String(key));
     }
 
-    function collectGenericKeysFromVideo(videoObj) {
+    function collectControllerKeysFromVideo(videoObj) {
         var seen = {};
         var out = [];
         function addKey(key) {
             if (!key) return;
             var low = String(key).toLowerCase();
-            if (!isGenericKeyName(low)) return;
+            if (!isControllerKeyName(low)) return;
             if (!seen[low]) { seen[low] = true; out.push(low); }
         }
         function scan(obj, allowArrayScan, allowFlagScan) {
@@ -590,9 +590,9 @@ function __AddLayers_coreRun(opts) {
                 if (!obj.hasOwnProperty(key)) continue;
                 var low = String(key).toLowerCase();
                 var val = obj[key];
-                if (allowArrayScan && isGenericKeyName(low) && (val instanceof Array)) addKey(low);
+                if (allowArrayScan && isControllerKeyName(low) && (val instanceof Array)) addKey(low);
                 if (allowFlagScan) {
-                    var m = low.match(/^(generic_\d+)_flag$/i);
+                    var m = low.match(/^(controller_\d+)_flag$/i);
                     if (m && m[1]) addKey(m[1]);
                 }
             }
@@ -600,8 +600,8 @@ function __AddLayers_coreRun(opts) {
         scan(videoObj, true, true);
         try { if (videoObj && videoObj.metadata) scan(videoObj.metadata, false, true); } catch (eMeta) {}
         out.sort(function (a, b) {
-            var ma = String(a).match(/^generic_(\d+)$/i);
-            var mb = String(b).match(/^generic_(\d+)$/i);
+            var ma = String(a).match(/^controller_(\d+)$/i);
+            var mb = String(b).match(/^controller_(\d+)$/i);
             var na = ma ? parseInt(ma[1], 10) : 0;
             var nb = mb ? parseInt(mb[1], 10) : 0;
             if (na < nb) return -1;
@@ -613,15 +613,15 @@ function __AddLayers_coreRun(opts) {
         return out;
     }
 
-    function findMatchingGenericKeyForLayer(layerName, genericKeys) {
-        if (!layerName || !genericKeys || !genericKeys.length) return null;
+    function findMatchingControllerKeyForLayer(layerName, controllerKeys) {
+        if (!layerName || !controllerKeys || !controllerKeys.length) return null;
         var nm = String(layerName).toLowerCase();
-        for (var i = 0; i < genericKeys.length; i++) {
-            var key = String(genericKeys[i]).toLowerCase();
+        for (var i = 0; i < controllerKeys.length; i++) {
+            var key = String(controllerKeys[i]).toLowerCase();
             if (nameMatchesGroup(layerName, key)) return key;
         }
-        for (var j = 0; j < genericKeys.length; j++) {
-            var key2 = String(genericKeys[j]).toLowerCase();
+        for (var j = 0; j < controllerKeys.length; j++) {
+            var key2 = String(controllerKeys[j]).toLowerCase();
             if (nm === key2 || nm.indexOf(key2) !== -1) return key2;
         }
         return null;
@@ -639,12 +639,12 @@ function __AddLayers_coreRun(opts) {
             logo05: extractFlagFromVideo(videoObj, LOGO_05_FLAG_KEY),
             claim01: extractFlagFromVideo(videoObj, CLAIM_01_FLAG_KEY),
             claim02: extractFlagFromVideo(videoObj, CLAIM_02_FLAG_KEY),
-            generic: {}
+            controller: {}
         };
-        var genericKeys = collectGenericKeysFromVideo(videoObj);
-        for (var gi = 0; gi < genericKeys.length; gi++) {
-            var gk = genericKeys[gi];
-            raw.generic[gk] = extractFlagFromVideo(videoObj, gk + '_flag');
+        var controllerKeys = collectControllerKeysFromVideo(videoObj);
+        for (var gi = 0; gi < controllerKeys.length; gi++) {
+            var gk = controllerKeys[gi];
+            raw.controller[gk] = extractFlagFromVideo(videoObj, gk + '_flag');
         }
         var modes = {
             disclaimer: interpretFlagValue(raw.disclaimer, FLAG_VALUES, { allowAuto: false }),
@@ -657,11 +657,11 @@ function __AddLayers_coreRun(opts) {
             logo05: interpretFlagValue(raw.logo05, FLAG_VALUES, { allowAuto: false }),
             claim01: interpretFlagValue(raw.claim01, FLAG_VALUES, { allowAuto: false }),
             claim02: interpretFlagValue(raw.claim02, FLAG_VALUES, { allowAuto: false }),
-            generic: {}
+            controller: {}
         };
-        for (var gm = 0; gm < genericKeys.length; gm++) {
-            var gmk = genericKeys[gm];
-            modes.generic[gmk] = interpretFlagValue(raw.generic[gmk], FLAG_VALUES, { allowAuto: false });
+        for (var gm = 0; gm < controllerKeys.length; gm++) {
+            var gmk = controllerKeys[gm];
+            modes.controller[gmk] = interpretFlagValue(raw.controller[gmk], FLAG_VALUES, { allowAuto: false });
         }
         var eff = {
             disclaimer: toEffective(modes.disclaimer, 'off'),
@@ -674,11 +674,11 @@ function __AddLayers_coreRun(opts) {
             logo05: toEffective(modes.logo05, 'off'),
             claim01: toEffective(modes.claim01, 'off'),
             claim02: toEffective(modes.claim02, 'off'),
-            generic: {}
+            controller: {}
         };
-        for (var ge = 0; ge < genericKeys.length; ge++) {
-            var gek = genericKeys[ge];
-            eff.generic[gek] = toEffective(modes.generic[gek], 'off');
+        for (var ge = 0; ge < controllerKeys.length; ge++) {
+            var gek = controllerKeys[ge];
+            eff.controller[gek] = toEffective(modes.controller[gek], 'off');
         }
         return { raw: raw, modes: modes, effective: eff };
     }
@@ -700,7 +700,7 @@ function __AddLayers_coreRun(opts) {
         var gk = String(groupKey || '').toLowerCase();
         var cfg = LAYER_NAME_CONFIG[gk];
         if (!cfg) {
-            if (isGenericKeyName(gk)) return _matchesExact(name, [gk]) || _matchesContains(name, [gk]);
+            if (isControllerKeyName(gk)) return _matchesExact(name, [gk]) || _matchesContains(name, [gk]);
             return false;
         }
         return _matchesExact(name, cfg.exact) || _matchesContains(name, cfg.contains);
@@ -788,12 +788,12 @@ function __AddLayers_coreRun(opts) {
         return map;
     }
 
-    function resolveModuleTagPrefixForGenericKey(genericKey) {
-        var gk = String(genericKey || '').toLowerCase();
+    function resolveModuleTagPrefixForControllerKey(controllerKey) {
+        var gk = String(controllerKey || '').toLowerCase();
         if (!gk) return null;
         if (MODULAR_SOURCEKEY_TO_TAG && MODULAR_SOURCEKEY_TO_TAG[gk]) return String(MODULAR_SOURCEKEY_TO_TAG[gk]).toUpperCase();
-        // Fallback: generic_01 -> A, generic_02 -> B ...
-        var m = gk.match(/^generic_(\d+)$/i);
+        // Fallback: controller_01 -> A, controller_02 -> B ...
+        var m = gk.match(/^controller_(\d+)$/i);
         if (!m) return null;
         var n = parseInt(m[1], 10);
         if (isNaN(n) || n < 1 || n > 26) return null;
@@ -1563,20 +1563,20 @@ function __AddLayers_coreRun(opts) {
         if (!claimAuxMM && claim01MM) { claimAuxMM = claim01MM; __claimAuxOrigin = 'claim_01'; }
         if (!claimAuxMM) { claimAuxMM = resolveTimingSpan(v, 'claim', TIMING_ITEM_SELECTOR); if (claimAuxMM) __claimAuxOrigin = 'claim[minMax]'; }
         var disclaimerMM = resolveTimingSpan(v, 'disclaimer', TIMING_ITEM_SELECTOR);
-        var __genericKeys = collectGenericKeysFromVideo(v);
-        var __genericTimingMap = {};
-        for (var gti = 0; gti < __genericKeys.length; gti++) {
-            var gtk = __genericKeys[gti];
+        var __controllerKeys = collectControllerKeysFromVideo(v);
+        var __controllerTimingMap = {};
+        for (var gti = 0; gti < __controllerKeys.length; gti++) {
+            var gtk = __controllerKeys[gti];
             var gspan = resolveTimingSpan(v, gtk, TIMING_ITEM_SELECTOR);
-            if (gspan) __genericTimingMap[gtk] = gspan;
+            if (gspan) __controllerTimingMap[gtk] = gspan;
         }
         // For modular variants, generic timing can be resolved from the comp module token
-        // (e.g., comp tag B3 => generic_02 line 3) instead of a fixed selector line.
+        // (e.g., comp tag B3 => controller_02 line 3) instead of a fixed selector line.
         var __timingCompModuleTagMap = moduleTagMapFromCompName(comp ? comp.name : null);
-        function resolveGenericTimingSpanForComp(videoObj, genericKey) {
-            var fallback = __genericTimingMap[genericKey] || null;
+        function resolveControllerTimingSpanForComp(videoObj, controllerKey) {
+            var fallback = __controllerTimingMap[controllerKey] || null;
             try {
-                var tagPrefix = resolveModuleTagPrefixForGenericKey(genericKey);
+                var tagPrefix = resolveModuleTagPrefixForControllerKey(controllerKey);
                 if (!tagPrefix) return fallback;
                 var token = (__timingCompModuleTagMap && __timingCompModuleTagMap[tagPrefix]) ? String(__timingCompModuleTagMap[tagPrefix]).toUpperCase() : '';
                 if (!token) return fallback;
@@ -1584,15 +1584,15 @@ function __AddLayers_coreRun(opts) {
                 if (!mTok) return fallback;
                 var lineNo = parseInt(mTok[1], 10);
                 if (isNaN(lineNo) || lineNo < 1) return fallback;
-                var spanByToken = resolveTimingSpanOnArray(videoObj, genericKey, { mode: 'line', value: lineNo });
+                var spanByToken = resolveTimingSpanOnArray(videoObj, controllerKey, { mode: 'line', value: lineNo });
                 if (spanByToken) {
-                    if (String(genericKey).toLowerCase() === 'generic_02') {
-                        log("generic_02 timing source: " + token + " -> line " + lineNo);
+                    if (String(controllerKey).toLowerCase() === 'controller_02') {
+                        log("controller_02 timing source: " + token + " -> line " + lineNo);
                     } else {
-                        log(String(genericKey) + " timing source: " + token + " -> line " + lineNo);
+                        log(String(controllerKey) + " timing source: " + token + " -> line " + lineNo);
                     }
                 } else if (fallback) {
-                    log(String(genericKey) + " timing source: " + token + " -> line " + lineNo + " (fallback to selector/minMax)");
+                    log(String(controllerKey) + " timing source: " + token + " -> line " + lineNo + " (fallback to selector/minMax)");
                 }
                 return spanByToken || fallback;
             } catch(eGT) {
@@ -1794,10 +1794,10 @@ function __AddLayers_coreRun(opts) {
             }
             var timingBeh = resolveTimingBehaviorForLayer(nm) || 'asIs';
 
-            var matchedGenericKey = findMatchingGenericKeyForLayer(nm, __genericKeys);
-            if (matchedGenericKey) {
-                var genericTimingBeh = timingBeh;
-                var explicitForGenericKey = !!(TIMING_BEHAVIOR && TIMING_BEHAVIOR.hasOwnProperty(matchedGenericKey));
+            var matchedControllerKey = findMatchingControllerKeyForLayer(nm, __controllerKeys);
+            if (matchedControllerKey) {
+                var controllerTimingBeh = timingBeh;
+                var explicitForControllerKey = !!(TIMING_BEHAVIOR && TIMING_BEHAVIOR.hasOwnProperty(matchedControllerKey));
                 var explicitForLiteral = false;
                 if (TIMING_BEHAVIOR) {
                     var nmLower = String(nm).toLowerCase();
@@ -1806,17 +1806,17 @@ function __AddLayers_coreRun(opts) {
                         if (String(tbk).toLowerCase() === nmLower) { explicitForLiteral = true; break; }
                     }
                 }
-                if (genericTimingBeh === 'asIs' && !explicitForGenericKey && !explicitForLiteral) genericTimingBeh = 'timed';
-                var gmm = resolveGenericTimingSpanForComp(v, matchedGenericKey);
-                if (genericTimingBeh === 'timed') {
+                if (controllerTimingBeh === 'asIs' && !explicitForControllerKey && !explicitForLiteral) controllerTimingBeh = 'timed';
+                var gmm = resolveControllerTimingSpanForComp(v, matchedControllerKey);
+                if (controllerTimingBeh === 'timed') {
                     if (gmm) {
                         setLayerInOut(ly, gmm.tin, gmm.tout, comp.duration);
-                        log("Set generic layer '" + nm + "' (" + matchedGenericKey + ") to [" + gmm.tin + ", " + gmm.tout + ")");
+                        log("Set controller layer '" + nm + "' (" + matchedControllerKey + ") to [" + gmm.tin + ", " + gmm.tout + ")");
                         appliedAny = true;
                     }
-                } else if (genericTimingBeh === 'span') {
+                } else if (controllerTimingBeh === 'span') {
                     setLayerInOut(ly, 0, comp.duration, comp.duration);
-                    log("Span generic layer '" + nm + "' (" + matchedGenericKey + ") to full duration.");
+                    log("Span controller layer '" + nm + "' (" + matchedControllerKey + ") to full duration.");
                     appliedAny = true;
                 }
             }
@@ -2082,8 +2082,8 @@ function __AddLayers_coreRun(opts) {
                 return null;
             }
             var _discMode = 'off', _disc02Mode = 'off', _subtMode = 'off', _logoAnimMode = 'off', _logo02Mode = 'off', _logo03Mode = 'off', _logo04Mode = 'off', _logo05Mode = 'off', _claim01Mode = 'off', _claim02Mode = 'off';
-            var _genericModes = {};
-            var _genericKeys = [];
+            var _controllerModes = {};
+            var _controllerKeys = [];
             var _compModuleTagMap = moduleTagMapFromCompName(compTarget ? compTarget.name : null);
             if (vRec) {
                 var __modes = getModesForVideo(vRec);
@@ -2097,8 +2097,8 @@ function __AddLayers_coreRun(opts) {
                 _logo05Mode = __modes.effective.logo05;
                 _claim01Mode = __modes.effective.claim01;
                 _claim02Mode = __modes.effective.claim02;
-                _genericModes = (__modes && __modes.effective && __modes.effective.generic) ? __modes.effective.generic : {};
-                for (var gmk2 in _genericModes) if (_genericModes.hasOwnProperty(gmk2)) _genericKeys.push(String(gmk2).toLowerCase());
+                _controllerModes = (__modes && __modes.effective && __modes.effective.controller) ? __modes.effective.controller : {};
+                for (var gmk2 in _controllerModes) if (_controllerModes.hasOwnProperty(gmk2)) _controllerKeys.push(String(gmk2).toLowerCase());
             }
 
             // Helper: collect current layer references to detect the newly inserted one reliably
@@ -2123,7 +2123,7 @@ function __AddLayers_coreRun(opts) {
                     var isClaim01 = nameMatchesGroup(lname, 'claim_01') || (lname.toLowerCase() === 'claim_01');
                     var isClaim02 = nameMatchesGroup(lname, 'claim_02') || (lname.toLowerCase() === 'claim_02');
                     var isSubtitles = nameMatchesGroup(lname, 'subtitles');
-                    var isGenericLayerKey = findMatchingGenericKeyForLayer(lname, _genericKeys);
+                    var isControllerLayerKey = findMatchingControllerKeyForLayer(lname, _controllerKeys);
                     var alwaysCopyBaseLogo = nameInListCaseInsensitive(lname, (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.enabled && SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.names) ? SKIP_COPY_CONFIG.alwaysCopyLogoBaseNames.names : []);
                     if (isLogoAnim && alwaysCopyBaseLogo) { isLogoAnim = false; isLogoGeneric = true; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logoAnimOff) {
@@ -2139,12 +2139,12 @@ function __AddLayers_coreRun(opts) {
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.logo05Off && isLogo05 && _logo05Mode !== 'on') { log("Skip copy: '"+lname+"' (logo_05 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim01Off && isClaim01 && _claim01Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_01 OFF)"); skipCopyCount++; continue; }
                     if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.claim02Off && isClaim02 && _claim02Mode !== 'on') { log("Skip copy: '"+lname+"' (claim_02 OFF)"); skipCopyCount++; continue; }
-                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.genericByFlagOff && isGenericLayerKey && (!MODULAR_FILTER || MODULAR_FILTER.USE_GENERIC_FLAG_GATES !== false)) {
-                        var gMode = _genericModes[isGenericLayerKey];
-                        if (gMode !== 'on') { log("Skip copy: '" + lname + "' (" + isGenericLayerKey + " OFF)"); skipCopyCount++; continue; }
+                    if (SKIP_COPY_CONFIG && SKIP_COPY_CONFIG.controllerByFlagOff && isControllerLayerKey && (!MODULAR_FILTER || MODULAR_FILTER.USE_CONTROLLER_FLAG_GATES !== false)) {
+                        var gMode = _controllerModes[isControllerLayerKey];
+                        if (gMode !== 'on') { log("Skip copy: '" + lname + "' (" + isControllerLayerKey + " OFF)"); skipCopyCount++; continue; }
                     }
-                    if (MODULAR_FILTER && MODULAR_FILTER.ENABLED && isGenericLayerKey) {
-                        var __tagPrefix = resolveModuleTagPrefixForGenericKey(isGenericLayerKey);
+                    if (MODULAR_FILTER && MODULAR_FILTER.ENABLED && isControllerLayerKey) {
+                        var __tagPrefix = resolveModuleTagPrefixForControllerKey(isControllerLayerKey);
                         if (__tagPrefix) {
                             var __selectedCompToken = _compModuleTagMap[__tagPrefix] || null;
                             var __layerToken = findModuleTokenInLayerNameForPrefix(lname, __tagPrefix);

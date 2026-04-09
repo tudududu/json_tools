@@ -50,10 +50,10 @@
             // cartesian: always generate product of active module values.
             // explicit: generate only explicit combinations.
             GENERATION_MODE: "hybrid", // "hybrid" | "cartesian" | "explicit"
-            // Module registry by tag prefix (e.g., A, B). SOURCE_KEY points to video object arrays (e.g., generic_01).
+            // Module registry by tag prefix (e.g., A, B). SOURCE_KEY points to video object arrays (e.g., controller_01).
             MODULE_MAP: {
-                A: { ENABLED: true, SOURCE_KEY: "generic_01" },
-                B: { ENABLED: true, SOURCE_KEY: "generic_02" }
+                A: { ENABLED: true, SOURCE_KEY: "controller_01" },
+                B: { ENABLED: true, SOURCE_KEY: "controller_02" }
             },
             // Optional explicit combinations keyed by base/oriented videoId.
             // Example: { "Title_15s_landscape": ["A1_B2", {"A":1,"B":3}] }
@@ -231,7 +231,7 @@
                 logo02Off: true,
                 claim01Off: true,
                 claim02Off: true,
-                genericByFlagOff: true,
+                controllerByFlagOff: true,
                 // Base logo layers that must always be copied regardless of flags (case-insensitive exact names).
                 alwaysCopyLogoBaseNames: {
                     enabled: false,
@@ -251,7 +251,7 @@
             // AE 253: Step 5 modular layer filter gate (implementation phase follows)
             MODULAR_FILTER: {
                 ENABLED: false,
-                USE_GENERIC_FLAG_GATES: true
+                USE_CONTROLLER_FLAG_GATES: true
             },
             APPLY_INPOINT_TO_LAYER_STARTTIME: true,
             PRESERVE_TRIM_OFFSET_ON_TIMING: true,

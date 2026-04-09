@@ -38,13 +38,13 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Users/Jan.Svatuska/Downloads/auto/riya/bs2/POST/WORK/brandSup2_v10.aep",
+    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/EDRINGTON/MACALLAN/2026/AUTOMATION PILOT/C21407609 - GBL/POST/WORK/Macallan_v27.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "DEU",
+    "DATA_JSON_ISO_CODE_MANUAL": "TWN",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -64,7 +64,7 @@
     "DEFAULT_STILL_DURATION": 5,
     "ENABLE_MARKER_TRIM": false,
     "SKIP_IF_COMP_EXISTS": true,
-    "AUTO_FROM_PROJECT_FOOTAGE": false,
+    "AUTO_FROM_PROJECT_FOOTAGE": true,
     "SKIP_INVALID_DIMENSIONS": false,
     "FOOTAGE_PROJECT_PATH": ["project","in","footage"],
     "FOOTAGE_DATE_YYMMDD": "",
@@ -74,13 +74,13 @@
     "ENABLE_ACCEPT_COMP_SOURCE": true
 },
 "modular": {
-    "ENABLED": true,
+    "ENABLED": false,
     "GENERATION_MODE": "hybrid",
     "MODULE_MAP": {
-        "A": { "ENABLED": true, "SOURCE_KEY": "generic_01" },
-        "B": { "ENABLED": true, "SOURCE_KEY": "generic_02" },
-        "C": { "ENABLED": true, "SOURCE_KEY": "generic_03" },
-        "D": { "ENABLED": true, "SOURCE_KEY": "generic_04" }
+        "A": { "ENABLED": true, "SOURCE_KEY": "controller_01" },
+        "B": { "ENABLED": true, "SOURCE_KEY": "controller_02" },
+        "C": { "ENABLED": true, "SOURCE_KEY": "controller_03" },
+        "D": { "ENABLED": true, "SOURCE_KEY": "controller_04" }
     },
     "EXPLICIT_VARIANTS_BY_VIDEOID": {
         "Travel_20s": ["A1_B1_C1_D4", "A2_B4_C2_D2"],
@@ -106,7 +106,7 @@
     "AUDIO_TITLE_TOKEN_COUNT": 2,
     "AUDIO_TOKENS_REQUIRE_ADJACENT": false,
     "MODULAR_AUDIO": {
-        "ENABLED": true,
+        "ENABLED": false,
         "FALLBACK_TO_SHARED": true
     }
     },
@@ -144,7 +144,7 @@
             "contains": ["info"] 
             },
         "logo": { 
-            "exact": ["logo_01", "Size_Holder_Logo", "Size_Holder_Claim_03"], 
+            "exact": ["logo_01", "Size_Holder_Logo"], 
             "contains": [], 
             "imageOnlyForContains": false 
         },
@@ -174,7 +174,7 @@
             "contains": [] 
             },
         "claim_02": { 
-            "exact": ["claim_02", "Size_Holder_Claim_02"],
+            "exact": ["claim_02", "Size_Holder_Claim_02", "web"],
             "contains": [] 
             },
         "claim_auxiliary": { 
@@ -197,27 +197,27 @@
             "exact": ["super_A", "Size_Holder_Super_A"], 
             "contains": ["super_A"] 
             },
-        "generic_01": {
+        "controller_01": {
             "exact": [], 
             "contains": ["module_A"] 
             },
-        "generic_02": {
+        "controller_02": {
             "exact": [], 
             "contains": ["module_B"] 
             },
-        "generic_03": {
+        "controller_03": {
             "exact": [], 
             "contains": ["module_C"] 
             },
-        "generic_04": {
+        "controller_04": {
             "exact": [], 
             "contains": ["module_D"] 
             },
-        "generic_05": {
-            "exact": ["ECRAN_03_01_AWARENESS_EN"],
+        "controller_05": {
+            "exact": ["cta"],
             "contains": [] 
             },
-        "generic_06": {
+        "controller_06": {
             "exact": [],
             "contains": ["website"] 
             },
@@ -239,12 +239,12 @@
         "claim_01": "timed",
         "claim_02": "timed",
         "claim_auxiliary": "timed",
-        "generic_01": "timed",
-        "generic_02": "timed",
-        "generic_03": "timed",
-        "generic_04": "timed",
-        "generic_05": "timed",
-        "generic_06": "timed",
+        "controller_01": "timed",
+        "controller_02": "timed",
+        "controller_03": "timed",
+        "controller_04": "timed",
+        "controller_05": "timed",
+        "controller_06": "timed",
 
         "logo_03": "span",
         "logo_04": "span",
@@ -269,16 +269,15 @@
         "logo": { "mode": "line", "value": 1 },
         "logoAnim": { "mode": "line", "value": 1 },
         "logo_02": { "mode": "line", "value": 2 },
-        
         "claim_01": { "mode": "line", "value": 1 },
         "claim_02": { "mode": "line", "value": 2 },
         "claim_auxiliary": { "mode": "line", "value": 1 },
-        "generic_01": { "mode": "line", "value": 1 },
-        "generic_02": { "mode": "line", "value": 1 },
-        "generic_03": { "mode": "line", "value": 1 },
-        "generic_04": { "mode": "line", "value": 1 },
-        "generic_05": { "mode": "line", "value": 1 },
-        "generic_06": { "mode": "line", "value": 1 }
+        "controller_01": { "mode": "line", "value": 1 },
+        "controller_02": { "mode": "line", "value": 1 },
+        "controller_03": { "mode": "line", "value": 1 },
+        "controller_04": { "mode": "line", "value": 1 },
+        "controller_05": { "mode": "line", "value": 1 },
+        "controller_06": { "mode": "line", "value": 1 }
     },
     "SKIP_COPY_CONFIG": { 
         "disclaimerOff": true, 
@@ -288,16 +287,16 @@
         "logo02Off": false,
         "claim01Off": true,
         "claim02Off": true,
-        "genericByFlagOff": true,
+        "controllerByFlagOff": true,
         "superAOff": true,
         "superBOff": true,
         "groups":{"enabled":true,"names":["info"]}, 
         "adHoc":{"enabled":false,"names":[]}, 
-        "alwaysCopyLogoBaseNames":{"enabled":true,"names":["Size_Holder_Logo"]}
+        "alwaysCopyLogoBaseNames":{"enabled":true,"names":["Size_Holder_Logo"]} 
         },
     "MODULAR_FILTER": {
-        "ENABLED": true,
-        "USE_GENERIC_FLAG_GATES": true
+        "ENABLED": false,
+        "USE_CONTROLLER_FLAG_GATES": true
     },
     "ENABLE_VIDEOID_BASED_LAYER_SKIP": false,
 
@@ -357,7 +356,7 @@
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
     "OUTPUT_EXTRAS_DIRNAME": "extras",
     "MODULAR_NAMING": {
-        "ENABLE_MODULE_TOKENS": true,
+        "ENABLE_MODULE_TOKENS": false,
         "TOKEN_ORDER": ["A", "B", "C", "D"],
         "OMIT_MISSING_TOKENS": true,
         "KEEP_MODULE_TOKENS": false,

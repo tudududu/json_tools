@@ -150,7 +150,7 @@ function __Pack_coreRun(opts) {
         KEEP_MODULE_TOKENS: false,
         MODULE_POSITION: "BEFORE_DURATION"
     };
-    // Shared map from modular.MODULE_MAP: tag prefix -> source key (e.g., A -> generic_01)
+    // Shared map from modular.MODULE_MAP: tag prefix -> source key (e.g., A -> controller_01)
     var MODULAR_SOURCEKEY_BY_TAG = {};
 
 
@@ -890,7 +890,7 @@ function __Pack_coreRun(opts) {
     }
 
     function resolveModuleValueFromToken(tagPrefix, token, video){
-        // Default: keep token if we cannot resolve a text value from video generic arrays.
+        // Default: keep token if we cannot resolve a text value from video controller arrays.
         if (!token) return '';
         var fallback = String(token || '').toUpperCase();
         try {
