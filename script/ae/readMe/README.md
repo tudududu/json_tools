@@ -398,7 +398,7 @@ Table of contents
   - Local source mode: `EXTRA_OUTPUT_COMPS_SOURCE_MODE` controls only local map selection for `EXTRA_OUTPUT_COMPS`.
     - `auto` (default): use preset/options map, then override from `data.json.config.pack.EXTRA_OUTPUT_COMPS` when present.
     - `data-json-required`: accept extras only from `data.json.config.pack.EXTRA_OUTPUT_COMPS`; when missing, preset/options extras are suppressed.
-  - FS override stays independent: when `EXTRA_OUTPUTS_LOAD_FROM_FS=true` and external `extra_outputs.json` is found, FS still overrides the local map in both modes.
+    - `fs`: use only external FS map (`extra_outputs.json`); when not found, no extras are created.
   - Debugging: With `DEBUG_EXTRAS=true`, logs include the parsed `extraKey` per entry and a concise note when regular entries are skipped for extra-sourced comps.
 
   Options Quick Reference (Step 6)
@@ -406,7 +406,7 @@ Table of contents
   |------------|---------|-------------|
   | `ENABLE_EXTRA_OUTPUT_COMPS` | — | Enable creation of extras from `EXTRA_OUTPUT_COMPS` map. |
   | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` (regular) and optionally `AR_<extra>|NNs` (extra-template), with values in string/compact/object/array forms to produce extras. |
-  | `EXTRA_OUTPUT_COMPS_SOURCE_MODE` | `auto` | Local source mode for `EXTRA_OUTPUT_COMPS`: `auto` uses preset/options with data.json override when present; `data-json-required` suppresses preset/options unless `data.json.config.pack.EXTRA_OUTPUT_COMPS` exists. |
+  | `EXTRA_OUTPUT_COMPS_SOURCE_MODE` | `auto` | Source mode for `EXTRA_OUTPUT_COMPS`: `auto` uses preset/options with data.json override; `data-json-required` suppresses preset/options unless `data.json.config.pack.EXTRA_OUTPUT_COMPS` exists; `fs` uses only external FS map and creates no extras if missing. |
   | `ENABLE_EXTRA_MEDIA_OVERRIDE` | — | Use `media`/`label` from extras config to override the `MEDIA` token. |
   | `DEBUG_EXTRAS` | — | Emit a one-time parsed extras dump for audit. |
   | `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS` | `false` | When true, injects modular values into Step 6 names right after `TITLE`. |
@@ -453,19 +453,18 @@ Table of contents
   - Resolved module values: `A2 -> DT`, `B1 -> bookNow`
   - Output (excerpt around title): `..._RootsOLV1_DT_bookNow_15s_...`
 
-  External extras config sources
-  - Precedence (first match wins):
+  External extras config (for `EXTRA_OUTPUT_COMPS_SOURCE_MODE = fs`)
+  - Lookup order (first match wins):
     1) DEV flag in repo: `.use_dev_extra_outputs` under `script/ae/config/` enables loading from `script/ae/<EXTRA_OUTPUTS_DEV_REL_PATH>` (default `config/extra_outputs.json`).
     2) Project POST path: `POST/<EXTRA_OUTPUTS_POST_SUBPATH>` (default `IN/data/config/extra_outputs.json`).
-    3) `data.json["config"]["pack"]["EXTRA_OUTPUT_COMPS"]` (see *data.json config block* below).
-    4) Fallback to preset in `pack.EXTRA_OUTPUT_COMPS` (or optional prompt when enabled).
+    3) Optional prompt path when enabled.
+  - If no FS map is found in `fs` mode, no extras are generated (strict no-fallback).
   - Controls:
-    - `pack.EXTRA_OUTPUTS_LOAD_FROM_FS` (bool): enable FS loading.
     - `pack.EXTRA_OUTPUTS_DEV_FLAG_FILE` (string): dev flag filename (default `.use_dev_extra_outputs`).
     - `pack.EXTRA_OUTPUTS_DEV_REL_PATH` (segments): path relative to `script/ae/` (default `["config","extra_outputs.json"]`).
     - `pack.EXTRA_OUTPUTS_POST_SUBPATH` (segments): path under project `POST/` (default `["IN","data","config","extra_outputs.json"]`).
     - `pack.EXTRA_OUTPUTS_PROMPT_IF_MISSING` (bool): if true, prompt to pick a JSON when neither DEV nor POST paths exist.
-  - Debug: with `pack.DEBUG_EXTRAS=true`, logs include `Extras config: DEV -> ...`, `Extras config: POST -> ...`, and `[debug] extras: source=fs|preset`.
+  - Debug: with `pack.DEBUG_EXTRAS=true`, logs include `Extras config: DEV -> ...`, `Extras config: POST -> ...`, and `[debug] extras: source=fs|fs_missing`.
 
   #### data.json config block (AE 274)
   Per-run pipeline overrides can be embedded in `data.json` under the key `"config"`, mirroring the phase namespace of `pipeline.preset.json`. Values are applied **after** the preset/optionsEffective chain and use **full replace** semantics (the entire key's value replaces the preset value; absent keys keep the preset value).

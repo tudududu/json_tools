@@ -410,10 +410,9 @@
                 // "1x1|15s": "1440x1440",
                 // "9x16|06s": "720x1280@TikTok"
             },
-            EXTRA_OUTPUT_COMPS_SOURCE_MODE: "auto",   // "auto" | "data-json-required"
+            EXTRA_OUTPUT_COMPS_SOURCE_MODE: "auto",   // "auto" | "data-json-required" | "fs"
             EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true,   // Place extras under out/YYMMDD/AR_WxH
-            // External extras map loading (FS-based): dev override then POST path, else preset map
-            EXTRA_OUTPUTS_LOAD_FROM_FS: true,
+            // External extras map loading config (used when EXTRA_OUTPUT_COMPS_SOURCE_MODE == "fs")
             EXTRA_OUTPUTS_POST_SUBPATH: ["IN","data","config","extra_outputs.json"],
             EXTRA_OUTPUTS_DEV_FLAG_FILE: ".use_dev_extra_outputs",
             EXTRA_OUTPUTS_DEV_REL_PATH: ["config","extra_outputs.json"],

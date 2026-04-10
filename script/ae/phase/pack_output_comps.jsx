@@ -86,13 +86,13 @@ function __Pack_coreRun(opts) {
     // Local EXTRA_OUTPUT_COMPS source selection:
     // - auto: preset/options map, overridden by data.json config.pack.EXTRA_OUTPUT_COMPS when present
     // - data-json-required: only data.json config.pack.EXTRA_OUTPUT_COMPS is accepted; otherwise local map is empty
+    // - fs: only external FS map is used; if missing, no extras are produced
     var EXTRA_OUTPUT_COMPS_SOURCE_MODE = 'auto';
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     // Subfolder names for separating regular vs extras when ENABLE_EXTRA_OUTPUT_COMPS is true
     var OUTPUT_ESSENTIALS_DIRNAME = 'essentials';
     var OUTPUT_EXTRAS_DIRNAME = 'extras';
-    // FS-based external extras map loading (dev override -> POST path -> prompt)
-    var EXTRA_OUTPUTS_LOAD_FROM_FS = true;
+    // FS-based external extras map loading config (used when mode is 'fs')
     var EXTRA_OUTPUTS_POST_SUBPATH = ["IN","data","config","extra_outputs.json"];
     var EXTRA_OUTPUTS_DEV_FLAG_FILE = ".use_dev_extra_outputs";
     var EXTRA_OUTPUTS_DEV_REL_PATH = ["config","extra_outputs.json"];
@@ -190,7 +190,6 @@ function __Pack_coreRun(opts) {
             if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
             if (o.OUTPUT_ESSENTIALS_DIRNAME !== undefined) OUTPUT_ESSENTIALS_DIRNAME = o.OUTPUT_ESSENTIALS_DIRNAME;
             if (o.OUTPUT_EXTRAS_DIRNAME !== undefined) OUTPUT_EXTRAS_DIRNAME = o.OUTPUT_EXTRAS_DIRNAME;
-            if (o.EXTRA_OUTPUTS_LOAD_FROM_FS !== undefined) EXTRA_OUTPUTS_LOAD_FROM_FS = !!o.EXTRA_OUTPUTS_LOAD_FROM_FS;
             if (o.EXTRA_OUTPUTS_POST_SUBPATH !== undefined) EXTRA_OUTPUTS_POST_SUBPATH = o.EXTRA_OUTPUTS_POST_SUBPATH;
             if (o.EXTRA_OUTPUTS_DEV_FLAG_FILE !== undefined) EXTRA_OUTPUTS_DEV_FLAG_FILE = o.EXTRA_OUTPUTS_DEV_FLAG_FILE;
             if (o.EXTRA_OUTPUTS_DEV_REL_PATH !== undefined) EXTRA_OUTPUTS_DEV_REL_PATH = o.EXTRA_OUTPUTS_DEV_REL_PATH;
@@ -219,7 +218,6 @@ function __Pack_coreRun(opts) {
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME) { OUTPUT_ESSENTIALS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME; } } catch(eP4) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME) { OUTPUT_EXTRAS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME; } } catch(eP5) {}
-                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_FS !== undefined) { EXTRA_OUTPUTS_LOAD_FROM_FS = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_LOAD_FROM_FS; } } catch(eP6) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_POST_SUBPATH) { EXTRA_OUTPUTS_POST_SUBPATH = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_POST_SUBPATH; } } catch(eP7) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE) { EXTRA_OUTPUTS_DEV_FLAG_FILE = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_FLAG_FILE; } } catch(eP8) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH) { EXTRA_OUTPUTS_DEV_REL_PATH = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_DEV_REL_PATH; } } catch(eP9) {}
@@ -250,7 +248,7 @@ function __Pack_coreRun(opts) {
         } catch(eMSPK) {}
     } catch(eOpt){}
 
-    if (EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'auto' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'data-json-required') {
+    if (EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'auto' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'data-json-required' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'fs') {
         log("Invalid EXTRA_OUTPUT_COMPS_SOURCE_MODE='" + EXTRA_OUTPUT_COMPS_SOURCE_MODE + "'. Falling back to 'auto'.");
         EXTRA_OUTPUT_COMPS_SOURCE_MODE = 'auto';
     }
@@ -583,7 +581,6 @@ function __Pack_coreRun(opts) {
     }
     function loadExtrasMapFromFs(){
         try {
-            if (!EXTRA_OUTPUTS_LOAD_FROM_FS) return null;
             var devF = __resolveDevExtrasFile();
             if (devF) {
                 var txtD = __readTextFileSafe(devF);
@@ -1150,12 +1147,14 @@ function __Pack_coreRun(opts) {
                 __localExtrasSourceTag = 'data_json.required_missing';
                 log("data-json-required mode: config.pack.EXTRA_OUTPUT_COMPS missing; suppressing preset/options extras.");
             }
-        } else {
+        } else if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'auto') {
             if (hasDjCfgExtras) {
                 EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
                 __localExtrasSourceTag = 'data_json.config.pack';
                 log("data.json config.pack.EXTRA_OUTPUT_COMPS override applied (auto mode).");
             }
+        } else if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'fs') {
+            __localExtrasSourceTag = 'ignored_in_fs_mode';
         }
     } catch(eDjCfgPack) {}
 
@@ -1259,9 +1258,14 @@ function __Pack_coreRun(opts) {
             try {
             var extrasSourceTag = null;
             var extrasMapEffective = null;
-            var fsMap = loadExtrasMapFromFs();
-            if (fsMap) { extrasMapEffective = fsMap; extrasSourceTag = 'fs'; }
-            else { extrasMapEffective = EXTRA_OUTPUT_COMPS || {}; extrasSourceTag = __localExtrasSourceTag; }
+            if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'fs') {
+                var fsMap = loadExtrasMapFromFs();
+                if (fsMap) { extrasMapEffective = fsMap; extrasSourceTag = 'fs'; }
+                else { extrasMapEffective = {}; extrasSourceTag = 'fs_missing'; }
+            } else {
+                extrasMapEffective = EXTRA_OUTPUT_COMPS || {};
+                extrasSourceTag = __localExtrasSourceTag;
+            }
             var extras = parseExtraOutputConfig(extrasMapEffective);
             // Optional DEBUG: dump normalized extras once
             try {

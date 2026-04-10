@@ -44,7 +44,7 @@
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "TWN",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBR",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -346,9 +346,8 @@
         "1x1|15s": "1440x1440",
         "9x16|06s": "720x1280@TikTok"
     },
-    "EXTRA_OUTPUT_COMPS_SOURCE_MODE": "auto",   // "auto" | "data-json-required"
+    "EXTRA_OUTPUT_COMPS_SOURCE_MODE": "auto",
     "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false,
-    "EXTRA_OUTPUTS_LOAD_FROM_FS": false,
     "EXTRA_OUTPUTS_POST_SUBPATH": ["IN","data","config","extra_outputs.json"],
     "EXTRA_OUTPUTS_DEV_FLAG_FILE": ".use_dev_extra_outputs",
     "EXTRA_OUTPUTS_DEV_REL_PATH": ["config","extra_outputs.json"],
