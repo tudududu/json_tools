@@ -395,6 +395,10 @@ Table of contents
   - Folder naming for extras: When a source comp is extra-template based, the extras destination AR segment includes the extra tag: `AR_<extra>_WxH[_MEDIA]`. Regular-sourced extras use `AR_WxH[_MEDIA]`.
   - Essentials vs Extras split: When `ENABLE_EXTRA_OUTPUT_COMPS=true`, regular output comps are placed under an `essentials` subfolder and extra output comps under an `extras` subfolder within the mirrored output path. If the first mirrored segment is a six-digit date (`YYMMDD`), the subfolder is inserted directly after it; otherwise at the start of the mirrored segments.
   - Configurable names: `OUTPUT_ESSENTIALS_DIRNAME` (default `essentials`) and `OUTPUT_EXTRAS_DIRNAME` (default `extras`). When `ENABLE_EXTRA_OUTPUT_COMPS=false`, the `essentials` subfolder is not created and regular outputs use the original mirrored path.
+  - Local source mode: `EXTRA_OUTPUT_COMPS_SOURCE_MODE` controls only local map selection for `EXTRA_OUTPUT_COMPS`.
+    - `auto` (default): use preset/options map, then override from `data.json.config.pack.EXTRA_OUTPUT_COMPS` when present.
+    - `data-json-required`: accept extras only from `data.json.config.pack.EXTRA_OUTPUT_COMPS`; when missing, preset/options extras are suppressed.
+  - FS override stays independent: when `EXTRA_OUTPUTS_LOAD_FROM_FS=true` and external `extra_outputs.json` is found, FS still overrides the local map in both modes.
   - Debugging: With `DEBUG_EXTRAS=true`, logs include the parsed `extraKey` per entry and a concise note when regular entries are skipped for extra-sourced comps.
 
   Options Quick Reference (Step 6)
@@ -402,6 +406,7 @@ Table of contents
   |------------|---------|-------------|
   | `ENABLE_EXTRA_OUTPUT_COMPS` | — | Enable creation of extras from `EXTRA_OUTPUT_COMPS` map. |
   | `EXTRA_OUTPUT_COMPS` | — | Map keyed by `AR|NNs` (regular) and optionally `AR_<extra>|NNs` (extra-template), with values in string/compact/object/array forms to produce extras. |
+  | `EXTRA_OUTPUT_COMPS_SOURCE_MODE` | `auto` | Local source mode for `EXTRA_OUTPUT_COMPS`: `auto` uses preset/options with data.json override when present; `data-json-required` suppresses preset/options unless `data.json.config.pack.EXTRA_OUTPUT_COMPS` exists. |
   | `ENABLE_EXTRA_MEDIA_OVERRIDE` | — | Use `media`/`label` from extras config to override the `MEDIA` token. |
   | `DEBUG_EXTRAS` | — | Emit a one-time parsed extras dump for audit. |
   | `pack.MODULAR_NAMING.ENABLE_MODULE_TOKENS` | `false` | When true, injects modular values into Step 6 names right after `TITLE`. |

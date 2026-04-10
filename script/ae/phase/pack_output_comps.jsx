@@ -83,6 +83,10 @@ function __Pack_coreRun(opts) {
     var ENABLE_EXTRA_OUTPUT_COMPS = true;         // Master toggle
     var EXTRA_OUTPUT_COMPS = {                     // Map: "AR|NNs" -> "WxH" string
     };
+    // Local EXTRA_OUTPUT_COMPS source selection:
+    // - auto: preset/options map, overridden by data.json config.pack.EXTRA_OUTPUT_COMPS when present
+    // - data-json-required: only data.json config.pack.EXTRA_OUTPUT_COMPS is accepted; otherwise local map is empty
+    var EXTRA_OUTPUT_COMPS_SOURCE_MODE = 'auto';
     var EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = false;    // Place extras under out/YYMMDD/AR_WxH
     // Subfolder names for separating regular vs extras when ENABLE_EXTRA_OUTPUT_COMPS is true
     var OUTPUT_ESSENTIALS_DIRNAME = 'essentials';
@@ -182,6 +186,7 @@ function __Pack_coreRun(opts) {
             if (o.EXTRA_OUTPUT_SUFFIX !== undefined) EXTRA_OUTPUT_SUFFIX = o.EXTRA_OUTPUT_SUFFIX;
             if (o.ENABLE_EXTRA_OUTPUT_COMPS !== undefined) ENABLE_EXTRA_OUTPUT_COMPS = !!o.ENABLE_EXTRA_OUTPUT_COMPS;
             if (o.EXTRA_OUTPUT_COMPS !== undefined) EXTRA_OUTPUT_COMPS = o.EXTRA_OUTPUT_COMPS || {};
+            if (o.EXTRA_OUTPUT_COMPS_SOURCE_MODE !== undefined) EXTRA_OUTPUT_COMPS_SOURCE_MODE = String(o.EXTRA_OUTPUT_COMPS_SOURCE_MODE || '').toLowerCase();
             if (o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!o.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER;
             if (o.OUTPUT_ESSENTIALS_DIRNAME !== undefined) OUTPUT_ESSENTIALS_DIRNAME = o.OUTPUT_ESSENTIALS_DIRNAME;
             if (o.OUTPUT_EXTRAS_DIRNAME !== undefined) OUTPUT_EXTRAS_DIRNAME = o.OUTPUT_EXTRAS_DIRNAME;
@@ -210,6 +215,7 @@ function __Pack_coreRun(opts) {
                 } catch(eEx) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.ENABLE_EXTRA_OUTPUT_COMPS === true) { ENABLE_EXTRA_OUTPUT_COMPS = true; } } catch(eP1) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS) { EXTRA_OUTPUT_COMPS = __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS; } } catch(eP2) {}
+                try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS_SOURCE_MODE !== undefined) { EXTRA_OUTPUT_COMPS_SOURCE_MODE = String(__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUT_COMPS_SOURCE_MODE || '').toLowerCase(); } } catch(eP2a) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER !== undefined) { EXTRA_OUTPUTS_USE_DATE_SUBFOLDER = !!__AE_PIPE__.optionsEffective.pack.EXTRA_OUTPUTS_USE_DATE_SUBFOLDER; } } catch(eP3) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME) { OUTPUT_ESSENTIALS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_ESSENTIALS_DIRNAME; } } catch(eP4) {}
                 try { if (__AE_PIPE__.optionsEffective.pack && __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME) { OUTPUT_EXTRAS_DIRNAME = __AE_PIPE__.optionsEffective.pack.OUTPUT_EXTRAS_DIRNAME; } } catch(eP5) {}
@@ -243,6 +249,11 @@ function __Pack_coreRun(opts) {
             }
         } catch(eMSPK) {}
     } catch(eOpt){}
+
+    if (EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'auto' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'data-json-required') {
+        log("Invalid EXTRA_OUTPUT_COMPS_SOURCE_MODE='" + EXTRA_OUTPUT_COMPS_SOURCE_MODE + "'. Falling back to 'auto'.");
+        EXTRA_OUTPUT_COMPS_SOURCE_MODE = 'auto';
+    }
 
     // Logging setup ----------------------------------------
     var __timestamp = buildTimestamp();
@@ -1123,16 +1134,32 @@ function __Pack_coreRun(opts) {
         else { log("Naming: no suitable data JSON found (looked for '"+DATA_JSON_PRIMARY_NAME+"')."); }
     } else { if(jsonData && jsonData.metadataGlobal) { var mg = jsonData.metadataGlobal; log("Naming JSON loaded: client=" + (mg.client||'') + ", campaign=" + (mg.campaign||'') + ", briefVersion=" + (mg.briefVersion||'') ); } }
 
-    // AE 276: Apply data.json["config"]["pack"] overrides (narrow scope)
+    var __localExtrasSourceTag = 'preset_or_options';
+
+    // AE 279: Apply data.json["config"]["pack"] EXTRA_OUTPUT_COMPS based on source mode
     try {
         var djCfgPack = jsonData && jsonData.config && jsonData.config.pack;
-        if (djCfgPack && typeof djCfgPack === 'object') {
-            if (djCfgPack.EXTRA_OUTPUT_COMPS && typeof djCfgPack.EXTRA_OUTPUT_COMPS === 'object') {
+        var hasDjCfgExtras = !!(djCfgPack && typeof djCfgPack === 'object' && djCfgPack.EXTRA_OUTPUT_COMPS && typeof djCfgPack.EXTRA_OUTPUT_COMPS === 'object');
+        if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'data-json-required') {
+            if (hasDjCfgExtras) {
                 EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
-                log("data.json config.pack.EXTRA_OUTPUT_COMPS override applied.");
+                __localExtrasSourceTag = 'data_json.config.pack';
+                log("data-json-required mode: using data.json config.pack.EXTRA_OUTPUT_COMPS.");
+            } else {
+                EXTRA_OUTPUT_COMPS = {};
+                __localExtrasSourceTag = 'data_json.required_missing';
+                log("data-json-required mode: config.pack.EXTRA_OUTPUT_COMPS missing; suppressing preset/options extras.");
+            }
+        } else {
+            if (hasDjCfgExtras) {
+                EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
+                __localExtrasSourceTag = 'data_json.config.pack';
+                log("data.json config.pack.EXTRA_OUTPUT_COMPS override applied (auto mode).");
             }
         }
     } catch(eDjCfgPack) {}
+
+    log("EXTRA_OUTPUT_COMPS source mode: " + EXTRA_OUTPUT_COMPS_SOURCE_MODE + " (local source=" + __localExtrasSourceTag + ")");
 
     // After JSON load, evaluate BRAND auto-disable rule
     if (AUTO_DISABLE_BRAND_IF_VALUE) {
@@ -1234,12 +1261,12 @@ function __Pack_coreRun(opts) {
             var extrasMapEffective = null;
             var fsMap = loadExtrasMapFromFs();
             if (fsMap) { extrasMapEffective = fsMap; extrasSourceTag = 'fs'; }
-            else { extrasMapEffective = EXTRA_OUTPUT_COMPS || {}; extrasSourceTag = 'preset'; }
+            else { extrasMapEffective = EXTRA_OUTPUT_COMPS || {}; extrasSourceTag = __localExtrasSourceTag; }
             var extras = parseExtraOutputConfig(extrasMapEffective);
             // Optional DEBUG: dump normalized extras once
             try {
                 if (typeof DEBUG_EXTRAS !== 'undefined' ? DEBUG_EXTRAS : false) {
-                    try { log("[debug] extras: source=" + (extrasSourceTag || (extrasMapEffective === EXTRA_OUTPUT_COMPS ? "preset" : "fs"))); } catch(eSrc) {}
+                    try { log("[debug] extras: source=" + (extrasSourceTag || 'unknown')); } catch(eSrc) {}
                     var __srcExtraKeyOnce = __normalizeExtraKey(getExtraMediaLabelForComp(item));
                     if (__srcExtraKeyOnce) { log("[debug] extras: extraKey filtering active: source=" + __srcExtraKeyOnce); }
                     log("Extras parsed: count=" + (extras ? extras.length : 0));

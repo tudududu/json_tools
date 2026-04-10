@@ -410,6 +410,7 @@
                 // "1x1|15s": "1440x1440",
                 // "9x16|06s": "720x1280@TikTok"
             },
+            EXTRA_OUTPUT_COMPS_SOURCE_MODE: "auto",   // "auto" | "data-json-required"
             EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true,   // Place extras under out/YYMMDD/AR_WxH
             // External extras map loading (FS-based): dev override then POST path, else preset map
             EXTRA_OUTPUTS_LOAD_FROM_FS: true,
