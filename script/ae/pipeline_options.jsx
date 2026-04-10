@@ -405,7 +405,11 @@
             PIPELINE_SHOW_VERBOSE_LOG: false,
                 // Extra output comps (alternate resolutions)
             ENABLE_EXTRA_OUTPUT_COMPS: false,         // Master toggle
-            EXTRA_OUTPUT_COMPS: {},                   // Map: "AR|NNs" -> "WxH" string
+            EXTRA_OUTPUT_COMPS: {                     // Map: "AR|NNs" -> "WxH" string
+                // "1x1|06s": [ { "size":"640x640", "media":"TikTok" }, { "size":"1440x1440", "media":"MetaInFeed" } ],
+                // "1x1|15s": "1440x1440",
+                // "9x16|06s": "720x1280@TikTok"
+            },
             EXTRA_OUTPUTS_USE_DATE_SUBFOLDER: true,   // Place extras under out/YYMMDD/AR_WxH
             // External extras map loading (FS-based): dev override then POST path, else preset map
             EXTRA_OUTPUTS_LOAD_FROM_FS: true,

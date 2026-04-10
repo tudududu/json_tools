@@ -38,13 +38,13 @@
     "DRY_RUN": false
 },
 "openProject": {
-    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/EDRINGTON/MACALLAN/2026/AUTOMATION PILOT/C21407609 - GBL/POST/WORK/Macallan_v27.aep",
+    "PROJECT_TEMPLATE_PATH": "/Volumes/globalservs/pop-emea/_HS-PROJECTS-EU/PRG/HERCULES/EDRINGTON/MACALLAN/2026/AUTOMATION PILOT/C21407609 - GBL/POST/WORK/Macallan_v28.aep",
     "OPEN_IF_DIRTY_BEHAVIOR": "force-no-save"
 },
 "linkData": {
     "ENABLE_RELINK_DATA_JSON": true,
     "DATA_JSON_ISO_MODE": "manual",
-    "DATA_JSON_ISO_CODE_MANUAL": "TWN",
+    "DATA_JSON_ISO_CODE_MANUAL": "GBR",
     "DATA_JSON_LANG_CODE_MANUAL": "",
     "DATA_JSON_PROJECT_FOLDER": ["project","in","data"],
     "DATA_JSON_PROJECT_ITEM_NAME": "data.json",
@@ -111,7 +111,7 @@
     }
     },
 "addLayers": {
-    "ENABLE_FILE_LOG": true,
+    "ENABLE_FILE_LOG": false,
     "PIPELINE_SHOW_CONCISE_LOG": true,
     "PIPELINE_SHOW_VERBOSE_LOG": false,
     
@@ -332,7 +332,6 @@
     "ENABLE_SUMMARY_LOG": true,
     "USE_PROJECT_LOG_FOLDER": true,
     "PROJECT_LOG_SUBFOLDER": "log",
-
     "OUTPUT_ROOT_PATH": ["project", "out"],
     "ANCHOR_SOURCE_FOLDER": "comps",
     "APPEND_SUFFIX": "_OUT",
