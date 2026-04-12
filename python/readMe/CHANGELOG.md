@@ -1,8 +1,3 @@
-# 1.10.1 - 2026-04-08
-
-Added:
-- Changed behavior and naming from generic to controller across converter, tests, and Python docs.
-
 # 1.10.0 - 2026-04-01
 
 Release notes (condensed):
@@ -73,19 +68,18 @@ Added:
 # 1.8.9 - 2026-03-14
 
 Added:
-- backward-compatible flag (--controller-always-emit) with default off, 
-	Function param: controller_always_emit: bool = False
-	CLI flag: --controller-always-emit
+- backward-compatible flag (--generic-always-emit) with default off, 
+	Function param: generic_always_emit: bool = False
+	CLI flag: --generic-always-emit
 	Behavior now:
-	Default (no flag): per-video controller_NN uses only local rows; missing local rows -> [] (your current desired behavior).
-	With --controller-always-emit: restores legacy fallback; missing local rows fall back to global controller_NN rows for that video.
+	Default (no flag): per-video generic_NN uses only local rows; missing local rows -> [] (your current desired behavior).
+	With --generic-always-emit: restores legacy fallback; missing local rows fall back to global generic_NN rows for that video.
 
 # 1.8.8 - 2026-03-12
 
 Added:
-
-- Updated per-video controller key emission logic in csv_to_json.py:
-	Before: if local controller rows were missing for a video/key, it fell back to global controller rows.
+- Updated per-video generic key emission logic in csv_to_json.py:
+	Before: if local generic rows were missing for a video/key, it fell back to global generic rows.
 	Now: it uses local rows only; if missing, it emits an empty list for that per-video key.
 
 # 1.8.7 - 2026-03-09
@@ -125,7 +119,7 @@ Added:
 
 Fixed:
 - CSV → JSON tool (CSV to JSON 241):
-	* Updated top-level `disclaimer`, `disclaimer_02`, `logo`, and `controller_XX` arrays to preserve all explicitly defined rows, including rows where both landscape and portrait are empty.
+	* Updated top-level `disclaimer`, `disclaimer_02`, `logo`, and `generic_XX` arrays to preserve all explicitly defined rows, including rows where both landscape and portrait are empty.
 	* Removed row filtering for these top-level arrays so defined empty rows emit `""` placeholders and keep index alignment.
 	* Portrait values continue to fall back to the landscape value when portrait is empty.
 
@@ -174,7 +168,7 @@ Added:
 
 Added:
 - CSV → JSON tool (CSV to JSON 233):
-	* Rebuilt metadata flag handling to auto-detect any `meta_global`/`meta_local` key ending with `_flag` (including `controller_XX_flag`) without hardcoded flag lists.
+	* Rebuilt metadata flag handling to auto-detect any `meta_global`/`meta_local` key ending with `_flag` (including `generic_XX_flag`) without hardcoded flag lists.
 	* Added duration-targeted emission for global flags via `target_duration` with rules: untargeted default applies to all videos, targeted rows apply only to matching durations, and targeted rows override default for matching durations.
 	* Preserved precedence for per-video metadata injection: `meta_local` override > targeted `meta_global` > untargeted `meta_global`.
 	* Added global per-country flag overview emission in `metadataGlobal` as objects like `{ "_default": ..., "<duration>": ... }`.
@@ -197,9 +191,9 @@ Added:
 
 Added:
 - CSV → JSON tool (CSV to JSON 220–223):
-	* Scalable controller timed keys (`controller_01`..`controller_NN`) with top-level and per-video outputs.
-	* Auto-detected `controller_XX_flag` support via `meta_global`/`meta_local` with the usual per-country default + per-video override rules.
-	* Output ordering guarantees: controller keys appear before `videos`, and per-video `claim` follows `super_B`.
+	* Scalable generic timed keys (`generic_01`..`generic_NN`) with top-level and per-video outputs.
+	* Auto-detected `generic_XX_flag` support via `meta_global`/`meta_local` with the usual per-country default + per-video override rules.
+	* Output ordering guarantees: generic keys appear before `videos`, and per-video `claim` follows `super_B`.
 
 # 1.5.10 - 2026-02-12
 

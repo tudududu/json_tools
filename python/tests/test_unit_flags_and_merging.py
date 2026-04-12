@@ -429,10 +429,10 @@ class FlagsAndMergingTests(unittest.TestCase):
             "disclaimer_02;;2;00:00:08:00;00:00:09:00;;;;;;\n"
             "logo;;1;00:00:10:00;00:00:11:00;;;;;logo1;\n"
             "logo;;2;00:00:12:00;00:00:13:00;;;;;;\n"
-            "controller_01;;1;00:00:14:00;00:00:15:00;;;;;g01_1;\n"
-            "controller_01;;2;00:00:16:00;00:00:17:00;;;;;;\n"
-            "controller_02;;1;00:00:18:00;00:00:19:00;;;;;g02_1;\n"
-            "controller_02;;2;00:00:20:00;00:00:21:00;;;;;;\n"
+            "generic_01;;1;00:00:14:00;00:00:15:00;;;;;g01_1;\n"
+            "generic_01;;2;00:00:16:00;00:00:17:00;;;;;;\n"
+            "generic_02;;1;00:00:18:00;00:00:19:00;;;;;g02_1;\n"
+            "generic_02;;2;00:00:20:00;00:00:21:00;;;;;;\n"
             "meta_local;VID_P241;;;;title;N;ALL;T;;\n"
             "sub;VID_P241;1;00:00:00:00;00:00:01:00;;;;;hello;helloP\n"
         )
@@ -454,10 +454,10 @@ class FlagsAndMergingTests(unittest.TestCase):
         self.assertEqual(node["disclaimer_02"]["portrait"], ["disc2_1", ""])
         self.assertEqual(node["logo"]["landscape"], ["logo1", ""])
         self.assertEqual(node["logo"]["portrait"], ["logo1", ""])
-        self.assertEqual(node["controller_01"]["landscape"], ["g01_1", ""])
-        self.assertEqual(node["controller_01"]["portrait"], ["g01_1", ""])
-        self.assertEqual(node["controller_02"]["landscape"], ["g02_1", ""])
-        self.assertEqual(node["controller_02"]["portrait"], ["g02_1", ""])
+        self.assertEqual(node["generic_01"]["landscape"], ["g01_1", ""])
+        self.assertEqual(node["generic_01"]["portrait"], ["g01_1", ""])
+        self.assertEqual(node["generic_02"]["landscape"], ["g02_1", ""])
+        self.assertEqual(node["generic_02"]["portrait"], ["g02_1", ""])
 
     def test_portrait_disclaimer_fallback_to_landscape_local_with_flag(self):
         # Portrait disclaimer should mirror landscape local when portrait cell empty and flag enabled

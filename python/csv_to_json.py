@@ -365,7 +365,7 @@ def convert_csv_to_json(
     country_variant_index: Optional[int] = None,
     flags_overview_object_always: bool = False,
     xlsx_sheet: Optional[str] = None,
-    controller_always_emit: bool = False,
+    generic_always_emit: bool = False,
 ) -> Dict[str, Any]:
     """Convert CSV to JSON. Supports two modes:
 
@@ -509,10 +509,10 @@ def convert_csv_to_json(
         # endFrame rows (per-video timings; optional text columns similar to logo)
         endframe_rows_raw: List[Dict[str, Any]] = []
         per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
-        # Controller timed keys (scalable): controller_01 .. controller_NN
-        controller_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
-        per_video_controller_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-        controller_keys_seen: set[str] = set()
+        # Generic timed keys (scalable): generic_01 .. generic_NN
+        generic_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        per_video_generic_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+        generic_keys_seen: set[str] = set()
         # subs_rows reserved for future use (not needed currently)
 
         auto_claim_line = 1
@@ -525,32 +525,32 @@ def convert_csv_to_json(
         auto_logo_line_per_video: Dict[str, int] = {}
         auto_endframe_line = 1
         auto_endframe_line_per_video: Dict[str, int] = {}
-        auto_controller_line_per_key: Dict[str, int] = {}
-        auto_controller_line_per_video_per_key: Dict[str, Dict[str, int]] = {}
+        auto_generic_line_per_key: Dict[str, int] = {}
+        auto_generic_line_per_video_per_key: Dict[str, Dict[str, int]] = {}
         auto_sub_line_per_video: Dict[str, int] = {}
         auto_super_a_line_per_video: Dict[str, int] = {}
         auto_super_b_line_per_video: Dict[str, int] = {}
         warned_logo_anim_legacy_country_scope = False
 
-        controller_record_re = re.compile(r"^controller_(\d+)$", re.I)
-        controller_flag_re = re.compile(r"^controller_(\d+)_flag$", re.I)
+        generic_record_re = re.compile(r"^generic_(\d+)$", re.I)
+        generic_flag_re = re.compile(r"^generic_(\d+)_flag$", re.I)
 
-        def _normalize_controller_record(name: str) -> Optional[str]:
-            m = controller_record_re.match((name or "").strip())
+        def _normalize_generic_record(name: str) -> Optional[str]:
+            m = generic_record_re.match((name or "").strip())
             if not m:
                 return None
-            return f"controller_{int(m.group(1)):02d}"
+            return f"generic_{int(m.group(1)):02d}"
 
-        def _normalize_controller_flag(name: str) -> Optional[str]:
-            m = controller_flag_re.match((name or "").strip())
+        def _normalize_generic_flag(name: str) -> Optional[str]:
+            m = generic_flag_re.match((name or "").strip())
             if not m:
                 return None
-            return f"controller_{int(m.group(1)):02d}_flag"
+            return f"generic_{int(m.group(1)):02d}_flag"
 
         def _normalize_flag_key(name: str) -> Optional[str]:
-            normalized_controller = _normalize_controller_flag(name)
-            if normalized_controller:
-                return normalized_controller
+            normalized_generic = _normalize_generic_flag(name)
+            if normalized_generic:
+                return normalized_generic
             key = (name or "").strip()
             if key.lower().endswith("_flag"):
                 return key
@@ -730,7 +730,7 @@ def convert_csv_to_json(
                         language_per_country[ctry] = val
                     # Do not store a single shared language in global_meta; injected per-country later
                     continue
-                # Controller-related/meta_global default: pick first non-empty per-country value else metadata column
+                # Generic meta_global: pick first non-empty per-country value else metadata column
                 country_val = next((texts[c] for c in countries if texts[c]), "")
                 value = country_val or metadata_cell_val
                 if value != "":
@@ -1076,10 +1076,10 @@ def convert_csv_to_json(
                 )
                 continue
 
-            # Controller timed rows (scalable): controller_01 .. controller_NN
-            controller_key = _normalize_controller_record(rt)
-            if controller_key:
-                controller_keys_seen.add(controller_key)
+            # Generic timed rows (scalable): generic_01 .. generic_NN
+            generic_key = _normalize_generic_record(rt)
+            if generic_key:
+                generic_keys_seen.add(generic_key)
                 if video_id:
                     if video_id not in videos:
                         videos[video_id] = {
@@ -1089,23 +1089,23 @@ def convert_csv_to_json(
                             "super_b_rows": [],
                         }
                         video_order.append(video_id)
-                    per_video_controller_rows_raw.setdefault(controller_key, {})
-                    per_video_controller_rows_raw[controller_key].setdefault(video_id, [])
-                    auto_controller_line_per_video_per_key.setdefault(controller_key, {})
-                    if video_id not in auto_controller_line_per_video_per_key[controller_key]:
-                        auto_controller_line_per_video_per_key[controller_key][video_id] = (
+                    per_video_generic_rows_raw.setdefault(generic_key, {})
+                    per_video_generic_rows_raw[generic_key].setdefault(video_id, [])
+                    auto_generic_line_per_video_per_key.setdefault(generic_key, {})
+                    if video_id not in auto_generic_line_per_video_per_key[generic_key]:
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = (
                             start_line_index
                         )
                     if line_num is None:
-                        line_num = auto_controller_line_per_video_per_key[controller_key][
+                        line_num = auto_generic_line_per_video_per_key[generic_key][
                             video_id
                         ]
-                        auto_controller_line_per_video_per_key[controller_key][video_id] += 1
+                        auto_generic_line_per_video_per_key[generic_key][video_id] += 1
                     else:
-                        auto_controller_line_per_video_per_key[controller_key][video_id] = (
+                        auto_generic_line_per_video_per_key[generic_key][video_id] = (
                             line_num + 1
                         )
-                    per_video_controller_rows_raw[controller_key][video_id].append(
+                    per_video_generic_rows_raw[generic_key][video_id].append(
                         {
                             "line": line_num,
                             "start": start_tc,
@@ -1115,15 +1115,15 @@ def convert_csv_to_json(
                         }
                     )
                 else:
-                    controller_rows_raw.setdefault(controller_key, [])
-                    if controller_key not in auto_controller_line_per_key:
-                        auto_controller_line_per_key[controller_key] = 1
+                    generic_rows_raw.setdefault(generic_key, [])
+                    if generic_key not in auto_generic_line_per_key:
+                        auto_generic_line_per_key[generic_key] = 1
                     if line_num is None:
-                        line_num = auto_controller_line_per_key[controller_key]
-                        auto_controller_line_per_key[controller_key] += 1
+                        line_num = auto_generic_line_per_key[generic_key]
+                        auto_generic_line_per_key[generic_key] += 1
                     else:
-                        auto_controller_line_per_key[controller_key] = line_num + 1
-                    controller_rows_raw[controller_key].append(
+                        auto_generic_line_per_key[generic_key] = line_num + 1
+                    generic_rows_raw[generic_key].append(
                         {
                             "line": line_num,
                             "start": start_tc,
@@ -1571,15 +1571,15 @@ def convert_csv_to_json(
         # Build multi structure similar to earlier _multi output
         by_country: Dict[str, Any] = {}
 
-        def _controller_sort_key(key_name: str) -> int:
+        def _generic_sort_key(key_name: str) -> int:
             match = re.search(r"(\d+)$", key_name)
             if not match:
                 return 9999
             return int(match.group(1))
 
-        controller_keys_sorted = sorted(
-            controller_keys_seen,
-            key=_controller_sort_key,
+        generic_keys_sorted = sorted(
+            generic_keys_seen,
+            key=_generic_sort_key,
         )
         for c in countries:
             # Build orientation-specific top-level arrays
@@ -1628,19 +1628,19 @@ def convert_csv_to_json(
             if not logo_portrait and logo_landscape:
                 logo_portrait = logo_landscape.copy()
 
-            # Controller top-level orientation arrays (line-aligned, portrait fallback per row)
-            controller_top_land: Dict[str, List[str]] = {}
-            controller_top_port: Dict[str, List[str]] = {}
-            for gk in controller_keys_sorted:
+            # Generic top-level orientation arrays (line-aligned, portrait fallback per row)
+            generic_top_land: Dict[str, List[str]] = {}
+            generic_top_port: Dict[str, List[str]] = {}
+            for gk in generic_keys_sorted:
                 g_land: List[str] = []
                 g_port: List[str] = []
-                for grow in controller_rows_raw.get(gk, []):
+                for grow in generic_rows_raw.get(gk, []):
                     txt_l = (grow.get("texts", {}).get(c, "") or "").rstrip()
                     txt_p = (grow.get("texts_portrait", {}).get(c, "") or "").rstrip()
                     g_land.append(txt_l)
                     g_port.append(txt_p if txt_p else txt_l)
-                controller_top_land[gk] = g_land
-                controller_top_port[gk] = g_port
+                generic_top_land[gk] = g_land
+                generic_top_port[gk] = g_port
 
             # Videos (create landscape + portrait objects always, mirroring when portrait empty)
             videos_list: List[Dict[str, Any]] = []
@@ -1792,22 +1792,22 @@ def convert_csv_to_json(
                 timing_key(r): (r.get("texts_portrait", {}).get(c, "") or "").strip()
                 for r in claims_rows
             }
-            global_controller_map_land: Dict[
+            global_generic_map_land: Dict[
                 str, Dict[Tuple[Optional[float], Optional[float]], str]
             ] = {}
-            global_controller_map_port: Dict[
+            global_generic_map_port: Dict[
                 str, Dict[Tuple[Optional[float], Optional[float]], str]
             ] = {}
-            for gk in controller_keys_sorted:
-                global_controller_map_land[gk] = {
+            for gk in generic_keys_sorted:
+                global_generic_map_land[gk] = {
                     timing_key(r): (r.get("texts", {}).get(c, "") or "").strip()
-                    for r in controller_rows_raw.get(gk, [])
+                    for r in generic_rows_raw.get(gk, [])
                 }
-                global_controller_map_port[gk] = {
+                global_generic_map_port[gk] = {
                     timing_key(r): (
                         r.get("texts_portrait", {}).get(c, "") or ""
                     ).strip()
-                    for r in controller_rows_raw.get(gk, [])
+                    for r in generic_rows_raw.get(gk, [])
                 }
             # For disclaimers, order matters but often it's one block; use index-based fallback too
             global_disc_land = [
@@ -2274,31 +2274,31 @@ def convert_csv_to_json(
                     end_items.append(entry)
                 vobj["endFrame"] = end_items
 
-                # Controller timed keys (no merge/dedup) with top-level + per-video output
-                for gk in controller_keys_sorted:
-                    # Per-video controller emission is controlled by local presence by default.
-                    # Legacy behavior can be restored via controller_always_emit, which falls back
-                    # to global controller rows when local rows are missing for this key+video.
-                    local_controller = per_video_controller_rows_raw.get(gk, {}).get(
+                # Generic timed keys (no merge/dedup) with top-level + per-video output
+                for gk in generic_keys_sorted:
+                    # Per-video generic emission is controlled by local presence by default.
+                    # Legacy behavior can be restored via generic_always_emit, which falls back
+                    # to global generic rows when local rows are missing for this key+video.
+                    local_generic = per_video_generic_rows_raw.get(gk, {}).get(
                         vid_full.rsplit("_", 1)[0], []
                     )
-                    src_controller = (
-                        local_controller or controller_rows_raw.get(gk, [])
-                        if controller_always_emit
-                        else local_controller
+                    src_generic = (
+                        local_generic or generic_rows_raw.get(gk, [])
+                        if generic_always_emit
+                        else local_generic
                     )
-                    controller_items: List[Dict[str, Any]] = []
-                    controller_texts_global = (
-                        controller_top_port[gk]
+                    generic_items: List[Dict[str, Any]] = []
+                    generic_texts_global = (
+                        generic_top_port[gk]
                         if orientation == "portrait"
-                        else controller_top_land[gk]
+                        else generic_top_land[gk]
                     )
-                    global_controller_map = (
-                        global_controller_map_port[gk]
+                    global_generic_map = (
+                        global_generic_map_port[gk]
                         if orientation == "portrait"
-                        else global_controller_map_land[gk]
+                        else global_generic_map_land[gk]
                     )
-                    for idx, grow in enumerate(src_controller):
+                    for idx, grow in enumerate(src_generic):
                         txt_local = (
                             (
                                 grow.get("texts_portrait", {})
@@ -2317,12 +2317,12 @@ def convert_csv_to_json(
                             ).rstrip()
                             if alt_land_local:
                                 txt_local = alt_land_local
-                        txt_global_timing = global_controller_map.get(timing_key(grow), "")
+                        txt_global_timing = global_generic_map.get(timing_key(grow), "")
                         txt_global_index = (
-                            controller_texts_global[idx]
-                            if idx < len(controller_texts_global)
+                            generic_texts_global[idx]
+                            if idx < len(generic_texts_global)
                             else (
-                                controller_texts_global[0] if controller_texts_global else ""
+                                generic_texts_global[0] if generic_texts_global else ""
                             )
                         )
                         text_value = (
@@ -2339,8 +2339,8 @@ def convert_csv_to_json(
                         ):
                             entry["in"] = fmt_time(grow["start"])
                             entry["out"] = fmt_time(grow["end"])
-                        controller_items.append(entry)
-                    vobj[gk] = controller_items
+                        generic_items.append(entry)
+                    vobj[gk] = generic_items
 
             # Cast metadata values if requested
             def maybe_cast(value: Any) -> Any:
@@ -2417,7 +2417,7 @@ def convert_csv_to_json(
                     "logo": vobj.get("logo", []),
                     "endFrame": vobj.get("endFrame", []),
                 }
-                for gk in controller_keys_sorted:
+                for gk in generic_keys_sorted:
                     base[gk] = vobj.get(gk, [])
                 if claims_as_objects:
                     # Copy any claim_XX fields from vobj into the output
@@ -2442,8 +2442,8 @@ def convert_csv_to_json(
                     "disclaimer_02": disc_02_landscape if disc_02_landscape else [""],
                     "logo": logo_landscape,
                 }
-                for gk in controller_keys_sorted:
-                    payload[gk] = controller_top_land.get(gk, [])
+                for gk in generic_keys_sorted:
+                    payload[gk] = generic_top_land.get(gk, [])
                 payload["videos"] = vlist_cast
             else:
                 payload = {
@@ -2459,10 +2459,10 @@ def convert_csv_to_json(
                     },
                     "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
                 }
-                for gk in controller_keys_sorted:
+                for gk in generic_keys_sorted:
                     payload[gk] = {
-                        "landscape": controller_top_land.get(gk, []),
-                        "portrait": controller_top_port.get(gk, []),
+                        "landscape": generic_top_land.get(gk, []),
+                        "portrait": generic_top_port.get(gk, []),
                     }
                 payload["videos"] = vlist_cast
             by_country[c] = payload
@@ -2935,9 +2935,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Emit metadataGlobal *_flag overviews always as objects (default behavior emits scalar when default-only and object when targeted exists)",
     )
     p.add_argument(
-        "--controller-always-emit",
+        "--generic-always-emit",
         action="store_true",
-        help="Legacy behavior: emit per-video controller_NN rows from global controller_NN when local rows are missing",
+        help="Legacy behavior: emit per-video generic_NN rows from global generic_NN when local rows are missing",
     )
 
     # Media injection (CSV to JSON media)
@@ -3096,7 +3096,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         country_variant_index=args.country_variant_index,
         flags_overview_object_always=args.flags_overview_object_always,
         xlsx_sheet=args.xlsx_sheet,
-        controller_always_emit=args.controller_always_emit,
+        generic_always_emit=args.generic_always_emit,
     )
 
     # Optionally strip overview if disabled flag set
