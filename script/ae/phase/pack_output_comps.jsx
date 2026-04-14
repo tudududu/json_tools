@@ -292,7 +292,14 @@ function __Pack_coreRun(opts) {
         }
     } catch(eLG) {}
 
+    function __captureConfigSourceForPipeline(msg) {
+        try {
+            if (msg && String(msg).indexOf('Config source:') === 0) logConcise(msg);
+        } catch (eCap) {}
+    }
+
     function log(msg) {
+        __captureConfigSourceForPipeline(msg);
         // Write detailed file log if enabled
         if (__detailedEnabled && __detailedLogFile) writeFileLine(__detailedLogFile, msg);
         if (__logger) { try { __logger.info(msg); } catch(e) {} return; }

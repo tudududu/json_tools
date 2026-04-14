@@ -80,8 +80,19 @@ function __AddLayers_coreRun(opts) {
 
     // Tagged logger (lazily initialized so it can see parsed options)
     var __logger = null;
+    var __configSourceConcisePending = [];
+
+    function __captureConfigSourceForPipeline(msg) {
+        try {
+            if (msg && String(msg).indexOf('Config source:') === 0) {
+                if (__concise && typeof __concise.push === 'function') __concise.push(String(msg));
+                else __configSourceConcisePending.push(String(msg));
+            }
+        } catch (eCap) {}
+    }
 
     function log(msg) {
+        __captureConfigSourceForPipeline(msg);
         // Always write to file when enabled
         if(ENABLE_FILE_LOG) __writeFileLine(msg);
         // Prefer shared tagged logger but respect verbose gating for pipeline forwarding
@@ -2000,6 +2011,12 @@ function __AddLayers_coreRun(opts) {
     var skippedARCount = 0;
     var skippedCopyTotal = 0; // total layers skipped due to skip-copy rules across all comps
     var __concise = [];
+    try {
+        if (__configSourceConcisePending && __configSourceConcisePending.length) {
+            for (var __csi = 0; __csi < __configSourceConcisePending.length; __csi++) __concise.push(__configSourceConcisePending[__csi]);
+            __configSourceConcisePending = [];
+        }
+    } catch (eCSP) {}
     // Track any extra duplicates created so downstream steps can include them
     var extraCreatedComps = [];
     for (var t = 0; t < targets.length; t++) {
