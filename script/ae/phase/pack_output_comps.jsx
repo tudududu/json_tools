@@ -249,7 +249,7 @@ function __Pack_coreRun(opts) {
     } catch(eOpt){}
 
     if (EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'auto' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'data-json-required' && EXTRA_OUTPUT_COMPS_SOURCE_MODE !== 'fs') {
-        log("Invalid EXTRA_OUTPUT_COMPS_SOURCE_MODE='" + EXTRA_OUTPUT_COMPS_SOURCE_MODE + "'. Falling back to 'auto'.");
+        log("Config source: invalid EXTRA_OUTPUT_COMPS_SOURCE_MODE='" + EXTRA_OUTPUT_COMPS_SOURCE_MODE + "'. Falling back to 'auto'.");
         EXTRA_OUTPUT_COMPS_SOURCE_MODE = 'auto';
     }
 
@@ -556,7 +556,7 @@ function __Pack_coreRun(opts) {
             var baseRel = aeFolder ? aeFolder.fsName : cfgDir.fsName; // prefer script/ae root
             var fullPath = __joinFs(baseRel, devRel);
             var f = new File(fullPath);
-            if (!f.exists) { try { log("Extras config: DEV flag present, missing file at " + fullPath); } catch(eL) {} }
+            if (!f.exists) { try { log("Config source: Extras config: fs | DEV flag present, missing file at " + fullPath); } catch(eL) {} }
             return (f && f.exists) ? f : null;
         } catch(e){ return null; }
     }
@@ -585,13 +585,13 @@ function __Pack_coreRun(opts) {
             if (devF) {
                 var txtD = __readTextFileSafe(devF);
                 var objD = parseJSONSafe(txtD);
-                if (objD && typeof objD === 'object') { try{ log("Extras config: DEV -> " + devF.fsName); }catch(eL){} return objD; }
+                if (objD && typeof objD === 'object') { try{ log("Config source: Extras config: fs | DEV -> " + devF.fsName); }catch(eL){} return objD; }
             }
             var postF = __resolvePostExtrasFile();
             if (postF) {
                 var txtP = __readTextFileSafe(postF);
                 var objP = parseJSONSafe(txtP);
-                if (objP && typeof objP === 'object') { try{ log("Extras config: POST -> " + postF.fsName); }catch(eL2){} return objP; }
+                if (objP && typeof objP === 'object') { try{ log("Config source: Extras config: fs | POST -> " + postF.fsName); }catch(eL2){} return objP; }
             }
             if (EXTRA_OUTPUTS_PROMPT_IF_MISSING) {
                 try {
@@ -599,11 +599,11 @@ function __Pack_coreRun(opts) {
                     if (picked) {
                         var txtX = __readTextFileSafe(picked);
                         var objX = parseJSONSafe(txtX);
-                        if (objX && typeof objX === 'object') { try{ log("Extras config: Prompt -> " + picked.fsName); }catch(eL3){} return objX; }
+                        if (objX && typeof objX === 'object') { try{ log("Config source: Extras config: fs | Prompt -> " + picked.fsName); }catch(eL3){} return objX; }
                     }
                 } catch(ePd){}
             }
-        } catch(eL){ try{ log("Extras config: FS load error: " + eL); }catch(eLog){} }
+        } catch(eL){ try{ log("Config source: Extras config: fs | FS load error: " + eL); }catch(eLog){} }
         return null;
     }
 
@@ -1141,24 +1141,24 @@ function __Pack_coreRun(opts) {
             if (hasDjCfgExtras) {
                 EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
                 __localExtrasSourceTag = 'data_json.config.pack';
-                log("data-json-required mode: using data.json config.pack.EXTRA_OUTPUT_COMPS.");
+                log("Config source: data-json-required | using data.json config.pack.EXTRA_OUTPUT_COMPS.");
             } else {
                 EXTRA_OUTPUT_COMPS = {};
                 __localExtrasSourceTag = 'data_json.required_missing';
-                log("data-json-required mode: config.pack.EXTRA_OUTPUT_COMPS missing; suppressing preset/options extras.");
+                log("Config source: data-json-required | config.pack.EXTRA_OUTPUT_COMPS missing; suppressing preset/options extras.");
             }
         } else if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'auto') {
             if (hasDjCfgExtras) {
                 EXTRA_OUTPUT_COMPS = djCfgPack.EXTRA_OUTPUT_COMPS;
                 __localExtrasSourceTag = 'data_json.config.pack';
-                log("data.json config.pack.EXTRA_OUTPUT_COMPS override applied (auto mode).");
+                log("Config source: data.json | config.pack.EXTRA_OUTPUT_COMPS override applied (auto mode).");
             }
         } else if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'fs') {
             __localExtrasSourceTag = 'ignored_in_fs_mode';
         }
     } catch(eDjCfgPack) {}
 
-    log("EXTRA_OUTPUT_COMPS source mode: " + EXTRA_OUTPUT_COMPS_SOURCE_MODE + " (local source=" + __localExtrasSourceTag + ")");
+    log("Config source: EXTRA_OUTPUT_COMPS source mode: " + EXTRA_OUTPUT_COMPS_SOURCE_MODE + " (local source=" + __localExtrasSourceTag + ")");
 
     // After JSON load, evaluate BRAND auto-disable rule
     if (AUTO_DISABLE_BRAND_IF_VALUE) {
@@ -1261,7 +1261,11 @@ function __Pack_coreRun(opts) {
             if (EXTRA_OUTPUT_COMPS_SOURCE_MODE === 'fs') {
                 var fsMap = loadExtrasMapFromFs();
                 if (fsMap) { extrasMapEffective = fsMap; extrasSourceTag = 'fs'; }
-                else { extrasMapEffective = {}; extrasSourceTag = 'fs_missing'; }
+                else {
+                    extrasMapEffective = {};
+                    extrasSourceTag = 'fs_missing';
+                    log("Config source: fs | extra_outputs.json not found; no extras will be created.");
+                }
             } else {
                 extrasMapEffective = EXTRA_OUTPUT_COMPS || {};
                 extrasSourceTag = __localExtrasSourceTag;

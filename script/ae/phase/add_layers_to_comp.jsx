@@ -1988,7 +1988,7 @@ function __AddLayers_coreRun(opts) {
             if (djCfgAL.TIMING_BEHAVIOR && typeof djCfgAL.TIMING_BEHAVIOR === 'object') TIMING_BEHAVIOR = djCfgAL.TIMING_BEHAVIOR;
             if (djCfgAL.TIMING_ITEM_SELECTOR && typeof djCfgAL.TIMING_ITEM_SELECTOR === 'object') TIMING_ITEM_SELECTOR = djCfgAL.TIMING_ITEM_SELECTOR;
             if (djCfgAL.SKIP_COPY_CONFIG && typeof djCfgAL.SKIP_COPY_CONFIG === 'object') SKIP_COPY_CONFIG = djCfgAL.SKIP_COPY_CONFIG;
-            log("data.json config.addLayers overrides applied.");
+            log("Config source: data.json | config.addLayers overrides applied.");
         }
     } catch(eDjCfgAL) {}
 
