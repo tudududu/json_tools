@@ -340,6 +340,11 @@ function __Pack_coreRun(opts) {
     function flushSummary(createdCount, skippedArr) {
     if (!ENABLE_FILE_LOG || !ENABLE_SUMMARY_LOG || !__summaryLogFile) return;
         var lines = [];
+        if (__conciseLines && __conciseLines.length) {
+            lines.push("Config source:");
+            for (var clI=0; clI<__conciseLines.length; clI++) lines.push(__conciseLines[clI]);
+            lines.push("");
+        }
         lines.push("Summary:");
         lines.push("Created " + createdCount + " composition(s)." + (DRY_RUN_MODE ? " (dry-run: not actually created)" : ""));
         if (__createdNames.length) {
@@ -1411,6 +1416,9 @@ function __Pack_coreRun(opts) {
     // Prepare concise lines for pipeline log (optional gating handled by orchestrator)
     var concise = [];
     try {
+        if (__conciseLines && __conciseLines.length) {
+            for (var ccl=0; ccl<__conciseLines.length; ccl++) concise.push(__conciseLines[ccl]);
+        }
         // Summary block similar to file summary log
         concise.push("Summary:");
         var head = "Created " + created + " composition(s).";
