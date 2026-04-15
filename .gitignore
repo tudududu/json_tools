@@ -24,6 +24,7 @@ env/
 build/
 dist/
 *.egg-info/
+python/build/
 
 # Logs / temp
 *.log
