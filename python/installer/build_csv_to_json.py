@@ -16,6 +16,9 @@ def main() -> int:
     dist_dir = build_root / "dist"
     work_dir = build_root / "work"
     spec_dir = build_root / "spec"
+    tools_dir = python_dir / "tools"
+    media_tool = tools_dir / "media_converter.py"
+    config_tool = tools_dir / "config_converter.py"
 
     for path in (dist_dir, work_dir, spec_dir):
         path.mkdir(parents=True, exist_ok=True)
@@ -35,7 +38,11 @@ def main() -> int:
             f"--workpath={work_dir}",
             f"--specpath={spec_dir}",
             f"--paths={repo_root}",
+            f"--add-data={media_tool}:tools",
+            f"--add-data={config_tool}:tools",
             "--hidden-import=openpyxl",
+            "--hidden-import=python.tools.media_converter",
+            "--hidden-import=python.tools.config_converter",
         ]
     )
 

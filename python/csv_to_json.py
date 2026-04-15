@@ -41,6 +41,22 @@ try:
 except Exception:
     _openpyxl_load_workbook = None
 
+
+def _resolve_tools_path(module_name: str) -> str:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        bundled_path = os.path.join(
+            sys._MEIPASS, "python", "tools", f"{module_name}.py"
+        )
+        if os.path.exists(bundled_path):
+            return bundled_path
+        alt_bundled_path = os.path.join(sys._MEIPASS, "tools", f"{module_name}.py")
+        if os.path.exists(alt_bundled_path):
+            return alt_bundled_path
+        return bundled_path
+    return os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "tools", f"{module_name}.py"
+    )
+
 # Optional media injection support (CSV → JSON media tool)
 try:
     from python.tools.media_converter import (
@@ -53,9 +69,7 @@ except Exception:
     try:
         import importlib.util as _ilu
 
-        _tools_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "tools", "media_converter.py"
-        )
+        _tools_path = _resolve_tools_path("media_converter")
         _spec = _ilu.spec_from_file_location("_media_converter", _tools_path)
         if _spec and _spec.loader:
             _mod = _ilu.module_from_spec(_spec)
@@ -83,9 +97,7 @@ except Exception:
     try:
         import importlib.util as _ilu
 
-        _tools_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "tools", "config_converter.py"
-        )
+        _tools_path = _resolve_tools_path("config_converter")
         _spec = _ilu.spec_from_file_location("_config_converter", _tools_path)
         if _spec and _spec.loader:
             _mod = _ilu.module_from_spec(_spec)
