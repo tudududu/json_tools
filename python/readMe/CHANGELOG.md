@@ -1,3 +1,11 @@
+# 1.10.2 - 2026-04-15
+
+Added:
+- Changed FPS default source logic in csv_to_json.py
+	Input row like meta_global;;;;;fps;Y;ALL;25;;;; becomes the default FPS source.
+	CLI --fps remains supported and explicitly overrides input-data FPS.
+	else fallback 25.0
+
 # 1.10.1 - 2026-04-12
 
 Added:

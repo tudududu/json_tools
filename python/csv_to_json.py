@@ -340,7 +340,7 @@ def _read_table(
 
 def convert_csv_to_json(
     input_csv: str,
-    fps: float = 25.0,
+    fps: Optional[float] = None,
     start_line_index: int = 1,
     round_ndigits: Optional[int] = 2,
     times_as_string: bool = False,
@@ -383,6 +383,11 @@ def convert_csv_to_json(
         return {"subtitles": []}
 
     lower_headers = [h.strip().lower() for h in headers]
+    # Effective FPS precedence:
+    # 1) Explicit function/CLI override (`fps` argument)
+    # 2) `meta_global` key `fps` from unified-schema input data
+    # 3) Fallback default 25.0
+    effective_fps = float(fps) if fps is not None else 25.0
 
     # --------------------------------------------------
     # Unified schema path (record_type present)
@@ -461,12 +466,70 @@ def convert_csv_to_json(
                 f"Unified schema detected. Countries: {countries} (orientation column mapping: {country_orientation_cols})"
             )
 
+        def _parse_positive_fps(raw_value: Any) -> Optional[float]:
+            token = str(raw_value).strip() if raw_value is not None else ""
+            if not token:
+                return None
+            try:
+                parsed = float(token)
+            except (TypeError, ValueError):
+                return None
+            return parsed if parsed > 0 else None
+
+        def _resolve_fps_from_meta_global() -> Optional[float]:
+            if idx_key is None:
+                return None
+            for row in rows:
+                normalized_row = row
+                if len(normalized_row) < len(headers):
+                    normalized_row = normalized_row + [""] * (len(headers) - len(normalized_row))
+                rt_value = (
+                    normalized_row[idx_record_type].strip().lower()
+                    if idx_record_type < len(normalized_row) and normalized_row[idx_record_type]
+                    else ""
+                )
+                if rt_value not in ("meta_global", "meta-global"):
+                    continue
+                key_value = (
+                    normalized_row[idx_key].strip().lower()
+                    if idx_key < len(normalized_row) and normalized_row[idx_key]
+                    else ""
+                )
+                if key_value != "fps":
+                    continue
+
+                # Prefer canonical metadata cell first.
+                if idx_metadata_val is not None and idx_metadata_val < len(normalized_row):
+                    parsed_meta = _parse_positive_fps(normalized_row[idx_metadata_val])
+                    if parsed_meta is not None:
+                        return parsed_meta
+
+                # Then try country text columns (first valid wins).
+                for col_idx in range(country_start_idx, len(headers)):
+                    if col_idx >= len(normalized_row):
+                        continue
+                    parsed_country = _parse_positive_fps(normalized_row[col_idx])
+                    if parsed_country is not None:
+                        return parsed_country
+            return None
+
+        if fps is None:
+            resolved_fps = _resolve_fps_from_meta_global()
+            if resolved_fps is not None:
+                effective_fps = resolved_fps
+                if verbose:
+                    print(f"Using fps from input meta_global: {effective_fps}")
+            elif verbose:
+                print("No valid meta_global fps found; using fallback fps=25.0")
+        elif verbose:
+            print(f"Using explicit fps override: {effective_fps}")
+
         def parse_time_optional(val: str) -> Optional[float]:
             v = (val or "").strip()
             if not v:
                 return None
             try:
-                return parse_timecode(v, fps)
+                return parse_timecode(v, effective_fps)
             except Exception:
                 return None
 
@@ -2537,8 +2600,8 @@ def convert_csv_to_json(
             if skip_empty_text and (text is None or str(text).strip() == ""):
                 continue
             try:
-                tin = parse_timecode(str(d.get(start_name, "")).strip(), fps)
-                tout = parse_timecode(str(d.get(end_name, "")).strip(), fps)
+                tin = parse_timecode(str(d.get(start_name, "")).strip(), effective_fps)
+                tout = parse_timecode(str(d.get(end_name, "")).strip(), effective_fps)
             except Exception as e:
                 raise ValueError(f"Failed to parse timecodes for row {d}: {e}")
             item = {
@@ -2655,10 +2718,10 @@ def convert_csv_to_json(
             # Timecodes
             try:
                 tin = parse_timecode(
-                    str(r[idx_start]).strip() if idx_start is not None else "", fps
+                    str(r[idx_start]).strip() if idx_start is not None else "", effective_fps
                 )
                 tout = parse_timecode(
-                    str(r[idx_end]).strip() if idx_end is not None else "", fps
+                    str(r[idx_end]).strip() if idx_end is not None else "", effective_fps
                 )
             except Exception:
                 # If times are missing in a non-data marker row (e.g., metadata), skip
@@ -2729,8 +2792,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--fps",
         type=float,
-        default=25.0,
-        help="Frames per second for HH:MM:SS:FF timecodes (default: 25)",
+        default=None,
+        help="Frames per second for HH:MM:SS:FF timecodes. Default: use input meta_global fps when present, otherwise 25. Use this flag to override input FPS.",
     )
     p.add_argument(
         "--no-orientation",
@@ -3747,6 +3810,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             country_variant_index=vi,
                             flags_overview_object_always=args.flags_overview_object_always,
                             xlsx_sheet=args.xlsx_sheet,
+                            controller_always_emit=args.controller_always_emit,
                         )
                         # Inject generation metadata for alternate variant payloads as well
                         if not args.no_generation_meta:

@@ -79,6 +79,27 @@ class MetadataGlobalLocalTests(unittest.TestCase):
             "DEU per-video override should apply",
         )
 
+    def test_unified_uses_meta_global_fps_when_not_overridden(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;\n"
+            "meta_global;;;;;fps;Y;ALL;30;\n"
+            "meta_local;VID_FPS;;;;title;N;ALL;Title FPS;\n"
+            "sub;VID_FPS;1;00:00:01:15;00:00:02:00;;;;;hello\n"
+        )
+        path = write_tmp_csv(csv_content)
+        try:
+            out = mod.convert_csv_to_json(path)
+        finally:
+            os.remove(path)
+
+        node = out.get("byCountry", {}).get("GBL", out)
+        videos = node.get("videos", [])
+        self.assertTrue(videos, "Expected videos in unified output")
+        landscape_video = next(v for v in videos if v["videoId"].endswith("_landscape"))
+        subtitle_in = landscape_video["subtitles"][0]["in"]
+        self.assertAlmostEqual(subtitle_in, 1.5, places=2)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

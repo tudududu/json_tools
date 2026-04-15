@@ -355,3 +355,37 @@ def test_dry_run_reports_variants(tmp_path):
     # Should list Discovered countries and include BEL
     assert "Discovered countries" in proc.stdout
     assert "BEL" in proc.stdout
+
+
+def test_cli_fps_overrides_meta_global_fps(tmp_path):
+    csv = tmp_path / "fps_override.csv"
+    write(
+        csv,
+        "\n".join(
+            [
+                "record_type,video_id,line,start,end,key,is_global,country_scope,metadata,GBL",
+                "meta_global,,,,,briefVersion,Y,ALL,53,",
+                "meta_global,,,,,fps,Y,ALL,50,",
+                "meta_local,VID_FPS,,,,title,N,ALL,Title FPS,",
+                "sub,VID_FPS,1,00:00:01:25,00:00:02:00,,,,,hello",
+            ]
+        ),
+    )
+
+    out_default = tmp_path / "out_default.json"
+    out_override = tmp_path / "out_override.json"
+
+    run_cli([str(csv), str(out_default)])
+    run_cli([str(csv), str(out_override), "--fps", "25"])
+
+    data_default = json.loads(out_default.read_text(encoding="utf-8"))
+    data_override = json.loads(out_override.read_text(encoding="utf-8"))
+
+    v_default = next(v for v in data_default["videos"] if v["videoId"].endswith("_landscape"))
+    v_override = next(v for v in data_override["videos"] if v["videoId"].endswith("_landscape"))
+
+    # 00:00:01:25 => 1 + 25/fps
+    # from input fps=50 => 1.5
+    # override --fps 25 => 2.0
+    assert v_default["subtitles"][0]["in"] == 1.5
+    assert v_override["subtitles"][0]["in"] == 2.0

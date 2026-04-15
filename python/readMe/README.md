@@ -9,7 +9,7 @@ This Python CLI converts several related CSV formats into structured JSON suitab
 3. Unified scalable schema for multiple countries and multiple videos per country.
 
 ## Timecode Formats Supported
-* `HH:MM:SS:FF` (frames; requires `--fps`)
+* `HH:MM:SS:FF` (frames; uses `meta_global fps` by default, or `--fps` override)
 * `HH:MM:SS[.ms]`
 * `MM:SS[.ms]`
 * `SS[.ms]`
@@ -425,7 +425,7 @@ Current state
 
 General:
 * Positional input supports `.csv` and `.xlsx`/`.xlsm` files
-* `--fps <float>` Frames per second for `HH:MM:SS:FF` parsing (default 25)
+* `--fps <float>` Frames per second override for `HH:MM:SS:FF` parsing (default source is `meta_global fps`, fallback `25`)
 * `--start-line <int>` Starting line index for auto numbering (default 1)
 * `--round <int>` Round seconds to N decimals (default 2; `-1` disables rounding)
 * `--times-as-string` Emit times as strings (retain trailing zeros)
