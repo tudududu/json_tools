@@ -17,6 +17,7 @@ For the GitHub Pages site, see `docs/index.md`.
   - Multi-Language Countries: See the Changelog section “Integration 165 – Multi-Language Countries (MLC) Foundation” in `script/ae/readMe/README.md` for options and behavior across Steps 1, 2, 6, and 7.
 - CSV → JSON Converter (Python)
   - Guide: `python/README.md` (schema, CLI flags, validation rules, examples)
+  - Packaging (standalone binary): `python/installer/README.md` (PyInstaller build and validation workflow)
 - Expressions library for AE
   - Folder: `expression_ae/` (small expression snippets used in comps)
 - Samples and inputs
@@ -48,6 +49,7 @@ Details, flags, and edge cases are covered in the linked guides above.
 README.md                      # This index
 script/ae/readMe/README.md     # AE pipeline guide
 python/README.md               # Python converter guide (moved from root)
+python/installer/README.md     # Standalone binary packaging workflow
 expression_ae/                 # AE expressions
 in/                            # Input CSVs and variants
 samples/                       # Sample CSV/JSON data
