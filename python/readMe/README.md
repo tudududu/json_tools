@@ -8,6 +8,8 @@ This Python CLI converts several related CSV formats into structured JSON suitab
 2. Sectioned CSV (subtitles / claim / disclaimer / metadata blocks)
 3. Unified scalable schema for multiple countries and multiple videos per country.
 
+For standalone executable packaging and rebuild steps, see `../installer/README.md`.
+
 ## Timecode Formats Supported
 * `HH:MM:SS:FF` (frames; uses `meta_global fps` by default, or `--fps` override)
 * `HH:MM:SS[.ms]`

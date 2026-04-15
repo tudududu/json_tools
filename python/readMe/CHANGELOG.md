@@ -1,3 +1,10 @@
+# 1.10.3 - 2026-04-15
+
+Added:
+- Standalone PyInstaller packaging workflow for `csv_to_json.py` via `python/installer/build_csv_to_json.py`.
+- One-file build output under `python/build/csv_to_json/` with required bundled integrations for `--layer-config` and `--media-config`.
+- Packaging documentation in `python/installer/README.md` and regression coverage for installer build arguments in `python/tests/test_installer_build.py`.
+
 # 1.10.2 - 2026-04-15
 
 Added:
