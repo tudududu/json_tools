@@ -43,13 +43,14 @@ except Exception:
 
 
 def _resolve_tools_path(module_name: str) -> str:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    meipass = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and isinstance(meipass, str):
         bundled_path = os.path.join(
-            sys._MEIPASS, "python", "tools", f"{module_name}.py"
+            meipass, "python", "tools", f"{module_name}.py"
         )
         if os.path.exists(bundled_path):
             return bundled_path
-        alt_bundled_path = os.path.join(sys._MEIPASS, "tools", f"{module_name}.py")
+        alt_bundled_path = os.path.join(meipass, "tools", f"{module_name}.py")
         if os.path.exists(alt_bundled_path):
             return alt_bundled_path
         return bundled_path
