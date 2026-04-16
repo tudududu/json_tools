@@ -460,7 +460,7 @@
     grpAMECustom.orientation = "row";
     grpAMECustom.alignChildren = ["left", "center"];
     grpAMECustom.add("statictext", undefined, "Custom path:");
-    var fldAMECustomPath = grpAMECustom.add("edittext", undefined, "OUT/PREVIEWS");
+    var fldAMECustomPath = grpAMECustom.add("edittext", undefined, "OUT/custom");
     fldAMECustomPath.characters = 20;
     fldAMECustomPath.enabled = false;
 
@@ -493,8 +493,23 @@
         cbAMEArSubfolder.enabled = isDurationFirst;
     }
 
+    function normalizeExportSubpath(pathValue, fallback) {
+        var fb = String(fallback || "OUT/custom");
+        if (pathValue instanceof Array) {
+            var segs = [];
+            for (var i = 0; i < pathValue.length; i++) {
+                var seg = String(pathValue[i] || "").replace(/^\s+|\s+$/g, "");
+                if (seg.length) segs.push(seg);
+            }
+            return segs.length ? segs.join("/") : fb;
+        }
+        var s = String(pathValue || "").replace(/^\s+|\s+$/g, "");
+        if (!s.length) return fb;
+        return s.replace(/[\\]+/g, "/");
+    }
+
     function setAMEExportSubpath(pathValue) {
-        var exportPath = String(pathValue || "OUT/PREVIEWS");
+        var exportPath = normalizeExportSubpath(pathValue, "OUT/custom");
         var upperPath = exportPath.toUpperCase();
         rbAMEMasters.value = false;
         rbAMEDeliveries.value = false;
@@ -519,7 +534,7 @@
         if (rbAMEDeliveries.value) return "OUT/DELIVERIES";
         if (rbAMEPreviews.value) return "OUT/PREVIEWS";
         var custom = String(fldAMECustomPath.text || "").replace(/^\s+|\s+$/g, "");
-        return custom.length ? custom : "OUT/PREVIEWS";
+        return custom.length ? custom : "OUT/custom";
     }
 
     rbAMEMasters.onClick = updateAMECustomEnabled;
@@ -652,7 +667,7 @@
         fldTokenOrder.text = tokenArrayToText(tokenArr instanceof Array ? tokenArr : ["A", "B", "C", "D"]);
         ddSelect(ddModulePosition, optS(p, ["pack", "MODULAR_NAMING", "MODULE_POSITION"], "BEFORE_DURATION"));
         // S10 AME
-        setAMEExportSubpath(optS(p, ["ame", "EXPORT_SUBPATH"], "OUT/PREVIEWS"));
+        setAMEExportSubpath(getOpt(p, ["ame", "EXPORT_SUBPATH"], "OUT/custom"));
         cbAMEIsoSuffix.value         = optB(p, ["ame", "ENABLE_DATE_FOLDER_ISO_SUFFIX"],     true);
         cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],            false);
         rbAMESortMimic.value         = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"],    true);
