@@ -525,7 +525,6 @@
             rbAMECustom.value = true;
             fldAMECustomPath.text = exportPath;
         }
-        if (!rbAMECustom.value) fldAMECustomPath.text = exportPath;
         updateAMECustomEnabled();
     }
 
