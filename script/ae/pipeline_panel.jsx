@@ -579,12 +579,33 @@
 
     var rowConvOpts = mkRow(secConverter);
     rowConvOpts.add("statictext", undefined, "FPS:");
+    var cbConvUseFPS = rowConvOpts.add("checkbox", undefined, "");
+    cbConvUseFPS.value = false;
     var fldConvFPS = rowConvOpts.add("edittext", undefined, "");
     fldConvFPS.preferredSize.width = 36;
-    rowConvOpts.add("statictext", undefined, "Delim:");
-    var ddConvDelim = rowConvOpts.add("dropdownlist", undefined, ["auto", "comma", "semicolon", "tab", "pipe"]);
-    ddConvDelim.selection = 0;
-    ddConvDelim.preferredSize.width = 95;
+    fldConvFPS.enabled = false;
+
+    var rowConvCountryMode = mkRow(secConverter);
+    var rbConvSplitByCountry = rowConvCountryMode.add("radiobutton", undefined, "--split-by-country");
+    var rbConvCountryColumn = rowConvCountryMode.add("radiobutton", undefined, "--country-column");
+    rbConvSplitByCountry.value = true;
+    rbConvCountryColumn.value = false;
+
+    var rowConvCountryCol = mkRow(secConverter);
+    rowConvCountryCol.add("statictext", undefined, "Country column:");
+    var fldConvCountryColumn = rowConvCountryCol.add("edittext", undefined, "01");
+    fldConvCountryColumn.preferredSize.width = 28;
+    fldConvCountryColumn.enabled = false;
+
+    function updateConvModeControls() {
+        fldConvFPS.enabled = cbConvUseFPS.value === true;
+        fldConvCountryColumn.enabled = rbConvCountryColumn.value === true;
+    }
+
+    cbConvUseFPS.onClick = updateConvModeControls;
+    rbConvSplitByCountry.onClick = updateConvModeControls;
+    rbConvCountryColumn.onClick = updateConvModeControls;
+    updateConvModeControls();
 
     var converterBinFile = CONVERTER_PATH ? new File(CONVERTER_PATH) : null;
     var converterAvail   = !!(converterBinFile && converterBinFile.exists);
@@ -604,9 +625,24 @@
         // Paths quoted for shell; system.callSystem is synchronous — AE UI blocks until converter exits
         var cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outPath + '"';
         var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
-        if (fps) cmd += " --fps " + fps;
-        var delim = ddValue(ddConvDelim);
-        if (delim && delim !== "auto") cmd += " --delimiter " + delim;
+        if (cbConvUseFPS.value === true) {
+            if (!fps.length) {
+                convStatus.text = "FPS is enabled but empty.";
+                return;
+            }
+            cmd += " --fps " + fps;
+        }
+
+        if (rbConvCountryColumn.value === true) {
+            var cc = (fldConvCountryColumn.text || "").replace(/^\s+|\s+$/g, "");
+            if (!/^\d{2}$/.test(cc)) {
+                convStatus.text = "Country column must be exactly 2 digits.";
+                return;
+            }
+            cmd += " --country-column " + cc;
+        } else {
+            cmd += " --split-by-country";
+        }
         convStatus.text = "Running...";
         var code = system.callSystem(cmd);
         convStatus.text = (code === 0) ? "OK" : ("Exited with code " + code);
