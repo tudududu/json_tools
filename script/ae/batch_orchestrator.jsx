@@ -123,6 +123,14 @@
     var presetRef = loadPreset(); if (!presetRef) return;
     var presetObj = readJson(presetRef.file); if (!presetObj) { alert("Batch: Failed to parse preset: " + presetRef.file.fsName); return; }
 
+    // Panel overrides (pipeline_panel.jsx sets AE_PIPE.__panelOpts before invoking batch).
+    // Merging here affects both batchCfg (RUNS_MAX, DRY_RUN, etc.) and each per-run runOpts.
+    // Mandatory per-ISO overrides (ISO code, RUN_open_project=false) are applied afterwards and always win.
+    if (typeof AE_PIPE !== 'undefined' && AE_PIPE.__panelOpts && typeof AE_PIPE.__panelOpts === 'object') {
+        deepMerge(presetObj, AE_PIPE.__panelOpts);
+        log("Batch: Panel overrides applied (AE_PIPE.__panelOpts).");
+    }
+
     // Open project if needed (Step 0 semantics)
     var openRes = ensureProjectOpen(presetObj, presetRef.dev);
     if (!openRes.ok) { alert("Batch: Cannot open or resolve project (Step 0): " + (openRes.reason||"")); return; }
@@ -246,7 +254,7 @@
         } else {
             // Prepare per-run options: base preset + overrides
             var runOpts = {}; // deep copy by merge into empty
-            deepMerge(runOpts, presetObj);
+            deepMerge(runOpts, presetObj); // presetObj already contains panel overrides if launched from pipeline_panel.jsx
             // Force per-run toggles (keep pipeline independent of batch):
             runOpts.RUN_open_project = false; // we opened once already
             runOpts.RUN_close_project = false; // close at end optionally
