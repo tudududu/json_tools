@@ -443,18 +443,102 @@
     var fldTokenOrder        = mkLabeledField(grpModNaming, "TOKEN_ORDER:", "A, B, C, D", 120);
     var ddModulePosition     = mkLabeledDropdown(grpModNaming, "MODULE_POSITION:", ["BEFORE_DURATION", "AFTER_DURATION"]);
 
-    // ── S10: STEP 7 — AME OUTPUT PATHS ──────────────────────────────────────
+    // ── S10: STEP 7 — AME QUEUE ─────────────────────────────────────────────
 
-    var secAMEWrap = mkCollapsibleSection(root, "S10", "Step 7: AME Output Paths");
+    var secAMEWrap = mkCollapsibleSection(root, "S10", "Step 7: AME Queue");
     var secAME = secAMEWrap.body;
-    var cbAMEAutoQueue           = secAME.add("checkbox", undefined, "AUTO_QUEUE_IN_AME");
-    var cbAMEProcessSelection    = secAME.add("checkbox", undefined, "PROCESS_SELECTION");
-    var cbAMEProcessExistingRQ   = secAME.add("checkbox", undefined, "PROCESS_EXISTING_RQ");
-    var cbAMEApplyTemplates      = secAME.add("checkbox", undefined, "APPLY_TEMPLATES");
-    var cbAMEMimicFolderStruct   = secAME.add("checkbox", undefined, "MIMIC_PROJECT_FOLDER_STRUCTURE");
-    var cbAMEDurationSubfolder   = secAME.add("checkbox", undefined, "ENABLE_DURATION_SUBFOLDER");
-    var cbAMEDurationFirst       = secAME.add("checkbox", undefined, "DURATION_FIRST_ORDER");
-    var cbAMELangSubfolder       = secAME.add("checkbox", undefined, "USE_LANGUAGE_SUBFOLDER");
+
+    var grpAMETarget = secAME.add("panel", undefined, "Export target (under POST)");
+    grpAMETarget.orientation = "column";
+    grpAMETarget.alignChildren = ["left", "top"];
+
+    var rbAMEMasters = grpAMETarget.add("radiobutton", undefined, "MASTERS");
+    var rbAMEDeliveries = grpAMETarget.add("radiobutton", undefined, "DELIVERIES");
+    var rbAMEPreviews = grpAMETarget.add("radiobutton", undefined, "PREVIEWS");
+    var grpAMECustom = grpAMETarget.add("group");
+    grpAMECustom.orientation = "row";
+    grpAMECustom.alignChildren = ["left", "center"];
+    var rbAMECustom = grpAMECustom.add("radiobutton", undefined, "Custom:");
+    var fldAMECustomPath = grpAMECustom.add("edittext", undefined, "OUT/PREVIEWS");
+    fldAMECustomPath.characters = 20;
+    fldAMECustomPath.enabled = false;
+
+    var grpAMESort = secAME.add("panel", undefined, "Sorting mode");
+    grpAMESort.orientation = "column";
+    grpAMESort.alignChildren = ["left", "top"];
+    var grpAMESortRadio = grpAMESort.add("group");
+    grpAMESortRadio.orientation = "row";
+    grpAMESortRadio.alignChildren = ["left", "top"];
+    var rbAMESortMimic = grpAMESortRadio.add("radiobutton", undefined, "Structure");
+    var rbAMESortArFirst = grpAMESortRadio.add("radiobutton", undefined, "Sort AR");
+    var rbAMESortDurationFirst = grpAMESortRadio.add("radiobutton", undefined, "Sort Dur");
+    var cbAMEDurationSubfolder = grpAMESort.add("checkbox", undefined, "Duration Subfolder (AR-First)");
+    var cbAMEArSubfolder = grpAMESort.add("checkbox", undefined, "AR Subfolder (Duration-First)");
+
+    var grpAMEOptions = secAME.add("panel", undefined, "Options");
+    grpAMEOptions.orientation = "column";
+    grpAMEOptions.alignChildren = ["left", "top"];
+    var cbAMEAutoQueue = grpAMEOptions.add("checkbox", undefined, "Auto Queue in AME");
+    var cbAMEProcessSelection = grpAMEOptions.add("checkbox", undefined, "Process Selection");
+    var cbAMEProcessExistingRQ = grpAMEOptions.add("checkbox", undefined, "Process Existing RQ");
+    var cbAMEApplyTemplates = grpAMEOptions.add("checkbox", undefined, "Apply Templates");
+    var cbAMEAutoDeleteRQ = grpAMEOptions.add("checkbox", undefined, "Auto Delete RQ");
+    var cbAMEIsoSuffix = grpAMEOptions.add("checkbox", undefined, "Date Folder ISO Suffix");
+    var cbAMELangSubfolder = grpAMEOptions.add("checkbox", undefined, "Language Subfolder");
+
+    function updateAMECustomEnabled() {
+        fldAMECustomPath.enabled = rbAMECustom.value === true;
+    }
+
+    function updateAMESortControls() {
+        var isArFirst = rbAMESortArFirst.value === true;
+        var isDurationFirst = rbAMESortDurationFirst.value === true;
+        cbAMEDurationSubfolder.enabled = isArFirst;
+        cbAMEArSubfolder.enabled = isDurationFirst;
+    }
+
+    function setAMEExportSubpath(pathValue) {
+        var exportPath = String(pathValue || "OUT/PREVIEWS");
+        var upperPath = exportPath.toUpperCase();
+        rbAMEMasters.value = false;
+        rbAMEDeliveries.value = false;
+        rbAMEPreviews.value = false;
+        rbAMECustom.value = false;
+        if (upperPath === "OUT/MASTERS") {
+            rbAMEMasters.value = true;
+        } else if (upperPath === "OUT/DELIVERIES") {
+            rbAMEDeliveries.value = true;
+        } else if (upperPath === "OUT/PREVIEWS") {
+            rbAMEPreviews.value = true;
+        } else {
+            rbAMECustom.value = true;
+            fldAMECustomPath.text = exportPath;
+        }
+        if (!rbAMECustom.value) fldAMECustomPath.text = exportPath;
+        updateAMECustomEnabled();
+    }
+
+    function getAMEExportSubpath() {
+        if (rbAMEMasters.value) return "OUT/MASTERS";
+        if (rbAMEDeliveries.value) return "OUT/DELIVERIES";
+        if (rbAMEPreviews.value) return "OUT/PREVIEWS";
+        var custom = String(fldAMECustomPath.text || "").replace(/^\s+|\s+$/g, "");
+        return custom.length ? custom : "OUT/PREVIEWS";
+    }
+
+    rbAMEMasters.onClick = updateAMECustomEnabled;
+    rbAMEDeliveries.onClick = updateAMECustomEnabled;
+    rbAMEPreviews.onClick = updateAMECustomEnabled;
+    rbAMECustom.onClick = updateAMECustomEnabled;
+    rbAMESortMimic.onClick = updateAMESortControls;
+    rbAMESortArFirst.onClick = updateAMESortControls;
+    rbAMESortDurationFirst.onClick = updateAMESortControls;
+    rbAMEPreviews.value = true;
+    rbAMESortMimic.value = true;
+    cbAMEDurationSubfolder.value = true;
+    cbAMEArSubfolder.value = true;
+    updateAMECustomEnabled();
+    updateAMESortControls();
 
     // ── S11: CONVERTER ───────────────────────────────────────────────────────
 
@@ -572,14 +656,21 @@
         fldTokenOrder.text = tokenArrayToText(tokenArr instanceof Array ? tokenArr : ["A", "B", "C", "D"]);
         ddSelect(ddModulePosition, optS(p, ["pack", "MODULAR_NAMING", "MODULE_POSITION"], "BEFORE_DURATION"));
         // S10 AME
-        cbAMEAutoQueue.value         = optB(p, ["ame", "AUTO_QUEUE_IN_AME"],              true);
-        cbAMEProcessSelection.value  = optB(p, ["ame", "PROCESS_SELECTION"],              true);
-        cbAMEProcessExistingRQ.value = optB(p, ["ame", "PROCESS_EXISTING_RQ"],            true);
-        cbAMEApplyTemplates.value    = optB(p, ["ame", "APPLY_TEMPLATES"],                true);
-        cbAMEMimicFolderStruct.value = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"], true);
-        cbAMEDurationSubfolder.value = optB(p, ["ame", "ENABLE_DURATION_SUBFOLDER"],      true);
-        cbAMEDurationFirst.value     = optB(p, ["ame", "DURATION_FIRST_ORDER"],           false);
-        cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],         false);
+        setAMEExportSubpath(optS(p, ["ame", "EXPORT_SUBPATH"], "OUT/PREVIEWS"));
+        cbAMEAutoQueue.value         = optB(p, ["ame", "AUTO_QUEUE_IN_AME"],                  true);
+        cbAMEProcessSelection.value  = optB(p, ["ame", "PROCESS_SELECTION"],                  true);
+        cbAMEProcessExistingRQ.value = optB(p, ["ame", "PROCESS_EXISTING_RQ"],                true);
+        cbAMEApplyTemplates.value    = optB(p, ["ame", "APPLY_TEMPLATES"],                    true);
+        cbAMEAutoDeleteRQ.value      = optB(p, ["ame", "AUTO_DELETE_RQ_AFTER_AME_QUEUE"],    true);
+        cbAMEIsoSuffix.value         = optB(p, ["ame", "ENABLE_DATE_FOLDER_ISO_SUFFIX"],     true);
+        cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],            false);
+        rbAMESortMimic.value         = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"],    true);
+        rbAMESortDurationFirst.value = optB(p, ["ame", "DURATION_FIRST_ORDER"],              false);
+        rbAMESortArFirst.value       = !rbAMESortMimic.value && !rbAMESortDurationFirst.value;
+        cbAMEDurationSubfolder.value = optB(p, ["ame", "ENABLE_DURATION_SUBFOLDER"],         true);
+        cbAMEArSubfolder.value       = optB(p, ["ame", "ENABLE_AR_SUBFOLDER"],               true);
+        updateAMECustomEnabled();
+        updateAMESortControls();
     }
 
     // ── 8. BUILD USER OPTIONS ────────────────────────────────────────────────
@@ -645,14 +736,18 @@
         };
         // S10
         uo.ame = {
-            AUTO_QUEUE_IN_AME:             cbAMEAutoQueue.value,
-            PROCESS_SELECTION:             cbAMEProcessSelection.value,
-            PROCESS_EXISTING_RQ:           cbAMEProcessExistingRQ.value,
-            APPLY_TEMPLATES:               cbAMEApplyTemplates.value,
-            MIMIC_PROJECT_FOLDER_STRUCTURE: cbAMEMimicFolderStruct.value,
-            ENABLE_DURATION_SUBFOLDER:     cbAMEDurationSubfolder.value,
-            DURATION_FIRST_ORDER:          cbAMEDurationFirst.value,
-            USE_LANGUAGE_SUBFOLDER:        cbAMELangSubfolder.value
+            AUTO_QUEUE_IN_AME:                cbAMEAutoQueue.value,
+            PROCESS_SELECTION:                cbAMEProcessSelection.value,
+            PROCESS_EXISTING_RQ:              cbAMEProcessExistingRQ.value,
+            APPLY_TEMPLATES:                  cbAMEApplyTemplates.value,
+            AUTO_DELETE_RQ_AFTER_AME_QUEUE:  cbAMEAutoDeleteRQ.value,
+            ENABLE_DATE_FOLDER_ISO_SUFFIX:   cbAMEIsoSuffix.value,
+            EXPORT_SUBPATH:                   getAMEExportSubpath(),
+            MIMIC_PROJECT_FOLDER_STRUCTURE:   rbAMESortMimic.value,
+            ENABLE_DURATION_SUBFOLDER:       cbAMEDurationSubfolder.value,
+            DURATION_FIRST_ORDER:            rbAMESortDurationFirst.value,
+            ENABLE_AR_SUBFOLDER:             cbAMEArSubfolder.value,
+            USE_LANGUAGE_SUBFOLDER:          cbAMELangSubfolder.value
         };
         return uo;
     }
