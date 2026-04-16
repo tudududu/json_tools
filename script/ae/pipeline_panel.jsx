@@ -238,12 +238,25 @@
     }
 
     function mkCollapsibleSection(parent, key, title) {
-        var sec = mkSection(parent, title);
+        var sec = mkSection(parent, "");
         var hdr = mkRow(sec);
-        var toggleBtn = hdr.add("button", undefined, "-");
-        toggleBtn.preferredSize.width = 26;
-        var hint = hdr.add("statictext", undefined, "collapse");
-        hint.alignment = ["fill", "center"];
+        hdr.alignment = ["fill", "top"];
+        var headerOpenText = "\u25BC " + title;
+        var headerClosedText = "\u25B6 " + title;
+        var headerLabel = hdr.add("statictext", undefined, headerOpenText);
+        headerLabel.alignment = ["left", "top"];
+
+        var headerMinWidth = 0;
+        try {
+            var w1 = headerLabel.graphics.measureString(headerOpenText)[0];
+            var w2 = headerLabel.graphics.measureString(headerClosedText)[0];
+            headerMinWidth = Math.max(w1, w2) + 16;
+        } catch(e) {
+            headerMinWidth = 160;
+        }
+        headerLabel.minimumSize.width = headerMinWidth;
+        headerLabel.preferredSize.width = headerMinWidth;
+        sec.minimumSize.width = headerMinWidth + 12;
 
         var body = sec.add("group");
         body.orientation = "column";
@@ -256,11 +269,15 @@
                 body.maximumSize = [10000, 0];
                 body.preferredSize = [-1, 0];
                 body.visible = false;
+                sec.maximumSize.height = 40;
+                sec.minimumSize.height = 40;
             } else {
                 body.visible = true;
                 body.minimumSize = [0, 0];
                 body.maximumSize = [10000, 10000];
                 body.preferredSize = [-1, -1];
+                sec.maximumSize.height = 10000;
+                sec.minimumSize.height = 0;
             }
         }
 
@@ -268,15 +285,16 @@
             var isOpen = (expanded === true);
             sectionState[key] = isOpen;
             setBodyCollapsedSizing(!isOpen);
-            toggleBtn.text = isOpen ? "-" : "+";
-            hint.text = isOpen ? "collapse" : "expand";
+            headerLabel.text = isOpen ? headerOpenText : headerClosedText;
         }
 
-        toggleBtn.onClick = function() {
+        function onToggle() {
             setExpanded(!(sectionState[key] === true));
             saveSectionState();
             relayoutRoot();
-        };
+        }
+
+        headerLabel.addEventListener('click', onToggle);
 
         setExpanded(sectionState[key] === true);
         sectionRefs[key] = { setExpanded: setExpanded, body: body };
