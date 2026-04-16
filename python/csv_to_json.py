@@ -45,9 +45,7 @@ except Exception:
 def _resolve_tools_path(module_name: str) -> str:
     meipass = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and isinstance(meipass, str):
-        bundled_path = os.path.join(
-            meipass, "python", "tools", f"{module_name}.py"
-        )
+        bundled_path = os.path.join(meipass, "python", "tools", f"{module_name}.py")
         if os.path.exists(bundled_path):
             return bundled_path
         alt_bundled_path = os.path.join(meipass, "tools", f"{module_name}.py")
@@ -57,6 +55,7 @@ def _resolve_tools_path(module_name: str) -> str:
     return os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "tools", f"{module_name}.py"
     )
+
 
 # Optional media injection support (CSV → JSON media tool)
 try:
@@ -495,10 +494,13 @@ def convert_csv_to_json(
             for row in rows:
                 normalized_row = row
                 if len(normalized_row) < len(headers):
-                    normalized_row = normalized_row + [""] * (len(headers) - len(normalized_row))
+                    normalized_row = normalized_row + [""] * (
+                        len(headers) - len(normalized_row)
+                    )
                 rt_value = (
                     normalized_row[idx_record_type].strip().lower()
-                    if idx_record_type < len(normalized_row) and normalized_row[idx_record_type]
+                    if idx_record_type < len(normalized_row)
+                    and normalized_row[idx_record_type]
                     else ""
                 )
                 if rt_value not in ("meta_global", "meta-global"):
@@ -512,7 +514,9 @@ def convert_csv_to_json(
                     continue
 
                 # Prefer canonical metadata cell first.
-                if idx_metadata_val is not None and idx_metadata_val < len(normalized_row):
+                if idx_metadata_val is not None and idx_metadata_val < len(
+                    normalized_row
+                ):
                     parsed_meta = _parse_positive_fps(normalized_row[idx_metadata_val])
                     if parsed_meta is not None:
                         return parsed_meta
@@ -1166,21 +1170,30 @@ def convert_csv_to_json(
                         }
                         video_order.append(video_id)
                     per_video_controller_rows_raw.setdefault(controller_key, {})
-                    per_video_controller_rows_raw[controller_key].setdefault(video_id, [])
-                    auto_controller_line_per_video_per_key.setdefault(controller_key, {})
-                    if video_id not in auto_controller_line_per_video_per_key[controller_key]:
-                        auto_controller_line_per_video_per_key[controller_key][video_id] = (
-                            start_line_index
-                        )
-                    if line_num is None:
-                        line_num = auto_controller_line_per_video_per_key[controller_key][
+                    per_video_controller_rows_raw[controller_key].setdefault(
+                        video_id, []
+                    )
+                    auto_controller_line_per_video_per_key.setdefault(
+                        controller_key, {}
+                    )
+                    if (
+                        video_id
+                        not in auto_controller_line_per_video_per_key[controller_key]
+                    ):
+                        auto_controller_line_per_video_per_key[controller_key][
                             video_id
-                        ]
-                        auto_controller_line_per_video_per_key[controller_key][video_id] += 1
+                        ] = start_line_index
+                    if line_num is None:
+                        line_num = auto_controller_line_per_video_per_key[
+                            controller_key
+                        ][video_id]
+                        auto_controller_line_per_video_per_key[controller_key][
+                            video_id
+                        ] += 1
                     else:
-                        auto_controller_line_per_video_per_key[controller_key][video_id] = (
-                            line_num + 1
-                        )
+                        auto_controller_line_per_video_per_key[controller_key][
+                            video_id
+                        ] = line_num + 1
                     per_video_controller_rows_raw[controller_key][video_id].append(
                         {
                             "line": line_num,
@@ -2393,12 +2406,16 @@ def convert_csv_to_json(
                             ).rstrip()
                             if alt_land_local:
                                 txt_local = alt_land_local
-                        txt_global_timing = global_controller_map.get(timing_key(grow), "")
+                        txt_global_timing = global_controller_map.get(
+                            timing_key(grow), ""
+                        )
                         txt_global_index = (
                             controller_texts_global[idx]
                             if idx < len(controller_texts_global)
                             else (
-                                controller_texts_global[0] if controller_texts_global else ""
+                                controller_texts_global[0]
+                                if controller_texts_global
+                                else ""
                             )
                         )
                         text_value = (
@@ -2731,10 +2748,12 @@ def convert_csv_to_json(
             # Timecodes
             try:
                 tin = parse_timecode(
-                    str(r[idx_start]).strip() if idx_start is not None else "", effective_fps
+                    str(r[idx_start]).strip() if idx_start is not None else "",
+                    effective_fps,
                 )
                 tout = parse_timecode(
-                    str(r[idx_end]).strip() if idx_end is not None else "", effective_fps
+                    str(r[idx_end]).strip() if idx_end is not None else "",
+                    effective_fps,
                 )
             except Exception:
                 # If times are missing in a non-data marker row (e.g., metadata), skip

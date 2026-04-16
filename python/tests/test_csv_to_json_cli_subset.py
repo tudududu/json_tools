@@ -381,8 +381,12 @@ def test_cli_fps_overrides_meta_global_fps(tmp_path):
     data_default = json.loads(out_default.read_text(encoding="utf-8"))
     data_override = json.loads(out_override.read_text(encoding="utf-8"))
 
-    v_default = next(v for v in data_default["videos"] if v["videoId"].endswith("_landscape"))
-    v_override = next(v for v in data_override["videos"] if v["videoId"].endswith("_landscape"))
+    v_default = next(
+        v for v in data_default["videos"] if v["videoId"].endswith("_landscape")
+    )
+    v_override = next(
+        v for v in data_override["videos"] if v["videoId"].endswith("_landscape")
+    )
 
     # 00:00:01:25 => 1 + 25/fps
     # from input fps=50 => 1.5

@@ -53,8 +53,12 @@ class ControllerTimedKeysTests(unittest.TestCase):
         self.assertEqual(v_land["metadata"].get("controller_01_flag"), "L01")
         self.assertEqual(v_land["metadata"].get("controller_02_flag"), "G02")
 
-        self.assertEqual([x["text"] for x in v_land["controller_01"]], ["V1_L1", "G1_L2"])
-        self.assertEqual([x["text"] for x in v_port["controller_01"]], ["V1_L1", "V1_P2"])
+        self.assertEqual(
+            [x["text"] for x in v_land["controller_01"]], ["V1_L1", "G1_L2"]
+        )
+        self.assertEqual(
+            [x["text"] for x in v_port["controller_01"]], ["V1_L1", "V1_P2"]
+        )
 
         # No local controller_02 text -> falls back to global by timing/index
         self.assertEqual(v_land["controller_02"][0]["text"], "G2_L1")
