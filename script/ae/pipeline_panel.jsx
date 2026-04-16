@@ -567,13 +567,13 @@
     };
 
     var rowConvOut = mkRow(secConverter);
-    rowConvOut.add("statictext", undefined, "Output:");
+    rowConvOut.add("statictext", undefined, "Output folder:");
     var fldConvOutput = rowConvOut.add("edittext", undefined, "");
     fldConvOutput.preferredSize.width = 175;
     var btnConvOut = rowConvOut.add("button", undefined, "...");
     btnConvOut.preferredSize.width = 24;
     btnConvOut.onClick = function() {
-        var f = File.saveDialog("Select output JSON file", "JSON:*.json");
+        var f = Folder.selectDialog("Select output folder");
         if (f) fldConvOutput.text = f.fsName !== undefined ? f.fsName : String(f);
     };
 
@@ -594,7 +594,7 @@
     var rowConvCountryCol = mkRow(secConverter);
     rowConvCountryCol.add("statictext", undefined, "Country column:");
     var fldConvCountryColumn = rowConvCountryCol.add("edittext", undefined, "01");
-    fldConvCountryColumn.preferredSize.width = 28;
+    fldConvCountryColumn.preferredSize.width = 36;
     fldConvCountryColumn.enabled = false;
 
     function updateConvModeControls() {
@@ -622,8 +622,14 @@
             convStatus.text = "Input and output paths are required.";
             return;
         }
+        // Output is fixed to the pattern data_{country}.json inside the selected output folder.
+        var outputFilePath = outPath;
+        var outTail = outPath.charAt(outPath.length - 1);
+        if (outTail !== "/" && outTail !== "\\") outputFilePath += "/";
+        outputFilePath += "data_{country}.json";
+
         // Paths quoted for shell; system.callSystem is synchronous — AE UI blocks until converter exits
-        var cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outPath + '"';
+        var cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outputFilePath + '"';
         var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
         if (cbConvUseFPS.value === true) {
             if (!fps.length) {
@@ -635,8 +641,8 @@
 
         if (rbConvCountryColumn.value === true) {
             var cc = (fldConvCountryColumn.text || "").replace(/^\s+|\s+$/g, "");
-            if (!/^\d{2}$/.test(cc)) {
-                convStatus.text = "Country column must be exactly 2 digits.";
+            if (!/^\d{1,2}$/.test(cc)) {
+                convStatus.text = "Country column must be 1 or 2 digits.";
                 return;
             }
             cmd += " --country-column " + cc;
