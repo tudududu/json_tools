@@ -1453,10 +1453,11 @@ function __AME_buildPanel(thisObj) {
     var rbMasters = grpTarget.add("radiobutton", undefined, "MASTERS");
     var rbDeliveries = grpTarget.add("radiobutton", undefined, "DELIVERIES");
     var rbPreviews = grpTarget.add("radiobutton", undefined, "PREVIEWS");
+    var rbCustom = grpTarget.add("radiobutton", undefined, "Custom");
     var grpCustom = grpTarget.add("group");
     grpCustom.orientation = "row";
     grpCustom.alignChildren = ["left", "center"];
-    var rbCustom = grpCustom.add("radiobutton", undefined, "Custom:");
+    grpCustom.add("statictext", undefined, "Custom path:");
     var etCustom = grpCustom.add("edittext", undefined, "OUT/MASTERS");
     etCustom.characters = 24;
     etCustom.enabled = false;
@@ -1494,11 +1495,9 @@ function __AME_buildPanel(thisObj) {
     grpOpts.orientation = "column";
     grpOpts.alignChildren = ["left", "top"];
 
-    var cbAutoDelete = grpOpts.add("checkbox", undefined, "Auto Delete RQ");
     var cbIsoSuffix = grpOpts.add("checkbox", undefined, "Date Folder ISO Suffix");
     var cbLang = grpOpts.add("checkbox", undefined, "Language Subfolder");
 
-    cbAutoDelete.value = true;
     cbIsoSuffix.value = true;
     cbLang.value = false;
     rbSortMimic.value = true;
@@ -1539,7 +1538,6 @@ function __AME_buildPanel(thisObj) {
             var opts = {
                 options: {
                     AUTO_QUEUE_IN_AME: true,
-                    AUTO_DELETE_RQ_AFTER_AME_QUEUE: cbAutoDelete.value === true,
                     ENABLE_DATE_FOLDER_ISO_SUFFIX: cbIsoSuffix.value === true,
                     ENABLE_DURATION_SUBFOLDER: cbDuration.value === true,
                     DURATION_FIRST_ORDER: rbSortDurationFirst.value === true,

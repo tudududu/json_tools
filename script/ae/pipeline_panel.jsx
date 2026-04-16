@@ -455,10 +455,11 @@
     var rbAMEMasters = grpAMETarget.add("radiobutton", undefined, "MASTERS");
     var rbAMEDeliveries = grpAMETarget.add("radiobutton", undefined, "DELIVERIES");
     var rbAMEPreviews = grpAMETarget.add("radiobutton", undefined, "PREVIEWS");
+    var rbAMECustom = grpAMETarget.add("radiobutton", undefined, "Custom");
     var grpAMECustom = grpAMETarget.add("group");
     grpAMECustom.orientation = "row";
     grpAMECustom.alignChildren = ["left", "center"];
-    var rbAMECustom = grpAMECustom.add("radiobutton", undefined, "Custom:");
+    grpAMECustom.add("statictext", undefined, "Custom path:");
     var fldAMECustomPath = grpAMECustom.add("edittext", undefined, "OUT/PREVIEWS");
     fldAMECustomPath.characters = 20;
     fldAMECustomPath.enabled = false;
@@ -478,11 +479,6 @@
     var grpAMEOptions = secAME.add("panel", undefined, "Options");
     grpAMEOptions.orientation = "column";
     grpAMEOptions.alignChildren = ["left", "top"];
-    var cbAMEAutoQueue = grpAMEOptions.add("checkbox", undefined, "Auto Queue in AME");
-    var cbAMEProcessSelection = grpAMEOptions.add("checkbox", undefined, "Process Selection");
-    var cbAMEProcessExistingRQ = grpAMEOptions.add("checkbox", undefined, "Process Existing RQ");
-    var cbAMEApplyTemplates = grpAMEOptions.add("checkbox", undefined, "Apply Templates");
-    var cbAMEAutoDeleteRQ = grpAMEOptions.add("checkbox", undefined, "Auto Delete RQ");
     var cbAMEIsoSuffix = grpAMEOptions.add("checkbox", undefined, "Date Folder ISO Suffix");
     var cbAMELangSubfolder = grpAMEOptions.add("checkbox", undefined, "Language Subfolder");
 
@@ -657,11 +653,6 @@
         ddSelect(ddModulePosition, optS(p, ["pack", "MODULAR_NAMING", "MODULE_POSITION"], "BEFORE_DURATION"));
         // S10 AME
         setAMEExportSubpath(optS(p, ["ame", "EXPORT_SUBPATH"], "OUT/PREVIEWS"));
-        cbAMEAutoQueue.value         = optB(p, ["ame", "AUTO_QUEUE_IN_AME"],                  true);
-        cbAMEProcessSelection.value  = optB(p, ["ame", "PROCESS_SELECTION"],                  true);
-        cbAMEProcessExistingRQ.value = optB(p, ["ame", "PROCESS_EXISTING_RQ"],                true);
-        cbAMEApplyTemplates.value    = optB(p, ["ame", "APPLY_TEMPLATES"],                    true);
-        cbAMEAutoDeleteRQ.value      = optB(p, ["ame", "AUTO_DELETE_RQ_AFTER_AME_QUEUE"],    true);
         cbAMEIsoSuffix.value         = optB(p, ["ame", "ENABLE_DATE_FOLDER_ISO_SUFFIX"],     true);
         cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],            false);
         rbAMESortMimic.value         = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"],    true);
@@ -736,11 +727,6 @@
         };
         // S10
         uo.ame = {
-            AUTO_QUEUE_IN_AME:                cbAMEAutoQueue.value,
-            PROCESS_SELECTION:                cbAMEProcessSelection.value,
-            PROCESS_EXISTING_RQ:              cbAMEProcessExistingRQ.value,
-            APPLY_TEMPLATES:                  cbAMEApplyTemplates.value,
-            AUTO_DELETE_RQ_AFTER_AME_QUEUE:  cbAMEAutoDeleteRQ.value,
             ENABLE_DATE_FOLDER_ISO_SUFFIX:   cbAMEIsoSuffix.value,
             EXPORT_SUBPATH:                   getAMEExportSubpath(),
             MIMIC_PROJECT_FOLDER_STRUCTURE:   rbAMESortMimic.value,
