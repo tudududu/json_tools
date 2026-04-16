@@ -22,7 +22,13 @@
     function joinFs(a, b) {
         if (!a) return String(b || "");
         if (!b) return String(a || "");
-        return String(a).replace(/[/\\]$/, "") + "/" + String(b);
+        var aa = String(a);
+        var bb = String(b);
+        if (aa.length > 0) {
+            var tail = aa.charAt(aa.length - 1);
+            if (tail === "/" || tail === "\\") aa = aa.substring(0, aa.length - 1);
+        }
+        return aa + "/" + bb;
     }
 
     var __base       = here();                                      // script/ae/
