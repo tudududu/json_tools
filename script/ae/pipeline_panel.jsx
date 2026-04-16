@@ -227,6 +227,11 @@
         try {
             root.layout.layout(true);
             if (root instanceof Window) {
+                try { root.layout.layout(true); } catch(_) {}
+                try { root.layout.resize(); } catch(_) {}
+                try { root.update(); } catch(_) {}
+                try { root.layout.layout(true); } catch(_) {}
+                try { root.bounds = root.bounds; } catch(_) {}
                 root.layout.resize();
             }
         } catch(e) {}
@@ -245,10 +250,24 @@
         body.alignChildren = ["fill", "top"];
         body.spacing = 4;
 
+        function setBodyCollapsedSizing(collapsed) {
+            if (collapsed) {
+                body.minimumSize = [0, 0];
+                body.maximumSize = [10000, 0];
+                body.preferredSize = [-1, 0];
+                body.visible = false;
+            } else {
+                body.visible = true;
+                body.minimumSize = [0, 0];
+                body.maximumSize = [10000, 10000];
+                body.preferredSize = [-1, -1];
+            }
+        }
+
         function setExpanded(expanded) {
             var isOpen = (expanded === true);
             sectionState[key] = isOpen;
-            body.visible = isOpen;
+            setBodyCollapsedSizing(!isOpen);
             toggleBtn.text = isOpen ? "-" : "+";
             hint.text = isOpen ? "collapse" : "expand";
         }
