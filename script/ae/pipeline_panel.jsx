@@ -147,6 +147,53 @@
         return arr.join(", ");
     }
 
+    // ── 4a. COLLAPSIBLE STATE ───────────────────────────────────────────────
+
+    var PANEL_STATE_FILE = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".panel_state.json")) : null;
+
+    var DEFAULT_SECTION_STATE = {
+        S1: true,
+        S2: true,
+        S3: true,
+        S4: true,
+        S5: true,
+        S6: false,
+        S7: false,
+        S8: true,
+        S9: true,
+        S10: false,
+        S11: false,
+        S12: true
+    };
+
+    var sectionState = deepMerge({}, DEFAULT_SECTION_STATE);
+    var sectionRefs = {};
+
+    function loadSectionState() {
+        try {
+            if (!PANEL_STATE_FILE || !PANEL_STATE_FILE.exists) return;
+            var raw = readFileText(PANEL_STATE_FILE);
+            var obj = raw ? parseJSONSafe(raw) : null;
+            var incoming = obj && obj.sections ? obj.sections : null;
+            if (incoming && typeof incoming === 'object') {
+                sectionState = deepMerge(sectionState, incoming);
+            }
+        } catch(e) {}
+    }
+
+    function saveSectionState() {
+        try {
+            if (!PANEL_STATE_FILE) return;
+            var payload = { sections: sectionState };
+            if (typeof JSON === 'undefined' || typeof JSON.stringify !== 'function') return;
+            if (!PANEL_STATE_FILE.open("w")) return;
+            PANEL_STATE_FILE.write(JSON.stringify(payload, null, 2));
+            PANEL_STATE_FILE.close();
+        } catch(e) {
+            try { PANEL_STATE_FILE.close(); } catch(_) {}
+        }
+    }
+
     // ── 4. PANEL ROOT ────────────────────────────────────────────────────────
 
     var root = (thisObj instanceof Panel)
@@ -174,6 +221,47 @@
         row.alignChildren = ["left", "center"];
         row.spacing = 4;
         return row;
+    }
+
+    function relayoutRoot() {
+        try {
+            root.layout.layout(true);
+            if (root instanceof Window) {
+                root.layout.resize();
+            }
+        } catch(e) {}
+    }
+
+    function mkCollapsibleSection(parent, key, title) {
+        var sec = mkSection(parent, title);
+        var hdr = mkRow(sec);
+        var toggleBtn = hdr.add("button", undefined, "-");
+        toggleBtn.preferredSize.width = 26;
+        var hint = hdr.add("statictext", undefined, "collapse");
+        hint.alignment = ["fill", "center"];
+
+        var body = sec.add("group");
+        body.orientation = "column";
+        body.alignChildren = ["fill", "top"];
+        body.spacing = 4;
+
+        function setExpanded(expanded) {
+            var isOpen = (expanded === true);
+            sectionState[key] = isOpen;
+            body.visible = isOpen;
+            toggleBtn.text = isOpen ? "-" : "+";
+            hint.text = isOpen ? "collapse" : "expand";
+        }
+
+        toggleBtn.onClick = function() {
+            setExpanded(!(sectionState[key] === true));
+            saveSectionState();
+            relayoutRoot();
+        };
+
+        setExpanded(sectionState[key] === true);
+        sectionRefs[key] = { setExpanded: setExpanded, body: body };
+        return { panel: sec, body: body, setExpanded: setExpanded };
     }
 
     // Label (fixed width) + EditText in a row; returns the EditText
@@ -211,9 +299,13 @@
 
     // ── 6. TOP BAR ───────────────────────────────────────────────────────────
 
+    loadSectionState();
+
     var topBar = mkRow(root);
     var reloadBtn = topBar.add("button", undefined, "Reload Preset");
     reloadBtn.preferredSize.width = 105;
+    var resetLayoutBtn = topBar.add("button", undefined, "Reset Layout");
+    resetLayoutBtn.preferredSize.width = 92;
     var statusText = topBar.add("statictext", undefined, "");
     statusText.alignment = ["fill", "center"];
 
@@ -223,7 +315,8 @@
 
     // ── S1: PIPELINE RUN TOGGLES ─────────────────────────────────────────────
 
-    var secPhases = mkSection(root, "Pipeline Run Toggles");
+    var secPhasesWrap = mkCollapsibleSection(root, "S1", "Pipeline Run Toggles");
+    var secPhases = secPhasesWrap.body;
     var cbRunLinkData          = secPhases.add("checkbox", undefined, "RUN_link_data");
     var cbRunSaveAsISO         = secPhases.add("checkbox", undefined, "RUN_save_as_iso");
     var cbRunCreateComps       = secPhases.add("checkbox", undefined, "RUN_create_compositions");
@@ -234,14 +327,16 @@
 
     // ── S2: BATCH ────────────────────────────────────────────────────────────
 
-    var secBatch = mkSection(root, "Batch");
+    var secBatchWrap = mkCollapsibleSection(root, "S2", "Batch");
+    var secBatch = secBatchWrap.body;
     var fldRunsMax    = mkLabeledField(secBatch, "RUNS_MAX:", "0", 60);
     var fldSleepMs    = mkLabeledField(secBatch, "SLEEP_BETWEEN_RUNS_MS:", "500", 60);
     var cbBatchDryRun = secBatch.add("checkbox", undefined, "DRY_RUN");
 
     // ── S3: STEP 0 — OPEN PROJECT ────────────────────────────────────────────
 
-    var secOpenProj = mkSection(root, "Step 0: Open Project");
+    var secOpenProjWrap = mkCollapsibleSection(root, "S3", "Step 0: Open Project");
+    var secOpenProj = secOpenProjWrap.body;
     secOpenProj.add("statictext", undefined, "PROJECT_TEMPLATE_PATH:");
     var fldProjectPath  = secOpenProj.add("edittext", undefined, "");
     fldProjectPath.preferredSize.width = 220;
@@ -255,7 +350,8 @@
 
     // ── S4: STEP 1 — LINK DATA / ISO ─────────────────────────────────────────
 
-    var secLink  = mkSection(root, "Step 1: Link Data / ISO");
+    var secLinkWrap  = mkCollapsibleSection(root, "S4", "Step 1: Link Data / ISO");
+    var secLink = secLinkWrap.body;
     var fldISOCode = mkLabeledField(secLink, "DATA_JSON_ISO_CODE_MANUAL:", "SAU", 50);
     fldISOCode.onChanging = function() {
         var u = this.text.toUpperCase();
@@ -265,24 +361,28 @@
 
     // ── S5: STEP 3 — CREATE COMPOSITIONS ────────────────────────────────────
 
-    var secCreateComps    = mkSection(root, "Step 3: Create Compositions");
+    var secCreateCompsWrap = mkCollapsibleSection(root, "S5", "Step 3: Create Compositions");
+    var secCreateComps = secCreateCompsWrap.body;
     var cbAutoFromFootage = secCreateComps.add("checkbox", undefined, "AUTO_FROM_PROJECT_FOOTAGE");
 
     // ── S6: MODULAR SETTINGS ─────────────────────────────────────────────────
 
-    var secModular     = mkSection(root, "Modular Settings");
+    var secModularWrap = mkCollapsibleSection(root, "S6", "Modular Settings");
+    var secModular = secModularWrap.body;
     var cbModularEnabled = secModular.add("checkbox", undefined, "ENABLED");
     var ddGenMode        = mkLabeledDropdown(secModular, "GENERATION_MODE:", ["hybrid", "cartesian", "explicit"]);
 
     // ── S7: STEP 4 — INSERT & RELINK ─────────────────────────────────────────
 
-    var secInsert          = mkSection(root, "Step 4: Insert & Relink");
+    var secInsertWrap = mkCollapsibleSection(root, "S7", "Step 4: Insert & Relink");
+    var secInsert = secInsertWrap.body;
     var cbModAudioEnabled  = secInsert.add("checkbox", undefined, "MODULAR_AUDIO.ENABLED");
     var fldAudioTokenCount = mkLabeledField(secInsert, "AUDIO_TITLE_TOKEN_COUNT:", "2", 40);
 
     // ── S8: STEP 5 — ADD LAYERS ──────────────────────────────────────────────
 
-    var secAddLayers           = mkSection(root, "Step 5: Add Layers");
+    var secAddLayersWrap = mkCollapsibleSection(root, "S8", "Step 5: Add Layers");
+    var secAddLayers = secAddLayersWrap.body;
     var cbAddLayersFileLog     = secAddLayers.add("checkbox", undefined, "ENABLE_FILE_LOG");
     var cbModFilterEnabled     = secAddLayers.add("checkbox", undefined, "MODULAR_FILTER.ENABLED");
     var cbVideoIDSkip          = secAddLayers.add("checkbox", undefined, "ENABLE_VIDEOID_BASED_LAYER_SKIP");
@@ -290,7 +390,8 @@
 
     // ── S9: STEP 6 — PACK OUTPUT COMPS ──────────────────────────────────────
 
-    var secPack              = mkSection(root, "Step 6: Pack Output Comps");
+    var secPackWrap = mkCollapsibleSection(root, "S9", "Step 6: Pack Output Comps");
+    var secPack = secPackWrap.body;
     var cbPackFileLog        = secPack.add("checkbox", undefined, "ENABLE_FILE_LOG");
     var cbPackDryRun         = secPack.add("checkbox", undefined, "DRY_RUN_MODE");
     var cbEnableExtraOutputs = secPack.add("checkbox", undefined, "ENABLE_EXTRA_OUTPUT_COMPS");
@@ -307,7 +408,8 @@
 
     // ── S10: STEP 7 — AME OUTPUT PATHS ──────────────────────────────────────
 
-    var secAME                   = mkSection(root, "Step 7: AME Output Paths");
+    var secAMEWrap = mkCollapsibleSection(root, "S10", "Step 7: AME Output Paths");
+    var secAME = secAMEWrap.body;
     var cbAMEAutoQueue           = secAME.add("checkbox", undefined, "AUTO_QUEUE_IN_AME");
     var cbAMEProcessSelection    = secAME.add("checkbox", undefined, "PROCESS_SELECTION");
     var cbAMEProcessExistingRQ   = secAME.add("checkbox", undefined, "PROCESS_EXISTING_RQ");
@@ -319,7 +421,8 @@
 
     // ── S11: CONVERTER ───────────────────────────────────────────────────────
 
-    var secConverter = mkSection(root, "Converter");
+    var secConverterWrap = mkCollapsibleSection(root, "S11", "Converter");
+    var secConverter = secConverterWrap.body;
 
     var rowConvIn = mkRow(secConverter);
     rowConvIn.add("statictext", undefined, "Input:");
@@ -380,7 +483,8 @@
 
     // ── S12: RUN CONTROLS ────────────────────────────────────────────────────
 
-    var secRunCtrl     = mkSection(root, "Run Controls");
+    var secRunCtrlWrap = mkCollapsibleSection(root, "S12", "Run Controls");
+    var secRunCtrl = secRunCtrlWrap.body;
     var rowRunBtns     = mkRow(secRunCtrl);
     var btnRunPipeline = rowRunBtns.add("button", undefined, "Run Pipeline");
     var btnRunBatch    = rowRunBtns.add("button", undefined, "Run Batch");
@@ -588,6 +692,18 @@
         else    { setStatus("No preset found."); }
     };
 
+    resetLayoutBtn.onClick = function() {
+        sectionState = deepMerge({}, DEFAULT_SECTION_STATE);
+        for (var k in sectionRefs) {
+            if (sectionRefs.hasOwnProperty(k) && sectionRefs[k] && sectionRefs[k].setExpanded) {
+                sectionRefs[k].setExpanded(sectionState[k] === true);
+            }
+        }
+        saveSectionState();
+        relayoutRoot();
+        setStatus("Layout reset.");
+    };
+
     // ── 12. INIT + SHOW ──────────────────────────────────────────────────────
 
     var __initPreset = readPreset();
@@ -598,11 +714,13 @@
         setStatus("Defaults (no preset found).");
     }
 
+    relayoutRoot();
+
     if (!(root instanceof Panel)) {
         root.center();
         root.show();
     } else {
-        root.layout.layout(true);
+        relayoutRoot();
     }
 
 }(this));

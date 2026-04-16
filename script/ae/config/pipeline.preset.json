@@ -346,14 +346,14 @@
         "1x1|15s": "1440x1440",
         "9x16|06s": "720x1280@TikTok"
     },
-    "EXTRA_OUTPUT_COMPS_SOURCE_MODE": "auto",
+    "EXTRA_OUTPUT_COMPS_SOURCE_MODE": "data-json-required",
     "EXTRA_OUTPUTS_USE_DATE_SUBFOLDER": false,
     "EXTRA_OUTPUTS_POST_SUBPATH": ["IN","data","config","extra_outputs.json"],
     "EXTRA_OUTPUTS_DEV_FLAG_FILE": ".use_dev_extra_outputs",
     "EXTRA_OUTPUTS_DEV_REL_PATH": ["config","extra_outputs.json"],
     "EXTRA_OUTPUTS_PROMPT_IF_MISSING": false,
     "OUTPUT_ESSENTIALS_DIRNAME": "essentials",
-    "OUTPUT_EXTRAS_DIRNAME": "extras",
+    "OUTPUT_EXTRAS_DIRNAME": "media",
     "MODULAR_NAMING": {
         "ENABLE_MODULE_TOKENS": false,
         "TOKEN_ORDER": ["A", "B", "C", "D"],
