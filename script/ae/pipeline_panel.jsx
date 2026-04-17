@@ -597,6 +597,12 @@
     fldConvCountryColumn.preferredSize.width = 36;
     fldConvCountryColumn.enabled = false;
 
+    var rowConvConfigs = mkRow(secConverter);
+    var cbConvLayerConfig = rowConvConfigs.add("checkbox", undefined, "--layer-config (config_in.xlsx)");
+    var cbConvMediaConfig = rowConvConfigs.add("checkbox", undefined, "--media-config (media_in.xlsx)");
+    cbConvLayerConfig.value = true;
+    cbConvMediaConfig.value = true;
+
     function updateConvModeControls() {
         fldConvFPS.enabled = cbConvUseFPS.value === true;
         fldConvCountryColumn.enabled = rbConvCountryColumn.value === true;
@@ -622,6 +628,20 @@
             convStatus.text = "Input and output paths are required.";
             return;
         }
+
+        var inputFile = new File(inPath);
+        var inputBaseFolder = "";
+        if (inputFile && inputFile.parent) {
+            inputBaseFolder = inputFile.parent.fsName !== undefined ? inputFile.parent.fsName : String(inputFile.parent);
+        }
+        if (!inputBaseFolder || !String(inputBaseFolder).length) {
+            convStatus.text = "Unable to resolve input base folder.";
+            return;
+        }
+        var baseFolder = String(inputBaseFolder);
+        var baseTail = baseFolder.charAt(baseFolder.length - 1);
+        if (baseTail !== "/" && baseTail !== "\\") baseFolder += "/";
+
         // Output is fixed to the pattern data_{country}.json inside the selected output folder.
         var outputFilePath = outPath;
         var outTail = outPath.charAt(outPath.length - 1);
@@ -649,6 +669,14 @@
         } else {
             cmd += " --split-by-country";
         }
+
+        if (cbConvLayerConfig.value === true) {
+            cmd += ' --layer-config "' + baseFolder + 'config_in.xlsx"';
+        }
+        if (cbConvMediaConfig.value === true) {
+            cmd += ' --media-config "' + baseFolder + 'media_in.xlsx"';
+        }
+
         convStatus.text = "Running...";
         var code = system.callSystem(cmd);
         convStatus.text = (code === 0) ? "OK" : ("Exited with code " + code);
