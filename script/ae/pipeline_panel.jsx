@@ -624,8 +624,8 @@
     btnRunConverter.onClick = function() {
         var inPath  = (fldConvInput.text  || "").replace(/^\s+|\s+$/g, "");
         var outPath = (fldConvOutput.text || "").replace(/^\s+|\s+$/g, "");
-        if (!inPath || !outPath) {
-            convStatus.text = "Input and output paths are required.";
+        if (!inPath) {
+            convStatus.text = "Input path is required.";
             return;
         }
 
@@ -641,6 +641,15 @@
         var baseFolder = String(inputBaseFolder);
         var baseTail = baseFolder.charAt(baseFolder.length - 1);
         if (baseTail !== "/" && baseTail !== "\\") baseFolder += "/";
+
+        if (!outPath.length) {
+            var fallbackOutFolder = new Folder(baseFolder + "out");
+            if (!fallbackOutFolder.exists && !fallbackOutFolder.create()) {
+                convStatus.text = "Failed to create fallback output folder: " + fallbackOutFolder.fsName;
+                return;
+            }
+            outPath = fallbackOutFolder.fsName !== undefined ? fallbackOutFolder.fsName : String(fallbackOutFolder);
+        }
 
         // Output is fixed to the pattern data_{country}.json inside the selected output folder.
         var outputFilePath = outPath;
