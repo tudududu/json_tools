@@ -3335,43 +3335,49 @@ def main(argv: Optional[List[str]] = None) -> int:
     layer_config_payload: Optional[Dict[str, Any]] = None
     if args.layer_config:
         if not os.path.isfile(args.layer_config):
-            raise SystemExit(f"No such file or directory: '{args.layer_config}'")
-        if layercfg_convert_workbook is None:
+            print(
+                f"Warning: failed to load layer config '{args.layer_config}': "
+                f"[Errno 2] No such file or directory: '{args.layer_config}'"
+            )
+        elif layercfg_convert_workbook is None:
             raise SystemExit(
                 "Layer config converter not available; cannot process --layer-config"
             )
-        try:
-            converted = layercfg_convert_workbook(
-                in_path=args.layer_config,
-                separator=";",
-                layer_names_sheet="LAYER_NAME_CONFIG_items",
-                recenter_rules_sheet="LAYER_NAME_CONFIG_recenterRules",
-                root_key="LAYER_NAME_CONFIG",
-            )
-            if isinstance(converted, dict):
-                add_layers_payload: Optional[Dict[str, Any]] = None
-                cfg = converted.get("config")
-                if isinstance(cfg, dict):
-                    add_layers = cfg.get("addLayers")
-                    if isinstance(add_layers, dict):
-                        add_layers_payload = cast(Dict[str, Any], add_layers)
-                if add_layers_payload is None:
-                    legacy_add_layers = converted.get("addLayers")
-                    if isinstance(legacy_add_layers, dict):
-                        add_layers_payload = cast(Dict[str, Any], legacy_add_layers)
-                if add_layers_payload is None:
-                    legacy = converted.get("LAYER_NAME_CONFIG")
-                    if isinstance(legacy, dict):
-                        add_layers_payload = {"LAYER_NAME_CONFIG": legacy}
+        else:
+            try:
+                converted = layercfg_convert_workbook(
+                    in_path=args.layer_config,
+                    separator=";",
+                    layer_names_sheet="LAYER_NAME_CONFIG_items",
+                    recenter_rules_sheet="LAYER_NAME_CONFIG_recenterRules",
+                    root_key="LAYER_NAME_CONFIG",
+                )
+                if isinstance(converted, dict):
+                    add_layers_payload: Optional[Dict[str, Any]] = None
+                    cfg = converted.get("config")
+                    if isinstance(cfg, dict):
+                        add_layers = cfg.get("addLayers")
+                        if isinstance(add_layers, dict):
+                            add_layers_payload = cast(Dict[str, Any], add_layers)
+                    if add_layers_payload is None:
+                        legacy_add_layers = converted.get("addLayers")
+                        if isinstance(legacy_add_layers, dict):
+                            add_layers_payload = cast(Dict[str, Any], legacy_add_layers)
+                    if add_layers_payload is None:
+                        legacy = converted.get("LAYER_NAME_CONFIG")
+                        if isinstance(legacy, dict):
+                            add_layers_payload = {"LAYER_NAME_CONFIG": legacy}
 
-                if isinstance(add_layers_payload, dict):
-                    layer_config_payload = add_layers_payload
-                else:
-                    raise ValueError(
-                        "layer config payload missing config.addLayers/LAYER_NAME_CONFIG"
-                    )
-        except Exception as ex:
-            raise SystemExit(f"Failed to load layer config '{args.layer_config}': {ex}")
+                    if isinstance(add_layers_payload, dict):
+                        layer_config_payload = add_layers_payload
+                    else:
+                        raise ValueError(
+                            "layer config payload missing config.addLayers/LAYER_NAME_CONFIG"
+                        )
+            except Exception as ex:
+                raise SystemExit(
+                    f"Failed to load layer config '{args.layer_config}': {ex}"
+                )
 
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
