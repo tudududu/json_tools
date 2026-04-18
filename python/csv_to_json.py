@@ -3620,10 +3620,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                             pass
         return {"errors": errs, "warnings": warnings}
 
+    file_write_count = 0
+
     def write_json(path: str, payload: Dict[str, Any]):
+        nonlocal file_write_count
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+        file_write_count += 1
 
     # Create truncated preview of a payload without mutating original
     def make_sample(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -3895,6 +3899,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     else " OK."
                 )
             )
+            print(f"Conversion complete: Files written: 0, Errors: {len(all_errors)}")
             return exit_code
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
         if args.split_by_country:
@@ -4112,6 +4117,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     else " OK."
                 )
             )
+            print(f"Conversion complete: Files written: 0, Errors: {len(errors)}")
             return exit_code
         if isinstance(data, dict):
             _inject_layer_config(data)
@@ -4120,6 +4126,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             sample_path = derive_sample_path(args.output)
             write_json(sample_path, make_sample(data))
 
+    print(f"Conversion complete: Files written: {file_write_count}, Errors: 0")
     return 0
 
 
