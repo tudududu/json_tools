@@ -249,14 +249,14 @@ Single-country with templated filename:
 python3 csv_to_json.py unified.csv out/WTA_{country}.json --fps 25 --country-column 1
 ```
 
-Validation only (no files written):
+Check mode (no files written):
 ```sh
-python3 csv_to_json.py unified.csv /dev/null --fps 25 --validate-only
+python3 csv_to_json.py unified.csv /dev/null --fps 25 --check
 ```
 
-Dry run (list discovered countries/videos):
+Strict check mode (fails on validation errors):
 ```sh
-python3 csv_to_json.py unified.csv /dev/null --fps 25 --dry-run
+python3 csv_to_json.py unified.csv /dev/null --fps 25 --check --strict
 ```
 
 ## Development Tasks (Lint, Format, Tests)
@@ -458,11 +458,11 @@ Multi-country output control:
 * `--country-variant-index <n>` When a country appears multiple times (duplicate column pairs, e.g., to represent different language variants), select which pair to use in non-split scenarios (0-based; default 0). Split mode emits all variants automatically.
 
 Validation / inspection:
-* `--validate-only` Parse & validate only (exit code 0 on success, 1 on validation errors)
-* `--dry-run` Summarize countries, videos, line counts; no files written (always exit 0)
+* `--check` Parse, validate, and preview discovered outputs; no files written
+* `--strict` With `--check`: return exit code 1 when validation errors are present
 * `--required-global-keys <k1,k2>` Comma list of required keys in `metadataGlobal` (default `briefVersion,fps`; empty string disables)
 * `--missing-keys-warn` Downgrade missing required keys to warnings (still reported but do not fail)
-* `--validation-report <path>` Emit a JSON validation report (usable with `--validate-only` or `--dry-run`)
+* `--validation-report <path>` Emit a JSON validation report (usable with `--check`)
 * `--test-mode` Prefix per-video claim/disclaimer text with '<videoId>_' for testing
 * `--no-orientation` Revert to legacy flat array output (no duplicated videos, ignores portrait columns)
 
@@ -492,7 +492,7 @@ Future enhancements could add: duplicate line detection, empty video detection, 
 | Code | Meaning |
 |------|---------|
 | 0 | Success (conversion OR validation/dry-run OK; may include warnings) |
-| 1 | Validation errors encountered (`--validate-only`) and not only warnings |
+| 1 | Validation errors encountered in strict check mode (`--check --strict`) |
 | >1 | Unexpected runtime exception (traceback printed) |
 
 ## Notes
@@ -510,7 +510,7 @@ Future enhancements could add: duplicate line detection, empty video detection, 
   * `converterCommit` – short git commit hash when repository and `git` available (best-effort)
   * `pythonVersion`, `pythonImplementation`, `platform` – environment/toolchain information
   * `lastChangeId` – first heading line in `CHANGELOG.md` (best-effort)
-  These are omitted only during `--validate-only` and `--dry-run` since no files are written.
+  These are omitted during `--check` since no files are written.
   Use `--no-generation-meta` to suppress all of the above for reproducible snapshots.
 
 * Per-country language (CSV to JSON 167–171):

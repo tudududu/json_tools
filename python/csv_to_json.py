@@ -2943,14 +2943,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="In each video, output claims as claim_01, claim_02, ... objects instead of a single 'claim' array",
     )
     p.add_argument(
-        "--validate-only",
+        "--check",
         action="store_true",
-        help="Parse and validate input; do not write output files",
+        help="Run validation + inspection preview only; do not write output files",
     )
     p.add_argument(
-        "--dry-run",
+        "--strict",
         action="store_true",
-        help="List discovered countries/videos without writing JSON",
+        help="With --check: return non-zero when validation errors are present",
     )
     p.add_argument(
         "--required-global-keys",
@@ -2965,7 +2965,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--validation-report",
         default=None,
-        help="Write a JSON validation report to this path during --validate-only or --dry-run",
+        help="Write a JSON validation report to this path during --check",
     )
     p.add_argument(
         "--auto-output",
@@ -3323,11 +3323,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             if isinstance(obj, dict):
                 _augment_payload(obj)
 
-    # Only inject when we are actually writing outputs (skip validate-only / dry-run)
+    # Only inject when we are actually writing outputs (skip --check mode)
     if (
         (not args.no_generation_meta)
-        and (not getattr(args, "validate_only", False))
-        and (not getattr(args, "dry_run", False))
+        and (not getattr(args, "check", False))
     ):
         _inject_generation_metadata(data)
 
@@ -3713,7 +3712,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if isinstance(data, dict) and data.get("_multi"):
         countries: List[str] = data.get("countries", [])
         by_country: Dict[str, Any] = data.get("byCountry", {})
-        if args.validate_only or args.dry_run:
+        if args.check:
             all_errors: List[str] = []
             all_warnings: List[str] = []
             reports: List[Dict[str, Any]] = []
@@ -3761,7 +3760,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.validation_report:
                 report_obj = {
                     "input": os.path.abspath(args.input),
-                    "mode": "validate-only" if args.validate_only else "dry-run",
+                    "mode": "check",
                     "countries": reports,
                     "summary": {
                         "errors": len(all_errors),
@@ -3777,124 +3776,126 @@ def main(argv: Optional[List[str]] = None) -> int:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
                     print(f"Failed to write validation report: {ex}")
-            if args.validate_only:
-                exit_code = 0
-                if all_errors and not args.missing_keys_warn:
-                    exit_code = 1
-                print(
-                    "Validation complete (no files written)."
-                    + (
-                        " Errors found."
-                        if exit_code == 1
-                        else " OK (warnings only)."
-                        if all_warnings
-                        else " OK."
-                    )
+            print("Check mode output targets:")
+            if args.split_by_country:
+                pattern = args.output_pattern or args.output
+                if "{country}" not in pattern:
+                    root, ext = os.path.splitext(pattern)
+                    pattern = f"{root}_{{country}}{ext}"
+                variant_counts: Dict[str, int] = (
+                    data.get("_countryVariantCount", {})
+                    if isinstance(data, dict)
+                    else {}
                 )
-                return exit_code
-            if args.dry_run:
-                print("Dry-run output targets:")
-                if args.split_by_country:
-                    pattern = args.output_pattern or args.output
-                    if "{country}" not in pattern:
-                        root, ext = os.path.splitext(pattern)
-                        pattern = f"{root}_{{country}}{ext}"
-                    variant_counts: Dict[str, int] = (
-                        data.get("_countryVariantCount", {})
-                        if isinstance(data, dict)
-                        else {}
-                    )
-                    for c in countries:
-                        count = max(1, int(variant_counts.get(c, 1)))
-                        for vi in range(count):
-                            if vi == 0:
-                                payload = by_country.get(c, {})
-                            else:
-                                alt = convert_csv_to_json(
-                                    input_csv=args.input,
-                                    fps=args.fps,
-                                    start_line_index=args.start_line,
-                                    round_ndigits=round_ndigits,
-                                    times_as_string=args.times_as_string,
-                                    strip_text=not args.no_strip_text,
-                                    skip_empty_text=not args.keep_empty_text,
-                                    encoding=args.encoding,
-                                    delimiter=args.delimiter,
-                                    start_col=args.start_col,
-                                    end_col=args.end_col,
-                                    text_col=args.text_col,
-                                    verbose=False,
-                                    schema_version=args.schema_version,
-                                    merge_subtitles=not args.no_merge_subtitles,
-                                    merge_disclaimer=not args.merge_disclaimer,
-                                    merge_disclaimer_02=not args.merge_disclaimer_02,
-                                    cast_metadata=args.cast_metadata,
-                                    join_claim=args.join_claim,
-                                    prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
-                                    test_mode=args.test_mode,
-                                    claims_as_objects=args.claims_as_objects,
-                                    no_orientation=args.no_orientation,
-                                    country_variant_index=vi,
-                                    flags_overview_object_always=args.flags_overview_object_always,
-                                    xlsx_sheet=args.xlsx_sheet,
-                                    controller_always_emit=args.controller_always_emit,
-                                )
-                                payload = (
-                                    alt.get("byCountry", {}) if isinstance(alt, dict) else {}
-                                ).get(c, {})
-                            mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
-                            lang = ""
-                            if isinstance(mg, dict):
-                                try:
-                                    lang = str(mg.get("language") or "").strip()
-                                except Exception:
-                                    lang = ""
-                            country_token = f"{c}_{lang}" if lang else c
-                            out_path = pattern.replace("{country}", country_token)
-                            variant_label = (
-                                f" [{c} variant {vi}]" if count > 1 else f" [{c}]"
+                for c in countries:
+                    count = max(1, int(variant_counts.get(c, 1)))
+                    for vi in range(count):
+                        if vi == 0:
+                            payload = by_country.get(c, {})
+                        else:
+                            alt = convert_csv_to_json(
+                                input_csv=args.input,
+                                fps=args.fps,
+                                start_line_index=args.start_line,
+                                round_ndigits=round_ndigits,
+                                times_as_string=args.times_as_string,
+                                strip_text=not args.no_strip_text,
+                                skip_empty_text=not args.keep_empty_text,
+                                encoding=args.encoding,
+                                delimiter=args.delimiter,
+                                start_col=args.start_col,
+                                end_col=args.end_col,
+                                text_col=args.text_col,
+                                verbose=False,
+                                schema_version=args.schema_version,
+                                merge_subtitles=not args.no_merge_subtitles,
+                                merge_disclaimer=not args.merge_disclaimer,
+                                merge_disclaimer_02=not args.merge_disclaimer_02,
+                                cast_metadata=args.cast_metadata,
+                                join_claim=args.join_claim,
+                                prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
+                                test_mode=args.test_mode,
+                                claims_as_objects=args.claims_as_objects,
+                                no_orientation=args.no_orientation,
+                                country_variant_index=vi,
+                                flags_overview_object_always=args.flags_overview_object_always,
+                                xlsx_sheet=args.xlsx_sheet,
+                                controller_always_emit=args.controller_always_emit,
                             )
-                            print(f"  - {out_path}{variant_label}")
-                            if args.sample:
-                                print(f"  - {derive_sample_path(out_path)}{variant_label} (sample)")
-                else:
-                    csel = None
-                    if args.country_column and 1 <= args.country_column <= len(countries):
-                        csel = countries[args.country_column - 1]
-                    else:
-                        csel = countries[-1] if countries else "default"
-                    payload = by_country.get(csel, {})
-                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
-                    out_path_single = args.output
-                    if "{country}" in (out_path_single or ""):
-                        lang_sel = ""
-                        if isinstance(mg, dict):
-                            try:
-                                lang_sel = str(mg.get("language") or "").strip()
-                            except Exception:
-                                lang_sel = ""
-                        token = f"{csel}_{lang_sel}" if lang_sel else csel
-                        out_path_single = out_path_single.replace("{country}", token)
-                    elif args.output_pattern:
-                        root_pattern = args.output_pattern
-                        if "{country}" not in root_pattern:
-                            rroot, rext = os.path.splitext(root_pattern)
-                            root_pattern = f"{rroot}_{{country}}{rext}"
-                        lang_sel = ""
-                        if isinstance(mg, dict):
-                            try:
-                                lang_sel = str(mg.get("language") or "").strip()
-                            except Exception:
-                                lang_sel = ""
-                        token = f"{csel}_{lang_sel}" if lang_sel else csel
-                        out_path_single = root_pattern.replace("{country}", token)
-                    print(f"  - {out_path_single} [selected country: {csel}]")
-                    if args.sample:
-                        print(
-                            f"  - {derive_sample_path(out_path_single)} [selected country: {csel}] (sample)"
+                            payload = (
+                                alt.get("byCountry", {}) if isinstance(alt, dict) else {}
+                            ).get(c, {})
+                        mg = (
+                            payload.get("metadataGlobal")
+                            if isinstance(payload, dict)
+                            else None
                         )
-                print("Dry run complete (no files written).")
-                return 0
+                        lang = ""
+                        if isinstance(mg, dict):
+                            try:
+                                lang = str(mg.get("language") or "").strip()
+                            except Exception:
+                                lang = ""
+                        country_token = f"{c}_{lang}" if lang else c
+                        out_path = pattern.replace("{country}", country_token)
+                        variant_label = (
+                            f" [{c} variant {vi}]" if count > 1 else f" [{c}]"
+                        )
+                        print(f"  - {out_path}{variant_label}")
+                        if args.sample:
+                            print(
+                                f"  - {derive_sample_path(out_path)}{variant_label} (sample)"
+                            )
+            else:
+                csel = None
+                if args.country_column and 1 <= args.country_column <= len(countries):
+                    csel = countries[args.country_column - 1]
+                else:
+                    csel = countries[-1] if countries else "default"
+                payload = by_country.get(csel, {})
+                mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                out_path_single = args.output
+                if "{country}" in (out_path_single or ""):
+                    lang_sel = ""
+                    if isinstance(mg, dict):
+                        try:
+                            lang_sel = str(mg.get("language") or "").strip()
+                        except Exception:
+                            lang_sel = ""
+                    token = f"{csel}_{lang_sel}" if lang_sel else csel
+                    out_path_single = out_path_single.replace("{country}", token)
+                elif args.output_pattern:
+                    root_pattern = args.output_pattern
+                    if "{country}" not in root_pattern:
+                        rroot, rext = os.path.splitext(root_pattern)
+                        root_pattern = f"{rroot}_{{country}}{rext}"
+                    lang_sel = ""
+                    if isinstance(mg, dict):
+                        try:
+                            lang_sel = str(mg.get("language") or "").strip()
+                        except Exception:
+                            lang_sel = ""
+                    token = f"{csel}_{lang_sel}" if lang_sel else csel
+                    out_path_single = root_pattern.replace("{country}", token)
+                print(f"  - {out_path_single} [selected country: {csel}]")
+                if args.sample:
+                    print(
+                        f"  - {derive_sample_path(out_path_single)} [selected country: {csel}] (sample)"
+                    )
+            exit_code = 0
+            if args.strict and all_errors:
+                exit_code = 1
+            print(
+                "Check complete (no files written)."
+                + (
+                    " Errors found."
+                    if exit_code == 1
+                    else " OK (warnings only)."
+                    if all_warnings
+                    else " OK."
+                )
+            )
+            return exit_code
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
         if args.split_by_country:
             pattern = args.output_pattern or args.output
@@ -4066,7 +4067,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 sample_path = derive_sample_path(out_path_single)
                 write_json(sample_path, make_sample(payload))
     else:
-        if args.validate_only or args.dry_run:
+        if args.check:
             res = _validate_structure(data)
             errors = res["errors"]
             warnings = res["warnings"]
@@ -4083,7 +4084,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 report_obj = {
                     "input": os.path.abspath(args.input),
                     "legacy": True,
-                    "mode": "validate-only" if args.validate_only else "dry-run",
+                    "mode": "check",
                     "errors": errors,
                     "warnings": warnings,
                 }
@@ -4096,30 +4097,26 @@ def main(argv: Optional[List[str]] = None) -> int:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
                     print(f"Failed to write validation report: {ex}")
-            if args.validate_only:
-                exit_code = 0 if (not errors or args.missing_keys_warn) else 1
-                print(
-                    "Validation complete (no file written)."
-                    + (
-                        " Errors found."
-                        if exit_code == 1
-                        else " OK (warnings only)."
-                        if warnings
-                        else " OK."
-                    )
+            print("Check mode output targets:")
+            print(f"  - {args.output}")
+            if args.sample:
+                print(f"  - {derive_sample_path(args.output)} (sample)")
+            exit_code = 0 if (not errors or not args.strict) else 1
+            print(
+                "Check complete (no file written)."
+                + (
+                    " Errors found."
+                    if exit_code == 1
+                    else " OK (warnings only)."
+                    if warnings
+                    else " OK."
                 )
-                return exit_code
-            if args.dry_run:
-                print("Dry-run output targets:")
-                print(f"  - {args.output}")
-                if args.sample:
-                    print(f"  - {derive_sample_path(args.output)} (sample)")
-                print("Dry run complete (no file written).")
-                return 0
+            )
+            return exit_code
         if isinstance(data, dict):
             _inject_layer_config(data)
         write_json(args.output, data)
-        if args.sample and not (args.validate_only or args.dry_run):
+        if args.sample and not args.check:
             sample_path = derive_sample_path(args.output)
             write_json(sample_path, make_sample(data))
 

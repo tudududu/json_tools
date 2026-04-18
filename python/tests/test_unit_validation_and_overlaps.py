@@ -34,7 +34,8 @@ class ValidationAndOverlapTests(unittest.TestCase):
                 [
                     path,
                     os.path.join(os.path.dirname(path), "unused.json"),
-                    "--validate-only",
+                    "--check",
+                    "--strict",
                 ]
             )
         finally:
@@ -57,7 +58,8 @@ class ValidationAndOverlapTests(unittest.TestCase):
                 [
                     path,
                     os.path.join(os.path.dirname(path), "unused.json"),
-                    "--validate-only",
+                    "--check",
+                    "--strict",
                 ]
             )
         finally:
@@ -82,7 +84,7 @@ class ValidationAndOverlapTests(unittest.TestCase):
                     [
                         path,
                         out_json,
-                        "--validate-only",
+                        "--check",
                         "--missing-keys-warn",
                         "--required-global-keys",
                         "briefVersion,fps,extraReq",
@@ -122,7 +124,8 @@ class ValidationAndOverlapTests(unittest.TestCase):
                 [
                     path,
                     os.path.join(os.path.dirname(path), "unused.json"),
-                    "--validate-only",
+                    "--check",
+                    "--strict",
                 ]
             )
             self.assertEqual(rc, 1)
@@ -145,7 +148,8 @@ class ValidationAndOverlapTests(unittest.TestCase):
                 [
                     path,
                     os.path.join(os.path.dirname(path), "unused.json"),
-                    "--validate-only",
+                    "--check",
+                    "--strict",
                     "--no-orientation",
                 ]
             )
@@ -178,13 +182,13 @@ class ValidationAndOverlapTests(unittest.TestCase):
                         [
                             path,
                             out_pattern,
-                            "--dry-run",
+                            "--check",
                             "--split-by-country",
                         ]
                     )
                 self.assertEqual(rc, 0)
                 output = out_buf.getvalue()
-                self.assertIn("Dry-run output targets:", output)
+                self.assertIn("Check mode output targets:", output)
                 self.assertIn("data_GBL_ENG.json", output)
                 self.assertIn("data_GBL_FRA.json", output)
                 self.assertIn("variant 0", output)

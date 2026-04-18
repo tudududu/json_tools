@@ -116,7 +116,7 @@ def test_malformed_timecode_validation_error(tmp_path):
     write(csv, "Start Time,End Time,Text\n5,3,Bad timing")
     out = tmp_path / "out.json"
     proc = run_cli(
-        [str(csv), str(out), "--fps", "25", "--validate-only"], expect_exit=1
+        [str(csv), str(out), "--fps", "25", "--check", "--strict"], expect_exit=1
     )
     # stdout should contain 'Errors found.' phrase
     assert "Errors found" in proc.stdout or "Validation errors" in proc.stdout
@@ -349,7 +349,7 @@ def test_dry_run_reports_variants(tmp_path):
     out = tmp_path / "out.json"
     # Expect dry-run to print discovered countries and per-country stats; we look for both BEL_FRA and BEL_NLD via filenames if split, but here we only check stdout contains country
     proc = run_cli(
-        [str(csv), str(out), "--fps", "25", "--split-by-country", "--dry-run"],
+        [str(csv), str(out), "--fps", "25", "--split-by-country", "--check"],
         expect_exit=0,
     )
     # Should list Discovered countries and include BEL
