@@ -3324,10 +3324,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 _augment_payload(obj)
 
     # Only inject when we are actually writing outputs (skip --check mode)
-    if (
-        (not args.no_generation_meta)
-        and (not getattr(args, "check", False))
-    ):
+    if (not args.no_generation_meta) and (not getattr(args, "check", False)):
         _inject_generation_metadata(data)
 
     # Prepare addLayers config once (if provided)
@@ -3827,7 +3824,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 controller_always_emit=args.controller_always_emit,
                             )
                             payload = (
-                                alt.get("byCountry", {}) if isinstance(alt, dict) else {}
+                                alt.get("byCountry", {})
+                                if isinstance(alt, dict)
+                                else {}
                             ).get(c, {})
                         mg = (
                             payload.get("metadataGlobal")
@@ -3857,7 +3856,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 else:
                     csel = countries[-1] if countries else "default"
                 payload = by_country.get(csel, {})
-                mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                mg = (
+                    payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                )
                 out_path_single = args.output
                 if "{country}" in (out_path_single or ""):
                     lang_sel = ""

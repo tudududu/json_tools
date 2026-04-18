@@ -9,9 +9,7 @@ import subprocess
 from typing import Optional
 
 
-_SEMVER_HEADING_RE = re.compile(
-    r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)"
-)
+_SEMVER_HEADING_RE = re.compile(r"\[?v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.]+)?)")
 
 
 def resolve_converter_version(
