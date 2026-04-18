@@ -1,3 +1,28 @@
+# 1.10.5 - 2026-04-18
+
+Added:
+- CSV to JSON 335-338: validation/check workflow and completion logging updates in `csv_to_json.py`.
+- Reworked validation UX to a unified check mode:
+	* Replaced legacy `--validate-only` / `--dry-run` flow with `--check`.
+	* Added `--strict` so check mode returns non-zero when validation errors are present.
+	* Kept `--validation-report` support in check mode, with report mode value set to `"check"`.
+	* Check mode continues to preview discovered output targets without writing files.
+- Updated generation metadata behavior so it is skipped during check mode (no file-writing path).
+- Added a final completion summary line at the end of conversion/check runs:
+	`Conversion complete: Files written: NN, Errors: NN`
+- Updated related tests and Python README examples to use the new `--check` / `--strict` flags and check-mode wording.
+
+# 1.10.4 - 2026-04-17
+
+Added:
+- Changed csv_to_json.py so a missing --layer-config file is now non-fatal and matches the media-config style:
+	Before: conversion stopped with SystemExit: No such file or directory: '...'
+	Now: conversion continues and prints warning:
+	Warning: failed to load layer config '...': [Errno 2] No such file or directory: '...'
+- Unchanged:
+	If layer-config tooling is unavailable (layercfg_convert_workbook is None), it still exits (same as before).
+	If a provided layer-config file exists but fails to parse/load for other reasons, it still exits (same as before).
+
 # 1.10.3 - 2026-04-15
 
 Added:
