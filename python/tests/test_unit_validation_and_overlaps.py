@@ -2,6 +2,8 @@ import os
 import tempfile
 import unittest
 import json
+import io
+from unittest import mock
 
 from python import csv_to_json as mod
 
@@ -155,6 +157,38 @@ class ValidationAndOverlapTests(unittest.TestCase):
             self.assertIsInstance(node.get("claim"), list)
             self.assertIsInstance(node.get("disclaimer"), list)
             self.assertIsInstance(node.get("logo"), list)
+        finally:
+            os.remove(path)
+
+    def test_dry_run_previews_split_variant_output_filenames(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;GBL;GBL;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "meta_global;;;;;language;Y;ALL;;ENG;ENG;FRA;FRA\n"
+            "meta_local;VID;;;;title;N;ALL;Title;;;;\n"
+            "sub;VID;1;00:00:00:00;00:00:01:00;;;;;Hello;Hello;Bonjour;Bonjour\n"
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_pattern = os.path.join(td, "data_{country}.json")
+                with mock.patch("sys.stdout", new_callable=io.StringIO) as out_buf:
+                    rc = mod.main(
+                        [
+                            path,
+                            out_pattern,
+                            "--dry-run",
+                            "--split-by-country",
+                        ]
+                    )
+                self.assertEqual(rc, 0)
+                output = out_buf.getvalue()
+                self.assertIn("Dry-run output targets:", output)
+                self.assertIn("data_GBL_ENG.json", output)
+                self.assertIn("data_GBL_FRA.json", output)
+                self.assertIn("variant 0", output)
+                self.assertIn("variant 1", output)
         finally:
             os.remove(path)
 

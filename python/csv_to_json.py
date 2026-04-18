@@ -3793,6 +3793,106 @@ def main(argv: Optional[List[str]] = None) -> int:
                 )
                 return exit_code
             if args.dry_run:
+                print("Dry-run output targets:")
+                if args.split_by_country:
+                    pattern = args.output_pattern or args.output
+                    if "{country}" not in pattern:
+                        root, ext = os.path.splitext(pattern)
+                        pattern = f"{root}_{{country}}{ext}"
+                    variant_counts: Dict[str, int] = (
+                        data.get("_countryVariantCount", {})
+                        if isinstance(data, dict)
+                        else {}
+                    )
+                    for c in countries:
+                        count = max(1, int(variant_counts.get(c, 1)))
+                        for vi in range(count):
+                            if vi == 0:
+                                payload = by_country.get(c, {})
+                            else:
+                                alt = convert_csv_to_json(
+                                    input_csv=args.input,
+                                    fps=args.fps,
+                                    start_line_index=args.start_line,
+                                    round_ndigits=round_ndigits,
+                                    times_as_string=args.times_as_string,
+                                    strip_text=not args.no_strip_text,
+                                    skip_empty_text=not args.keep_empty_text,
+                                    encoding=args.encoding,
+                                    delimiter=args.delimiter,
+                                    start_col=args.start_col,
+                                    end_col=args.end_col,
+                                    text_col=args.text_col,
+                                    verbose=False,
+                                    schema_version=args.schema_version,
+                                    merge_subtitles=not args.no_merge_subtitles,
+                                    merge_disclaimer=not args.merge_disclaimer,
+                                    merge_disclaimer_02=not args.merge_disclaimer_02,
+                                    cast_metadata=args.cast_metadata,
+                                    join_claim=args.join_claim,
+                                    prefer_local_claim_disclaimer=args.prefer_local_claim_disclaimer,
+                                    test_mode=args.test_mode,
+                                    claims_as_objects=args.claims_as_objects,
+                                    no_orientation=args.no_orientation,
+                                    country_variant_index=vi,
+                                    flags_overview_object_always=args.flags_overview_object_always,
+                                    xlsx_sheet=args.xlsx_sheet,
+                                    controller_always_emit=args.controller_always_emit,
+                                )
+                                payload = (
+                                    alt.get("byCountry", {}) if isinstance(alt, dict) else {}
+                                ).get(c, {})
+                            mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                            lang = ""
+                            if isinstance(mg, dict):
+                                try:
+                                    lang = str(mg.get("language") or "").strip()
+                                except Exception:
+                                    lang = ""
+                            country_token = f"{c}_{lang}" if lang else c
+                            out_path = pattern.replace("{country}", country_token)
+                            variant_label = (
+                                f" [{c} variant {vi}]" if count > 1 else f" [{c}]"
+                            )
+                            print(f"  - {out_path}{variant_label}")
+                            if args.sample:
+                                print(f"  - {derive_sample_path(out_path)}{variant_label} (sample)")
+                else:
+                    csel = None
+                    if args.country_column and 1 <= args.country_column <= len(countries):
+                        csel = countries[args.country_column - 1]
+                    else:
+                        csel = countries[-1] if countries else "default"
+                    payload = by_country.get(csel, {})
+                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                    out_path_single = args.output
+                    if "{country}" in (out_path_single or ""):
+                        lang_sel = ""
+                        if isinstance(mg, dict):
+                            try:
+                                lang_sel = str(mg.get("language") or "").strip()
+                            except Exception:
+                                lang_sel = ""
+                        token = f"{csel}_{lang_sel}" if lang_sel else csel
+                        out_path_single = out_path_single.replace("{country}", token)
+                    elif args.output_pattern:
+                        root_pattern = args.output_pattern
+                        if "{country}" not in root_pattern:
+                            rroot, rext = os.path.splitext(root_pattern)
+                            root_pattern = f"{rroot}_{{country}}{rext}"
+                        lang_sel = ""
+                        if isinstance(mg, dict):
+                            try:
+                                lang_sel = str(mg.get("language") or "").strip()
+                            except Exception:
+                                lang_sel = ""
+                        token = f"{csel}_{lang_sel}" if lang_sel else csel
+                        out_path_single = root_pattern.replace("{country}", token)
+                    print(f"  - {out_path_single} [selected country: {csel}]")
+                    if args.sample:
+                        print(
+                            f"  - {derive_sample_path(out_path_single)} [selected country: {csel}] (sample)"
+                        )
                 print("Dry run complete (no files written).")
                 return 0
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
@@ -4010,6 +4110,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 )
                 return exit_code
             if args.dry_run:
+                print("Dry-run output targets:")
+                print(f"  - {args.output}")
+                if args.sample:
+                    print(f"  - {derive_sample_path(args.output)} (sample)")
                 print("Dry run complete (no file written).")
                 return 0
         if isinstance(data, dict):
