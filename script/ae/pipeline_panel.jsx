@@ -152,18 +152,18 @@
     var PANEL_STATE_FILE = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".panel_state.json")) : null;
 
     var DEFAULT_SECTION_STATE = {
-        S1: true,
-        S2: true,
-        S3: true,
-        S4: true,
-        S5: true,
+        S1: false,
+        S2: false,
+        S3: false,
+        S4: false,
+        S5: false,
         S6: false,
         S7: false,
-        S8: true,
-        S9: true,
+        S8: false,
+        S9: false,
         S10: false,
         S11: false,
-        S12: true
+        S12: false
     };
 
     var sectionState = deepMerge({}, DEFAULT_SECTION_STATE);
@@ -603,6 +603,10 @@
     cbConvLayerConfig.value = true;
     cbConvMediaConfig.value = true;
 
+    var rowConvValidation = mkRow(secConverter);
+    var cbConvValidation = rowConvValidation.add("checkbox", undefined, "Validation");
+    cbConvValidation.value = false;
+
     function updateConvModeControls() {
         fldConvFPS.enabled = cbConvUseFPS.value === true;
         fldConvCountryColumn.enabled = rbConvCountryColumn.value === true;
@@ -652,10 +656,11 @@
         }
 
         // Output is fixed to the pattern data_{country}.json inside the selected output folder.
-        var outputFilePath = outPath;
+        var outputFolderPath = outPath;
         var outTail = outPath.charAt(outPath.length - 1);
-        if (outTail !== "/" && outTail !== "\\") outputFilePath += "/";
-        outputFilePath += "data_{country}.json";
+        if (outTail !== "/" && outTail !== "\\") outputFolderPath += "/";
+        var outputFilePath = outputFolderPath + "data_{country}.json";
+        var validationReportPath = outputFolderPath + "validation_report.json";
 
         // Paths quoted for shell; system.callSystem is synchronous — AE UI blocks until converter exits
         var cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outputFilePath + '"';
@@ -685,10 +690,13 @@
         if (cbConvMediaConfig.value === true) {
             cmd += ' --media-config "' + baseFolder + 'media_in.xlsx"';
         }
+        if (cbConvValidation.value === true) {
+            cmd += ' --check --validation-report "' + validationReportPath + '"';
+        }
 
         convStatus.text = "Running...";
         var code = system.callSystem(cmd);
-        convStatus.text = (code === 0) ? "OK" : ("Exited with code " + code);
+        convStatus.text = (code === 0) ? "OK" : ("Result: " + code);
     };
 
     // ── S12: RUN CONTROLS ────────────────────────────────────────────────────
