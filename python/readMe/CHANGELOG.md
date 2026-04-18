@@ -1,3 +1,8 @@
+# 1.10.6 - 2026-04-18
+
+Added:
+- Runtime-hook version baking in installer build helper: During build, a PyInstaller runtime hook is generated to bake `CONVERTER_VERSION` into the standalone binary.
+
 # 1.10.5 - 2026-04-18
 
 Added:

@@ -28,6 +28,7 @@ class InstallerBuildArgsTests(unittest.TestCase):
             spec_dir=build_root / "spec",
             media_tool=python_dir / "tools" / "media_converter.py",
             config_tool=python_dir / "tools" / "config_converter.py",
+            runtime_hook=build_root / "work" / "runtime_hook_converter_version.py",
         )
 
         self.assertIn("--onefile", args)
@@ -43,6 +44,10 @@ class InstallerBuildArgsTests(unittest.TestCase):
         self.assertIn("--hidden-import=openpyxl", args)
         self.assertIn("--hidden-import=python.tools.media_converter", args)
         self.assertIn("--hidden-import=python.tools.config_converter", args)
+        self.assertIn(
+            f"--runtime-hook={build_root / 'work' / 'runtime_hook_converter_version.py'}",
+            args,
+        )
 
 
 if __name__ == "__main__":

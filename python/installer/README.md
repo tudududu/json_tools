@@ -25,6 +25,12 @@ Run from repository root:
 python3 python/installer/build_csv_to_json.py
 ```
 
+Optional explicit version bake-in:
+
+```sh
+python3 python/installer/build_csv_to_json.py --converter-version 1.10.5
+```
+
 Build output:
 
 - Executable: `python/build/csv_to_json/dist/csv_to_json`
@@ -32,6 +38,17 @@ Build output:
 - Generated spec: `python/build/csv_to_json/spec/csv_to_json.spec`
 
 The helper builds a `--onefile` binary and bundles required converter tooling (`media_converter.py`, `config_converter.py`) so `--media-config` and `--layer-config` work in the executable.
+
+During build, a PyInstaller runtime hook is generated to bake `CONVERTER_VERSION` into the standalone binary.
+Default resolution order for baked version is:
+
+1. Build-time environment variable `CONVERTER_VERSION`
+2. First heading in `CHANGELOG.md` (repo root), then `python/readMe/CHANGELOG.md`
+3. Latest git tag
+4. `0.0.0+<shortcommit>`
+5. `dev`
+
+This prevents frozen-runtime fallback drift caused by file-location differences.
 
 ## Quick Validation
 
