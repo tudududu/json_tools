@@ -8,4 +8,4 @@ import os
 
 
 # Keep runtime env override behavior explicit for frozen binaries.
-os.environ["CONVERTER_VERSION"] = __CSV_TO_JSON_CONVERTER_VERSION__
+os.environ["CONVERTER_VERSION"] = __CSV_TO_JSON_CONVERTER_VERSION__  # noqa: F821
