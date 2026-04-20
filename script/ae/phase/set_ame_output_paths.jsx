@@ -26,7 +26,7 @@ function __AME_coreRun(opts) {
     // ————— Settings —————
     // 1. Source selection mode
     var PROCESS_SELECTION = true;          // If true: take currently selected CompItems in Project panel and add them to the Render Queue
-    var PROCESS_EXISTING_RQ = true;         // If true: also process existing (non-rendering, non-done) Render Queue items
+    var PROCESS_EXISTING_RQ = false;         // If true: also process existing (non-rendering, non-done) Render Queue items
     var ALLOW_DUPLICATE_RQ_ITEMS = false;   // If false: skip adding a comp if it already exists in RQ (status not DONE)
 
     // 2. Templates (optional)
@@ -1509,9 +1509,11 @@ function __AME_buildPanel(thisObj) {
 
     var cbIsoSuffix = grpOpts.add("checkbox", undefined, "Date Folder ISO Suffix");
     var cbLang = grpOpts.add("checkbox", undefined, "Language Subfolder");
+    var cbFileLog = grpOpts.add("checkbox", undefined, "Enable File Log");
 
     cbIsoSuffix.value = true;
     cbLang.value = false;
+    cbFileLog.value = true;
     rbSortMimic.value = true;
     cbDuration.value = true;
     cbArSubfolder.value = true;
@@ -1555,6 +1557,7 @@ function __AME_buildPanel(thisObj) {
                     DURATION_FIRST_ORDER: rbSortDurationFirst.value === true,
                     ENABLE_AR_SUBFOLDER: cbArSubfolder.value === true,
                     USE_LANGUAGE_SUBFOLDER: cbLang.value === true,
+                    ENABLE_FILE_LOG: cbFileLog.value === true,
                     MIMIC_PROJECT_FOLDER_STRUCTURE: rbSortMimic.value === true,
                     EXPORT_SUBPATH: exportSubpath
                 },

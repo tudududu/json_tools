@@ -481,6 +481,7 @@
     grpAMEOptions.alignChildren = ["left", "top"];
     var cbAMEIsoSuffix = grpAMEOptions.add("checkbox", undefined, "Date Folder ISO Suffix");
     var cbAMELangSubfolder = grpAMEOptions.add("checkbox", undefined, "Language Subfolder");
+    var cbAMEFileLog = grpAMEOptions.add("checkbox", undefined, "Enable File Log");
 
     function updateAMECustomEnabled() {
         fldAMECustomPath.enabled = rbAMECustom.value === true;
@@ -756,6 +757,7 @@
         setAMEExportSubpath(getOpt(p, ["ame", "EXPORT_SUBPATH"], "OUT/custom"));
         cbAMEIsoSuffix.value         = optB(p, ["ame", "ENABLE_DATE_FOLDER_ISO_SUFFIX"],     true);
         cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],            false);
+        cbAMEFileLog.value           = optB(p, ["ame", "ENABLE_FILE_LOG"],                    true);
         rbAMESortMimic.value         = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"],    true);
         rbAMESortDurationFirst.value = optB(p, ["ame", "DURATION_FIRST_ORDER"],              false);
         rbAMESortArFirst.value       = !rbAMESortMimic.value && !rbAMESortDurationFirst.value;
@@ -829,6 +831,7 @@
         // S10
         uo.ame = {
             ENABLE_DATE_FOLDER_ISO_SUFFIX:   cbAMEIsoSuffix.value,
+            ENABLE_FILE_LOG:                  cbAMEFileLog.value,
             EXPORT_SUBPATH:                   getAMEExportSubpath(),
             MIMIC_PROJECT_FOLDER_STRUCTURE:   rbAMESortMimic.value,
             ENABLE_DURATION_SUBFOLDER:       cbAMEDurationSubfolder.value,

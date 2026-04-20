@@ -430,7 +430,8 @@
             }
         },
         ame: {
-            ENABLE_FILE_LOG: true,
+            ENABLE_FILE_LOG: true,             // Master toggle for file log
+            FILE_LOG_SUBFOLDER: "log",        // Subfolder under POST/WORK (relative path only)
             PROCESS_SELECTION: true,
             PROCESS_EXISTING_RQ: true,
             AUTO_QUEUE_IN_AME: true,
