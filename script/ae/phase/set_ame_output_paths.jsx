@@ -71,6 +71,8 @@ function __AME_coreRun(opts) {
     // (Removed legacy JSON country key path; ISO now derived only from file name or disk scan)
 
     // 4c. File logging options (applies only if file logging enabled later)
+    var ENABLE_FILE_LOG = true;             // Master toggle for file log
+    var FILE_LOG_SUBFOLDER = "log";        // Subfolder under POST/WORK (relative path only)
     var FILE_LOG_APPEND_MODE = false;          // When true, append to a single persistent file (set_ame_output_paths.log)
     var FILE_LOG_PRUNE_ENABLED = true;         // When true, prune old log files (pattern set_ame_output_paths_*.log) beyond max
     var FILE_LOG_MAX_FILES = 12;               // Keep at most this many timestamped log files (ignored if append mode only and no rotation needed)
@@ -136,6 +138,19 @@ function __AME_coreRun(opts) {
             // 4b. Date folder ISO suffix feature & parent folder customization
             if (o.ENABLE_DATE_FOLDER_ISO_SUFFIX !== undefined) ENABLE_DATE_FOLDER_ISO_SUFFIX = !!o.ENABLE_DATE_FOLDER_ISO_SUFFIX;
             // 4c. File logging options
+            if (o.FILE_LOG_SUBFOLDER !== undefined) {
+                var __logSubRaw = String(o.FILE_LOG_SUBFOLDER || "");
+                var __logSub = __logSubRaw.replace(/^\s+|\s+$/g, "");
+                if (__logSub.length) {
+                    __logSub = __logSub.replace(/\\/g, "/");
+                    __logSub = __logSub.replace(/\/+/g, "/");
+                    __logSub = __logSub.replace(/^\/+|\/+$/g, "");
+                    // Keep this as a relative subpath under POST/WORK.
+                    if (__logSub.length && __logSub.indexOf("..") === -1 && __logSub.indexOf(":") === -1) {
+                        FILE_LOG_SUBFOLDER = __logSub;
+                    }
+                }
+            }
             if (o.FILE_LOG_APPEND_MODE !== undefined) FILE_LOG_APPEND_MODE = !!o.FILE_LOG_APPEND_MODE;
             if (o.FILE_LOG_MAX_FILES !== undefined) FILE_LOG_MAX_FILES = parseInt(o.FILE_LOG_MAX_FILES, 10);
             if (o.FILE_LOG_PRUNE_ENABLED !== undefined) FILE_LOG_PRUNE_ENABLED = !!o.FILE_LOG_PRUNE_ENABLED;
@@ -606,9 +621,6 @@ function __AME_coreRun(opts) {
     }
 
     // -------- File logging (POST/WORK/log) --------
-    // Respect options override parsed above; default to true only if not explicitly set to false
-    if (ENABLE_FILE_LOG !== false) { var ENABLE_FILE_LOG = true; }             // Master toggle for file log
-    var FILE_LOG_SUBFOLDER = "log";        // Subfolder under POST/WORK
     var __fileLog = null;                   // File handle
     function __ts() {
         var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());

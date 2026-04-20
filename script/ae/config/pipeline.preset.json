@@ -363,7 +363,8 @@
     }
     },
 "ame": {
-    "ENABLE_FILE_LOG": false,
+    "ENABLE_FILE_LOG": true,
+    "FILE_LOG_SUBFOLDER": "log",
     "FILE_LOG_APPEND_MODE": false,
     "VERBOSE_DEBUG": false,
     "COMPACT_ITEM_DETAIL": true,
