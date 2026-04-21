@@ -3340,7 +3340,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not os.path.isfile(args.layer_config):
             print(
                 f"Warning: failed to load layer config '{args.layer_config}': "
-                f"[Errno 2] No such file or directory: '{args.layer_config}'"
+                f"[Errno 2] No such file or directory: '{args.layer_config}'",
+                file=sys.stderr,
             )
         elif layercfg_convert_workbook is None:
             raise SystemExit(
@@ -3391,7 +3392,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             or media_convert_rows is None
         ):
             print(
-                "Warning: media tools not available; skipping --media-config integration"
+                "Warning: media tools not available; skipping --media-config integration",
+                file=sys.stderr,
             )
         else:
             try:
@@ -3412,7 +3414,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                         media_groups_map[(ctry, lang)] = mapping
             except Exception as ex:
                 print(
-                    f"Warning: failed to load media config '{args.media_config}': {ex}"
+                    f"Warning: failed to load media config '{args.media_config}': {ex}",
+                    file=sys.stderr,
                 )
 
     def _inject_media(payload: Dict[str, Any], country_code: str):
@@ -3783,7 +3786,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     with open(args.validation_report, "w", encoding="utf-8") as rf:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
-                    print(f"Failed to write validation report: {ex}")
+                    print(f"Failed to write validation report: {ex}", file=sys.stderr)
             print("Check mode output targets:")
             if args.split_by_country:
                 pattern = args.output_pattern or args.output
@@ -4109,7 +4112,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     with open(args.validation_report, "w", encoding="utf-8") as rf:
                         json.dump(report_obj, rf, ensure_ascii=False, indent=2)
                 except Exception as ex:
-                    print(f"Failed to write validation report: {ex}")
+                    print(f"Failed to write validation report: {ex}", file=sys.stderr)
             print("Check mode output targets:")
             print(f"  - {args.output}")
             if args.sample:
