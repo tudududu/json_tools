@@ -393,3 +393,13 @@ def test_cli_fps_overrides_meta_global_fps(tmp_path):
     # override --fps 25 => 2.0
     assert v_default["subtitles"][0]["in"] == 1.5
     assert v_override["subtitles"][0]["in"] == 2.0
+
+
+def test_missing_input_file_prints_clean_error(tmp_path):
+    out = tmp_path / "out.json"
+    proc = run_cli(["nonexistent_input.xlsx", str(out)], expect_exit=1)
+    assert (
+        "FileNotFoundError: [Errno 2] No such file or directory: 'nonexistent_input.xlsx'"
+        in proc.stdout
+    )
+    assert not out.exists()

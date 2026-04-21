@@ -3062,6 +3062,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = p.parse_args(argv)
 
+    if not os.path.exists(args.input):
+        print(f"FileNotFoundError: [Errno 2] No such file or directory: '{args.input}'")
+        return 1
+
     # Auto-derive converter version when user leaves default (auto/dev/empty)
     def _auto_version() -> str:
         # 1) Environment variable override
