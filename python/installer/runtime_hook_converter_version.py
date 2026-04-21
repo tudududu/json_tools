@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-	__CSV_TO_JSON_CONVERTER_VERSION__ = ""
+    __CSV_TO_JSON_CONVERTER_VERSION__ = ""
 
 
 # Keep runtime env override behavior explicit for frozen binaries.
