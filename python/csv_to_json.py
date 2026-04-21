@@ -3355,9 +3355,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 f"[Errno 2] No such file or directory: '{args.layer_config}'"
             )
         elif layercfg_convert_workbook is None:
-            raise SystemExit(
+            _report_runtime_error(
                 "Layer config converter not available; cannot process --layer-config"
             )
+            _print_conversion_summary(0)
+            return 1
         else:
             try:
                 converted = layercfg_convert_workbook(
@@ -3390,9 +3392,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                             "layer config payload missing config.addLayers/LAYER_NAME_CONFIG"
                         )
             except Exception as ex:
-                raise SystemExit(
+                _report_runtime_error(
                     f"Failed to load layer config '{args.layer_config}': {ex}"
                 )
+                _print_conversion_summary(0)
+                return 1
 
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}

@@ -368,6 +368,104 @@ class MediaIntegrationTests(unittest.TestCase):
             except Exception:
                 pass
 
+    @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+    def test_layer_config_converter_unavailable_uses_summary_path(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        layer_cfg_path = tmp_file(".xlsx")
+        self._write_layer_config_xlsx(layer_cfg_path)
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                with mock.patch.object(mod, "layercfg_convert_workbook", None):
+                    with mock.patch("sys.stdout", new_callable=io.StringIO) as out_buf:
+                        with mock.patch(
+                            "sys.stderr", new_callable=io.StringIO
+                        ) as err_buf:
+                            rc = mod.main(
+                                [in_path, out_json, "--layer-config", layer_cfg_path]
+                            )
+                self.assertEqual(rc, 1)
+                self.assertFalse(os.path.exists(out_json))
+                self.assertIn(
+                    "Layer config converter not available; cannot process --layer-config",
+                    err_buf.getvalue(),
+                )
+                self.assertIn(
+                    "Conversion complete: Files written: 0, Errors: 1",
+                    out_buf.getvalue(),
+                )
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(layer_cfg_path)
+            except Exception:
+                pass
+
+    @unittest.skipUnless(Workbook is not None, "openpyxl is required for XLSX tests")
+    def test_layer_config_conversion_failure_uses_summary_path(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        layer_cfg_path = tmp_file(".xlsx")
+        self._write_layer_config_xlsx(layer_cfg_path)
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                with mock.patch.object(
+                    mod,
+                    "layercfg_convert_workbook",
+                    side_effect=ValueError("boom"),
+                ):
+                    with mock.patch("sys.stdout", new_callable=io.StringIO) as out_buf:
+                        with mock.patch(
+                            "sys.stderr", new_callable=io.StringIO
+                        ) as err_buf:
+                            rc = mod.main(
+                                [in_path, out_json, "--layer-config", layer_cfg_path]
+                            )
+                self.assertEqual(rc, 1)
+                self.assertFalse(os.path.exists(out_json))
+                self.assertIn(
+                    f"Failed to load layer config '{layer_cfg_path}': boom",
+                    err_buf.getvalue(),
+                )
+                self.assertIn(
+                    "Conversion complete: Files written: 0, Errors: 1",
+                    out_buf.getvalue(),
+                )
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(layer_cfg_path)
+            except Exception:
+                pass
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
