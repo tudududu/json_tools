@@ -304,19 +304,64 @@ class MediaIntegrationTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as td:
                 out_json = os.path.join(td, "out.json")
                 with mock.patch("sys.stdout", new_callable=io.StringIO) as out_buf:
-                    rc = mod.main(
-                        [in_path, out_json, "--layer-config", missing_layer_cfg]
-                    )
+                    with mock.patch("sys.stderr", new_callable=io.StringIO) as err_buf:
+                        rc = mod.main(
+                            [in_path, out_json, "--layer-config", missing_layer_cfg]
+                        )
                 self.assertEqual(rc, 0)
                 self.assertTrue(os.path.isfile(out_json))
                 self.assertIn(
                     f"Warning: failed to load layer config '{missing_layer_cfg}'",
+                    err_buf.getvalue(),
+                )
+                self.assertIn(
+                    "Conversion complete: Files written: 1, Errors: 1",
                     out_buf.getvalue(),
                 )
                 with open(out_json, "r", encoding="utf-8") as f:
                     payload = json.load(f)
                 self.assertTrue(isinstance(payload, dict))
                 self.assertNotIn("config", payload)
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+
+    def test_missing_media_config_warns_and_continues(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        missing_media_cfg = os.path.join(tempfile.gettempdir(), "missing_media_zzz.csv")
+        if os.path.exists(missing_media_cfg):
+            os.remove(missing_media_cfg)
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                with mock.patch("sys.stdout", new_callable=io.StringIO) as out_buf:
+                    with mock.patch("sys.stderr", new_callable=io.StringIO) as err_buf:
+                        rc = mod.main(
+                            [in_path, out_json, "--media-config", missing_media_cfg]
+                        )
+                self.assertEqual(rc, 0)
+                self.assertTrue(os.path.isfile(out_json))
+                self.assertIn(
+                    f"Warning: failed to load media config '{missing_media_cfg}'",
+                    err_buf.getvalue(),
+                )
+                self.assertIn(
+                    "Conversion complete: Files written: 1, Errors: 1",
+                    out_buf.getvalue(),
+                )
         finally:
             try:
                 os.remove(in_path)

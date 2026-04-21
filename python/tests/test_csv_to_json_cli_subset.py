@@ -402,5 +402,5 @@ def test_missing_input_file_prints_clean_error(tmp_path):
         "FileNotFoundError: [Errno 2] No such file or directory: 'nonexistent_input.xlsx'"
         in proc.stderr
     )
-    assert proc.stdout == ""
+    assert "Conversion complete: Files written: 0, Errors: 1" in proc.stdout
     assert not out.exists()

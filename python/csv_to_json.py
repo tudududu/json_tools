@@ -3062,11 +3062,23 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = p.parse_args(argv)
 
-    if not os.path.exists(args.input):
+    runtime_error_count = 0
+
+    def _report_runtime_error(message: str):
+        nonlocal runtime_error_count
+        runtime_error_count += 1
+        print(message, file=sys.stderr)
+
+    def _print_conversion_summary(files_written: int, validation_errors: int = 0):
         print(
-            f"FileNotFoundError: [Errno 2] No such file or directory: '{args.input}'",
-            file=sys.stderr,
+            f"Conversion complete: Files written: {files_written}, Errors: {runtime_error_count + validation_errors}"
         )
+
+    if not os.path.exists(args.input):
+        _report_runtime_error(
+            f"FileNotFoundError: [Errno 2] No such file or directory: '{args.input}'"
+        )
+        _print_conversion_summary(0)
         return 1
 
     # Auto-derive converter version when user leaves default (auto/dev/empty)
@@ -3338,10 +3350,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     layer_config_payload: Optional[Dict[str, Any]] = None
     if args.layer_config:
         if not os.path.isfile(args.layer_config):
-            print(
+            _report_runtime_error(
                 f"Warning: failed to load layer config '{args.layer_config}': "
-                f"[Errno 2] No such file or directory: '{args.layer_config}'",
-                file=sys.stderr,
+                f"[Errno 2] No such file or directory: '{args.layer_config}'"
             )
         elif layercfg_convert_workbook is None:
             raise SystemExit(
@@ -3394,6 +3405,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(
                 "Warning: media tools not available; skipping --media-config integration",
                 file=sys.stderr,
+            )
+        elif not os.path.isfile(args.media_config):
+            _report_runtime_error(
+                f"Warning: failed to load media config '{args.media_config}': "
+                f"[Errno 2] No such file or directory: '{args.media_config}'"
             )
         else:
             try:
@@ -3910,7 +3926,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     else " OK."
                 )
             )
-            print(f"Conversion complete: Files written: 0, Errors: {len(all_errors)}")
+            _print_conversion_summary(0, len(all_errors))
             return exit_code
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
         if args.split_by_country:
@@ -4128,7 +4144,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     else " OK."
                 )
             )
-            print(f"Conversion complete: Files written: 0, Errors: {len(errors)}")
+            _print_conversion_summary(0, len(errors))
             return exit_code
         if isinstance(data, dict):
             _inject_layer_config(data)
@@ -4137,7 +4153,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             sample_path = derive_sample_path(args.output)
             write_json(sample_path, make_sample(data))
 
-    print(f"Conversion complete: Files written: {file_write_count}, Errors: 0")
+    _print_conversion_summary(file_write_count)
     return 0
 
 
