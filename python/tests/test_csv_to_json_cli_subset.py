@@ -400,6 +400,7 @@ def test_missing_input_file_prints_clean_error(tmp_path):
     proc = run_cli(["nonexistent_input.xlsx", str(out)], expect_exit=1)
     assert (
         "FileNotFoundError: [Errno 2] No such file or directory: 'nonexistent_input.xlsx'"
-        in proc.stdout
+        in proc.stderr
     )
+    assert proc.stdout == ""
     assert not out.exists()
