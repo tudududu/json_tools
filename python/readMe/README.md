@@ -873,6 +873,7 @@ Use an external layer config workbook to inject addLayers mappings into output J
 
 Flags:
 - `--layer-config`: Path to layer config XLSX to convert and inject.
+- `--layer-config-required`: Treat all `--layer-config` failures as fatal (rc=1). Without this flag (default) all failures are non-fatal warnings and conversion continues.
 
 Behavior:
 - The workbook is loaded once per run and reused for all generated payloads.
@@ -884,6 +885,16 @@ Behavior:
   - `TIMING_ITEM_SELECTOR`
   - `SKIP_COPY_CONFIG`
 - Works alongside media injection (`config.pack.EXTRA_OUTPUT_COMPS`) when both flags are provided.
+
+Failure modes (default — non-fatal):
+
+| Condition | Default | With `--layer-config-required` |
+|---|---|---|
+| File not found | warning on stderr, continue | abort rc=1 |
+| Converter unavailable | warning on stderr, continue | abort rc=1 |
+| Conversion exception | warning on stderr, continue | abort rc=1 |
+
+In all three cases the error is counted in the `Conversion complete: ... Errors: N` summary.
 
 Example:
 ```sh
@@ -900,6 +911,7 @@ python3 python/csv_to_json.py data.csv out/{country}.json \
 * Overlap validation complaints: ensure subtitle rows are time sorted and non-overlapping per video.
 * Want a machine-readable report? Add `--validation-report report.json`.
 * Need only warnings for missing keys? Add `--missing-keys-warn` (optionally adjust keys list).
+* Missing input file or broken config? The tool prints a clean error to **stderr** and emits a `Conversion complete: Files written: 0, Errors: 1` summary to **stdout** before exiting. Use `--layer-config-required` to make layer-config failures fatal when that matters for your pipeline.
 
 ---
 If additional schema evolutions are needed, open an issue or extend the script where noted.

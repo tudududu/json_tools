@@ -1,3 +1,43 @@
+# 1.10.7 - 2026-04-22
+
+Added:
+- Error-handling and stderr/stdout discipline in `csv_to_json.py` (py 344–352):
+
+	**Clean error messages (py 344–346)**
+	* Missing main input file no longer produces a Python traceback.
+	* An `os.path.exists` guard now prints a clean `FileNotFoundError` message to stderr, emits the conversion summary, and exits with rc=1.
+	* All diagnostic output (warnings, errors) is routed to stderr; all summaries and conversion output remain on stdout.
+
+	**Runtime error counter and unified summary (py 349)**
+	* Introduced shared `runtime_error_count` counter and two helper functions inside `main()`:
+		- `_report_runtime_error(message)` — prints to stderr and increments the counter.
+		- `_print_conversion_summary(files_written, validation_errors=0)` — prints `Conversion complete: Files written: N, Errors: N` to stdout, combining runtime and validation error counts.
+	* The summary is now always emitted, including when the run aborts early (missing input, fatal layer-config failure).
+	* Missing `--media-config` file is counted as a runtime error.
+
+	**Stderr routing for all diagnostics (py 347–348)**
+	* Layer-config missing-file warning, media tools unavailable, media config load failure, and validation report write failures are all routed to stderr via `_report_runtime_error` or explicit `file=sys.stderr`.
+
+	**`--layer-config` exit strategy unification (py 350–352)**
+	* Two previously hard-coded fatal `raise SystemExit(...)` branches in layer-config setup are replaced with `_report_runtime_error` + `_print_conversion_summary(0)` + `return 1`, keeping the summary path consistent.
+	* Added `--layer-config-required` flag: when omitted (default), all three `--layer-config` failure modes (missing file, converter unavailable, conversion exception) are non-fatal warnings that increment the error counter and allow conversion to continue.
+	  When `--layer-config-required` is passed, any `--layer-config` failure aborts with rc=1.
+
+	**Build hook fix (py 353)**
+	* Fixed a `SyntaxError` in the PyInstaller runtime-hook template that occurred when a `TYPE_CHECKING` placeholder declaration was present during the build-time token substitution pass.
+	* The template now uses a quoted string sentinel (`"__CSV_TO_JSON_CONVERTER_VERSION__"`) instead of a bare identifier, and the build helper replaces only that exact quoted token.
+	* Added a guard in `render_runtime_hook()` that raises a clear error when the sentinel is missing from the template.
+
+Tests:
+- `test_csv_to_json_cli_subset.py`: updated `test_missing_input_file_prints_clean_error` to assert error on stderr, summary on stdout (`Errors: 1`), rc=1, no output file.
+- `test_media_integration.py`:
+	* `test_missing_layer_config_warns_and_continues`: updated to check warning in stderr, `Errors: 1` in summary, rc=0.
+	* `test_missing_media_config_warns_and_continues`: new — verifies missing media config is non-fatal with `Errors: 1` in summary.
+	* `test_layer_config_converter_unavailable_uses_summary_path`: updated to pass `--layer-config-required`; verifies rc=1, no output, error in stderr, summary in stdout.
+	* `test_layer_config_conversion_failure_uses_summary_path`: updated similarly.
+	* `test_layer_config_converter_unavailable_nonfatal_by_default`: new — verifies rc=0 and output file present without `--layer-config-required`.
+	* `test_layer_config_conversion_failure_nonfatal_by_default`: new — same for conversion exception.
+
 # 1.10.6 - 2026-04-18
 
 Added:
