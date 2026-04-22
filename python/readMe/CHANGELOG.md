@@ -1,3 +1,15 @@
+# 1.10.8 - 2026-04-22
+
+Added:
+- The traceback during build is fixed by changing the placeholder strategy so build substitution can no longer rewrite Python syntax into an invalid assignment.
+	1. In runtime_hook_converter_version.py, I removed the TYPE_CHECKING placeholder variable pattern and replaced it with a string sentinel:
+	_CONVERTER_VERSION_SENTINEL = "__CSV_TO_JSON_CONVERTER_VERSION__"
+	os.environ["CONVERTER_VERSION"] = _CONVERTER_VERSION_SENTINEL
+	2. In build_csv_to_json.py, I changed render_runtime_hook(...) to replace only the quoted sentinel string once:
+	from global .replace("__CSV_TO_JSON_CONVERTER_VERSION__", ...)
+	to .replace('"__CSV_TO_JSON_CONVERTER_VERSION__"', repr(converter_version), 1)
+	3. Added a guard in the renderer that raises a clear error if the sentinel is missing from the template.
+
 # 1.10.7 - 2026-04-22
 
 Added:
