@@ -3059,6 +3059,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Optional path to layer config XLSX for injection into config.addLayers",
     )
+    p.add_argument(
+        "--layer-config-required",
+        action="store_true",
+        help=(
+            "Treat all --layer-config failures as fatal: missing file, converter unavailable, "
+            "and conversion errors all abort with rc=1. "
+            "By default all three are non-fatal warnings and conversion continues."
+        ),
+    )
 
     args = p.parse_args(argv)
 
@@ -3354,12 +3363,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                 f"Warning: failed to load layer config '{args.layer_config}': "
                 f"[Errno 2] No such file or directory: '{args.layer_config}'"
             )
+            if args.layer_config_required:
+                _print_conversion_summary(0)
+                return 1
         elif layercfg_convert_workbook is None:
             _report_runtime_error(
                 "Layer config converter not available; cannot process --layer-config"
             )
-            _print_conversion_summary(0)
-            return 1
+            if args.layer_config_required:
+                _print_conversion_summary(0)
+                return 1
         else:
             try:
                 converted = layercfg_convert_workbook(
@@ -3395,8 +3408,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 _report_runtime_error(
                     f"Failed to load layer config '{args.layer_config}': {ex}"
                 )
-                _print_conversion_summary(0)
-                return 1
+                if args.layer_config_required:
+                    _print_conversion_summary(0)
+                    return 1
 
     # Prepare media mappings once (if provided) for exact (country, language) match only
     media_groups_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
