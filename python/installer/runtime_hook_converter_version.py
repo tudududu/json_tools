@@ -5,12 +5,9 @@ The build helper renders this template by replacing
 """
 
 import os
-from typing import TYPE_CHECKING
 
-
-if TYPE_CHECKING:
-    __CSV_TO_JSON_CONVERTER_VERSION__ = ""
+_CONVERTER_VERSION_SENTINEL = "__CSV_TO_JSON_CONVERTER_VERSION__"
 
 
 # Keep runtime env override behavior explicit for frozen binaries.
-os.environ["CONVERTER_VERSION"] = __CSV_TO_JSON_CONVERTER_VERSION__
+os.environ["CONVERTER_VERSION"] = _CONVERTER_VERSION_SENTINEL

@@ -87,10 +87,13 @@ def render_runtime_hook(
     converter_version: str,
 ) -> None:
     template_text = template_path.read_text(encoding="utf-8")
-    rendered = template_text.replace(
-        "__CSV_TO_JSON_CONVERTER_VERSION__",
-        repr(converter_version),
-    )
+    sentinel = '"__CSV_TO_JSON_CONVERTER_VERSION__"'
+    rendered = template_text.replace(sentinel, repr(converter_version), 1)
+    if rendered == template_text:
+        raise ValueError(
+            "Runtime hook template sentinel not found; expected quoted "
+            "__CSV_TO_JSON_CONVERTER_VERSION__ placeholder"
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(rendered, encoding="utf-8")
 
