@@ -199,8 +199,15 @@ function __LinkData_coreRun(opts) {
     var relinked = false, imported = false, projectItem = null;
 
     if (existing && existing instanceof FootageItem) {
+        // AE 315: Belt-and-suspenders suppressAlerts right at the replace() call.
+        // AE generates "data structure changed / undo stack purged" here. Log the flag value for diagnosis.
+        var __saBeforeReplace;
+        try { __saBeforeReplace = app.suppressAlerts; app.suppressAlerts = true; } catch(eSABR) {}
+        if (DATA_JSON_LOG_VERBOSE) log("[data.json][diag] app.suppressAlerts at replace(): " + String(app.suppressAlerts) + " | pipeline: " + !!__AE_PIPE__);
         try { existing.replace(fsFile); relinked = true; projectItem = existing; if (DATA_JSON_LOG_VERBOSE) log("[data.json] Relinked existing item to " + fsFile.fsName); }
         catch (eRep) { log("[data.json] Relink failed: " + eRep); }
+        // Restore only in standalone mode; in pipeline mode suppressAlerts stays true (set globally by pipeline_run).
+        if (!__AE_PIPE__) { try { if (typeof __saBeforeReplace !== 'undefined') { app.suppressAlerts = __saBeforeReplace; } } catch(eSARes) {} }
     } else if (DATA_JSON_IMPORT_IF_MISSING) {
         try {
             var ioData = new ImportOptions(fsFile);

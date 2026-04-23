@@ -8,6 +8,23 @@
     var __IS_PANEL_RUN = false;
     try { __IS_PANEL_RUN = !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true); } catch(eIPR) {}
 
+    // AE 315: Apply AE-native dialog suppression GLOBALLY for the entire pipeline when in panel mode.
+    // AE's C++ engine generates "data structure changed / undo stack purged" warnings independently of
+    // app.suppressAlerts. app.beginSuppressDialogs(true) queues these at the C++ level.
+    // CRITICAL: endSuppressDialogs(false) flushes queued dialogs immediately — so per-step suppression
+    // caused the dialog to appear between steps. Global suppression (begin once, end once at pipeline end
+    // with true = don't flush) prevents mid-pipeline blocking.
+    var __globalNativeSuppressActive = false;
+    if (__IS_PANEL_RUN) {
+        try { app.suppressAlerts = true; } catch(eSAGbl) {}
+        try {
+            if (typeof app.beginSuppressDialogs === 'function') {
+                app.beginSuppressDialogs(true);
+                __globalNativeSuppressActive = true;
+            }
+        } catch(eBSDGbl) {}
+    }
+
     function __panelModalSuppressed() { return __IS_PANEL_RUN; }
     function __safeAlert(msg, logFn) {
         var text = String(msg || "");
@@ -465,29 +482,18 @@
             log("Step 1: Link data.json and detect ISO...");
             // Hot-reload safety: clear any previously defined singleton so the next eval loads fresh code.
             try { if (typeof AE_LinkData !== 'undefined') { AE_LinkData = undefined; } } catch(eLDClr) {}
-            // Load and run Step 1 in the same scope so AE_LinkData API remains visible.
-            var __suppressStep1Dialogs = false;
-            if (__panelModalSuppressed()) {
-                try { app.beginSuppressDialogs(true); __suppressStep1Dialogs = true; } catch (eBDS1) {}
-            }
-            try {
-                // Load the phase implementation from disk.
-                $.evalFile(LINK_DATA_PATH);
-                // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
-                if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
+            // Load the phase implementation from disk.
+            $.evalFile(LINK_DATA_PATH);
+            // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
+            if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
                     // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
                     var __optsL = (OPTS.linkData || {});
                     // Execute with runId and pipeline logger so logs are unified.
                     var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
                     // Persist the phase result for later steps/summary; tolerate missing or partial results.
                     try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
-                } else {
+            } else {
                     log("Step 1: link_data API not available; script evaluated without run().");
-                }
-            } finally {
-                if (__suppressStep1Dialogs) {
-                    try { app.endSuppressDialogs(false); } catch (eEDS1) {}
-                }
             }
         }
     } catch(eL) { 
@@ -880,6 +886,12 @@
             log("[panel] Final alert suppressed (suppress flag active).");
         }
     } catch (eAF) {}
+    // AE 315: End global native dialog suppression.
+    // true = do NOT flush pending AE dialogs; they will surface naturally when AE returns to interactive mode
+    // (same deferred behaviour as headless "Run Script File" execution).
+    if (__globalNativeSuppressActive) {
+        try { app.endSuppressDialogs(true); } catch(eESDGbl) {}
+    }
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {
         if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options && AE_PIPE.options.__sticky !== true) {
