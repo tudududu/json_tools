@@ -3,10 +3,39 @@
 
 (function runPipelineAll() {
 
+    function __panelModalSuppressed() {
+        try {
+            return !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true);
+        } catch (e) {
+            return false;
+        }
+    }
+    function __safeAlert(msg, logFn) {
+        var text = String(msg || "");
+        if (__panelModalSuppressed()) {
+            try {
+                if (typeof logFn === 'function') {
+                    logFn("[alert suppressed] " + text.replace(/[\r\n]+/g, " | "));
+                } else {
+                    $.writeln("[alert suppressed] " + text.replace(/[\r\n]+/g, " | "));
+                }
+            } catch (eLog) {}
+            return;
+        }
+        try { alert(text); } catch (eAlert) {}
+    }
+    function __withSuppressedDialogs(fn) {
+        if (!__panelModalSuppressed()) return fn();
+        var __started = false;
+        try { app.beginSuppressDialogs(true); __started = true; } catch (eBD) {}
+        try { return fn(); }
+        finally { if (__started) { try { app.endSuppressDialogs(false); } catch (eED) {} } }
+    }
+
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
     var base = here();
-    if (!base) { alert("Cannot resolve script folder."); return; }
+    if (!base) { __safeAlert("Cannot resolve script folder."); return; }
 
     function join(p, rel) { return File(p.fsName + "/" + rel); }
 
@@ -428,8 +457,8 @@
     // After Step 0 (whether run early or here), refresh project reference safely
     try {
         proj = app.project;
-        if (!proj) { alert("No project open."); return; }
-    } catch(eProj) { alert("No project open."); return; }
+        if (!proj) { __safeAlert("No project open.", log); return; }
+    } catch(eProj) { __safeAlert("No project open.", log); return; }
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
@@ -443,13 +472,15 @@
             // Hot-reload safety: clear any previously defined singleton so the next eval loads fresh code.
             try { if (typeof AE_LinkData !== 'undefined') { AE_LinkData = undefined; } } catch(eLDClr) {}
             // Load the phase implementation from disk.
-            $.evalFile(LINK_DATA_PATH);
+            __withSuppressedDialogs(function () { $.evalFile(LINK_DATA_PATH); });
             // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
             if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
                 // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
                 var __optsL = (OPTS.linkData || {});
                 // Execute with runId and pipeline logger so logs are unified.
-                var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
+                var resL1 = __withSuppressedDialogs(function () {
+                    return AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
+                });
                 // Persist the phase result for later steps/summary; tolerate missing or partial results.
                 try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
             } else {
@@ -467,7 +498,7 @@
         // Abort early on strict fatal from Step 1 (e.g., manual ISO_LANG requested but file missing)
         var reason1 = resL1.reason || "link_data reported fatal";
         log("FATAL: Aborting: " + reason1);
-        try { alert("Pipeline aborted (Step 1):\n" + reason1); } catch(eA1) {}
+        __safeAlert("Pipeline aborted (Step 1):\n" + reason1, log);
         // Mark end time for Step 1 before building summary
         tLe = nowMs();
         // Summarize and end run early
@@ -538,7 +569,7 @@
             log("Step 3: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
         } else {
             if (!footageSel.length) {
-                alert("Select one or more footage or comp items in the Project panel (or activate a comp) for Step 3 (create_compositions).");
+                __safeAlert("Select one or more footage or comp items in the Project panel (or activate a comp) for Step 3 (create_compositions).", log);
                 return;
             }
             log("Step 3: Creating comps from " + footageSel.length + " selected item(s).");
@@ -594,7 +625,7 @@
     }
 
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
-        alert("No compositions created in Step 3. Aborting.");
+        __safeAlert("No compositions created in Step 3. Aborting.", log);
         return;
     }
 
@@ -629,7 +660,7 @@
                     summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMsAbort));
                     var finalMsgAbort = summary.join("\n");
                     log(finalMsgAbort);
-                    try { alert("Pipeline aborted:\n" + AE_PIPE.__fatal); } catch(eA2) {}
+                    __safeAlert("Pipeline aborted:\n" + AE_PIPE.__fatal, log);
                     try { log("=== PIPELINE RUN END ==="); } catch(eEnd) {}
                     return; // terminate pipeline IIFE
                 }
@@ -837,7 +868,7 @@
     try {
         var __doAlert = true;
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}
-        if (__doAlert) { alert(finalMsg); }
+        if (__doAlert) { __safeAlert(finalMsg, log); }
     } catch (eAF) {}
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {
