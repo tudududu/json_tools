@@ -257,6 +257,7 @@
         }
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
+    try { log("[diag] __IS_PANEL_RUN=" + __IS_PANEL_RUN + " AE_PIPE.__suppressModalAlerts=" + (typeof AE_PIPE !== 'undefined' && AE_PIPE ? String(AE_PIPE.__suppressModalAlerts) : "AE_PIPE-undef") + " OPTS.ENABLE_FINAL_ALERT=" + (OPTS ? String(OPTS.ENABLE_FINAL_ALERT) : "OPTS-null")); } catch(eDiag) {}
     // Echo early loader/bootstrap status into the pipeline log (so these appear in file logs)
     try {
         var __meta2 = (AE_PIPE.userOptions && AE_PIPE.userOptions.__presetMeta) ? AE_PIPE.userOptions.__presetMeta : null;
@@ -870,7 +871,14 @@
     try {
         var __doAlert = true;
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}
-        if (__doAlert) { __safeAlert(finalMsg, log); }
+        // Re-check suppress flag at execution time — fallback if __IS_PANEL_RUN wasn't captured at IIFE start
+        var __suppressNow = __IS_PANEL_RUN;
+        try { if (!__suppressNow) { __suppressNow = !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true); } } catch(eRechk) {}
+        if (__doAlert && !__suppressNow) {
+            __safeAlert(finalMsg, log);
+        } else if (__doAlert) {
+            log("[panel] Final alert suppressed (suppress flag active).");
+        }
     } catch (eAF) {}
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {

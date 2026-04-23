@@ -35,6 +35,7 @@ function __InsertRelink_coreRun(opts) {
         try { alert(msg); } catch (e) {}
     }
     function alertAlways(msg) {
+        if (__AE_PIPE__) { log(msg); return; }
         try { alert(msg); } catch (e) {}
     }
 

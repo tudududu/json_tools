@@ -2483,7 +2483,7 @@ function __AddLayers_coreRun(opts) {
                 var tolMsg = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.arTolerance === 'number') ? TEMPLATE_MATCH_CONFIG.arTolerance : 0.001;
                 log("No template matches AR within tolerance (±" + tolMsg + ") for '" + comp.name + "'. Skipping.");
                 if (!__AR_SKIP_ALERT_SHOWN) {
-                    try { alert("Some selected comps were skipped because no template matched their aspect ratio within tolerance (±" + tolMsg + "). You can adjust TEMPLATE_MATCH_CONFIG.arTolerance or disable TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch."); } catch (eA) {}
+                    alertOnce("Some selected comps were skipped because no template matched their aspect ratio within tolerance (±" + tolMsg + "). You can adjust TEMPLATE_MATCH_CONFIG.arTolerance or disable TEMPLATE_MATCH_CONFIG.requireAspectRatioMatch.");
                     __AR_SKIP_ALERT_SHOWN = true;
                 }
                 skippedARCount++; // counts strict skips
@@ -2493,7 +2493,7 @@ function __AddLayers_coreRun(opts) {
                 var dTol = (TEMPLATE_MATCH_CONFIG && typeof TEMPLATE_MATCH_CONFIG.durationToleranceSeconds === 'number') ? TEMPLATE_MATCH_CONFIG.durationToleranceSeconds : 0.5;
                 log("No template matches duration within tolerance (±" + dTol + "s) for '" + comp.name + "'. Skipping.");
                 if (!__DUR_SKIP_ALERT_SHOWN) {
-                    try { alert("Some selected comps were skipped because no template matched their duration within tolerance (±" + dTol + "s). You can adjust TEMPLATE_MATCH_CONFIG.durationToleranceSeconds or disable TEMPLATE_MATCH_CONFIG.requireDurationMatch."); } catch (eAD) {}
+                    alertOnce("Some selected comps were skipped because no template matched their duration within tolerance (±" + dTol + "s). You can adjust TEMPLATE_MATCH_CONFIG.durationToleranceSeconds or disable TEMPLATE_MATCH_CONFIG.requireDurationMatch.");
                     __DUR_SKIP_ALERT_SHOWN = true;
                 }
                 skippedARCount++; // reuse counter for processed count; represents strict skips (AR or duration)
