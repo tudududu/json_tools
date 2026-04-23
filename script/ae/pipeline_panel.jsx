@@ -871,6 +871,8 @@
         AE_PIPE.MODE         = "pipeline";
         AE_PIPE.userOptions  = deepMerge(preset, panelOpts);
         setStatus("Running pipeline...");
+        var __origSuppress = app.suppressAlerts;
+        app.suppressAlerts = true;
         try {
             $.evalFile(PIPELINE_RUN_PATH);
             setStatus("Pipeline done.");
@@ -878,6 +880,8 @@
             var msg = e && e.message ? e.message : String(e);
             setStatus("Error: " + msg);
             alert("Pipeline error:\n" + msg);
+        } finally {
+            app.suppressAlerts = __origSuppress;
         }
     };
 
@@ -894,6 +898,8 @@
         if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
         AE_PIPE.__panelOpts = buildUserOptions();
         setStatus("Running batch...");
+        var __origSuppressBatch = app.suppressAlerts;
+        app.suppressAlerts = true;
         try {
             $.evalFile(BATCH_ORCH_PATH);
             AE_PIPE.__panelOpts = null;
@@ -903,6 +909,8 @@
             AE_PIPE.__panelOpts = null;
             setStatus("Error: " + msg);
             alert("Batch error:\n" + msg);
+        } finally {
+            app.suppressAlerts = __origSuppressBatch;
         }
     };
 
