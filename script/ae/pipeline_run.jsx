@@ -3,13 +3,12 @@
 
 (function runPipelineAll() {
 
-    function __panelModalSuppressed() {
-        try {
-            return !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true);
-        } catch (e) {
-            return false;
-        }
-    }
+    // Capture panel-run flag IMMEDIATELY before any $.evalFile() call can clobber AE_PIPE.
+    // Using a frozen local boolean avoids re-reading a global that may be reset by phase scripts.
+    var __IS_PANEL_RUN = false;
+    try { __IS_PANEL_RUN = !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true); } catch(eIPR) {}
+
+    function __panelModalSuppressed() { return __IS_PANEL_RUN; }
     function __safeAlert(msg, logFn) {
         var text = String(msg || "");
         if (__panelModalSuppressed()) {
@@ -96,6 +95,8 @@
         }
     } catch (eUO) {}
     var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(__userOpts) : (__userOpts || {});
+    // When running from the panel, force-disable the final summary alert regardless of what the preset says.
+    if (__IS_PANEL_RUN) { try { OPTS.ENABLE_FINAL_ALERT = false; } catch(eFAFrc) {} }
 
     // Bootstrap: if no project is saved/open and Step 0 is enabled, open the template BEFORE initializing file logs.
     // This ensures log files are created under POST/WORK/log instead of Desktop and avoids invalid object errors.
