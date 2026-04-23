@@ -199,15 +199,43 @@ function __LinkData_coreRun(opts) {
     var relinked = false, imported = false, projectItem = null;
 
     if (existing && existing instanceof FootageItem) {
-        // AE 315: Belt-and-suspenders suppressAlerts right at the replace() call.
-        // AE generates "data structure changed / undo stack purged" here. Log the flag value for diagnosis.
-        var __saBeforeReplace;
-        try { __saBeforeReplace = app.suppressAlerts; app.suppressAlerts = true; } catch(eSABR) {}
-        if (DATA_JSON_LOG_VERBOSE) log("[data.json][diag] app.suppressAlerts at replace(): " + String(app.suppressAlerts) + " | pipeline: " + !!__AE_PIPE__);
-        try { existing.replace(fsFile); relinked = true; projectItem = existing; if (DATA_JSON_LOG_VERBOSE) log("[data.json] Relinked existing item to " + fsFile.fsName); }
-        catch (eRep) { log("[data.json] Relink failed: " + eRep); }
-        // Restore only in standalone mode; in pipeline mode suppressAlerts stays true (set globally by pipeline_run).
-        if (!__AE_PIPE__) { try { if (typeof __saBeforeReplace !== 'undefined') { app.suppressAlerts = __saBeforeReplace; } } catch(eSARes) {} }
+        // AE 315 workaround: existing.replace() triggers AE's C++ "data structure changed / undo stack
+        // purged" warning regardless of app.suppressAlerts — this is an engine-level dialog that cannot
+        // be suppressed from script while running in the panel's ScriptUI event loop.
+        // Workaround: in pipeline mode, delete the stale item and re-import fresh. importFile() does NOT
+        // trigger the warning because AE has no existing live usage to reconcile.
+        // In standalone mode (outside pipeline) keep the original replace() behavior.
+        var __useFreshImport = !!__AE_PIPE__ && DATA_JSON_IMPORT_IF_MISSING;
+        if (__useFreshImport) {
+            try {
+                existing.remove();
+                if (DATA_JSON_LOG_VERBOSE) log("[data.json] Removed existing item (pipeline mode: re-import to avoid AE warning).");
+            } catch(eRm) {
+                log("[data.json] Could not remove existing item (" + eRm + "); falling back to replace().");
+                __useFreshImport = false;
+            }
+        }
+        if (__useFreshImport) {
+            // Fall through to the import branch below by leaving existing = null-equivalent
+            // (re-use DATA_JSON_IMPORT_IF_MISSING path)
+            try {
+                var ioDataFresh = new ImportOptions(fsFile);
+                var importedFresh = proj.importFile(ioDataFresh);
+                if (importedFresh) {
+                    importedFresh.parentFolder = projDataFolder;
+                    if (DATA_JSON_RENAME_IMPORTED_TO_CANONICAL) { try { importedFresh.name = DATA_JSON_PROJECT_ITEM_NAME; } catch(eNmF){} }
+                    imported = true; projectItem = importedFresh;
+                    if (DATA_JSON_LOG_VERBOSE) log("[data.json] Re-imported JSON (no warning path): " + fsFile.fsName);
+                } else {
+                    log("[data.json] Re-import returned null for: " + fsFile.fsName);
+                }
+            } catch(eImpF) { log("[data.json] Re-import failed: " + eImpF); }
+        } else {
+            // Standalone mode or remove() failed: use replace() as before
+            if (DATA_JSON_LOG_VERBOSE) log("[data.json][diag] app.suppressAlerts at replace(): " + String(app.suppressAlerts) + " | pipeline: " + !!__AE_PIPE__);
+            try { existing.replace(fsFile); relinked = true; projectItem = existing; if (DATA_JSON_LOG_VERBOSE) log("[data.json] Relinked existing item to " + fsFile.fsName); }
+            catch (eRep) { log("[data.json] Relink failed: " + eRep); }
+        }
     } else if (DATA_JSON_IMPORT_IF_MISSING) {
         try {
             var ioData = new ImportOptions(fsFile);
