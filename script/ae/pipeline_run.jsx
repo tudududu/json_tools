@@ -24,14 +24,6 @@
         }
         try { alert(text); } catch (eAlert) {}
     }
-    function __withSuppressedDialogs(fn) {
-        if (!__panelModalSuppressed()) return fn();
-        var __started = false;
-        try { app.beginSuppressDialogs(true); __started = true; } catch (eBD) {}
-        try { return fn(); }
-        finally { if (__started) { try { app.endSuppressDialogs(false); } catch (eED) {} } }
-    }
-
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
     var base = here();
@@ -471,20 +463,29 @@
             log("Step 1: Link data.json and detect ISO...");
             // Hot-reload safety: clear any previously defined singleton so the next eval loads fresh code.
             try { if (typeof AE_LinkData !== 'undefined') { AE_LinkData = undefined; } } catch(eLDClr) {}
-            // Load the phase implementation from disk.
-            __withSuppressedDialogs(function () { $.evalFile(LINK_DATA_PATH); });
-            // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
-            if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
-                // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
-                var __optsL = (OPTS.linkData || {});
-                // Execute with runId and pipeline logger so logs are unified.
-                var resL1 = __withSuppressedDialogs(function () {
-                    return AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
-                });
-                // Persist the phase result for later steps/summary; tolerate missing or partial results.
-                try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
-            } else {
-                log("Step 1: link_data API not available; script evaluated without run().");
+            // Load and run Step 1 in the same scope so AE_LinkData API remains visible.
+            var __suppressStep1Dialogs = false;
+            if (__panelModalSuppressed()) {
+                try { app.beginSuppressDialogs(true); __suppressStep1Dialogs = true; } catch (eBDS1) {}
+            }
+            try {
+                // Load the phase implementation from disk.
+                $.evalFile(LINK_DATA_PATH);
+                // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
+                if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
+                    // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
+                    var __optsL = (OPTS.linkData || {});
+                    // Execute with runId and pipeline logger so logs are unified.
+                    var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
+                    // Persist the phase result for later steps/summary; tolerate missing or partial results.
+                    try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
+                } else {
+                    log("Step 1: link_data API not available; script evaluated without run().");
+                }
+            } finally {
+                if (__suppressStep1Dialogs) {
+                    try { app.endSuppressDialogs(false); } catch (eEDS1) {}
+                }
             }
         }
     } catch(eL) { 
