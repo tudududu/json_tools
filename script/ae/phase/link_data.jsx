@@ -206,11 +206,9 @@ function __LinkData_coreRun(opts) {
         // trigger the warning because AE has no existing live usage to reconcile.
         // In standalone mode (outside pipeline) keep the original replace() behavior.
         var __useFreshImport = !!__AE_PIPE__ && DATA_JSON_IMPORT_IF_MISSING;
-        // AE 320: Collect layer refs BEFORE removing the item.
-        // When existing.remove() is called, layers in comps that used it become "missing" but are NOT
-        // deleted — the layer objects remain in the comp's layer stack with all properties intact.
-        // replaceSource() reconnects each missing layer to the freshly imported item, restoring them
-        // exactly (layer order, in/out points, transforms, expressions, effects all preserved).
+        // AE 320: Collect comp/layer positions BEFORE removing the item.
+        // existing.remove() removes used layers from comps, so we record where they were and
+        // re-insert fresh footage layers after import.
         var __layerRefs = [];
         if (__useFreshImport) {
             try {
@@ -253,19 +251,26 @@ function __LinkData_coreRun(opts) {
                     if (DATA_JSON_RENAME_IMPORTED_TO_CANONICAL) { try { importedFresh.name = DATA_JSON_PROJECT_ITEM_NAME; } catch(eNmF){} }
                     imported = true; projectItem = importedFresh;
                     if (DATA_JSON_LOG_VERBOSE) log("[data.json] Re-imported JSON (no warning path): " + fsFile.fsName);
-                    // AE 320: Repair layers in all comps that were sourced from the removed item.
-                    // The layers still exist as "missing" — replaceSource() reconnects them to the new item.
+                    // AE 322: Re-insert fresh data.json layers into comps that lost them on remove().
                     var __repairedCount = 0, __repairFailCount = 0;
                     for (var __ri = 0; __ri < __layerRefs.length; __ri++) {
                         try {
-                            __layerRefs[__ri].comp.layers[__layerRefs[__ri].index].replaceSource(importedFresh, false);
+                            var __compRef = __layerRefs[__ri].comp;
+                            var __targetIndex = __layerRefs[__ri].index;
+                            var __newLayer = __compRef.layers.add(importedFresh);
+                            // Best-effort placement near original layer index.
+                            if (__targetIndex > 1 && __targetIndex <= __compRef.numLayers) {
+                                try { __newLayer.moveBefore(__compRef.layers[__targetIndex]); } catch(eMoveB) {}
+                            } else if (__targetIndex > __compRef.numLayers) {
+                                try { __newLayer.moveToEnd(); } catch(eMoveE) {}
+                            }
                             __repairedCount++;
                         } catch(eRepSrc) {
                             __repairFailCount++;
                             log("[data.json] Layer repair failed: comp='" + __layerRefs[__ri].comp.name + "' layerIndex=" + __layerRefs[__ri].index + " (" + eRepSrc + ")");
                         }
                     }
-                    if (__layerRefs.length > 0) log("[data.json] Layer repair: " + __repairedCount + " repaired, " + __repairFailCount + " failed (of " + __layerRefs.length + " total).");
+                    if (__layerRefs.length > 0) log("[data.json] Layer re-insert: " + __repairedCount + " inserted, " + __repairFailCount + " failed (of " + __layerRefs.length + " total).");
                 } else {
                     log("[data.json] Re-import returned null for: " + fsFile.fsName);
                 }
