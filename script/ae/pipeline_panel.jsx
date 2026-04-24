@@ -199,9 +199,14 @@
 
     // ── 4. PANEL ROOT ────────────────────────────────────────────────────────
 
-    var root = (thisObj instanceof Panel)
-        ? thisObj
-        : new Window("palette", "AE Pipeline", undefined, { resizeable: true });
+    var hostPanel = null;
+    try { hostPanel = $.global.__AUTOMAT_HOST_PANEL__; } catch(e) {}
+
+    var root = (hostPanel instanceof Panel)
+        ? hostPanel
+        : (thisObj instanceof Panel)
+            ? thisObj
+            : new Window("palette", "AE Pipeline", undefined, { resizeable: true });
     root.orientation = "column";
     root.alignChildren = ["fill", "top"];
     root.spacing = 5;
