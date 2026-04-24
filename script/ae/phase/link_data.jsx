@@ -206,6 +206,32 @@ function __LinkData_coreRun(opts) {
         // trigger the warning because AE has no existing live usage to reconcile.
         // In standalone mode (outside pipeline) keep the original replace() behavior.
         var __useFreshImport = !!__AE_PIPE__ && DATA_JSON_IMPORT_IF_MISSING;
+        // AE 320: Collect layer refs BEFORE removing the item.
+        // When existing.remove() is called, layers in comps that used it become "missing" but are NOT
+        // deleted — the layer objects remain in the comp's layer stack with all properties intact.
+        // replaceSource() reconnects each missing layer to the freshly imported item, restoring them
+        // exactly (layer order, in/out points, transforms, expressions, effects all preserved).
+        var __layerRefs = [];
+        if (__useFreshImport) {
+            try {
+                for (var __ci = 1; __ci <= proj.numItems; __ci++) {
+                    var __compItem = proj.items[__ci];
+                    if (!(__compItem instanceof CompItem)) continue;
+                    for (var __li = 1; __li <= __compItem.numLayers; __li++) {
+                        try {
+                            var __lay = __compItem.layers[__li];
+                            if (__lay && __lay.source === existing) {
+                                __layerRefs.push({ comp: __compItem, index: __li });
+                            }
+                        } catch(eLaySrc) {}
+                    }
+                }
+                if (DATA_JSON_LOG_VERBOSE) log("[data.json] Collected " + __layerRefs.length + " layer ref(s) using existing item before removal.");
+            } catch(eCollect) {
+                log("[data.json] Layer ref collection failed (" + eCollect + "); layer repair will be skipped.");
+                __layerRefs = [];
+            }
+        }
         if (__useFreshImport) {
             try {
                 existing.remove();
@@ -213,6 +239,7 @@ function __LinkData_coreRun(opts) {
             } catch(eRm) {
                 log("[data.json] Could not remove existing item (" + eRm + "); falling back to replace().");
                 __useFreshImport = false;
+                __layerRefs = [];
             }
         }
         if (__useFreshImport) {
@@ -226,6 +253,19 @@ function __LinkData_coreRun(opts) {
                     if (DATA_JSON_RENAME_IMPORTED_TO_CANONICAL) { try { importedFresh.name = DATA_JSON_PROJECT_ITEM_NAME; } catch(eNmF){} }
                     imported = true; projectItem = importedFresh;
                     if (DATA_JSON_LOG_VERBOSE) log("[data.json] Re-imported JSON (no warning path): " + fsFile.fsName);
+                    // AE 320: Repair layers in all comps that were sourced from the removed item.
+                    // The layers still exist as "missing" — replaceSource() reconnects them to the new item.
+                    var __repairedCount = 0, __repairFailCount = 0;
+                    for (var __ri = 0; __ri < __layerRefs.length; __ri++) {
+                        try {
+                            __layerRefs[__ri].comp.layers[__layerRefs[__ri].index].replaceSource(importedFresh, false);
+                            __repairedCount++;
+                        } catch(eRepSrc) {
+                            __repairFailCount++;
+                            log("[data.json] Layer repair failed: comp='" + __layerRefs[__ri].comp.name + "' layerIndex=" + __layerRefs[__ri].index + " (" + eRepSrc + ")");
+                        }
+                    }
+                    if (__layerRefs.length > 0) log("[data.json] Layer repair: " + __repairedCount + " repaired, " + __repairFailCount + " failed (of " + __layerRefs.length + " total).");
                 } else {
                     log("[data.json] Re-import returned null for: " + fsFile.fsName);
                 }
