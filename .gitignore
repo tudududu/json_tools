@@ -64,5 +64,4 @@ python/tests/coverage/*
 
 # Presets toggles
 .use_dev_extra_outputs
-.use_dev_preset
 .panel_state.json
