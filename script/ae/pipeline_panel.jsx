@@ -2,15 +2,21 @@
 // Dockable ScriptUI panel: reads current preset, overrides AE_PIPE.userOptions, and launches
 // the pipeline (single run) or batch orchestrator.
 //
-// Dev usage (two options):
-//  A) File > Scripts > pipeline_panel.jsx   (opens as a floating palette)
-//  B) Symlink into ~/Library/Application Support/Adobe/After Effects <ver>/Scripts/ScriptUI Panels/
-//     then dock via AE Window menu. The symlink preserves correct path resolution for sibling
-//     scripts and the converter binary.
+// Installed layout (production — panel name "Automat"):
+//   ScriptUI Panels/
+//     Automat.jsx            ← thin entry point ($.evalFile's this file)
+//     Automat/
+//       pipeline_panel.jsx   ← THIS FILE
+//       pipeline_run.jsx, batch_orchestrator.jsx, phase/, config/
+//       bin/csv_to_json      ← converter binary (macOS)
 //
-// Path resolution note: all paths (pipeline_run.jsx, batch_orchestrator.jsx, converter binary)
-// are resolved relative to THIS FILE's location. Do not copy this file to the ScriptUI Panels
-// folder — symlink it instead so that here() returns script/ae/.
+// Dev usage:
+//  A) File > Scripts > pipeline_panel.jsx   (opens as a floating palette)
+//  B) Place Automat.jsx + Automat/ folder in ScriptUI Panels/ and dock via AE Window menu.
+//
+// Path resolution: all sibling scripts and the converter binary are resolved relative to
+// THIS FILE's location ($.fileName) — no hard-coded absolute paths.
+// Dev: create script/ae/bin/csv_to_json (copy or symlink from python/build/csv_to_json/dist/).
 
 #target aftereffects
 
@@ -31,18 +37,15 @@
         return aa + "/" + bb;
     }
 
-    var __base       = here();                                      // script/ae/
-    var __scriptDir  = __base ? __base.parent : null;              // script/
-    var __repoRoot   = __scriptDir ? __scriptDir.parent : null;    // repo root (json/)
+    var __base       = here();                                      // Automat/ (installed) or script/ae/ (dev)
 
     var PIPELINE_RUN_PATH = __base ? new File(joinFs(__base.fsName, "pipeline_run.jsx"))       : null;
     var BATCH_ORCH_PATH   = __base ? new File(joinFs(__base.fsName, "batch_orchestrator.jsx")) : null;
     var CONFIG_DIR        = __base ? joinFs(__base.fsName, "config") : null;
     var DEV_PRESET_FILE   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, "pipeline.preset.json")) : null;
     var DEV_PRESET_FLAG   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".use_dev_preset"))      : null;
-    var CONVERTER_PATH    = __repoRoot
-        ? joinFs(__repoRoot.fsName, "python/build/csv_to_json/dist/csv_to_json")
-        : null;
+    // Converter ships in Automat/bin/ (installed) or script/ae/bin/ (dev).
+    var CONVERTER_PATH    = __base ? joinFs(__base.fsName, "bin/csv_to_json") : null;
 
     // ── 1. UTILITIES ─────────────────────────────────────────────────────────
 
