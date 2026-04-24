@@ -6,7 +6,8 @@
         return;
     }
 
-    $.global.__AUTOMAT_HOST_PANEL__ = thisObj;
+    var host = (thisObj && typeof thisObj.add === "function") ? thisObj : null;
+    $.global.__AUTOMAT_HOST_PANEL__ = host;
     try {
         $.evalFile(panelFile);
     } finally {

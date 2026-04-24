@@ -202,11 +202,32 @@
     var hostPanel = null;
     try { hostPanel = $.global.__AUTOMAT_HOST_PANEL__; } catch(e) {}
 
-    var root = (hostPanel instanceof Panel)
-        ? hostPanel
-        : (thisObj instanceof Panel)
-            ? thisObj
-            : new Window("palette", "AE Pipeline", undefined, { resizeable: true });
+    function isUIContainer(x) {
+        return !!(x && typeof x.add === "function");
+    }
+
+    var root = null;
+    var hostMode = "";
+
+    if (isUIContainer(hostPanel)) {
+        root = hostPanel;
+        hostMode = "docked (Automat host)";
+    } else if (isUIContainer(thisObj)) {
+        root = thisObj;
+        hostMode = "docked (direct host)";
+    } else {
+        try {
+            root = new Window("palette", "AE Pipeline", undefined, { resizeable: true });
+            hostMode = "palette (fallback)";
+        } catch (eWin) {
+            root = null;
+        }
+    }
+
+    if (!isUIContainer(root)) {
+        alert("AE Pipeline: failed to initialize ScriptUI root (no valid panel/window host).");
+        return;
+    }
     root.orientation = "column";
     root.alignChildren = ["fill", "top"];
     root.spacing = 5;
@@ -345,6 +366,10 @@
     // ── 6. TOP BAR ───────────────────────────────────────────────────────────
 
     loadSectionState();
+
+    var hostInfoRow = mkRow(root);
+    var hostInfoText = hostInfoRow.add("statictext", undefined, "Host: " + hostMode);
+    hostInfoText.alignment = ["fill", "center"];
 
     var topBar = mkRow(root);
     var reloadBtn = topBar.add("button", undefined, "Reload Preset");
