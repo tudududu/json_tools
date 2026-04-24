@@ -3,47 +3,10 @@
 
 (function runPipelineAll() {
 
-    // Capture panel-run flag IMMEDIATELY before any $.evalFile() call can clobber AE_PIPE.
-    // Using a frozen local boolean avoids re-reading a global that may be reset by phase scripts.
-    var __IS_PANEL_RUN = false;
-    try { __IS_PANEL_RUN = !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true); } catch(eIPR) {}
-
-    // AE 315: Apply AE-native dialog suppression GLOBALLY for the entire pipeline when in panel mode.
-    // AE's C++ engine generates "data structure changed / undo stack purged" warnings independently of
-    // app.suppressAlerts. app.beginSuppressDialogs(true) queues these at the C++ level.
-    // CRITICAL: endSuppressDialogs(false) flushes queued dialogs immediately — so per-step suppression
-    // caused the dialog to appear between steps. Global suppression (begin once, end once at pipeline end
-    // with true = don't flush) prevents mid-pipeline blocking.
-    var __globalNativeSuppressActive = false;
-    if (__IS_PANEL_RUN) {
-        try { app.suppressAlerts = true; } catch(eSAGbl) {}
-        try {
-            if (typeof app.beginSuppressDialogs === 'function') {
-                app.beginSuppressDialogs(true);
-                __globalNativeSuppressActive = true;
-            }
-        } catch(eBSDGbl) {}
-    }
-
-    function __panelModalSuppressed() { return __IS_PANEL_RUN; }
-    function __safeAlert(msg, logFn) {
-        var text = String(msg || "");
-        if (__panelModalSuppressed()) {
-            try {
-                if (typeof logFn === 'function') {
-                    logFn("[alert suppressed] " + text.replace(/[\r\n]+/g, " | "));
-                } else {
-                    $.writeln("[alert suppressed] " + text.replace(/[\r\n]+/g, " | "));
-                }
-            } catch (eLog) {}
-            return;
-        }
-        try { alert(text); } catch (eAlert) {}
-    }
     // Resolve this script's folder to find sibling phase scripts
     function here() { try { return File($.fileName).parent; } catch (e) { return null; } }
     var base = here();
-    if (!base) { __safeAlert("Cannot resolve script folder."); return; }
+    if (!base) { alert("Cannot resolve script folder."); return; }
 
     function join(p, rel) { return File(p.fsName + "/" + rel); }
 
@@ -112,8 +75,6 @@
         }
     } catch (eUO) {}
     var OPTS = (typeof AE_PIPELINE_OPTIONS !== 'undefined') ? AE_PIPELINE_OPTIONS.build(__userOpts) : (__userOpts || {});
-    // When running from the panel, force-disable the final summary alert regardless of what the preset says.
-    if (__IS_PANEL_RUN) { try { OPTS.ENABLE_FINAL_ALERT = false; } catch(eFAFrc) {} }
 
     // Bootstrap: if no project is saved/open and Step 0 is enabled, open the template BEFORE initializing file logs.
     // This ensures log files are created under POST/WORK/log instead of Desktop and avoids invalid object errors.
@@ -274,7 +235,6 @@
         }
     } catch(ePM) {}
     try { log("=========================="); } catch(eHdr2) {}
-    try { log("[diag] __IS_PANEL_RUN=" + __IS_PANEL_RUN + " AE_PIPE.__suppressModalAlerts=" + (typeof AE_PIPE !== 'undefined' && AE_PIPE ? String(AE_PIPE.__suppressModalAlerts) : "AE_PIPE-undef") + " OPTS.ENABLE_FINAL_ALERT=" + (OPTS ? String(OPTS.ENABLE_FINAL_ALERT) : "OPTS-null")); } catch(eDiag) {}
     // Echo early loader/bootstrap status into the pipeline log (so these appear in file logs)
     try {
         var __meta2 = (AE_PIPE.userOptions && AE_PIPE.userOptions.__presetMeta) ? AE_PIPE.userOptions.__presetMeta : null;
@@ -468,8 +428,8 @@
     // After Step 0 (whether run early or here), refresh project reference safely
     try {
         proj = app.project;
-        if (!proj) { __safeAlert("No project open.", log); return; }
-    } catch(eProj) { __safeAlert("No project open.", log); return; }
+        if (!proj) { alert("No project open."); return; }
+    } catch(eProj) { alert("No project open."); return; }
 
     // Step 1: Link data.json (ISO auto-detect + relink)
     tLs = nowMs();
@@ -486,14 +446,14 @@
             $.evalFile(LINK_DATA_PATH);
             // Preferred API path: run() should exist on AE_LinkData; otherwise, we log and continue.
             if (typeof AE_LinkData !== 'undefined' && AE_LinkData && typeof AE_LinkData.run === 'function') {
-                    // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
-                    var __optsL = (OPTS.linkData || {});
-                    // Execute with runId and pipeline logger so logs are unified.
-                    var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
-                    // Persist the phase result for later steps/summary; tolerate missing or partial results.
-                    try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
+                // Pass the dedicated linkData options slice (phase also handles its own internal defaults).
+                var __optsL = (OPTS.linkData || {});
+                // Execute with runId and pipeline logger so logs are unified.
+                var resL1 = AE_LinkData.run({ runId: RUN_ID, log: log, options: __optsL });
+                // Persist the phase result for later steps/summary; tolerate missing or partial results.
+                try { AE_PIPE.results.linkData = resL1 || {}; } catch(eSt) {}
             } else {
-                    log("Step 1: link_data API not available; script evaluated without run().");
+                log("Step 1: link_data API not available; script evaluated without run().");
             }
         }
     } catch(eL) { 
@@ -507,7 +467,7 @@
         // Abort early on strict fatal from Step 1 (e.g., manual ISO_LANG requested but file missing)
         var reason1 = resL1.reason || "link_data reported fatal";
         log("FATAL: Aborting: " + reason1);
-        __safeAlert("Pipeline aborted (Step 1):\n" + reason1, log);
+        try { alert("Pipeline aborted (Step 1):\n" + reason1); } catch(eA1) {}
         // Mark end time for Step 1 before building summary
         tLe = nowMs();
         // Summarize and end run early
@@ -578,7 +538,7 @@
             log("Step 3: AUTO_FROM_PROJECT_FOOTAGE is ON; proceeding with auto scan in create_compositions.jsx.");
         } else {
             if (!footageSel.length) {
-                __safeAlert("Select one or more footage or comp items in the Project panel (or activate a comp) for Step 3 (create_compositions).", log);
+                alert("Select one or more footage or comp items in the Project panel (or activate a comp) for Step 3 (create_compositions).");
                 return;
             }
             log("Step 3: Creating comps from " + footageSel.length + " selected item(s).");
@@ -634,7 +594,7 @@
     }
 
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
-        __safeAlert("No compositions created in Step 3. Aborting.", log);
+        alert("No compositions created in Step 3. Aborting.");
         return;
     }
 
@@ -669,7 +629,7 @@
                     summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMsAbort));
                     var finalMsgAbort = summary.join("\n");
                     log(finalMsgAbort);
-                    __safeAlert("Pipeline aborted:\n" + AE_PIPE.__fatal, log);
+                    try { alert("Pipeline aborted:\n" + AE_PIPE.__fatal); } catch(eA2) {}
                     try { log("=== PIPELINE RUN END ==="); } catch(eEnd) {}
                     return; // terminate pipeline IIFE
                 }
@@ -877,21 +837,8 @@
     try {
         var __doAlert = true;
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}
-        // Re-check suppress flag at execution time — fallback if __IS_PANEL_RUN wasn't captured at IIFE start
-        var __suppressNow = __IS_PANEL_RUN;
-        try { if (!__suppressNow) { __suppressNow = !!(typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__suppressModalAlerts === true); } } catch(eRechk) {}
-        if (__doAlert && !__suppressNow) {
-            __safeAlert(finalMsg, log);
-        } else if (__doAlert) {
-            log("[panel] Final alert suppressed (suppress flag active).");
-        }
+        if (__doAlert) { alert(finalMsg); }
     } catch (eAF) {}
-    // AE 315: End global native dialog suppression.
-    // true = do NOT flush pending AE dialogs; they will surface naturally when AE returns to interactive mode
-    // (same deferred behaviour as headless "Run Script File" execution).
-    if (__globalNativeSuppressActive) {
-        try { app.endSuppressDialogs(true); } catch(eESDGbl) {}
-    }
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {
         if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options && AE_PIPE.options.__sticky !== true) {

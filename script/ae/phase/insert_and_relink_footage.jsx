@@ -35,7 +35,7 @@ function __InsertRelink_coreRun(opts) {
         try { alert(msg); } catch (e) {}
     }
     function alertAlways(msg) {
-        if (__AE_PIPE__) { log(msg); return; }
+        // if (__AE_PIPE__) { log(msg); return; } // In pipeline, still log but also show alert for important messages (e.g., errors) // Uncomment to supress in pipeline.
         try { alert(msg); } catch (e) {}
     }
 
