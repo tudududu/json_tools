@@ -744,30 +744,35 @@
     btnRunPipeline.preferredSize.width = 110;
     btnRunBatch.preferredSize.width    = 110;
 
-    var runStatusRow1 = secRunCtrl.add("statictext", undefined, "Running Pipeline/Batch, Country: -");
+    var runStatusRow1 = secRunCtrl.add("statictext", undefined, "Status:");
     runStatusRow1.alignment = ["fill", "top"];
-    var runStatusRow2 = secRunCtrl.add("statictext", undefined, "-");
+    var runStatusRow2 = secRunCtrl.add("statictext", undefined, "");
     runStatusRow2.alignment = ["fill", "top"];
 
-    function normalizeModeName(modeName, fallback) {
-        var s = String(modeName || fallback || "Pipeline/Batch");
-        if (s === "pipeline") return "Pipeline";
-        if (s === "batch") return "Batch";
-        return s;
+    function toRunningLabel(modeName, fallback) {
+        var s = String(modeName || fallback || "").toLowerCase();
+        if (s === "pipeline") return "Running Pipeline";
+        if (s === "batch") return "Running Batch";
+        return (fallback && String(fallback).length) ? String(fallback) : "Running Pipeline";
     }
 
-    function setRunStatusLines(modeName, isoCode, phaseName) {
-        var modeTxt = normalizeModeName(modeName, "Pipeline/Batch");
+    function setRunStatusIdle() {
+        try { runStatusRow1.text = "Status:"; } catch(e1) {}
+        try { runStatusRow2.text = ""; } catch(e2) {}
+    }
+
+    function setRunStatusActive(modeName, isoCode, phaseName) {
+        var runLabel = toRunningLabel(modeName, "Running Pipeline");
         var isoTxt = String(isoCode || "?");
-        var phaseTxt = String(phaseName || "-");
-        try { runStatusRow1.text = "Running " + modeTxt + ", Country: " + isoTxt; } catch(e1) {}
+        var phaseTxt = String(phaseName || "");
+        try { runStatusRow1.text = "Status: " + runLabel + ", Country: " + isoTxt; } catch(e1) {}
         try { runStatusRow2.text = phaseTxt; } catch(e2) {}
     }
 
-    function setRunStatusFromPipe(defaultMode, defaultPhase) {
-        var modeTxt = defaultMode || "Pipeline/Batch";
+    function setRunStatusActiveFromPipe(defaultMode, defaultPhase) {
+        var modeTxt = defaultMode || "pipeline";
         var isoTxt = "?";
-        var phaseTxt = defaultPhase || "-";
+        var phaseTxt = defaultPhase || "";
         try {
             if (typeof AE_PIPE !== 'undefined' && AE_PIPE) {
                 if (AE_PIPE.currentModeName) modeTxt = AE_PIPE.currentModeName;
@@ -775,7 +780,7 @@
                 if (AE_PIPE.currentPhaseName) phaseTxt = AE_PIPE.currentPhaseName;
             }
         } catch(e) {}
-        setRunStatusLines(modeTxt, isoTxt, phaseTxt);
+        setRunStatusActive(modeTxt, isoTxt, phaseTxt);
     }
 
     function getPipelineStartIso() {
@@ -962,16 +967,16 @@
         AE_PIPE.currentPhaseName = "Starting pipeline...";
         AE_PIPE.MODE         = "pipeline";
         AE_PIPE.userOptions  = deepMerge(preset, panelOpts);
-        setRunStatusFromPipe("Pipeline", "Starting pipeline...");
+        setRunStatusActiveFromPipe("pipeline", "Starting pipeline...");
         setStatus("Running pipeline...");
         try {
             $.evalFile(PIPELINE_RUN_PATH);
-            setRunStatusFromPipe("Pipeline", "Completed");
+            setRunStatusIdle();
             setStatus("Pipeline done.");
         } catch(e) {
             var msg = e && e.message ? e.message : String(e);
             try { AE_PIPE.currentPhaseName = "Aborted: " + msg; } catch(_) {}
-            setRunStatusFromPipe("Pipeline", "Aborted");
+            setRunStatusIdle();
             setStatus("Error: " + msg);
             alert("Pipeline error:\n" + msg);
         }
@@ -992,18 +997,18 @@
         AE_PIPE.currentISO = "?";
         AE_PIPE.currentPhaseName = "Starting batch...";
         AE_PIPE.__panelOpts = buildUserOptions();
-        setRunStatusFromPipe("Batch", "Starting batch...");
+        setRunStatusActiveFromPipe("batch", "Starting batch...");
         setStatus("Running batch...");
         try {
             $.evalFile(BATCH_ORCH_PATH);
             AE_PIPE.__panelOpts = null;
-            setRunStatusFromPipe("Batch", "Completed");
+            setRunStatusIdle();
             setStatus("Batch done.");
         } catch(e) {
             var msg = e && e.message ? e.message : String(e);
             AE_PIPE.__panelOpts = null;
             try { AE_PIPE.currentPhaseName = "Aborted: " + msg; } catch(_) {}
-            setRunStatusFromPipe("Batch", "Aborted");
+            setRunStatusIdle();
             setStatus("Error: " + msg);
             alert("Batch error:\n" + msg);
         }
@@ -1038,7 +1043,7 @@
     } else {
         setStatus("Defaults (no preset found).");
     }
-    setRunStatusLines("Pipeline/Batch", "-", "-");
+    setRunStatusIdle();
 
     relayoutRoot();
 
