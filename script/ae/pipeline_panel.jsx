@@ -44,6 +44,7 @@
     var CONFIG_DIR        = __base ? joinFs(__base.fsName, "config") : null;
     var DEV_PRESET_FILE   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, "pipeline.preset.json")) : null;
     var DEV_PRESET_FLAG   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".use_dev_preset"))      : null;
+    var AUTOMAT_VERSION   = "1.0.0";
     // Converter ships in Automat/bin/ (installed) or script/ae/bin/ (dev).
     var CONVERTER_PATH    = __base ? joinFs(__base.fsName, "bin/csv_to_json") : null;
 
@@ -742,6 +743,15 @@
     var btnRunBatch    = rowRunBtns.add("button", undefined, "Run Batch");
     btnRunPipeline.preferredSize.width = 110;
     btnRunBatch.preferredSize.width    = 110;
+
+    // Bottom-left panel info
+    var footerSpacer = root.add("group");
+    footerSpacer.alignment = ["fill", "fill"];
+
+    var infoRow = mkRow(root);
+    infoRow.alignment = ["fill", "bottom"];
+    var infoText = infoRow.add("statictext", undefined, "Automat - " + AUTOMAT_VERSION + "\n(c)2026 Jan Svatuska", { multiline: true });
+    infoText.alignment = ["left", "bottom"];
 
     // ── 7. POPULATE FROM PRESET ──────────────────────────────────────────────
 
