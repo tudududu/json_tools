@@ -368,9 +368,9 @@
 
     loadSectionState();
 
-    var hostInfoRow = mkRow(root);
-    var hostInfoText = hostInfoRow.add("statictext", undefined, "Host: " + hostMode);
-    hostInfoText.alignment = ["fill", "center"];
+    // var hostInfoRow = mkRow(root);
+    // var hostInfoText = hostInfoRow.add("statictext", undefined, "Host: " + hostMode);
+    // hostInfoText.alignment = ["fill", "center"];
 
     var topBar = mkRow(root);
     var reloadBtn = topBar.add("button", undefined, "Reload Preset");
@@ -746,41 +746,24 @@
 
     var runStatusRow1 = secRunCtrl.add("statictext", undefined, "Status:");
     runStatusRow1.alignment = ["fill", "top"];
-    var runStatusRow2 = secRunCtrl.add("statictext", undefined, "");
-    runStatusRow2.alignment = ["fill", "top"];
-
-    function toRunningLabel(modeName, fallback) {
-        var s = String(modeName || fallback || "").toLowerCase();
-        if (s === "pipeline") return "Running Pipeline";
-        if (s === "batch") return "Running Batch";
-        return (fallback && String(fallback).length) ? String(fallback) : "Running Pipeline";
-    }
 
     function setRunStatusIdle() {
         try { runStatusRow1.text = "Status:"; } catch(e1) {}
-        try { runStatusRow2.text = ""; } catch(e2) {}
     }
 
-    function setRunStatusActive(modeName, isoCode, phaseName) {
-        var runLabel = toRunningLabel(modeName, "Running Pipeline");
+    function setRunStatusActive(isoCode) {
         var isoTxt = String(isoCode || "?");
-        var phaseTxt = String(phaseName || "");
-        try { runStatusRow1.text = "Status: " + runLabel + ", Country: " + isoTxt; } catch(e1) {}
-        try { runStatusRow2.text = phaseTxt; } catch(e2) {}
+        try { runStatusRow1.text = "Status: Processing, Country: " + isoTxt; } catch(e1) {}
     }
 
-    function setRunStatusActiveFromPipe(defaultMode, defaultPhase) {
-        var modeTxt = defaultMode || "pipeline";
+    function setRunStatusActiveFromPipe() {
         var isoTxt = "?";
-        var phaseTxt = defaultPhase || "";
         try {
             if (typeof AE_PIPE !== 'undefined' && AE_PIPE) {
-                if (AE_PIPE.currentModeName) modeTxt = AE_PIPE.currentModeName;
                 if (AE_PIPE.currentISO) isoTxt = AE_PIPE.currentISO;
-                if (AE_PIPE.currentPhaseName) phaseTxt = AE_PIPE.currentPhaseName;
             }
         } catch(e) {}
-        setRunStatusActive(modeTxt, isoTxt, phaseTxt);
+        setRunStatusActive(isoTxt);
     }
 
     function getPipelineStartIso() {
@@ -967,7 +950,7 @@
         AE_PIPE.currentPhaseName = "Starting pipeline...";
         AE_PIPE.MODE         = "pipeline";
         AE_PIPE.userOptions  = deepMerge(preset, panelOpts);
-        setRunStatusActiveFromPipe("pipeline", "Starting pipeline...");
+        setRunStatusActiveFromPipe();
         setStatus("Running pipeline...");
         try {
             $.evalFile(PIPELINE_RUN_PATH);
@@ -997,7 +980,7 @@
         AE_PIPE.currentISO = "?";
         AE_PIPE.currentPhaseName = "Starting batch...";
         AE_PIPE.__panelOpts = buildUserOptions();
-        setRunStatusActiveFromPipe("batch", "Starting batch...");
+        setRunStatusActiveFromPipe();
         setStatus("Running batch...");
         try {
             $.evalFile(BATCH_ORCH_PATH);
