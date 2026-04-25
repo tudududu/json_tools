@@ -240,12 +240,17 @@
         var runTag = lang ? (iso + "_" + lang) : iso;
         var isAmbiguousIsoOnly = (batchCfg.DRY_RUN === true) && (!lang) && isoIndex[iso] && isoIndex[iso].langs && isoIndex[iso].langs.length > 1;
         var ambTag = isAmbiguousIsoOnly ? " [AMBIGUOUS-LANG]" : "";
+        if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
+        AE_PIPE.currentModeName = "Batch";
+        AE_PIPE.currentISO = iso;
+        AE_PIPE.currentPhaseName = "Starting run " + (i+1) + "/" + Math.min(files.length,maxRuns);
         flog("-- RUN " + (i+1) + "/" + Math.min(files.length,maxRuns) + " ISO/LANG=" + runTag + ambTag + " file=" + f.fsName);
         log("Batch: Starting " + runTag + " (" + (i+1) + "/" + Math.min(files.length,maxRuns) + ")");
 
         var ok = true; var errMsg = null; var counts = { created:0, insertRelinked:0, addLayers:0, packed:0, ameConfigured:0 };
 
         if (batchCfg.DRY_RUN === true) {
+            try { AE_PIPE.currentPhaseName = "Dry run: pipeline not executed"; } catch(eDry) {}
             // Skip execution, just log intent
             flog("   DRY RUN: would execute pipeline_run.jsx with " + (lang?"ISO_LANG=":"ISO=") + runTag);
             if (isAmbiguousIsoOnly) {
@@ -278,7 +283,8 @@
             try { AE_PIPE.userOptions.__presetMeta = { path: presetRef.file.fsName, loadedAt: runId, devUsed: !!presetRef.dev, batchISO: iso, batchLANG: lang }; }catch(eMD){}
 
             // Run pipeline
-            try { $.evalFile(PIPELINE_RUN_PATH); } catch(eRun) { ok=false; errMsg = (eRun && eRun.message)?eRun.message:(""+eRun); }
+            try { $.evalFile(PIPELINE_RUN_PATH); }
+            catch(eRun) { ok=false; errMsg = (eRun && eRun.message)?eRun.message:(""+eRun); try { AE_PIPE.currentPhaseName = "Aborted: " + errMsg; } catch(eRunSt) {} }
 
             // Collect summary
             try {
@@ -349,6 +355,7 @@
 
     // Final summary
     var okCount = 0, failCount = 0; for (var j=0;j<results.length;j++){ if(results[j].ok) okCount++; else failCount++; }
+    try { if (typeof AE_PIPE !== 'undefined' && AE_PIPE) { AE_PIPE.currentModeName = "Batch"; AE_PIPE.currentPhaseName = "Completed (ok=" + okCount + ", fail=" + failCount + ")"; } } catch(eDone) {}
     flog("--- SUMMARY ---");
     flog("Runs: total=" + results.length + " ok=" + okCount + " fail=" + failCount);
     for (var k=0;k<results.length;k++) {

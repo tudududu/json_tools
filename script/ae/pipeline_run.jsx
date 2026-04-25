@@ -201,6 +201,9 @@
     // Shared bus
     if (typeof AE_PIPE === "undefined") { AE_PIPE = {}; }
     AE_PIPE.MODE = "pipeline";
+    AE_PIPE.currentModeName = "Pipeline";
+    if (!AE_PIPE.currentISO) AE_PIPE.currentISO = "?";
+    AE_PIPE.currentPhaseName = "Initializing...";
     AE_PIPE.RUN_ID = RUN_ID;
     AE_PIPE.results = { createComps: [], insertRelink: [], addLayers: [], pack: [], ame: [] };
     // Clear any stale fatal flag from a previous run to prevent unintended aborts
@@ -401,6 +404,7 @@
 
     // Step 0: Open project template (optional)
     try {
+        try { AE_PIPE.currentPhaseName = "Step 0: Open Project"; } catch(eS0) {}
         if (OPTS.RUN_open_project === true) {
             if (__step0RanEarly) {
                 log("Step 0 (open_project.jsx): SKIPPED (already ran during bootstrap).");
@@ -428,10 +432,11 @@
     // After Step 0 (whether run early or here), refresh project reference safely
     try {
         proj = app.project;
-        if (!proj) { alert("No project open."); return; }
-    } catch(eProj) { alert("No project open."); return; }
+        if (!proj) { try { AE_PIPE.currentPhaseName = "Aborted: No project open"; } catch(eP0) {} alert("No project open."); return; }
+    } catch(eProj) { try { AE_PIPE.currentPhaseName = "Aborted: No project open"; } catch(eP1) {} alert("No project open."); return; }
 
     // Step 1: Link data.json (ISO auto-detect + relink)
+    try { AE_PIPE.currentPhaseName = "Step 1: Link Data"; } catch(eS1) {}
     tLs = nowMs();
     try {
         // Respect per-phase toggle; skip the link-data step entirely when disabled.
@@ -461,11 +466,13 @@
         }
     var resL1 = (typeof resL1 === 'undefined') ? null : resL1; // normalize in case of hoist differences
     if (resL1 && resL1.ok) {
+        try { if (resL1.iso) AE_PIPE.currentISO = String(resL1.iso).toUpperCase(); } catch(eIso1) {}
         var isoLine = "ISO=" + (resL1.iso||"?") + " (" + (resL1.origin||"?") + "), relinked=" + (!!resL1.relinked) + ", imported=" + (!!resL1.imported);
         log((PIPELINE_SHOW_PHASE_TAGS ? "INFO {link_data} " : "") + "Step 1: Link result: " + isoLine);
     } else if (resL1 && resL1.fatal) {
         // Abort early on strict fatal from Step 1 (e.g., manual ISO_LANG requested but file missing)
         var reason1 = resL1.reason || "link_data reported fatal";
+        try { AE_PIPE.currentPhaseName = "Aborted: " + reason1; } catch(eS1F) {}
         log("FATAL: Aborting: " + reason1);
         try { alert("Pipeline aborted (Step 1):\n" + reason1); } catch(eA1) {}
         // Mark end time for Step 1 before building summary
@@ -485,6 +492,7 @@
     tLe = nowMs();
 
     // Step 2: Save project as new file with ISO suffix
+    try { AE_PIPE.currentPhaseName = "Step 2: Save as ISO"; } catch(eS2P) {}
     maybeSleep("Step 2");
     tS2s = nowMs();
     try {
@@ -512,6 +520,7 @@
     tS2e = nowMs();
 
     // Step 3: Create compositions from selected footage
+    try { AE_PIPE.currentPhaseName = "Step 3: Create Compositions"; } catch(eS3P) {}
     maybeSleep("Step 3");
     t1s = nowMs();
     if (OPTS.RUN_create_compositions === false) {
@@ -594,11 +603,13 @@
     }
 
     if (OPTS.RUN_create_compositions !== false && !AE_PIPE.results.createComps.length) {
+        try { AE_PIPE.currentPhaseName = "Aborted: No compositions created"; } catch(eS3A) {}
         alert("No compositions created in Step 3. Aborting.");
         return;
     }
 
     // Step 4: Insert & relink into those comps
+    try { AE_PIPE.currentPhaseName = "Step 4: Insert & Relink"; } catch(eS4P) {}
     maybeSleep("Step 4");
     t2s = nowMs();
     if (OPTS.RUN_insert_and_relink_footage === false) {
@@ -618,6 +629,7 @@
             // If the phase marked a fatal error (e.g., strict ISO mismatch), emit a concise summary and stop early.
             try {
                 if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.__fatal) {
+                    try { AE_PIPE.currentPhaseName = "Aborted: " + AE_PIPE.__fatal; } catch(eS4F) {}
                     // Capture timing for this step before aborting
                     try { t2e = nowMs(); } catch(eTe) {}
                     var totalMsAbort = 0; try { totalMsAbort = nowMs() - t0All; } catch(eTm) {}
@@ -652,6 +664,7 @@
     }
 
     // Step 5: Add layers from template to the processed comps
+    try { AE_PIPE.currentPhaseName = "Step 5: Add Layers"; } catch(eS5P) {}
     maybeSleep("Step 5");
     t3s = nowMs();
     if (OPTS.RUN_add_layers_to_comp === false) {
@@ -711,6 +724,7 @@
     }
 
     // Step 6: Pack output comps
+    try { AE_PIPE.currentPhaseName = "Step 6: Pack Output Comps"; } catch(eS6P) {}
     maybeSleep("Step 6");
     t4s = nowMs();
     if (OPTS.RUN_pack_output_comps === false) {
@@ -764,6 +778,7 @@
     }
 
     // Step 7: Set AME output paths
+    try { AE_PIPE.currentPhaseName = "Step 7: AME Queue"; } catch(eS7P) {}
     maybeSleep("Step 7");
     t5s = nowMs();
     if (OPTS.RUN_set_ame_output_paths === false) {
@@ -813,10 +828,12 @@
     summary.push("Counts => created=" + AE_PIPE.results.createComps.length + ", insertedRelinked=" + AE_PIPE.results.insertRelink.length + ", addLayers=" + AE_PIPE.results.addLayers.length + ", packed=" + AE_PIPE.results.pack.length + ", ameConfigured=" + AE_PIPE.results.ame.length + ", layersAddedTotal=" + layersAddedTotal);
     summary.push("Timing (s) => linkData=" + sec(tLe-tLs) + ", saveAsISO=" + sec(tS2e-tS2s) + ", create=" + sec(t1e-t1s) + ", insertRelink=" + sec(t2e-t2s) + ", addLayers=" + sec(t3e-t3s) + ", pack=" + sec(t4e-t4s) + ", ame=" + sec(t5e-t5s) + ", total=" + sec(totalMs));
     var finalMsg = summary.join("\n");
+    try { AE_PIPE.currentPhaseName = "Completed"; } catch(eDone) {}
     log(finalMsg);
     try { log("=== PIPELINE RUN END ==="); } catch(eFtr) {}
     // Step 8: Close project (optional)
     try {
+        try { AE_PIPE.currentPhaseName = "Step 8: Close Project"; } catch(eS8P) {}
         if (OPTS.RUN_close_project === true) {
             log("Step 8: Close project...");
             try { if (typeof AE_CloseProject !== 'undefined') { AE_CloseProject = undefined; } } catch(eClr8) {}
@@ -839,6 +856,7 @@
         try { __doAlert = (OPTS && OPTS.ENABLE_FINAL_ALERT !== false); } catch(eFA) {}
         if (__doAlert) { alert(finalMsg); }
     } catch (eAF) {}
+    try { AE_PIPE.currentPhaseName = "Completed"; } catch(eDone2) {}
     // Consume non-sticky user options to prevent unintended carry-over across runs
     try {
         if (typeof AE_PIPE !== 'undefined' && AE_PIPE && AE_PIPE.options && AE_PIPE.options.__sticky !== true) {

@@ -744,13 +744,59 @@
     btnRunPipeline.preferredSize.width = 110;
     btnRunBatch.preferredSize.width    = 110;
 
+    var runStatusRow1 = secRunCtrl.add("statictext", undefined, "Running Pipeline/Batch, Country: -");
+    runStatusRow1.alignment = ["fill", "top"];
+    var runStatusRow2 = secRunCtrl.add("statictext", undefined, "-");
+    runStatusRow2.alignment = ["fill", "top"];
+
+    function normalizeModeName(modeName, fallback) {
+        var s = String(modeName || fallback || "Pipeline/Batch");
+        if (s === "pipeline") return "Pipeline";
+        if (s === "batch") return "Batch";
+        return s;
+    }
+
+    function setRunStatusLines(modeName, isoCode, phaseName) {
+        var modeTxt = normalizeModeName(modeName, "Pipeline/Batch");
+        var isoTxt = String(isoCode || "?");
+        var phaseTxt = String(phaseName || "-");
+        try { runStatusRow1.text = "Running " + modeTxt + ", Country: " + isoTxt; } catch(e1) {}
+        try { runStatusRow2.text = phaseTxt; } catch(e2) {}
+    }
+
+    function setRunStatusFromPipe(defaultMode, defaultPhase) {
+        var modeTxt = defaultMode || "Pipeline/Batch";
+        var isoTxt = "?";
+        var phaseTxt = defaultPhase || "-";
+        try {
+            if (typeof AE_PIPE !== 'undefined' && AE_PIPE) {
+                if (AE_PIPE.currentModeName) modeTxt = AE_PIPE.currentModeName;
+                if (AE_PIPE.currentISO) isoTxt = AE_PIPE.currentISO;
+                if (AE_PIPE.currentPhaseName) phaseTxt = AE_PIPE.currentPhaseName;
+            }
+        } catch(e) {}
+        setRunStatusLines(modeTxt, isoTxt, phaseTxt);
+    }
+
+    function getPipelineStartIso() {
+        var iso = "?";
+        try {
+            var mode = ddValue(ddISOMode);
+            if (String(mode || "").toLowerCase() === "manual") {
+                var m = String(fldISOCode.text || "").replace(/^\s+|\s+$/g, "").toUpperCase();
+                if (m.length) iso = m;
+            }
+        } catch(e) {}
+        return iso;
+    }
+
     // Bottom-left panel info
     var footerSpacer = root.add("group");
     footerSpacer.alignment = ["fill", "fill"];
 
     var infoRow = mkRow(root);
     infoRow.alignment = ["fill", "bottom"];
-    var infoText = infoRow.add("statictext", undefined, "Automat - " + AUTOMAT_VERSION + "\n(c)2026 Jan Svatuska", { multiline: true });
+    var infoText = infoRow.add("statictext", undefined, "Automat - " + AUTOMAT_VERSION + "\n©2026 Jan Svatuska", { multiline: true });
     infoText.alignment = ["left", "bottom"];
 
     // ── 7. POPULATE FROM PRESET ──────────────────────────────────────────────
@@ -911,14 +957,21 @@
         var preset    = readPreset() || {};
         var panelOpts = buildUserOptions();
         if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
+        AE_PIPE.currentModeName = "Pipeline";
+        AE_PIPE.currentISO = getPipelineStartIso();
+        AE_PIPE.currentPhaseName = "Starting pipeline...";
         AE_PIPE.MODE         = "pipeline";
         AE_PIPE.userOptions  = deepMerge(preset, panelOpts);
+        setRunStatusFromPipe("Pipeline", "Starting pipeline...");
         setStatus("Running pipeline...");
         try {
             $.evalFile(PIPELINE_RUN_PATH);
+            setRunStatusFromPipe("Pipeline", "Completed");
             setStatus("Pipeline done.");
         } catch(e) {
             var msg = e && e.message ? e.message : String(e);
+            try { AE_PIPE.currentPhaseName = "Aborted: " + msg; } catch(_) {}
+            setRunStatusFromPipe("Pipeline", "Aborted");
             setStatus("Error: " + msg);
             alert("Pipeline error:\n" + msg);
         }
@@ -935,15 +988,22 @@
             return;
         }
         if (typeof AE_PIPE === 'undefined') { AE_PIPE = {}; }
+        AE_PIPE.currentModeName = "Batch";
+        AE_PIPE.currentISO = "?";
+        AE_PIPE.currentPhaseName = "Starting batch...";
         AE_PIPE.__panelOpts = buildUserOptions();
+        setRunStatusFromPipe("Batch", "Starting batch...");
         setStatus("Running batch...");
         try {
             $.evalFile(BATCH_ORCH_PATH);
             AE_PIPE.__panelOpts = null;
+            setRunStatusFromPipe("Batch", "Completed");
             setStatus("Batch done.");
         } catch(e) {
             var msg = e && e.message ? e.message : String(e);
             AE_PIPE.__panelOpts = null;
+            try { AE_PIPE.currentPhaseName = "Aborted: " + msg; } catch(_) {}
+            setRunStatusFromPipe("Batch", "Aborted");
             setStatus("Error: " + msg);
             alert("Batch error:\n" + msg);
         }
@@ -978,6 +1038,7 @@
     } else {
         setStatus("Defaults (no preset found).");
     }
+    setRunStatusLines("Pipeline/Batch", "-", "-");
 
     relayoutRoot();
 
