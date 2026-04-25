@@ -41,6 +41,7 @@
 
     var PIPELINE_RUN_PATH = __base ? new File(joinFs(__base.fsName, "pipeline_run.jsx"))       : null;
     var BATCH_ORCH_PATH   = __base ? new File(joinFs(__base.fsName, "batch_orchestrator.jsx")) : null;
+    var TEMPLATE_PRESET_COPY_PATH = __base ? new File(joinFs(__base.fsName, "template/preset_copy.jsx")) : null;
     var CONFIG_DIR        = __base ? joinFs(__base.fsName, "config") : null;
     var DEV_PRESET_FILE   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, "pipeline.preset.json")) : null;
     var DEV_PRESET_FLAG   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".use_dev_preset"))      : null;
@@ -167,7 +168,8 @@
         S9: false,
         S10: false,
         S11: false,
-        S12: false
+        S12: false,
+        S13: false
     };
 
     var sectionState = deepMerge({}, DEFAULT_SECTION_STATE);
@@ -777,6 +779,103 @@
         } catch(e) {}
         return iso;
     }
+
+    // ── S13: TEMPLATE ───────────────────────────────────────────────────────
+
+    var secTemplateWrap = mkCollapsibleSection(root, "S13", "Template");
+    var secTemplate = secTemplateWrap.body;
+    var ddTemplateOp = mkLabeledDropdown(secTemplate, "Operation:", [
+        "Copy default preset",
+        "Expression injector (coming soon)"
+    ]);
+    ddTemplateOp.preferredSize.width = 210;
+
+    var rowTemplateRun = mkRow(secTemplate);
+    var btnRunTemplate = rowTemplateRun.add("button", undefined, "Run");
+    btnRunTemplate.preferredSize.width = 110;
+
+    var templateStatus = secTemplate.add("statictext", undefined, "");
+    templateStatus.alignment = ["fill", "top"];
+
+    function setTemplateStatus(msg) {
+        try { templateStatus.text = String(msg || ""); } catch(e) {}
+    }
+
+    function runTemplateCopyPreset() {
+        if (!TEMPLATE_PRESET_COPY_PATH || !TEMPLATE_PRESET_COPY_PATH.exists) {
+            setTemplateStatus("Template operation script not found.");
+            setStatus("Template: missing script.");
+            return;
+        }
+
+        try {
+            $.evalFile(TEMPLATE_PRESET_COPY_PATH);
+        } catch(eLoad) {
+            var loadMsg = eLoad && eLoad.message ? eLoad.message : String(eLoad);
+            setTemplateStatus("Failed to load copy operation: " + loadMsg);
+            setStatus("Template: load failed.");
+            return;
+        }
+
+        var copyFn = null;
+        try {
+            copyFn = $.global.AE_TEMPLATE && $.global.AE_TEMPLATE.copyDefaultPreset;
+        } catch(eGet) {
+            copyFn = null;
+        }
+
+        if (typeof copyFn !== "function") {
+            setTemplateStatus("Copy operation API not found.");
+            setStatus("Template: invalid operation module.");
+            return;
+        }
+
+        var result = null;
+        try {
+            result = copyFn({
+                sourcePresetPath: (DEV_PRESET_FILE && DEV_PRESET_FILE.exists) ? DEV_PRESET_FILE.fsName : ""
+            });
+        } catch(eRun) {
+            var runMsg = eRun && eRun.message ? eRun.message : String(eRun);
+            setTemplateStatus("Copy failed: " + runMsg);
+            setStatus("Template: copy failed.");
+            return;
+        }
+
+        if (result && result.ok === true) {
+            var doneMsg = "Copied preset to: " + String(result.target || "");
+            setTemplateStatus(doneMsg);
+            setStatus("Template: preset copied.");
+            return;
+        }
+
+        var code = result && result.code ? String(result.code) : "UNKNOWN_ERROR";
+        var msg = result && result.message ? String(result.message) : "Copy operation failed.";
+
+        if (code === "TARGET_EXISTS") {
+            setTemplateStatus("Target preset already exists. Copy aborted.");
+            setStatus("Template: target exists.");
+        } else if (code === "UNSAVED_PROJECT") {
+            setTemplateStatus("Save the project first, then run copy.");
+            setStatus("Template: project must be saved.");
+        } else if (code === "NO_PROJECT") {
+            setTemplateStatus("Open an AE project first.");
+            setStatus("Template: no project open.");
+        } else {
+            setTemplateStatus(msg);
+            setStatus("Template: copy failed.");
+        }
+    }
+
+    btnRunTemplate.onClick = function() {
+        var op = ddValue(ddTemplateOp);
+        if (op === "Copy default preset") {
+            runTemplateCopyPreset();
+            return;
+        }
+        setTemplateStatus("Expression injector is not implemented yet.");
+        setStatus("Template: pending feature.");
+    };
 
     // Bottom-left panel info
     var footerSpacer = root.add("group");
