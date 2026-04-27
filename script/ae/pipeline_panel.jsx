@@ -42,6 +42,7 @@
     var PIPELINE_RUN_PATH = __base ? new File(joinFs(__base.fsName, "pipeline_run.jsx"))       : null;
     var BATCH_ORCH_PATH   = __base ? new File(joinFs(__base.fsName, "batch_orchestrator.jsx")) : null;
     var TEMPLATE_PRESET_COPY_PATH = __base ? new File(joinFs(__base.fsName, "template/preset_copy.jsx")) : null;
+    var LAYER_TEMPLATE_PATH       = __base ? new File(joinFs(__base.fsName, "template/layer_template.jsx"))  : null;
     var CONFIG_DIR        = __base ? joinFs(__base.fsName, "config") : null;
     var DEV_PRESET_FILE   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, "pipeline.preset.json")) : null;
     var DEV_PRESET_FLAG   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".use_dev_preset"))      : null;
@@ -786,6 +787,7 @@
     var secTemplate = secTemplateWrap.body;
     var ddTemplateOp = mkLabeledDropdown(secTemplate, "Operation:", [
         "Copy default preset",
+        "Layer template: info",
         "Expression injector (coming soon)"
     ]);
     ddTemplateOp.preferredSize.width = 210;
@@ -867,10 +869,78 @@
         }
     }
 
+    function runLayerTemplateItem(itemId) {
+        if (!LAYER_TEMPLATE_PATH || !LAYER_TEMPLATE_PATH.exists) {
+            setTemplateStatus("layer_template.jsx not found.");
+            setStatus("Template: missing script.");
+            return;
+        }
+
+        try {
+            $.evalFile(LAYER_TEMPLATE_PATH);
+        } catch(eLoad) {
+            var loadMsg = eLoad && eLoad.message ? eLoad.message : String(eLoad);
+            setTemplateStatus("Failed to load layer template: " + loadMsg);
+            setStatus("Template: load failed.");
+            return;
+        }
+
+        var runFn = null;
+        try {
+            runFn = $.global.AE_LAYER_TEMPLATE && $.global.AE_LAYER_TEMPLATE.runItem;
+        } catch(eGet) { runFn = null; }
+
+        if (typeof runFn !== "function") {
+            setTemplateStatus("Layer template API not found.");
+            setStatus("Template: invalid module.");
+            return;
+        }
+
+        var result = null;
+        try {
+            result = runFn(itemId);
+        } catch(eRun) {
+            var runMsg = eRun && eRun.message ? eRun.message : String(eRun);
+            setTemplateStatus("Run failed: " + runMsg);
+            setStatus("Template: run failed.");
+            return;
+        }
+
+        if (result && result.ok === true) {
+            setTemplateStatus(String(result.message || "Done."));
+            setStatus("Template: done.");
+            return;
+        }
+
+        var code = result && result.code ? String(result.code) : "UNKNOWN_ERROR";
+        var msg  = result && result.message ? String(result.message) : "Layer template failed.";
+
+        if (code === "NO_ACTIVE_COMP") {
+            setTemplateStatus("No active composition. Open a comp and try again.");
+            setStatus("Template: no comp.");
+        } else if (code === "ITEM_NOT_FOUND") {
+            setTemplateStatus("Template item not found: " + itemId);
+            setStatus("Template: unknown item.");
+        } else if (code === "EXPRESSION_KEY_MISSING" || code === "EXPRESSION_EMPTY") {
+            setTemplateStatus("Expression error — " + msg);
+            setStatus("Template: expression error.");
+        } else if (code === "LAYER_CREATE_FAILED") {
+            setTemplateStatus("Layer creation failed — " + msg);
+            setStatus("Template: layer error.");
+        } else {
+            setTemplateStatus(msg);
+            setStatus("Template: failed.");
+        }
+    }
+
     btnRunTemplate.onClick = function() {
         var op = ddValue(ddTemplateOp);
         if (op === "Copy default preset") {
             runTemplateCopyPreset();
+            return;
+        }
+        if (op === "Layer template: info") {
+            runLayerTemplateItem("info");
             return;
         }
         setTemplateStatus("Expression injector is not implemented yet.");
