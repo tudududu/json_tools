@@ -131,6 +131,7 @@
     // Set a property value or expression on a layer by canonical path string.
     // Supported paths (first-slice):
     //   "Transform.Position"  — 2-element array [x, y]
+    //   "Transform.Opacity"   — number 0..100
     //   (extend here for later items)
 
     function applyPropertyValue(layer, path, value) {
@@ -139,6 +140,16 @@
                 var pos = layer.property("Transform").property("Position");
                 if (value instanceof Array && value.length >= 2) {
                     pos.setValue([value[0], value[1]]);
+                }
+                return true;
+            }
+            if (path === "Transform.Opacity") {
+                var opacity = layer.property("Transform").property("Opacity");
+                var op = parseFloat(value);
+                if (!isNaN(op)) {
+                    if (op < 0) op = 0;
+                    if (op > 100) op = 100;
+                    opacity.setValue(op);
                 }
                 return true;
             }

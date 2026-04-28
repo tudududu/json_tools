@@ -55,7 +55,8 @@
                     fontCandidates: ["Courier Regular", "Courier", "CourierNewPSMT"]
                 },
                 properties: {
-                    "Transform.Position": [960, 960]
+                    "Transform.Position": [960, 960],
+                    "Transform.Opacity": 50
                 },
                 expressions: {
                     "Source Text":        "info_source_text",

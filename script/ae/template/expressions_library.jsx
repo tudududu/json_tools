@@ -87,7 +87,7 @@
     // Intended as a safe default position for the info debug layer.
     globalObj.AE_EXPRESSIONS["info_position"] = [
         '// info_position — centered in comp',
-        '[thisComp.width / 2, thisComp.height / 2];'
+        '[0 + thisComp.width * 0.05, 0 + thisComp.height * 0.05];'
     ].join("\n");
 
     // ── claim (reserved for future item) ─────────────────────────────────────
