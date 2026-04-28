@@ -70,6 +70,8 @@ _PatternFill: Optional[Type["PatternFillType"]] = PatternFill
 _Table: Optional[Type["TableType"]] = Table
 _TableStyleInfo: Optional[Type["TableStyleInfoType"]] = TableStyleInfo
 
+XLSX_TEMPLATE_ENV = "SRT_TO_CSV_XLSX_TEMPLATE"
+
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
     r"(?P<h2>\d{2}):(?P<m2>\d{2}):(?P<s2>\d{2})[,.](?P<ms2>\d{3})\s*$"
@@ -220,10 +222,24 @@ def write_tabular_output(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
-    wb = _Workbook()
+    template_path = os.getenv(XLSX_TEMPLATE_ENV)
+    wb = None
+    if template_path and os.path.isfile(template_path) and _load_workbook is not None:
+        try:
+            wb = _load_workbook(template_path)
+        except Exception:
+            wb = None
+    if wb is None:
+        wb = _Workbook()
+
     ws = wb.active
     if ws is None:
         raise SystemExit("Failed to create XLSX worksheet")
+
+    # Ensure the output worksheet starts from a clean slate while preserving
+    # any workbook-level theme inherited from a template workbook.
+    ws.delete_rows(1, ws.max_row)
+    ws.tables.clear()
     ws.title = "subtitles"
     ws.append(XLSX_HEADER)
 
@@ -235,7 +251,7 @@ def write_tabular_output(
         ws.column_dimensions[col_letter].width = 16
 
     # Excel theme color: Plum, Accent 5, Lighter 80%.
-    title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=7, tint=0.8))
+    title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=8, tint=0.8))
     body_font = _Font(name="Aptos Narrow", size=12)
 
     for row in rows:
@@ -252,15 +268,27 @@ def write_tabular_output(
     # Format the data range as a table with headers.
     if ws.max_row >= 2:
         table_ref = f"A1:M{ws.max_row}"
-        table = _Table(displayName="SubtitlesTable", ref=table_ref)
-        table.tableStyleInfo = _TableStyleInfo(
-            name="TableStyleMedium9",
-            showFirstColumn=False,
-            showLastColumn=False,
-            showRowStripes=True,
-            showColumnStripes=False,
-        )
-        ws.add_table(table)
+        existing_tables = list(ws.tables.values())
+        if existing_tables:
+            table = existing_tables[0]
+            table.ref = table_ref
+            table.tableStyleInfo = _TableStyleInfo(
+                name="TableStyleMedium9",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+        else:
+            table = _Table(displayName="SubtitlesTable", ref=table_ref)
+            table.tableStyleInfo = _TableStyleInfo(
+                name="TableStyleMedium9",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+            ws.add_table(table)
 
     # Re-apply joined title row fill after table insertion so it remains visible.
     for row_idx in range(2, ws.max_row + 1):

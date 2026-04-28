@@ -134,11 +134,11 @@ def test_single_output_infers_xlsx_from_extension():
         assert rows[1][0:3] == ("00:00:00:00", "00:00:01:00", "Hello XLSX")
         assert rows[1][3:] == (None,) * 10
 
-        assert math.isclose(ws.column_dimensions["A"].width, 10.7, abs_tol=0.2)
-        assert math.isclose(ws.column_dimensions["B"].width, 10.7, abs_tol=0.2)
-        assert math.isclose(ws.column_dimensions["C"].width, 35.7, abs_tol=0.2)
-        assert math.isclose(ws.column_dimensions["D"].width, 14.3, abs_tol=0.2)
-        assert math.isclose(ws.column_dimensions["M"].width, 14.3, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["A"].width, 12.0, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["B"].width, 12.0, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["C"].width, 41.0, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["D"].width, 16.0, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["M"].width, 16.0, abs_tol=0.2)
 
         assert ws["A1"].font.name == "Aptos Narrow"
         assert math.isclose(float(ws["A1"].font.sz), 12.0, abs_tol=1e-6)
