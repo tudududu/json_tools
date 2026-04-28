@@ -10,6 +10,10 @@
 // Schema per layer spec:
 //   type        {string}           — "text" | "shape" (more added per slice)
 //   name        {string}           — layer name set after creation
+//   textStyle   {Object}           — text-layer style options (optional):
+//                                      font {string}
+//                                      fontSize {number}
+//                                      fontCandidates {Array<string>} (optional fallback list)
 //   properties  {Object}           — explicit property values keyed by canonical path
 //   expressions {Object}           — symbolic expression key per property path;
 //                                    keys resolved from AE_EXPRESSIONS at runtime
@@ -45,6 +49,11 @@
             {
                 type: "text",
                 name: "info",
+                textStyle: {
+                    font: "Courier Regular",
+                    fontSize: 27,
+                    fontCandidates: ["Courier Regular", "Courier", "CourierNewPSMT"]
+                },
                 properties: {
                     "Transform.Position": [960, 960]
                 },

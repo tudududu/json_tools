@@ -188,12 +188,55 @@
         }
     }
 
+    function applyTextStyle(layer, textStyle) {
+        if (!textStyle || typeof textStyle !== "object") return;
+        try {
+            var src = layer.property("Source Text");
+            if (!src) return;
+
+            var td = src.value;
+            if (!td) return;
+
+            var chosenFont = null;
+            var fontCandidates = (textStyle.fontCandidates instanceof Array) ? textStyle.fontCandidates : null;
+
+            if (fontCandidates && fontCandidates.length > 0) {
+                for (var i = 0; i < fontCandidates.length; i++) {
+                    var candidate = String(fontCandidates[i] || "");
+                    if (!candidate.length) continue;
+                    try {
+                        td.font = candidate;
+                        src.setValue(td);
+                        chosenFont = candidate;
+                        break;
+                    } catch(_) {}
+                }
+            }
+
+            if (!chosenFont && textStyle.hasOwnProperty("font")) {
+                td.font = String(textStyle.font || "");
+            }
+
+            if (textStyle.hasOwnProperty("fontSize")) {
+                var fs = parseFloat(textStyle.fontSize);
+                if (!isNaN(fs) && fs > 0) td.fontSize = fs;
+            }
+
+            src.setValue(td);
+        } catch(e) {
+            $.writeln("[layer_template] applyTextStyle: " + (e.message || String(e)));
+        }
+    }
+
     // ── LAYER CREATORS ────────────────────────────────────────────────────────
 
     function createTextLayer(comp, layerSpec) {
         // Create at top (index 1 in AE stack). addText always inserts at the top.
         var layer = comp.layers.addText("");
         layer.name = String(layerSpec.name || "text_layer");
+
+        // Apply optional text styling (font, size) before property/expression wiring.
+        applyTextStyle(layer, layerSpec.textStyle);
 
         // Apply property values
         var props = layerSpec.properties || {};
