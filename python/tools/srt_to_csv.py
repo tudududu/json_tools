@@ -72,6 +72,40 @@ _TableStyleInfo: Optional[Type["TableStyleInfoType"]] = TableStyleInfo
 
 XLSX_TEMPLATE_ENV = "SRT_TO_CSV_XLSX_TEMPLATE"
 
+
+def _create_output_workbook() -> "WorkbookType":
+    """Create workbook, optionally from template, with explicit error handling.
+
+    If SRT_TO_CSV_XLSX_TEMPLATE is set, loading must succeed; otherwise we
+    abort with a clear message instead of silently falling back to default
+    theme/workbook styling.
+    """
+    if _Workbook is None:
+        raise SystemExit(
+            "XLSX output requires openpyxl. Install with: pip install openpyxl"
+        )
+
+    template_path_raw = (os.getenv(XLSX_TEMPLATE_ENV) or "").strip()
+    if not template_path_raw:
+        return _Workbook()
+
+    template_path = os.path.expanduser(template_path_raw)
+    if _load_workbook is None:
+        raise SystemExit(
+            "XLSX template loading requires openpyxl load_workbook support"
+        )
+    if not os.path.isfile(template_path):
+        raise SystemExit(
+            f"XLSX template path from {XLSX_TEMPLATE_ENV} was not found: {template_path}"
+        )
+
+    try:
+        return _load_workbook(template_path)
+    except Exception as ex:
+        raise SystemExit(
+            f"Failed to load XLSX template from {XLSX_TEMPLATE_ENV}: {template_path} ({ex})"
+        )
+
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
     r"(?P<h2>\d{2}):(?P<m2>\d{2}):(?P<s2>\d{2})[,.](?P<ms2>\d{3})\s*$"
@@ -222,15 +256,7 @@ def write_tabular_output(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
-    template_path = os.getenv(XLSX_TEMPLATE_ENV)
-    wb = None
-    if template_path and os.path.isfile(template_path) and _load_workbook is not None:
-        try:
-            wb = _load_workbook(template_path)
-        except Exception:
-            wb = None
-    if wb is None:
-        wb = _Workbook()
+    wb = _create_output_workbook()
 
     ws = wb.active
     if ws is None:
