@@ -7,6 +7,11 @@ import math
 import pytest
 
 
+XLSX_HEADER = ("Start Time", "End Time", "Text") + tuple(
+    f"<ISO>{i}" for i in range(1, 11)
+)
+
+
 def test_join_output_positional_after_input_dir():
     in_dir = tempfile.mkdtemp()
     try:
@@ -125,15 +130,26 @@ def test_single_output_infers_xlsx_from_extension():
         wb = openpyxl.load_workbook(out_xlsx, data_only=True)
         ws = wb["subtitles"]
         rows = list(ws.iter_rows(values_only=True))
-        assert rows[0] == ("Start Time", "End Time", "Text")
-        assert rows[1] == ("00:00:00:00", "00:00:01:00", "Hello XLSX")
+        assert rows[0] == XLSX_HEADER
+        assert rows[1][0:3] == ("00:00:00:00", "00:00:01:00", "Hello XLSX")
+        assert rows[1][3:] == (None,) * 10
 
-        # Header style should be theme "Text 2" with lighter 50% tint.
-        fill = ws["A1"].fill
-        assert fill.fill_type == "solid"
-        assert fill.fgColor.type == "theme"
-        assert fill.fgColor.theme == 3
-        assert math.isclose(float(fill.fgColor.tint), 0.5, rel_tol=0.0, abs_tol=1e-6)
+        assert math.isclose(ws.column_dimensions["A"].width, 10.7, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["B"].width, 10.7, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["C"].width, 35.7, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["D"].width, 14.3, abs_tol=0.2)
+        assert math.isclose(ws.column_dimensions["M"].width, 14.3, abs_tol=0.2)
+
+        assert ws["A1"].font.name == "Aptos Narrow"
+        assert math.isclose(float(ws["A1"].font.sz), 12.0, abs_tol=1e-6)
+        assert ws["C2"].font.name == "Aptos Narrow"
+        assert math.isclose(float(ws["C2"].font.sz), 12.0, abs_tol=1e-6)
+
+        assert len(ws.tables) == 1
+        table = next(iter(ws.tables.values()))
+        assert table.ref == "A1:M2"
+        assert table.tableStyleInfo is not None
+        assert table.tableStyleInfo.name == "TableStyleMedium9"
     finally:
         try:
             os.remove(os.path.join(in_dir, "single.srt"))
@@ -228,9 +244,19 @@ def test_join_output_infers_xlsx_from_extension():
         wb = openpyxl.load_workbook(out_xlsx, data_only=True)
         ws = wb["subtitles"]
         rows = list(ws.iter_rows(values_only=True))
-        assert rows[0] == ("Start Time", "End Time", "Text")
-        assert rows[1] == (None, None, "a.srt")
-        assert rows[3] == (None, None, "b.srt")
+        assert rows[0] == XLSX_HEADER
+        assert rows[1][0:3] == (None, None, "a.srt")
+        assert rows[1][3:] == (None,) * 10
+        assert rows[3][0:3] == (None, None, "b.srt")
+        assert rows[3][3:] == (None,) * 10
+
+        # Joined title rows should be highlighted across the full table span A-M.
+        for col in "ABCDEFGHIJKLM":
+            fill = ws[f"{col}2"].fill
+            assert fill.fill_type == "solid"
+            assert fill.fgColor.type == "theme"
+            assert fill.fgColor.theme == 8
+            assert math.isclose(float(fill.fgColor.tint), 0.8, rel_tol=0.0, abs_tol=1e-6)
     finally:
         try:
             os.remove(os.path.join(in_dir, "a.srt"))

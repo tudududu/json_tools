@@ -43,22 +43,32 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Type
 if TYPE_CHECKING:
     from openpyxl import Workbook as WorkbookType
     from openpyxl.styles import Color as ColorType
+    from openpyxl.styles import Font as FontType
     from openpyxl.styles import PatternFill as PatternFillType
+    from openpyxl.worksheet.table import Table as TableType
+    from openpyxl.worksheet.table import TableStyleInfo as TableStyleInfoType
 
 try:
     from openpyxl import Workbook
     from openpyxl import load_workbook
-    from openpyxl.styles import Color, PatternFill
+    from openpyxl.styles import Color, Font, PatternFill
+    from openpyxl.worksheet.table import Table, TableStyleInfo
 except Exception:  # pragma: no cover - optional dependency
     Workbook = None  # type: ignore[assignment,misc]
     load_workbook = None  # type: ignore[assignment,misc]
     Color = None  # type: ignore[assignment,misc]
+    Font = None  # type: ignore[assignment,misc]
     PatternFill = None  # type: ignore[assignment,misc]
+    Table = None  # type: ignore[assignment,misc]
+    TableStyleInfo = None  # type: ignore[assignment,misc]
 
 _Workbook: Optional[Type["WorkbookType"]] = Workbook
 _load_workbook: Optional[Callable[..., "WorkbookType"]] = load_workbook
 _Color: Optional[Type["ColorType"]] = Color
+_Font: Optional[Type["FontType"]] = Font
 _PatternFill: Optional[Type["PatternFillType"]] = PatternFill
+_Table: Optional[Type["TableType"]] = Table
+_TableStyleInfo: Optional[Type["TableStyleInfoType"]] = TableStyleInfo
 
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
@@ -66,6 +76,7 @@ TIME_RE = re.compile(
 )
 
 HEADER = ["Start Time", "End Time", "Text"]
+XLSX_HEADER = HEADER + [f"<ISO>{i}" for i in range(1, 11)]
 FRAME_TC_RE = re.compile(r"^\d{2}:\d{2}:\d{2}:\d{2}$")
 MS_TC_RE = re.compile(r"^\d{2}:\d{2}:\d{2}[,.]\d{3}$")
 
@@ -193,11 +204,18 @@ def write_tabular_output(
 
     if output_type != "xlsx":
         raise ValueError("output_type must be 'csv' or 'xlsx'")
-    # All three openpyxl symbols are checked together: Workbook, Color, and
-    # PatternFill are imported as a unit, so if any one is unavailable the
-    # others will be too. Checking all three keeps the type narrowed to
+    # openpyxl symbols are checked together because XLSX formatting relies on
+    # workbook, styles, and table objects.
+    # Checking all needed symbols keeps the type narrowed to
     # non-None for the remainder of the XLSX path.
-    if _Workbook is None or _Color is None or _PatternFill is None:
+    if (
+        _Workbook is None
+        or _Color is None
+        or _Font is None
+        or _PatternFill is None
+        or _Table is None
+        or _TableStyleInfo is None
+    ):
         raise SystemExit(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
@@ -207,21 +225,44 @@ def write_tabular_output(
     if ws is None:
         raise SystemExit("Failed to create XLSX worksheet")
     ws.title = "subtitles"
-    ws.append(HEADER)
-    # Excel theme color: Text 2 (Dark Blue), Lighter 50%.
-    header_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.5))
-    # Excel theme color: Turquoise, Accent 4, Lighter 40%.
-    title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=2, tint=0.3))
-    # Excel theme color: Text 2 (Dark Blue) alternating variants.
-    plain_fill_1 = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.75))
-    plain_fill_2 = _PatternFill(fill_type="solid", fgColor=_Color(theme=3, tint=0.85))
-    # Apply fill only to used output columns.
-    for col_idx in range(1, len(HEADER) + 1):
-        ws.cell(row=1, column=col_idx).fill = header_fill
-    for row in rows:
-        ws.append(row)
+    ws.append(XLSX_HEADER)
 
-    plain_row_index = 0
+    # Requested widths are in pixels; map to nearest openpyxl column units.
+    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["B"].width = 12
+    ws.column_dimensions["C"].width = 41
+    for col_letter in ("D", "E", "F", "G", "H", "I", "J", "K", "L", "M"):
+        ws.column_dimensions[col_letter].width = 16
+
+    # Excel theme color: Plum, Accent 5, Lighter 80%.
+    title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=7, tint=0.8))
+    body_font = _Font(name="Aptos Narrow", size=12)
+
+    for row in rows:
+        normalized = list(row[: len(XLSX_HEADER)])
+        if len(normalized) < len(XLSX_HEADER):
+            normalized.extend([""] * (len(XLSX_HEADER) - len(normalized)))
+        ws.append(normalized)
+
+    # Apply the font across the full table span A-M for all used rows.
+    for row_idx in range(1, ws.max_row + 1):
+        for col_idx in range(1, len(XLSX_HEADER) + 1):
+            ws.cell(row=row_idx, column=col_idx).font = body_font
+
+    # Format the data range as a table with headers.
+    if ws.max_row >= 2:
+        table_ref = f"A1:M{ws.max_row}"
+        table = _Table(displayName="SubtitlesTable", ref=table_ref)
+        table.tableStyleInfo = _TableStyleInfo(
+            name="TableStyleMedium9",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        ws.add_table(table)
+
+    # Re-apply joined title row fill after table insertion so it remains visible.
     for row_idx in range(2, ws.max_row + 1):
         c1 = ws.cell(row=row_idx, column=1).value
         c2 = ws.cell(row=row_idx, column=2).value
@@ -237,14 +278,8 @@ def write_tabular_output(
             c1 in (None, "") and c2 in (None, "") and str(c3 or "").strip() != ""
         )
         if is_title_row:
-            for col_idx in range(1, len(HEADER) + 1):
+            for col_idx in range(1, len(XLSX_HEADER) + 1):
                 ws.cell(row=row_idx, column=col_idx).fill = title_fill
-            continue
-
-        row_fill = plain_fill_1 if plain_row_index % 2 == 0 else plain_fill_2
-        plain_row_index += 1
-        for col_idx in range(1, len(HEADER) + 1):
-            ws.cell(row=row_idx, column=col_idx).fill = row_fill
 
     wb.save(out_path)
 
