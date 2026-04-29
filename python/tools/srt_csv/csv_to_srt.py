@@ -5,8 +5,7 @@ import os
 import re
 from typing import List, Optional, Tuple
 
-from python.tools.srt_csv.timecode import FRAME_TC_RE, MS_TC_RE
-from python.tools.srt_timecode import format_time_ms
+from python.tools.srt_csv.timecode import FRAME_TC_RE, MS_TC_RE, format_time_ms
 
 try:
     from openpyxl import load_workbook as _load_workbook
