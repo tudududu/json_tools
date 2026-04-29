@@ -38,6 +38,14 @@ import os
 import re
 from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Type
 
+from python.tools.srt_csv.forward import HEADER, parse_srt, records_to_rows
+from python.tools.srt_csv.timecode import (
+    FRAME_TC_RE,
+    MS_TC_RE,
+    format_time_ms,
+    resolve_output_type,
+)
+
 # openpyxl is an optional runtime dependency (only needed for XLSX output).
 # The TYPE_CHECKING block gives Pylance accurate type information without
 # requiring the package to be installed. The try/except block captures the
@@ -166,114 +174,8 @@ def _resolve_theme_xml_bytes(
 
     return None
 
-TIME_RE = re.compile(
-    r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
-    r"(?P<h2>\d{2}):(?P<m2>\d{2}):(?P<s2>\d{2})[,.](?P<ms2>\d{3})\s*$"
-)
-
-HEADER = ["Start Time", "End Time", "Text"]
 XLSX_HEADER = HEADER + [f"<ISO>{i}" for i in range(1, 11)]
-FRAME_TC_RE = re.compile(r"^\d{2}:\d{2}:\d{2}:\d{2}$")
-MS_TC_RE = re.compile(r"^\d{2}:\d{2}:\d{2}[,.]\d{3}$")
 
-
-def parse_srt(lines: List[str]) -> List[Tuple[float, float, str]]:
-    """Parse SRT lines into a list of (start_seconds, end_seconds, text)."""
-    records: List[Tuple[float, float, str]] = []
-    i = 0
-    n = len(lines)
-    while i < n:
-        line = lines[i].strip("\r\n")
-        m = TIME_RE.match(line)
-        if not m:
-            i += 1
-            continue
-        # Parse times
-        h1 = int(m.group("h1"))
-        m1 = int(m.group("m1"))
-        s1 = int(m.group("s1"))
-        ms1 = int(m.group("ms1"))
-        h2 = int(m.group("h2"))
-        m2 = int(m.group("m2"))
-        s2 = int(m.group("s2"))
-        ms2 = int(m.group("ms2"))
-        start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000.0
-        end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000.0
-        # Collect following text lines until blank line
-        i += 1
-        text_lines: List[str] = []
-        while i < n:
-            lt = lines[i].rstrip("\r\n")
-            if lt.strip() == "":
-                break
-            # Skip the optional numeric index line when encountered before time line; here we are past time line.
-            text_lines.append(lt)
-            i += 1
-        # Move past the blank separator line (if present)
-        while i < n and lines[i].strip() == "":
-            i += 1
-        text = "\n".join(text_lines)
-        records.append((start, end, text))
-    return records
-
-
-def format_time_frames(seconds: float, fps: float) -> str:
-    """Format time as HH:MM:SS:FF using nearest-frame rounding."""
-    if fps <= 0:
-        raise ValueError("fps must be > 0 for frames output")
-    sec_int = int(seconds)
-    frac = seconds - sec_int
-    frames = int(round(frac * fps))
-    # Carry over if frames equals fps due to rounding
-    if frames >= int(fps):
-        sec_int += 1
-        frames -= int(fps)
-    h = sec_int // 3600
-    rem = sec_int % 3600
-    m = rem // 60
-    s = rem % 60
-    return f"{h:02d}:{m:02d}:{s:02d}:{frames:02d}"
-
-
-def format_time_ms(seconds: float) -> str:
-    """Format time as HH:MM:SS,SSS with millisecond rounding."""
-    sec_int = int(seconds)
-    frac = seconds - sec_int
-    ms = int(round(frac * 1000))
-    if ms >= 1000:
-        sec_int += 1
-        ms -= 1000
-    h = sec_int // 3600
-    rem = sec_int % 3600
-    m = rem // 60
-    s = rem % 60
-    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
-
-
-def resolve_output_type(out_path: str, explicit_output_type: str | None) -> str:
-    """Resolve output container from explicit flag or file extension."""
-    if explicit_output_type:
-        return explicit_output_type
-    if out_path.lower().endswith(".xlsx"):
-        return "xlsx"
-    return "csv"
-
-
-def records_to_rows(
-    records: List[Tuple[float, float, str]], fps: float, out_format: str
-) -> List[List[str]]:
-    rows: List[List[str]] = []
-    for start, end, text in records:
-        if out_format == "frames":
-            start_str = format_time_frames(start, fps)
-            end_str = format_time_frames(end, fps)
-        elif out_format == "ms":
-            start_str = format_time_ms(start)
-            end_str = format_time_ms(end)
-        else:
-            raise ValueError("out_format must be 'frames' or 'ms'")
-        rows.append([start_str, end_str, text])
-    return rows
 
 
 def write_tabular_output(
