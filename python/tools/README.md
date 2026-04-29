@@ -66,6 +66,23 @@ XLSX notes:
 - XLSX output writes a single worksheet named `subtitles`.
 - XLSX output requires `openpyxl`.
 
+## refresh_xlsx_theme.py
+
+Tiny helper to extract an OOXML workbook theme from an XLSX template.
+
+It reads `xl/theme/theme1.xml` from a source `.xlsx` file and writes the XML
+to an output path (default: `python/tools/themes/subtitles_theme.xml`).
+
+Usage:
+```sh
+python -m python.tools.refresh_xlsx_theme \
+  /path/to/subtitles_template.xlsx
+
+python -m python.tools.refresh_xlsx_theme \
+  /path/to/subtitles_template.xlsx \
+  --output /path/to/subtitles_theme.xml
+```
+
 ## media_converter.py
 
 Converts a media deliverables CSV/XLSX into a compact JSON index nested under `EXTRA_OUTPUT_COMPS`, mapping `<AspectRatio>[ _<Template_name> if Template==extra ]|<duration>` → list of `{ size, media }` objects.
