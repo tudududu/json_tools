@@ -38,7 +38,7 @@ import os
 import re
 from typing import List, Optional, Tuple
 
-from python.tools.srt_parse import HEADER, parse_srt, records_to_rows
+from python.tools.srt_csv.srt_parse import HEADER, parse_srt, records_to_rows
 from python.tools.srt_csv.timecode import (
     FRAME_TC_RE,
     MS_TC_RE,
