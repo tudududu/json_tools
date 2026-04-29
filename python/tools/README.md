@@ -27,10 +27,16 @@ Bidirectional subtitle converter:
   ```
 
 Usage:
+Use the stable module entrypoint:
+
 ```sh
-python python/tools/srt_to_csv.py input.srt output.csv --fps 25 --out-format frames
-python python/tools/srt_to_csv.py input.srt output_ms.csv --out-format ms
-python python/tools/srt_to_csv.py input.srt output.xlsx --fps 25 --out-format frames
+python -m python.tools.srt_to_csv ...
+```
+
+```sh
+python -m python.tools.srt_to_csv input.srt output.csv --fps 25 --out-format frames
+python -m python.tools.srt_to_csv input.srt output_ms.csv --out-format ms
+python -m python.tools.srt_to_csv input.srt output.xlsx --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_csv/ --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ --output-dir out_xlsx/ --output-type xlsx --fps 25 --out-format frames
 python -m python.tools.srt_to_csv --input-dir in_srt/ joined.csv --join-output --fps 25 --out-format frames
