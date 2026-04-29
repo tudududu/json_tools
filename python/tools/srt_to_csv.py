@@ -33,7 +33,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
- 
+
 from python.tools.srt_csv.cli_ops import run_forward_mode, run_reverse_mode
 
 from python.tools.srt_csv.xlsx_output import (

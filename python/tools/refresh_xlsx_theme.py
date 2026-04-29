@@ -12,9 +12,7 @@ from pathlib import Path
 import zipfile
 
 
-DEFAULT_OUTPUT = (
-    Path(__file__).resolve().parent / "themes" / "subtitles_theme.xml"
-)
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "themes" / "subtitles_theme.xml"
 _THEME_MEMBER = "xl/theme/theme1.xml"
 
 
@@ -48,10 +46,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         default=str(DEFAULT_OUTPUT),
-        help=(
-            "Output XML file path "
-            f"(default: {DEFAULT_OUTPUT})"
-        ),
+        help=(f"Output XML file path (default: {DEFAULT_OUTPUT})"),
     )
     args = parser.parse_args()
 

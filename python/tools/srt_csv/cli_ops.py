@@ -1,12 +1,32 @@
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import List, Protocol
 
 from python.tools.srt_csv.reverse_seam import csv_to_srt, csv_to_srt_joined
 from python.tools.srt_csv.srt_parse import parse_srt, records_to_rows
 from python.tools.srt_csv.timecode import resolve_output_type
 from python.tools.srt_csv.xlsx_output import write_tabular_output
+
+
+class CliArgs(Protocol):
+    input: str | None
+    output: str | None
+    input_dir: str | None
+    output_dir: str | None
+    join_output: bool
+    reverse_joined: bool
+    fps: float
+    out_format: str
+    encoding: str
+    quote_all: bool
+    delimiter: str
+    output_type: str | None
+    xlsx_template: str | None
+    xlsx_theme_file: str | None
+    start_col: str | None
+    end_col: str | None
+    text_col: str | None
 
 
 def _srt_to_tabular_file(
@@ -37,7 +57,7 @@ def _srt_to_tabular_file(
     )
 
 
-def run_reverse_mode(args: object) -> None:
+def run_reverse_mode(args: CliArgs) -> None:
     if args.join_output:
         raise SystemExit("--join-output is not supported in reverse mode yet")
 
@@ -130,7 +150,7 @@ def run_reverse_mode(args: object) -> None:
     )
 
 
-def run_forward_mode(args: object) -> None:
+def run_forward_mode(args: CliArgs) -> None:
     if args.input_dir:
         in_dir = args.input_dir
         if not os.path.isdir(in_dir):

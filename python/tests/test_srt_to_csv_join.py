@@ -254,7 +254,9 @@ def test_join_output_infers_xlsx_from_extension():
             assert fill.fill_type == "solid"
             assert fill.fgColor.type == "theme"
             assert fill.fgColor.theme == 8
-            assert math.isclose(float(fill.fgColor.tint), 0.8, rel_tol=0.0, abs_tol=1e-6)
+            assert math.isclose(
+                float(fill.fgColor.tint), 0.8, rel_tol=0.0, abs_tol=1e-6
+            )
     finally:
         try:
             os.remove(os.path.join(in_dir, "a.srt"))
