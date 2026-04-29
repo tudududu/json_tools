@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import List
 
-from python.tools.srt_csv.csv_to_srt import csv_to_srt, csv_to_srt_joined
+from python.tools.srt_csv.reverse_seam import csv_to_srt, csv_to_srt_joined
 from python.tools.srt_csv.srt_parse import parse_srt, records_to_rows
 from python.tools.srt_csv.timecode import resolve_output_type
 from python.tools.srt_csv.xlsx_output import write_tabular_output
