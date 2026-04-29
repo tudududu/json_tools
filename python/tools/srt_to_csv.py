@@ -356,8 +356,9 @@ def write_tabular_output(
             normalized.extend([""] * (len(XLSX_HEADER) - len(normalized)))
         ws.append(normalized)
 
-    # Apply the font across the full table span A-M for all used rows.
-    for row_idx in range(1, ws.max_row + 1):
+    # Apply body font to data rows only; keep header typography controlled by
+    # the table style (for example white + bold in Medium styles).
+    for row_idx in range(2, ws.max_row + 1):
         for col_idx in range(1, len(XLSX_HEADER) + 1):
             ws.cell(row=row_idx, column=col_idx).font = body_font
 

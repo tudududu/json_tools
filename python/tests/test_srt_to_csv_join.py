@@ -140,8 +140,6 @@ def test_single_output_infers_xlsx_from_extension():
         assert math.isclose(ws.column_dimensions["D"].width, 16.0, abs_tol=0.2)
         assert math.isclose(ws.column_dimensions["M"].width, 16.0, abs_tol=0.2)
 
-        assert ws["A1"].font.name == "Aptos Narrow"
-        assert math.isclose(float(ws["A1"].font.sz), 12.0, abs_tol=1e-6)
         assert ws["C2"].font.name == "Aptos Narrow"
         assert math.isclose(float(ws["C2"].font.sz), 12.0, abs_tol=1e-6)
 
