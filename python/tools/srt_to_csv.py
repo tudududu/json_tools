@@ -12,6 +12,8 @@ Options:
 - --quote-all                 Always quote all CSV fields (default OFF; minimal quoting otherwise)
 - --delimiter <name>          CSV output delimiter: 'comma' or 'semicolon' (default 'comma')
 - --output-type <csv|xlsx>    Output container override (otherwise inferred from output extension)
+- --xlsx-theme-file <path>    Optional OOXML theme XML file to apply to generated XLSX workbooks
+- --xlsx-template <path>      Optional XLSX template workbook to use as base for output
 
 Examples:
     # Single file
@@ -71,12 +73,28 @@ _Table: Optional[Type["TableType"]] = Table
 _TableStyleInfo: Optional[Type["TableStyleInfoType"]] = TableStyleInfo
 
 XLSX_TEMPLATE_ENV = "SRT_TO_CSV_XLSX_TEMPLATE"
+XLSX_THEME_ENV = "SRT_TO_CSV_XLSX_THEME_FILE"
+DEFAULT_XLSX_THEME_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "themes",
+    "subtitles_theme.xml",
+)
 
 
-def _create_output_workbook() -> "WorkbookType":
+def _resolve_optional_file_path(raw_path: Optional[str]) -> Optional[str]:
+    if raw_path is None:
+        return None
+    normalized = os.path.expanduser(raw_path.strip())
+    return normalized or None
+
+
+def _create_output_workbook(
+    template_path_raw: Optional[str],
+    template_source: str,
+) -> "WorkbookType":
     """Create workbook, optionally from template, with explicit error handling.
 
-    If SRT_TO_CSV_XLSX_TEMPLATE is set, loading must succeed; otherwise we
+    If a template is configured, loading must succeed; otherwise we
     abort with a clear message instead of silently falling back to default
     theme/workbook styling.
     """
@@ -85,26 +103,68 @@ def _create_output_workbook() -> "WorkbookType":
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
-    template_path_raw = (os.getenv(XLSX_TEMPLATE_ENV) or "").strip()
-    if not template_path_raw:
+    template_path = _resolve_optional_file_path(template_path_raw)
+    if not template_path:
         return _Workbook()
 
-    template_path = os.path.expanduser(template_path_raw)
     if _load_workbook is None:
         raise SystemExit(
             "XLSX template loading requires openpyxl load_workbook support"
         )
     if not os.path.isfile(template_path):
         raise SystemExit(
-            f"XLSX template path from {XLSX_TEMPLATE_ENV} was not found: {template_path}"
+            f"XLSX template path from {template_source} was not found: {template_path}"
         )
 
     try:
         return _load_workbook(template_path)
     except Exception as ex:
         raise SystemExit(
-            f"Failed to load XLSX template from {XLSX_TEMPLATE_ENV}: {template_path} ({ex})"
+            f"Failed to load XLSX template from {template_source}: {template_path} ({ex})"
         )
+
+
+def _read_theme_xml_bytes(theme_path_raw: str, source: str) -> bytes:
+    theme_path = _resolve_optional_file_path(theme_path_raw)
+    if not theme_path:
+        raise SystemExit(f"Empty XLSX theme file path from {source}")
+    if not os.path.isfile(theme_path):
+        raise SystemExit(f"XLSX theme file from {source} was not found: {theme_path}")
+    try:
+        with open(theme_path, "rb") as f:
+            return f.read()
+    except Exception as ex:
+        raise SystemExit(
+            f"Failed to read XLSX theme file from {source}: {theme_path} ({ex})"
+        )
+
+
+def _resolve_theme_xml_bytes(
+    template_path_raw: Optional[str],
+    theme_path_raw: Optional[str],
+) -> Optional[bytes]:
+    """Resolve theme bytes for output workbook.
+
+    Priority:
+    1) --xlsx-theme-file
+    2) SRT_TO_CSV_XLSX_THEME_FILE
+    3) Built-in default theme file (only when no template workbook is used)
+    """
+    if theme_path_raw:
+        return _read_theme_xml_bytes(theme_path_raw, "--xlsx-theme-file")
+
+    env_theme_path = os.getenv(XLSX_THEME_ENV)
+    if env_theme_path and env_theme_path.strip():
+        return _read_theme_xml_bytes(env_theme_path, XLSX_THEME_ENV)
+
+    # Preserve workbook theme from a provided template unless explicitly overridden.
+    if _resolve_optional_file_path(template_path_raw):
+        return None
+
+    if os.path.isfile(DEFAULT_XLSX_THEME_FILE):
+        return _read_theme_xml_bytes(DEFAULT_XLSX_THEME_FILE, "built-in theme")
+
+    return None
 
 TIME_RE = re.compile(
     r"^(?P<h1>\d{2}):(?P<m1>\d{2}):(?P<s1>\d{2})[,.](?P<ms1>\d{3})\s*-->\s*"
@@ -222,6 +282,8 @@ def write_tabular_output(
     quote_all: bool,
     delimiter_name: str,
     output_type: str,
+    xlsx_template: Optional[str] = None,
+    xlsx_theme_file: Optional[str] = None,
 ) -> None:
     import os
 
@@ -256,7 +318,15 @@ def write_tabular_output(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )
 
-    wb = _create_output_workbook()
+    resolved_template = xlsx_template
+    template_source = "--xlsx-template"
+    if not _resolve_optional_file_path(resolved_template):
+        resolved_template = os.getenv(XLSX_TEMPLATE_ENV)
+        template_source = XLSX_TEMPLATE_ENV
+    wb = _create_output_workbook(resolved_template, template_source)
+    theme_xml = _resolve_theme_xml_bytes(resolved_template, xlsx_theme_file)
+    if theme_xml is not None:
+        wb.loaded_theme = theme_xml
 
     ws = wb.active
     if ws is None:
@@ -347,6 +417,8 @@ def srt_to_csv(
     quote_all: bool,
     delimiter_name: str,
     output_type: str | None = None,
+    xlsx_template: str | None = None,
+    xlsx_theme_file: str | None = None,
 ) -> None:
     with open(in_path, "r", encoding=encoding) as f:
         # Preserve lines; splitlines handles CRLF/CR/LF
@@ -360,6 +432,8 @@ def srt_to_csv(
         quote_all=quote_all,
         delimiter_name=delimiter_name,
         output_type=resolved_output_type,
+        xlsx_template=xlsx_template,
+        xlsx_theme_file=xlsx_theme_file,
     )
 
 
@@ -756,6 +830,22 @@ def main() -> None:
         help="Output container override. When omitted, inferred from output extension (.xlsx => xlsx, otherwise csv)",
     )
     p.add_argument(
+        "--xlsx-template",
+        default=None,
+        help=(
+            "Optional path to an XLSX template workbook used as output base. "
+            f"If omitted, falls back to {XLSX_TEMPLATE_ENV} env var when set."
+        ),
+    )
+    p.add_argument(
+        "--xlsx-theme-file",
+        default=None,
+        help=(
+            "Optional OOXML theme XML file applied to generated XLSX. "
+            f"If omitted, falls back to {XLSX_THEME_ENV} env var; otherwise a built-in theme is used when available."
+        ),
+    )
+    p.add_argument(
         "--start-col",
         help="Reverse mode: start time column name or 1-based index",
     )
@@ -901,6 +991,8 @@ def main() -> None:
                 quote_all=args.quote_all,
                 delimiter_name=args.delimiter,
                 output_type=resolved_output_type,
+                xlsx_template=args.xlsx_template,
+                xlsx_theme_file=args.xlsx_theme_file,
             )
         else:
             out_dir = args.output_dir or args.input_dir
@@ -920,6 +1012,8 @@ def main() -> None:
                     quote_all=args.quote_all,
                     delimiter_name=args.delimiter,
                     output_type=args.output_type,
+                    xlsx_template=args.xlsx_template,
+                    xlsx_theme_file=args.xlsx_theme_file,
                 )
     else:
         if not args.input or not args.output:
@@ -937,6 +1031,8 @@ def main() -> None:
             quote_all=args.quote_all,
             delimiter_name=args.delimiter,
             output_type=args.output_type,
+            xlsx_template=args.xlsx_template,
+            xlsx_theme_file=args.xlsx_theme_file,
         )
 
 

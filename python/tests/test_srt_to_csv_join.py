@@ -387,3 +387,79 @@ def test_join_xlsx_output_without_openpyxl_reports_clear_cli_error():
             os.rmdir(out_dir)
         except Exception:
             pass
+
+
+def test_xlsx_theme_file_flag_invalid_path_reports_clear_error():
+    in_dir = tempfile.mkdtemp()
+    try:
+        in_srt = os.path.join(in_dir, "theme_fail.srt")
+        with open(in_srt, "w", encoding="utf-8") as f:
+            f.write("1\n00:00:00,000 --> 00:00:01,000\nTheme fail\n")
+
+        out_xlsx = os.path.join(in_dir, "theme_fail.xlsx")
+        script_mod = "python.tools.srt_to_csv"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                script_mod,
+                in_srt,
+                out_xlsx,
+                "--output-type",
+                "xlsx",
+                "--xlsx-theme-file",
+                os.path.join(in_dir, "missing_theme.xml"),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode != 0
+        combined = (proc.stdout or "") + (proc.stderr or "")
+        assert "XLSX theme file from --xlsx-theme-file was not found" in combined
+    finally:
+        try:
+            os.remove(os.path.join(in_dir, "theme_fail.srt"))
+        except Exception:
+            pass
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass
+
+
+def test_xlsx_template_flag_invalid_path_reports_clear_error():
+    in_dir = tempfile.mkdtemp()
+    try:
+        in_srt = os.path.join(in_dir, "template_fail.srt")
+        with open(in_srt, "w", encoding="utf-8") as f:
+            f.write("1\n00:00:00,000 --> 00:00:01,000\nTemplate fail\n")
+
+        out_xlsx = os.path.join(in_dir, "template_fail.xlsx")
+        script_mod = "python.tools.srt_to_csv"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                script_mod,
+                in_srt,
+                out_xlsx,
+                "--output-type",
+                "xlsx",
+                "--xlsx-template",
+                os.path.join(in_dir, "missing_template.xlsx"),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode != 0
+        combined = (proc.stdout or "") + (proc.stderr or "")
+        assert "XLSX template path from --xlsx-template was not found" in combined
+    finally:
+        try:
+            os.remove(os.path.join(in_dir, "template_fail.srt"))
+        except Exception:
+            pass
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass
