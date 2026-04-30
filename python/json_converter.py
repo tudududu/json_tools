@@ -44,6 +44,8 @@ from python.core.table_reader import (
     _read_table as _core_read_table,
     _sniff_delimiter as _core_sniff_delimiter,
 )
+from python.core.sectioned_mode import convert_sectioned_mode as _core_convert_sectioned_mode
+from python.core.simple_mode import convert_simple_mode as _core_convert_simple_mode
 from python.core.timecode import (
     parse_timecode as _core_parse_timecode,
     safe_int as _core_safe_int,
@@ -2414,226 +2416,31 @@ def convert_csv_to_json(
         )
     )
     if simple_mode:
-        # Reuse old path via DictReader for compatibility
-        # Build fieldnames → use first row as headers directly
-        # Create dict rows
-        dict_rows = []
-        for r in rows:
-            d = {headers[i]: (r[i] if i < len(r) else "") for i in range(len(headers))}
-            dict_rows.append(d)
-        start_name, end_name, text_name = detect_columns(
-            headers,
-            start_override=start_col,
-            end_override=end_col,
-            text_override=text_col,
+        return _core_convert_simple_mode(
+            rows=rows,
+            headers=headers,
+            effective_fps=effective_fps,
+            start_line_index=start_line_index,
+            round_ndigits=round_ndigits,
+            times_as_string=times_as_string,
+            strip_text=strip_text,
+            skip_empty_text=skip_empty_text,
+            start_col=start_col,
+            end_col=end_col,
+            text_col=text_col,
         )
 
-        def fmt_time_simple(val: float) -> Any:
-            if round_ndigits is not None:
-                val = round(val, round_ndigits)
-            if times_as_string:
-                if round_ndigits is None:
-                    return f"{val:.2f}"
-                return f"{val:.{round_ndigits}f}"
-            return float(val)
-
-        out_items: List[Dict[str, Any]] = []
-        line_no = start_line_index
-        for d in dict_rows:
-            text_val = d.get(text_name, "")
-            text = (
-                text_val.strip()
-                if strip_text and isinstance(text_val, str)
-                else text_val
-            )
-            if skip_empty_text and (text is None or str(text).strip() == ""):
-                continue
-            try:
-                tin = parse_timecode(str(d.get(start_name, "")).strip(), effective_fps)
-                tout = parse_timecode(str(d.get(end_name, "")).strip(), effective_fps)
-            except Exception as e:
-                raise ValueError(f"Failed to parse timecodes for row {d}: {e}")
-            item = {
-                "line": line_no,
-                "in": fmt_time_simple(tin),
-                "out": fmt_time_simple(tout),
-                "text": text,
-            }
-            out_items.append(item)
-            line_no += 1
-        return {"subtitles": out_items}
-
-    # Sectioned mode
-    # Identify section marker column: assume first column if its header looks like a known section or any non-core column
-    idx_section = 0 if headers and headers[0] else 0
-
-    # Determine which columns are text columns; if none, but we have a 'text_col' override, try to resolve by index
-    if not text_cols:
-        if text_col and text_col.isdigit():
-            text_cols = [int(text_col) - 1]
-        else:
-            # Default to last column
-            text_cols = [len(headers) - 1]
-
-    # Per-country containers
-    country_codes: List[str] = []
-    per_country: Dict[str, Dict[str, Any]] = {}
-
-    def ensure_country(idx: int, code: Optional[str] = None) -> str:
-        nonlocal country_codes
-        if idx >= len(country_codes):
-            # Extend with placeholders
-            for k in range(len(country_codes), idx + 1):
-                country_codes.append(
-                    code or f"col{k - (len(text_cols) - len(country_codes)) + 1}"
-                )
-        c = country_codes[idx]
-        if c not in per_country:
-            per_country[c] = {
-                "subtitles": [],
-                "claim": [],
-                "disclaimer": [],
-                "disclaimer_02": [],
-                "metadata": {},
-            }
-        return c
-
-    def fmt_time_sectioned(val: float) -> Any:
-        if round_ndigits is not None:
-            val = round(val, round_ndigits)
-        if times_as_string:
-            if round_ndigits is None:
-                return f"{val:.2f}"
-            return f"{val:.{round_ndigits}f}"
-        return float(val)
-
-    current_section = (headers[0] or "subtitles").strip().lower()
-    auto_line = start_line_index
-    for r in rows:
-        # Pad row
-        if len(r) < len(headers):
-            r = r + [""] * (len(headers) - len(r))
-
-        # Section switch if column 0 has a value
-        if r[idx_section].strip():
-            current_section = r[idx_section].strip().lower()
-
-        if current_section == "metadata":
-            # Key is placed in the column just before first text column in examples (e.g., column 4 when text starts at 5)
-            key_col = min(text_cols) - 1 if min(text_cols) > 0 else 0
-            key_raw = r[key_col].strip() if key_col < len(r) else ""
-            if not key_raw:
-                continue
-            key_norm = key_raw.strip()
-            # Values per country align with text columns
-            for ti, tcol in enumerate(text_cols):
-                val = r[tcol].strip() if tcol < len(r) else ""
-                code = None
-                if key_norm.lower() == "country":
-                    code = val or None
-                ccode = ensure_country(ti, code)
-                # If this row defines country codes, update them
-                if key_norm.lower() == "country" and val:
-                    country_codes[ti] = val
-                    # Ensure bucket name matches code
-                    if ccode != val:
-                        # Move bucket if previously created with placeholder
-                        per_country[val] = per_country.pop(
-                            ccode,
-                            {
-                                "subtitles": [],
-                                "claim": [],
-                                "disclaimer": [],
-                                "disclaimer_02": [],
-                                "metadata": {},
-                            },
-                        )
-                    ccode = val
-                if key_norm.lower() != "country":
-                    per_country[ccode]["metadata"][key_norm] = val
-            continue
-
-        # Subtitle-like sections
-        if current_section in ("subtitles", "claim", "disclaimer", "disclaimer_02"):
-            # Line index
-            if idx_line is not None and idx_line < len(r) and str(r[idx_line]).strip():
-                try:
-                    line_no_val = int(str(r[idx_line]).strip())
-                except Exception:
-                    line_no_val = auto_line
-            else:
-                line_no_val = auto_line
-
-            # Timecodes
-            try:
-                tin = parse_timecode(
-                    str(r[idx_start]).strip() if idx_start is not None else "",
-                    effective_fps,
-                )
-                tout = parse_timecode(
-                    str(r[idx_end]).strip() if idx_end is not None else "",
-                    effective_fps,
-                )
-            except Exception:
-                # If times are missing in a non-data marker row (e.g., metadata), skip
-                continue
-
-            # Per-country texts
-            for ti, tcol in enumerate(text_cols):
-                text_val = r[tcol] if tcol < len(r) else ""
-                text_val = (
-                    text_val.strip()
-                    if strip_text and isinstance(text_val, str)
-                    else text_val
-                )
-                if skip_empty_text and (
-                    text_val is None or str(text_val).strip() == ""
-                ):
-                    continue
-                ccode = ensure_country(ti)
-                item = {
-                    "line": line_no_val,
-                    "in": fmt_time_sectioned(tin),
-                    "out": fmt_time_sectioned(tout),
-                    "text": text_val,
-                }
-                per_country[ccode][current_section].append(item)
-
-            auto_line += 1
-            continue
-
-        # Unknown section → ignore
-        continue
-
-    # If no country codes were provided, ensure at least one default
-    if not country_codes:
-        country_codes = ["default"]
-        if "default" not in per_country:
-            per_country["default"] = {
-                "subtitles": [],
-                "claim": [],
-                "disclaimer": [],
-                "disclaimer_02": [],
-                "metadata": {},
-            }
-
-    # If only one country requested, and matches original return shape
-    if len(country_codes) == 1:
-        c = country_codes[0]
-        return {
-            "subtitles": per_country[c]["subtitles"],
-            "claim": per_country[c]["claim"],
-            "disclaimer": per_country[c]["disclaimer"],
-            "disclaimer_02": per_country[c]["disclaimer_02"],
-            "metadata": per_country[c]["metadata"],
-        }
-
-    # Multiple countries → return combined structure containing per-country data (for CLI split to handle)
-    return {
-        "_multi": True,
-        "countries": country_codes,
-        "byCountry": per_country,
-    }
+    return _core_convert_sectioned_mode(
+        rows=rows,
+        headers=headers,
+        effective_fps=effective_fps,
+        start_line_index=start_line_index,
+        round_ndigits=round_ndigits,
+        times_as_string=times_as_string,
+        strip_text=strip_text,
+        skip_empty_text=skip_empty_text,
+        text_col=text_col,
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
