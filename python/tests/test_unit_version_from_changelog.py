@@ -4,7 +4,7 @@ import json
 import tempfile
 import unittest
 
-from python import csv_to_json as mod
+from python import json_converter as mod
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, ".."))

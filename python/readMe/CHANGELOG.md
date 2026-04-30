@@ -1,3 +1,22 @@
+# 1.11.0 - 2026-04-30
+
+Added:
+- Implementation completed for the hard rename from csv_to_json.py to json_converter.py across code, tests, installer flow, and docs, with no compatibility shim.
+
+	1. Core module and installer entrypoint renamed.
+		python/csv_to_json.py -> deleted
+		json_converter.py -> added
+		python/installer/build_csv_to_json.py -> deleted
+		build_json_converter.py -> added
+	2. Tests updated to new module/script names.
+	3. Installer binary/build naming switched to json_converter.
+		PyInstaller name now json_converter in build_json_converter.py
+		Build root now python/build/json_converter in build_json_converter.py
+		Executable target now json_converter in build_json_converter.py
+	4. Ecosystem/docs/comments updated.
+	
+	Historical references in CHANGELOG.md were intentionally left intact.
+
 # 1.10.8 - 2026-04-22
 
 Added:

@@ -10,7 +10,7 @@ try:
 except Exception:
     Workbook = None
 
-from python import csv_to_json as mod
+from python import json_converter as mod
 
 
 def tmp_file(suffix=".csv"):

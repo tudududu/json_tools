@@ -9,11 +9,11 @@ class InstallerBuildArgsTests(unittest.TestCase):
     def test_build_pyinstaller_args_contains_required_paths_and_hidden_imports(self):
         repo_root = Path(__file__).resolve().parents[2]
         python_dir = repo_root / "python"
-        build_root = python_dir / "build" / "csv_to_json"
+        build_root = python_dir / "build" / "json_converter"
 
-        installer_module_path = python_dir / "installer" / "build_csv_to_json.py"
+        installer_module_path = python_dir / "installer" / "build_json_converter.py"
         spec = importlib.util.spec_from_file_location(
-            "build_csv_to_json", installer_module_path
+            "build_json_converter", installer_module_path
         )
         self.assertIsNotNone(spec)
         self.assertIsNotNone(spec.loader)
@@ -21,7 +21,7 @@ class InstallerBuildArgsTests(unittest.TestCase):
         spec.loader.exec_module(module)  # type: ignore[union-attr]
 
         args = module.build_pyinstaller_args(
-            source_file=python_dir / "csv_to_json.py",
+            source_file=python_dir / "json_converter.py",
             repo_root=repo_root,
             dist_dir=build_root / "dist",
             work_dir=build_root / "work",

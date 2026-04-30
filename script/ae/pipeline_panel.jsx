@@ -8,7 +8,7 @@
 //     Automat/
 //       pipeline_panel.jsx   ← THIS FILE
 //       pipeline_run.jsx, batch_orchestrator.jsx, phase/, config/
-//       bin/csv_to_json      ← converter binary (macOS)
+//       bin/json_converter      ← converter binary (macOS)
 //
 // Dev usage:
 //  A) File > Scripts > pipeline_panel.jsx   (opens as a floating palette)
@@ -16,7 +16,7 @@
 //
 // Path resolution: all sibling scripts and the converter binary are resolved relative to
 // THIS FILE's location ($.fileName) — no hard-coded absolute paths.
-// Dev: create script/ae/bin/csv_to_json (copy or symlink from python/build/csv_to_json/dist/).
+// Dev: create script/ae/bin/json_converter (copy or symlink from python/build/json_converter/dist/).
 
 #target aftereffects
 
@@ -48,7 +48,7 @@
     var DEV_PRESET_FLAG   = CONFIG_DIR ? new File(joinFs(CONFIG_DIR, ".use_dev_preset"))      : null;
     var AUTOMAT_VERSION   = "1.0.0";
     // Converter ships in Automat/bin/ (installed) or script/ae/bin/ (dev).
-    var CONVERTER_PATH    = __base ? joinFs(__base.fsName, "bin/csv_to_json") : null;
+    var CONVERTER_PATH    = __base ? joinFs(__base.fsName, "bin/json_converter") : null;
 
     // ── 1. UTILITIES ─────────────────────────────────────────────────────────
 

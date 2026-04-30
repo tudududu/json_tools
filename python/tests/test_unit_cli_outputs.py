@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 
-from python import csv_to_json as mod
+from python import json_converter as mod
 
 
 def tmp_csv(content: str) -> str:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "csv_to_json.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "json_converter.py"
 
 
 def run_cli(args, expect_exit=0):

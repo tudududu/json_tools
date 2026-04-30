@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified pytest-based test runner for the csv_to_json tool.
+"""Unified pytest-based test runner for the json_converter tool.
 
 This wrapper delegates to pytest for discovery/execution and optionally enables
 coverage collection via pytest-cov when COVERAGE=1 is set in the environment.

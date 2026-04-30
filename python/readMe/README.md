@@ -229,34 +229,34 @@ Top-level values are simple arrays and only the landscape set is emitted. Video 
 
 Basic simple CSV:
 ```sh
-python3 csv_to_json.py input.csv output.json --fps 25
+python3 json_converter.py input.csv output.json --fps 25
 ```
 
 Unified CSV → split one file per country:
 ```sh
-python3 csv_to_json.py unified.csv out/result.json --fps 25 --split-by-country
+python3 json_converter.py unified.csv out/result.json --fps 25 --split-by-country
 ```
 
 Custom output naming:
 ```sh
-python3 csv_to_json.py unified.csv out/subs.json --fps 25 --split-by-country --output-pattern out/WTA_{country}.json
+python3 json_converter.py unified.csv out/subs.json --fps 25 --split-by-country --output-pattern out/WTA_{country}.json
 ```
 
 When `language` is present (see below), filenames automatically include it after the country code during `{country}` expansion: `out/WTA_GBR_EN.json`. If the language is missing for a country, the file name remains `out/WTA_GBR.json`.
 
 Single-country with templated filename:
 ```sh
-python3 csv_to_json.py unified.csv out/WTA_{country}.json --fps 25 --country-column 1
+python3 json_converter.py unified.csv out/WTA_{country}.json --fps 25 --country-column 1
 ```
 
 Check mode (no files written):
 ```sh
-python3 csv_to_json.py unified.csv /dev/null --fps 25 --check
+python3 json_converter.py unified.csv /dev/null --fps 25 --check
 ```
 
 Strict check mode (fails on validation errors):
 ```sh
-python3 csv_to_json.py unified.csv /dev/null --fps 25 --check --strict
+python3 json_converter.py unified.csv /dev/null --fps 25 --check --strict
 ```
 
 ## Development Tasks (Lint, Format, Tests)
@@ -730,7 +730,7 @@ Start Time,End Time,Text
 
 Command:
 ```sh
-python3 csv_to_json.py input.csv output.json --fps 25
+python3 json_converter.py input.csv output.json --fps 25
 ```
 
 Output:
@@ -854,14 +854,14 @@ Behavior:
 
 Example (split by country):
 ```sh
-python3 python/csv_to_json.py data.csv out/{country}.json \
+python3 python/json_converter.py data.csv out/{country}.json \
   --split-by-country \
   --media-config media.csv \
   --media-delimiter ';' \
   --media-country-col Country \
   --media-language-col Language
 
-python3 python/csv_to_json.py in.csv out.json \
+python3 python/json_converter.py in.csv out.json \
   --country-column 1 \
   --fps 25 \
   --media-config media.csv
@@ -898,7 +898,7 @@ In all three cases the error is counted in the `Conversion complete: ... Errors:
 
 Example:
 ```sh
-python3 python/csv_to_json.py data.csv out/{country}.json \
+python3 python/json_converter.py data.csv out/{country}.json \
   --split-by-country \
   --layer-config LAYER_NAME_CONFIG.xlsx \
   --media-config media.csv

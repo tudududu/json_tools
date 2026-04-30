@@ -5,7 +5,7 @@ import json
 import io
 from unittest import mock
 
-from python import csv_to_json as mod
+from python import json_converter as mod
 
 
 def tmp_csv(content: str) -> str:

@@ -110,7 +110,7 @@ def build_pyinstaller_args(
 ) -> list[str]:
     args = [
         str(source_file),
-        "--name=csv_to_json",
+        "--name=json_converter",
         "--onefile",
         "--clean",
         "--noconfirm",
@@ -131,7 +131,7 @@ def build_pyinstaller_args(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Build standalone csv_to_json executable with PyInstaller"
+        description="Build standalone json_converter executable with PyInstaller"
     )
     parser.add_argument(
         "--converter-version",
@@ -148,9 +148,9 @@ def main() -> int:
     installer_dir = Path(__file__).resolve().parent
     python_dir = installer_dir.parent
     repo_root = python_dir.parent
-    source_file = python_dir / "csv_to_json.py"
+    source_file = python_dir / "json_converter.py"
 
-    build_root = python_dir / "build" / "csv_to_json"
+    build_root = python_dir / "build" / "json_converter"
     dist_dir = build_root / "dist"
     work_dir = build_root / "work"
     spec_dir = build_root / "spec"
@@ -174,7 +174,7 @@ def main() -> int:
         converter_version=converter_version,
     )
 
-    executable_path = dist_dir / "csv_to_json"
+    executable_path = dist_dir / "json_converter"
     if executable_path.exists():
         executable_path.unlink()
 

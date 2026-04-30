@@ -1,5 +1,5 @@
 # Top-level runtime dependencies for this repository.
 # Note: Most tools here rely on Python standard library only.
 
-# Required for XLSX input/output features in csv_to_json.py and tools/*.
+# Required for XLSX input/output features in json_converter.py and tools/*.
 openpyxl>=3.1.0

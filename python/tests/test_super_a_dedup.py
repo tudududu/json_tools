@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 import os
-from python import csv_to_json as mod
+from python import json_converter as mod
 
 
 class DedupMergeTests(unittest.TestCase):
