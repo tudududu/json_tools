@@ -24,7 +24,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -36,10 +35,19 @@ import sys
 import platform
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-try:
-    from openpyxl import load_workbook as _openpyxl_load_workbook
-except Exception:
-    _openpyxl_load_workbook = None
+from python.core.columns import (
+    _normalize_header_map as _core_normalize_header_map,
+    _resolve_column as _core_resolve_column,
+    detect_columns as _core_detect_columns,
+)
+from python.core.table_reader import (
+    _read_table as _core_read_table,
+    _sniff_delimiter as _core_sniff_delimiter,
+)
+from python.core.timecode import (
+    parse_timecode as _core_parse_timecode,
+    safe_int as _core_safe_int,
+)
 
 
 def _resolve_tools_path(module_name: str) -> str:
@@ -110,66 +118,15 @@ except Exception:
 
 
 def parse_timecode(value: str, fps: float) -> float:
-    """Parse a timecode string into seconds as float.
-
-    Supported formats:
-      - HH:MM:SS:FF (frames)
-      - HH:MM:SS[.ms]
-      - SS[.ms]
-
-    Accepts both ':' and ';' as separators for drop-frame friendly inputs.
-    """
-    if value is None:
-        raise ValueError("Timecode value is None")
-    tc = value.strip()
-    if not tc:
-        raise ValueError("Empty timecode")
-
-    # Normalize separators
-    tc = tc.replace(";", ":")
-
-    # Fast path: plain seconds
-    # Accept numbers like 12, 12.5, 12,500 with comma decimal
-    plain_sec_match = re.fullmatch(r"\d+(?:[\.,]\d+)?", tc)
-    if plain_sec_match:
-        return float(tc.replace(",", "."))
-
-    parts = tc.split(":")
-    if len(parts) == 4:
-        hh, mm, ss, ff = parts
-        h = int(hh)
-        m = int(mm)
-        s = int(ss)
-        frames = int(ff)
-        if fps <= 0:
-            raise ValueError("fps must be > 0 for HH:MM:SS:FF parsing")
-        total = h * 3600 + m * 60 + s + frames / fps
-        return float(total)
-    elif len(parts) == 3:
-        hh, mm, ss = parts
-        h = int(hh)
-        m = int(mm)
-        s = float(ss)
-        return float(h * 3600 + m * 60 + s)
-    elif len(parts) == 2:
-        # Interpret as MM:SS[.ms]
-        mm, ss = parts
-        m = int(mm)
-        s = float(ss)
-        return float(m * 60 + s)
-    else:
-        raise ValueError(f"Unsupported timecode format: {value}")
+    return _core_parse_timecode(value, fps)
 
 
 def safe_int(val: Any, default: int = 0) -> int:
-    try:
-        return int(val)
-    except Exception:
-        return default
+    return _core_safe_int(val, default)
 
 
 def _normalize_header_map(headers: List[str]) -> Dict[str, str]:
-    return {re.sub(r"[^a-z]", "", h.lower()): h for h in headers}
+    return _core_normalize_header_map(headers)
 
 
 def _resolve_column(
@@ -177,34 +134,7 @@ def _resolve_column(
     override: Optional[str],
     candidates: Tuple[str, ...],
 ) -> Optional[str]:
-    # If user provided override
-    if override:
-        # If numeric, treat as 1-based index
-        if override.isdigit():
-            idx = int(override) - 1
-            if 0 <= idx < len(headers):
-                return headers[idx]
-            else:
-                raise IndexError(
-                    f"Column index {override} out of range 1..{len(headers)}"
-                )
-        # Else, match by case-insensitive exact header
-        for h in headers:
-            if h.lower().strip() == override.lower().strip():
-                return h
-        # Or by normalized form
-        norm = _normalize_header_map(headers)
-        key = re.sub(r"[^a-z]", "", override.lower())
-        if key in norm:
-            return norm[key]
-        raise KeyError(f"Override column '{override}' not found in headers {headers}")
-
-    # Auto-detect by candidates
-    norm = _normalize_header_map(headers)
-    for key in candidates:
-        if key in norm:
-            return norm[key]
-    return None
+    return _core_resolve_column(headers, override, candidates)
 
 
 def detect_columns(
@@ -213,73 +143,16 @@ def detect_columns(
     end_override: Optional[str] = None,
     text_override: Optional[str] = None,
 ) -> Tuple[str, str, str]:
-    """Map CSV headers to canonical names (start, end, text).
-
-    We match case-insensitively and ignore non-alphanumerics.
-    """
-    start_key = _resolve_column(
-        headers, start_override, ("starttime", "start", "in", "inpoint")
+    return _core_detect_columns(
+        headers,
+        start_override=start_override,
+        end_override=end_override,
+        text_override=text_override,
     )
-    end_key = _resolve_column(
-        headers, end_override, ("endtime", "end", "out", "outpoint")
-    )
-    text_key = _resolve_column(
-        headers, text_override, ("text", "subtitle", "caption", "line")
-    )
-
-    if not (start_key and end_key and text_key):
-        missing = [
-            k
-            for k, v in {"start": start_key, "end": end_key, "text": text_key}.items()
-            if not v
-        ]
-        raise KeyError(
-            f"Missing required column(s): {', '.join(missing)}. Found headers: {headers}"
-        )
-
-    return start_key, end_key, text_key
 
 
 def _sniff_delimiter(sample: str, preferred: Optional[str] = None) -> str:
-    """Detect a delimiter using csv.Sniffer with sensible fallbacks."""
-    # If user provided explicit single-character delimiter, honor it
-    if preferred and len(preferred) == 1:
-        return preferred
-
-    sniff_candidates = [",", ";", "\t", "|"]
-    # User provided a named delimiter like 'comma', 'semicolon', 'tab', 'pipe'
-    if preferred and len(preferred) > 1:
-        name = preferred.lower()
-        mapping = {
-            "comma": ",",
-            ",": ",",
-            "semicolon": ";",
-            ";": ";",
-            "tab": "\t",
-            "\t": "\t",
-            "pipe": "|",
-            "|": "|",
-            "auto": None,
-        }
-        mapped = mapping.get(name)
-        if mapped:
-            if mapped is None:
-                # continue to sniff
-                pass
-            else:
-                return mapped
-
-    try:
-        sniffer = csv.Sniffer()
-        dialect = sniffer.sniff(sample, delimiters="".join(sniff_candidates))
-        return dialect.delimiter
-    except Exception:
-        # Heuristic fallback: pick the most frequent of candidates
-        counts = {d: sample.count(d) for d in sniff_candidates}
-        best = max(counts, key=lambda k: counts[k])
-        if counts[best] == 0:
-            return ","  # default
-        return best
+    return _core_sniff_delimiter(sample, preferred)
 
 
 def _read_table(
@@ -288,66 +161,12 @@ def _read_table(
     delimiter: Optional[str] = None,
     xlsx_sheet: Optional[str] = None,
 ) -> Tuple[List[str], List[List[str]], str]:
-    """Read CSV/XLSX preserving duplicate column names. Returns (headers, rows, delimiter/sentinel)."""
-    ext = os.path.splitext(path)[1].lower()
-    if ext in (".xlsx", ".xlsm", ".xltx", ".xltm"):
-        if _openpyxl_load_workbook is None:
-            raise RuntimeError(
-                "XLSX input requires 'openpyxl'. Install it (e.g., pip install openpyxl) or provide CSV input."
-            )
-
-        wb = _openpyxl_load_workbook(path, data_only=True, read_only=True)
-        try:
-            if xlsx_sheet:
-                if xlsx_sheet not in wb.sheetnames:
-                    raise ValueError(
-                        f"XLSX sheet '{xlsx_sheet}' not found. Available sheets: {wb.sheetnames}"
-                    )
-                ws = wb[xlsx_sheet]
-            else:
-                default_sheet_name = (
-                    "data" if "data" in wb.sheetnames else wb.sheetnames[0]
-                )
-                ws = wb[default_sheet_name]
-
-            if delimiter and str(delimiter).lower() not in ("", "auto"):
-                print(
-                    "Warning: --delimiter is ignored for XLSX input.",
-                    file=sys.stderr,
-                )
-
-            rows_iter = ws.iter_rows(values_only=True)
-            first_row = next(rows_iter, None)
-            if first_row is None:
-                raise ValueError("XLSX appears to be empty.")
-
-            def _to_text(cell: Any) -> str:
-                if cell is None:
-                    return ""
-                if isinstance(cell, datetime):
-                    return cell.isoformat()
-                return str(cell)
-
-            headers = [_to_text(c) for c in first_row]
-            rows = [[_to_text(c) for c in row] for row in rows_iter]
-            return headers, rows, f"xlsx:{ws.title}"
-        finally:
-            try:
-                wb.close()
-            except Exception:
-                pass
-
-    with open(path, "r", encoding=encoding, newline="") as f:
-        sample = f.read(8192)
-        f.seek(0)
-        delim = _sniff_delimiter(sample, preferred=delimiter)
-        reader = csv.reader(f, delimiter=delim)
-        try:
-            headers = next(reader)
-        except StopIteration:
-            raise ValueError("CSV appears to be empty.")
-        rows = [list(r) for r in reader]
-        return headers, rows, delim
+    return _core_read_table(
+        path,
+        encoding=encoding,
+        delimiter=delimiter,
+        xlsx_sheet=xlsx_sheet,
+    )
 
 
 def convert_csv_to_json(
