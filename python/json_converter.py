@@ -55,8 +55,16 @@ from python.core.unified_processors import (
     collect_country_texts as _core_collect_country_texts,
     normalize_controller_record as _core_normalize_controller_record,
     normalize_duration_token as _core_normalize_duration_token,
+    process_claim_row as _core_process_claim_row,
+    process_controller_row as _core_process_controller_row,
+    process_disclaimer_row as _core_process_disclaimer_row,
+    process_endframe_row as _core_process_endframe_row,
     process_meta_global_row as _core_process_meta_global_row,
     process_meta_local_row as _core_process_meta_local_row,
+    process_logo_row as _core_process_logo_row,
+    process_sub_row as _core_process_sub_row,
+    process_super_a_row as _core_process_super_a_row,
+    process_super_b_row as _core_process_super_b_row,
     propagate_all_scope_texts as _core_propagate_all_scope_texts,
 )
 
@@ -408,39 +416,41 @@ def convert_csv_to_json(
         # All globally detected flags (for metadataGlobal overview emission)
         global_flags_seen = unified_state.global_flags_seen
         # Intermediate containers before splitting per country
-        claims_rows: List[Dict[str, Any]] = []  # global claim rows
-        per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
-        disc_rows_raw: List[Dict[str, Any]] = []  # global disclaimer rows
-        per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
-        disc_02_rows_raw: List[Dict[str, Any]] = []  # global disclaimer_02 rows
-        per_video_disc_02_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        claims_rows = unified_state.claims_rows
+        per_video_claim_rows = unified_state.per_video_claim_rows
+        disc_rows_raw = unified_state.disc_rows_raw
+        per_video_disc_rows_raw = unified_state.per_video_disc_rows_raw
+        disc_02_rows_raw = unified_state.disc_02_rows_raw
+        per_video_disc_02_rows_raw = unified_state.per_video_disc_02_rows_raw
         # Logo rows (global text + per-video timings)
-        logo_rows_raw: List[Dict[str, Any]] = []
-        per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        logo_rows_raw = unified_state.logo_rows_raw
+        per_video_logo_rows_raw = unified_state.per_video_logo_rows_raw
         # endFrame rows (per-video timings; optional text columns similar to logo)
-        endframe_rows_raw: List[Dict[str, Any]] = []
-        per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
+        endframe_rows_raw = unified_state.endframe_rows_raw
+        per_video_endframe_rows_raw = unified_state.per_video_endframe_rows_raw
         # Controller timed keys (scalable): controller_01 .. controller_NN
-        controller_rows_raw: Dict[str, List[Dict[str, Any]]] = {}
-        per_video_controller_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-        controller_keys_seen: set[str] = set()
+        controller_rows_raw = unified_state.controller_rows_raw
+        per_video_controller_rows_raw = unified_state.per_video_controller_rows_raw
+        controller_keys_seen = unified_state.controller_keys_seen
         # subs_rows reserved for future use (not needed currently)
 
-        auto_claim_line = 1
-        auto_disc_line = 1
-        auto_disc_02_line = 1
-        auto_logo_line = 1
-        auto_claim_line_per_video: Dict[str, int] = {}
-        auto_disc_line_per_video: Dict[str, int] = {}
-        auto_disc_02_line_per_video: Dict[str, int] = {}
-        auto_logo_line_per_video: Dict[str, int] = {}
-        auto_endframe_line = 1
-        auto_endframe_line_per_video: Dict[str, int] = {}
-        auto_controller_line_per_key: Dict[str, int] = {}
-        auto_controller_line_per_video_per_key: Dict[str, Dict[str, int]] = {}
-        auto_sub_line_per_video: Dict[str, int] = {}
-        auto_super_a_line_per_video: Dict[str, int] = {}
-        auto_super_b_line_per_video: Dict[str, int] = {}
+        auto_claim_line = unified_state.auto_claim_line
+        auto_disc_line = unified_state.auto_disc_line
+        auto_disc_02_line = unified_state.auto_disc_02_line
+        auto_logo_line = unified_state.auto_logo_line
+        auto_claim_line_per_video = unified_state.auto_claim_line_per_video
+        auto_disc_line_per_video = unified_state.auto_disc_line_per_video
+        auto_disc_02_line_per_video = unified_state.auto_disc_02_line_per_video
+        auto_logo_line_per_video = unified_state.auto_logo_line_per_video
+        auto_endframe_line = unified_state.auto_endframe_line
+        auto_endframe_line_per_video = unified_state.auto_endframe_line_per_video
+        auto_controller_line_per_key = unified_state.auto_controller_line_per_key
+        auto_controller_line_per_video_per_key = (
+            unified_state.auto_controller_line_per_video_per_key
+        )
+        auto_sub_line_per_video = unified_state.auto_sub_line_per_video
+        auto_super_a_line_per_video = unified_state.auto_super_a_line_per_video
+        auto_super_b_line_per_video = unified_state.auto_super_b_line_per_video
         for r in rows:
             if len(r) < len(headers):
                 r = r + [""] * (len(headers) - len(r))
@@ -524,374 +534,132 @@ def convert_csv_to_json(
 
             # Claim rows (each row independent)
             if rt == "claim":
-                if video_id:
-                    if video_id not in per_video_claim_rows:
-                        per_video_claim_rows[video_id] = []
-                    if video_id not in auto_claim_line_per_video:
-                        auto_claim_line_per_video[video_id] = 1
-                    if line_num is None:
-                        line_num = auto_claim_line_per_video[video_id]
-                        auto_claim_line_per_video[video_id] += 1
-                    per_video_claim_rows[video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    if line_num is None:
-                        line_num = auto_claim_line
-                        auto_claim_line += 1
-                    claims_rows.append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                if _core_process_claim_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                ):
+                    auto_claim_line = unified_state.auto_claim_line
                 continue
 
             # Disclaimer rows (will merge later)
             if rt == "disclaimer":
-                if video_id:
-                    if video_id not in per_video_disc_rows_raw:
-                        per_video_disc_rows_raw[video_id] = []
-                    if video_id not in auto_disc_line_per_video:
-                        auto_disc_line_per_video[video_id] = 1
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_disc_line_per_video[video_id]
-                    if line_num is None:
-                        line_num = auto_disc_line_per_video[video_id]
-                    else:
-                        auto_disc_line_per_video[video_id] = line_num
-                    per_video_disc_rows_raw[video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_disc_line
-                    if line_num is None:
-                        # Continuation lines inherit previous line
-                        line_num = auto_disc_line
-                    else:
-                        auto_disc_line = line_num
-                    disc_rows_raw.append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                if _core_process_disclaimer_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    is_disclaimer_02=False,
+                ):
+                    auto_disc_line = unified_state.auto_disc_line
                 continue
 
             # Disclaimer_02 rows (will merge later)
             if rt == "disclaimer_02":
-                if video_id:
-                    if video_id not in per_video_disc_02_rows_raw:
-                        per_video_disc_02_rows_raw[video_id] = []
-                    if video_id not in auto_disc_02_line_per_video:
-                        auto_disc_02_line_per_video[video_id] = 1
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_disc_02_line_per_video[video_id]
-                    if line_num is None:
-                        line_num = auto_disc_02_line_per_video[video_id]
-                    else:
-                        auto_disc_02_line_per_video[video_id] = line_num
-                    per_video_disc_02_rows_raw[video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_disc_02_line
-                    if line_num is None:
-                        # Continuation lines inherit previous line
-                        line_num = auto_disc_02_line
-                    else:
-                        auto_disc_02_line = line_num
-                    disc_02_rows_raw.append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                if _core_process_disclaimer_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    is_disclaimer_02=True,
+                ):
+                    auto_disc_02_line = unified_state.auto_disc_02_line
                 continue
 
             # Logo rows (timed per-video, text defined globally)
             if rt == "logo":
-                if video_id:
-                    if video_id not in per_video_logo_rows_raw:
-                        per_video_logo_rows_raw[video_id] = []
-                    if video_id not in auto_logo_line_per_video:
-                        auto_logo_line_per_video[video_id] = 1
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_logo_line_per_video[video_id]
-                    if line_num is None:
-                        line_num = auto_logo_line_per_video[video_id]
-                    else:
-                        auto_logo_line_per_video[video_id] = line_num
-                    per_video_logo_rows_raw[video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_logo_line
-                    if line_num is None:
-                        line_num = auto_logo_line
-                    else:
-                        auto_logo_line = line_num
-                    logo_rows_raw.append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                if _core_process_logo_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                ):
+                    auto_logo_line = unified_state.auto_logo_line
                 continue
 
             # endFrame rows (timed per-video, optional text like logo)
             if rt == "endframe" or rt == "end_frame":
-                if video_id:
-                    if video_id not in per_video_endframe_rows_raw:
-                        per_video_endframe_rows_raw[video_id] = []
-                    if video_id not in auto_endframe_line_per_video:
-                        auto_endframe_line_per_video[video_id] = 1
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_endframe_line_per_video[video_id]
-                    if line_num is None:
-                        line_num = auto_endframe_line_per_video[video_id]
-                    else:
-                        auto_endframe_line_per_video[video_id] = line_num
-                    per_video_endframe_rows_raw[video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    if line_num is None and (
-                        start_tc is not None or end_tc is not None
-                    ):
-                        line_num = auto_endframe_line
-                    if line_num is None:
-                        line_num = auto_endframe_line
-                    else:
-                        auto_endframe_line = line_num
-                    endframe_rows_raw.append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                if _core_process_endframe_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                ):
+                    auto_endframe_line = unified_state.auto_endframe_line
                 continue
 
             # Subtitle rows
             if rt == "sub":
-                if not video_id:
-                    # Skip if no video id
-                    continue
-                if video_id not in videos:
-                    videos[video_id] = {
-                        "metadata": {},
-                        "sub_rows": [],
-                        "super_a_rows": [],
-                        "super_b_rows": [],
-                    }
-                    video_order.append(video_id)
-                if video_id not in auto_sub_line_per_video:
-                    auto_sub_line_per_video[video_id] = start_line_index
-                if line_num is None:
-                    line_num = auto_sub_line_per_video[video_id]
-                    auto_sub_line_per_video[video_id] += 1
-                else:
-                    # Explicit line number provided; sync counter for next auto line
-                    auto_sub_line_per_video[video_id] = line_num + 1
-                videos[video_id]["sub_rows"].append(
-                    {
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    }
+                _core_process_sub_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    start_line_index=start_line_index,
                 )
                 continue
 
             # Super_A rows (follows subtitle pattern exactly)
             if rt == "super_a":
-                if not video_id:
-                    # Skip if no video id
-                    continue
-                if video_id not in videos:
-                    videos[video_id] = {
-                        "metadata": {},
-                        "sub_rows": [],
-                        "super_a_rows": [],
-                    }
-                    video_order.append(video_id)
-                if video_id not in auto_super_a_line_per_video:
-                    auto_super_a_line_per_video[video_id] = start_line_index
-                if line_num is None:
-                    line_num = auto_super_a_line_per_video[video_id]
-                    auto_super_a_line_per_video[video_id] += 1
-                else:
-                    # Explicit line number provided; sync counter for next auto line
-                    auto_super_a_line_per_video[video_id] = line_num + 1
-                videos[video_id]["super_a_rows"].append(
-                    {
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    }
+                _core_process_super_a_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    start_line_index=start_line_index,
                 )
                 continue
 
             # Super_B rows (follows super_A pattern exactly)
             if rt == "super_b":
-                if not video_id:
-                    continue
-                if video_id not in videos:
-                    videos[video_id] = {
-                        "metadata": {},
-                        "sub_rows": [],
-                        "super_a_rows": [],
-                        "super_b_rows": [],
-                    }
-                    video_order.append(video_id)
-                if video_id not in auto_super_b_line_per_video:
-                    auto_super_b_line_per_video[video_id] = start_line_index
-                if line_num is None:
-                    line_num = auto_super_b_line_per_video[video_id]
-                    auto_super_b_line_per_video[video_id] += 1
-                else:
-                    auto_super_b_line_per_video[video_id] = line_num + 1
-                videos[video_id]["super_b_rows"].append(
-                    {
-                        "line": line_num,
-                        "start": start_tc,
-                        "end": end_tc,
-                        "texts": texts,
-                        "texts_portrait": texts_portrait,
-                    }
+                _core_process_super_b_row(
+                    state=unified_state,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    start_line_index=start_line_index,
                 )
                 continue
 
             # Controller timed rows (scalable): controller_01 .. controller_NN
             controller_key = _core_normalize_controller_record(rt)
             if controller_key:
-                controller_keys_seen.add(controller_key)
-                if video_id:
-                    if video_id not in videos:
-                        videos[video_id] = {
-                            "metadata": {},
-                            "sub_rows": [],
-                            "super_a_rows": [],
-                            "super_b_rows": [],
-                        }
-                        video_order.append(video_id)
-                    per_video_controller_rows_raw.setdefault(controller_key, {})
-                    per_video_controller_rows_raw[controller_key].setdefault(
-                        video_id, []
-                    )
-                    auto_controller_line_per_video_per_key.setdefault(
-                        controller_key, {}
-                    )
-                    if (
-                        video_id
-                        not in auto_controller_line_per_video_per_key[controller_key]
-                    ):
-                        auto_controller_line_per_video_per_key[controller_key][
-                            video_id
-                        ] = start_line_index
-                    if line_num is None:
-                        line_num = auto_controller_line_per_video_per_key[
-                            controller_key
-                        ][video_id]
-                        auto_controller_line_per_video_per_key[controller_key][
-                            video_id
-                        ] += 1
-                    else:
-                        auto_controller_line_per_video_per_key[controller_key][
-                            video_id
-                        ] = line_num + 1
-                    per_video_controller_rows_raw[controller_key][video_id].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
-                else:
-                    controller_rows_raw.setdefault(controller_key, [])
-                    if controller_key not in auto_controller_line_per_key:
-                        auto_controller_line_per_key[controller_key] = 1
-                    if line_num is None:
-                        line_num = auto_controller_line_per_key[controller_key]
-                        auto_controller_line_per_key[controller_key] += 1
-                    else:
-                        auto_controller_line_per_key[controller_key] = line_num + 1
-                    controller_rows_raw[controller_key].append(
-                        {
-                            "line": line_num,
-                            "start": start_tc,
-                            "end": end_tc,
-                            "texts": texts,
-                            "texts_portrait": texts_portrait,
-                        }
-                    )
+                _core_process_controller_row(
+                    state=unified_state,
+                    controller_key=controller_key,
+                    video_id=video_id,
+                    line_num=line_num,
+                    start_tc=start_tc,
+                    end_tc=end_tc,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    start_line_index=start_line_index,
+                )
                 continue
 
             # Unknown record type ignored
