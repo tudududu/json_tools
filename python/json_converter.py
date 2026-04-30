@@ -53,6 +53,9 @@ from python.core.timecode import (
 from python.core.unified_processors import (
     UnifiedState,
     collect_country_texts as _core_collect_country_texts,
+    merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
+    merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
+    merge_disclaimer_rows_by_video as _core_merge_disclaimer_rows_by_video,
     normalize_controller_record as _core_normalize_controller_record,
     normalize_duration_token as _core_normalize_duration_token,
     process_claim_row as _core_process_claim_row,
@@ -666,357 +669,25 @@ def convert_csv_to_json(
             continue
 
         # Merge disclaimer rows into blocks
-        disclaimers_rows_merged: List[Dict[str, Any]] = []
-        if merge_disclaimer:
-            current_block: Optional[Dict[str, Any]] = None
-            for row in disc_rows_raw:
-                if row["start"] is not None and row["end"] is not None:
-                    # Start a new block
-                    if current_block:
-                        disclaimers_rows_merged.append(current_block)
-                    current_block = {
-                        "line": row["line"],
-                        "start": row["start"],
-                        "end": row["end"],
-                        # Preserve both landscape and portrait per-country texts
-                        "texts": {c: row["texts"][c] for c in countries},
-                        "texts_portrait": {
-                            c: row.get("texts_portrait", {}).get(c, "")
-                            for c in countries
-                        },
-                    }
-                else:
-                    # Continuation lines
-                    if not current_block:
-                        # No base block; skip or create untimed block
-                        current_block = {
-                            "line": row["line"],
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"][c] for c in countries},
-                            "texts_portrait": {
-                                c: row.get("texts_portrait", {}).get(c, "")
-                                for c in countries
-                            },
-                        }
-                    else:
-                        for c in countries:
-                            extra = row["texts"][c]
-                            if extra:
-                                if current_block["texts"][c]:
-                                    current_block["texts"][c] += "\n" + extra
-                                else:
-                                    current_block["texts"][c] = extra
-                            extra_p = row.get("texts_portrait", {}).get(c, "")
-                            if extra_p:
-                                if current_block.get("texts_portrait", {}).get(c, ""):
-                                    current_block["texts_portrait"][c] += "\n" + extra_p
-                                else:
-                                    current_block["texts_portrait"][c] = extra_p
-            if current_block:
-                disclaimers_rows_merged.append(current_block)
-        else:
-            disclaimers_rows_merged = disc_rows_raw
+        disclaimers_rows_merged = _core_merge_disclaimer_blocks(
+            rows_raw=disc_rows_raw,
+            countries=countries,
+            merge_enabled=merge_disclaimer,
+        )
 
         # Merge disclaimer_02 rows into blocks
-        disclaimers_02_rows_merged: List[Dict[str, Any]] = []
-        if merge_disclaimer_02:
-            current_block: Optional[Dict[str, Any]] = None
-            for row in disc_02_rows_raw:
-                if row["start"] is not None and row["end"] is not None:
-                    # Start a new block
-                    if current_block:
-                        disclaimers_02_rows_merged.append(current_block)
-                    current_block = {
-                        "line": row["line"],
-                        "start": row["start"],
-                        "end": row["end"],
-                        # Preserve both landscape and portrait per-country texts
-                        "texts": {c: row["texts"][c] for c in countries},
-                        "texts_portrait": {
-                            c: row.get("texts_portrait", {}).get(c, "")
-                            for c in countries
-                        },
-                    }
-                else:
-                    # Continuation lines
-                    if not current_block:
-                        # No base block; skip or create untimed block
-                        current_block = {
-                            "line": row["line"],
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"][c] for c in countries},
-                            "texts_portrait": {
-                                c: row.get("texts_portrait", {}).get(c, "")
-                                for c in countries
-                            },
-                        }
-                    else:
-                        for c in countries:
-                            extra = row["texts"][c]
-                            if extra:
-                                if current_block["texts"][c]:
-                                    current_block["texts"][c] += "\n" + extra
-                                else:
-                                    current_block["texts"][c] = extra
-                            extra_p = row.get("texts_portrait", {}).get(c, "")
-                            if extra_p:
-                                if current_block.get("texts_portrait", {}).get(c, ""):
-                                    current_block["texts_portrait"][c] += "\n" + extra_p
-                                else:
-                                    current_block["texts_portrait"][c] = extra_p
-            if current_block:
-                disclaimers_02_rows_merged.append(current_block)
-        else:
-            disclaimers_02_rows_merged = disc_02_rows_raw
+        disclaimers_02_rows_merged = _core_merge_disclaimer_blocks(
+            rows_raw=disc_02_rows_raw,
+            countries=countries,
+            merge_enabled=merge_disclaimer_02,
+        )
 
-        # Merge subtitle rows with same line (per video) if enabled
-        for vid, vdata in videos.items():
-            if not merge_subtitles:
-                continue
-            merged: List[Dict[str, Any]] = []
-            prev: Optional[Dict[str, Any]] = None
-            for row in vdata.get("sub_rows", []):
-                if (
-                    prev
-                    and row["line"] == prev["line"]
-                    and (
-                        (row["start"] is None and row["end"] is None)
-                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
-                    )
-                ):
-                    # Continuation
-                    for c in countries:
-                        t = row["texts"][c]
-                        if t:
-                            if prev["texts"][c]:
-                                prev["texts"][c] += "\n" + t
-                            else:
-                                prev["texts"][c] = t
-                        # Handle portrait text
-                        t_p = row.get("texts_portrait", {}).get(c, "")
-                        if t_p:
-                            if prev.get("texts_portrait", {}).get(c, ""):
-                                prev["texts_portrait"][c] += "\n" + t_p
-                            else:
-                                if "texts_portrait" not in prev:
-                                    prev["texts_portrait"] = {}
-                                prev["texts_portrait"][c] = t_p
-                else:
-                    if prev:
-                        merged.append(prev)
-                    prev = row
-            if prev:
-                merged.append(prev)
-            vdata["sub_rows"] = merged
-
-        # Merge super_A rows with same line (per video) if enabled
-        for vid, vdata in videos.items():
-            if not merge_subtitles:  # Use same merge flag as subtitles
-                continue
-            merged: List[Dict[str, Any]] = []
-            prev: Optional[Dict[str, Any]] = None
-            for row in vdata.get("super_a_rows", []):
-                if (
-                    prev
-                    and row["line"] == prev["line"]
-                    and (
-                        (row["start"] is None and row["end"] is None)
-                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
-                    )
-                ):
-                    # Continuation
-                    for c in countries:
-                        t = row["texts"][c]
-                        if t:
-                            if prev["texts"][c]:
-                                prev["texts"][c] += "\n" + t
-                            else:
-                                prev["texts"][c] = t
-                        # Handle portrait text
-                        t_p = row.get("texts_portrait", {}).get(c, "")
-                        if t_p:
-                            if prev.get("texts_portrait", {}).get(c, ""):
-                                prev["texts_portrait"][c] += "\n" + t_p
-                            else:
-                                if "texts_portrait" not in prev:
-                                    prev["texts_portrait"] = {}
-                                prev["texts_portrait"][c] = t_p
-                else:
-                    if prev:
-                        merged.append(prev)
-                    prev = row
-            if prev:
-                merged.append(prev)
-            vdata["super_a_rows"] = merged
-
-        # Merge super_B rows with same line (per video) if enabled
-        for vid, vdata in videos.items():
-            if not merge_subtitles:
-                continue
-            merged: List[Dict[str, Any]] = []
-            prev: Optional[Dict[str, Any]] = None
-            for row in vdata.get("super_b_rows", []):
-                if (
-                    prev
-                    and row["line"] == prev["line"]
-                    and (
-                        (row["start"] is None and row["end"] is None)
-                        or (row["start"] == prev["start"] and row["end"] == prev["end"])
-                    )
-                ):
-                    for c in countries:
-                        t = row["texts"][c]
-                        if t:
-                            if prev["texts"][c]:
-                                prev["texts"][c] += "\n" + t
-                            else:
-                                prev["texts"][c] = t
-                        t_p = row.get("texts_portrait", {}).get(c, "")
-                        if t_p:
-                            if prev.get("texts_portrait", {}).get(c, ""):
-                                prev["texts_portrait"][c] += "\n" + t_p
-                            else:
-                                if "texts_portrait" not in prev:
-                                    prev["texts_portrait"] = {}
-                                prev["texts_portrait"][c] = t_p
-                else:
-                    if prev:
-                        merged.append(prev)
-                    prev = row
-            if prev:
-                merged.append(prev)
-            vdata["super_b_rows"] = merged
-
-        # Deduplicate non-contiguous duplicate subtitle & super_A rows by (line,start,end)
-        for vid, vdata in videos.items():
-            # Subtitles
-            if vdata.get("sub_rows"):
-                grouped_sub: Dict[
-                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
-                ] = {}
-                order_sub: List[Tuple[int, Optional[float], Optional[float]]] = []
-                for row in vdata["sub_rows"]:
-                    key = (row["line"], row["start"], row["end"])
-                    if key not in grouped_sub:
-                        grouped_sub[key] = {
-                            "line": row["line"],
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {
-                                c: row.get("texts_portrait", {}).get(c, "")
-                                for c in countries
-                            },
-                        }
-                        order_sub.append(key)
-                    else:
-                        for c in countries:
-                            extra_l = row["texts"].get(c, "")
-                            if extra_l:
-                                existing = grouped_sub[key]["texts"][c]
-                                # Append only if different and not already present as a full line
-                                if not existing:
-                                    grouped_sub[key]["texts"][c] = extra_l
-                                else:
-                                    # Split existing by newline to check duplication
-                                    if extra_l not in existing.split("\n"):
-                                        grouped_sub[key]["texts"][c] += "\n" + extra_l
-                            extra_p = row.get("texts_portrait", {}).get(c, "")
-                            if extra_p:
-                                existing_p = grouped_sub[key]["texts_portrait"][c]
-                                if not existing_p:
-                                    grouped_sub[key]["texts_portrait"][c] = extra_p
-                                else:
-                                    if extra_p not in existing_p.split("\n"):
-                                        grouped_sub[key]["texts_portrait"][c] += (
-                                            "\n" + extra_p
-                                        )
-                vdata["sub_rows"] = [grouped_sub[k] for k in order_sub]
-            # super_A
-            if vdata.get("super_a_rows"):
-                grouped_sa: Dict[
-                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
-                ] = {}
-                order_sa: List[Tuple[int, Optional[float], Optional[float]]] = []
-                for row in vdata["super_a_rows"]:
-                    key = (row["line"], row["start"], row["end"])
-                    if key not in grouped_sa:
-                        grouped_sa[key] = {
-                            "line": row["line"],
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {
-                                c: row.get("texts_portrait", {}).get(c, "")
-                                for c in countries
-                            },
-                        }
-                        order_sa.append(key)
-                    else:
-                        for c in countries:
-                            extra_l = row["texts"].get(c, "")
-                            if extra_l:
-                                existing = grouped_sa[key]["texts"][c]
-                                if not existing:
-                                    grouped_sa[key]["texts"][c] = extra_l
-                                else:
-                                    if extra_l not in existing.split("\n"):
-                                        grouped_sa[key]["texts"][c] += "\n" + extra_l
-                            extra_p = row.get("texts_portrait", {}).get(c, "")
-                            if extra_p:
-                                existing_p = grouped_sa[key]["texts_portrait"][c]
-                                if not existing_p:
-                                    grouped_sa[key]["texts_portrait"][c] = extra_p
-                                else:
-                                    if extra_p not in existing_p.split("\n"):
-                                        grouped_sa[key]["texts_portrait"][c] += (
-                                            "\n" + extra_p
-                                        )
-                vdata["super_a_rows"] = [grouped_sa[k] for k in order_sa]
-
-            # super_B
-            if vdata.get("super_b_rows"):
-                grouped_sb: Dict[
-                    Tuple[int, Optional[float], Optional[float]], Dict[str, Any]
-                ] = {}
-                order_sb: List[Tuple[int, Optional[float], Optional[float]]] = []
-                for row in vdata["super_b_rows"]:
-                    key = (row["line"], row["start"], row["end"])
-                    if key not in grouped_sb:
-                        grouped_sb[key] = {
-                            "line": row["line"],
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"].get(c, "") for c in countries},
-                            "texts_portrait": {
-                                c: row.get("texts_portrait", {}).get(c, "")
-                                for c in countries
-                            },
-                        }
-                        order_sb.append(key)
-                    else:
-                        for c in countries:
-                            extra_l = row["texts"].get(c, "")
-                            if extra_l:
-                                existing = grouped_sb[key]["texts"][c]
-                                if not existing:
-                                    grouped_sb[key]["texts"][c] = extra_l
-                                else:
-                                    if extra_l not in existing.split("\n"):
-                                        grouped_sb[key]["texts"][c] += "\n" + extra_l
-                            extra_p = row.get("texts_portrait", {}).get(c, "")
-                            if extra_p:
-                                existing_p = grouped_sb[key]["texts_portrait"][c]
-                                if not existing_p:
-                                    grouped_sb[key]["texts_portrait"][c] = extra_p
-                                else:
-                                    if extra_p not in existing_p.split("\n"):
-                                        grouped_sb[key]["texts_portrait"][c] += (
-                                            "\n" + extra_p
-                                        )
-                vdata["super_b_rows"] = [grouped_sb[k] for k in order_sb]
+        # Merge contiguous subtitle/super rows and deduplicate non-contiguous repeats.
+        _core_merge_and_dedup_video_rows(
+            videos=videos,
+            countries=countries,
+            merge_subtitles=merge_subtitles,
+        )
 
         # Optional join of claim rows by identical timing (global)
         if join_claim and claims_rows:
@@ -1375,120 +1046,18 @@ def convert_csv_to_json(
             ]
 
             # Prepare per-video merged disclaimers
-            per_video_disc_merged: Dict[str, List[Dict[str, Any]]] = {}
-            for vid, rows_raw in per_video_disc_rows_raw.items():
-                merged: List[Dict[str, Any]] = []
-                if merge_disclaimer:
-                    current_block: Optional[Dict[str, Any]] = None
-                    for row in rows_raw:
-                        if row["start"] is not None and row["end"] is not None:
-                            if current_block:
-                                merged.append(current_block)
-                            current_block = {
-                                "line": row["line"],
-                                "start": row["start"],
-                                "end": row["end"],
-                                "texts": {cc: row["texts"][cc] for cc in countries},
-                                "texts_portrait": {
-                                    cc: row.get("texts_portrait", {}).get(cc, "")
-                                    for cc in countries
-                                },
-                            }
-                        else:
-                            if not current_block:
-                                current_block = {
-                                    "line": row["line"],
-                                    "start": row["start"],
-                                    "end": row["end"],
-                                    "texts": {cc: row["texts"][cc] for cc in countries},
-                                    "texts_portrait": {
-                                        cc: row.get("texts_portrait", {}).get(cc, "")
-                                        for cc in countries
-                                    },
-                                }
-                            else:
-                                for cc in countries:
-                                    extra = row["texts"][cc]
-                                    if extra:
-                                        if current_block["texts"][cc]:
-                                            current_block["texts"][cc] += "\n" + extra
-                                        else:
-                                            current_block["texts"][cc] = extra
-                                    extra_p = row.get("texts_portrait", {}).get(cc, "")
-                                    if extra_p:
-                                        if current_block.get("texts_portrait", {}).get(
-                                            cc, ""
-                                        ):
-                                            current_block["texts_portrait"][cc] += (
-                                                "\n" + extra_p
-                                            )
-                                        else:
-                                            current_block["texts_portrait"][cc] = (
-                                                extra_p
-                                            )
-                    if current_block:
-                        merged.append(current_block)
-                else:
-                    merged = rows_raw
-                per_video_disc_merged[vid] = merged
+            per_video_disc_merged = _core_merge_disclaimer_rows_by_video(
+                per_video_rows_raw=per_video_disc_rows_raw,
+                countries=countries,
+                merge_enabled=merge_disclaimer,
+            )
 
             # Prepare per-video merged disclaimer_02
-            per_video_disc_02_merged: Dict[str, List[Dict[str, Any]]] = {}
-            for vid, rows_raw in per_video_disc_02_rows_raw.items():
-                merged: List[Dict[str, Any]] = []
-                if merge_disclaimer_02:
-                    current_block: Optional[Dict[str, Any]] = None
-                    for row in rows_raw:
-                        if row["start"] is not None and row["end"] is not None:
-                            if current_block:
-                                merged.append(current_block)
-                            current_block = {
-                                "line": row["line"],
-                                "start": row["start"],
-                                "end": row["end"],
-                                "texts": {cc: row["texts"][cc] for cc in countries},
-                                "texts_portrait": {
-                                    cc: row.get("texts_portrait", {}).get(cc, "")
-                                    for cc in countries
-                                },
-                            }
-                        else:
-                            if not current_block:
-                                current_block = {
-                                    "line": row["line"],
-                                    "start": row["start"],
-                                    "end": row["end"],
-                                    "texts": {cc: row["texts"][cc] for cc in countries},
-                                    "texts_portrait": {
-                                        cc: row.get("texts_portrait", {}).get(cc, "")
-                                        for cc in countries
-                                    },
-                                }
-                            else:
-                                for cc in countries:
-                                    extra = row["texts"][cc]
-                                    if extra:
-                                        if current_block["texts"][cc]:
-                                            current_block["texts"][cc] += "\n" + extra
-                                        else:
-                                            current_block["texts"][cc] = extra
-                                    extra_p = row.get("texts_portrait", {}).get(cc, "")
-                                    if extra_p:
-                                        if current_block.get("texts_portrait", {}).get(
-                                            cc, ""
-                                        ):
-                                            current_block["texts_portrait"][cc] += (
-                                                "\n" + extra_p
-                                            )
-                                        else:
-                                            current_block["texts_portrait"][cc] = (
-                                                extra_p
-                                            )
-                    if current_block:
-                        merged.append(current_block)
-                else:
-                    merged = rows_raw
-                per_video_disc_02_merged[vid] = merged
+            per_video_disc_02_merged = _core_merge_disclaimer_rows_by_video(
+                per_video_rows_raw=per_video_disc_02_rows_raw,
+                countries=countries,
+                merge_enabled=merge_disclaimer_02,
+            )
 
             # Now fill claim/disclaimer in each video object
             for vobj in videos_list:

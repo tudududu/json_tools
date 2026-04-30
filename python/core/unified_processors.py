@@ -647,3 +647,182 @@ def process_controller_row(
             }
         )
     return True
+
+
+def _clone_timed_text_row(
+    row: Dict[str, Any],
+    countries: List[str],
+) -> Dict[str, Any]:
+    return {
+        "line": row["line"],
+        "start": row["start"],
+        "end": row["end"],
+        "texts": {c: row["texts"][c] for c in countries},
+        "texts_portrait": {
+            c: row.get("texts_portrait", {}).get(c, "") for c in countries
+        },
+    }
+
+
+def merge_disclaimer_blocks(
+    rows_raw: List[Dict[str, Any]],
+    countries: List[str],
+    merge_enabled: bool,
+) -> List[Dict[str, Any]]:
+    if not merge_enabled:
+        return rows_raw
+
+    merged: List[Dict[str, Any]] = []
+    current_block: Optional[Dict[str, Any]] = None
+    for row in rows_raw:
+        if row["start"] is not None and row["end"] is not None:
+            if current_block:
+                merged.append(current_block)
+            current_block = _clone_timed_text_row(row, countries)
+            continue
+
+        if not current_block:
+            current_block = _clone_timed_text_row(row, countries)
+            continue
+
+        for c in countries:
+            extra = row["texts"][c]
+            if extra:
+                if current_block["texts"][c]:
+                    current_block["texts"][c] += "\n" + extra
+                else:
+                    current_block["texts"][c] = extra
+
+            extra_p = row.get("texts_portrait", {}).get(c, "")
+            if extra_p:
+                if current_block.get("texts_portrait", {}).get(c, ""):
+                    current_block["texts_portrait"][c] += "\n" + extra_p
+                else:
+                    current_block["texts_portrait"][c] = extra_p
+
+    if current_block:
+        merged.append(current_block)
+    return merged
+
+
+def merge_disclaimer_rows_by_video(
+    per_video_rows_raw: Dict[str, List[Dict[str, Any]]],
+    countries: List[str],
+    merge_enabled: bool,
+) -> Dict[str, List[Dict[str, Any]]]:
+    result: Dict[str, List[Dict[str, Any]]] = {}
+    for vid, rows_raw in per_video_rows_raw.items():
+        result[vid] = merge_disclaimer_blocks(
+            rows_raw=rows_raw,
+            countries=countries,
+            merge_enabled=merge_enabled,
+        )
+    return result
+
+
+def merge_rows_with_same_line(
+    rows: List[Dict[str, Any]],
+    countries: List[str],
+    merge_enabled: bool,
+) -> List[Dict[str, Any]]:
+    if not merge_enabled:
+        return rows
+
+    merged: List[Dict[str, Any]] = []
+    prev: Optional[Dict[str, Any]] = None
+    for row in rows:
+        if (
+            prev
+            and row["line"] == prev["line"]
+            and (
+                (row["start"] is None and row["end"] is None)
+                or (row["start"] == prev["start"] and row["end"] == prev["end"])
+            )
+        ):
+            for c in countries:
+                t = row["texts"][c]
+                if t:
+                    if prev["texts"][c]:
+                        prev["texts"][c] += "\n" + t
+                    else:
+                        prev["texts"][c] = t
+                t_p = row.get("texts_portrait", {}).get(c, "")
+                if t_p:
+                    if prev.get("texts_portrait", {}).get(c, ""):
+                        prev["texts_portrait"][c] += "\n" + t_p
+                    else:
+                        if "texts_portrait" not in prev:
+                            prev["texts_portrait"] = {}
+                        prev["texts_portrait"][c] = t_p
+            continue
+
+        if prev:
+            merged.append(prev)
+        prev = row
+
+    if prev:
+        merged.append(prev)
+    return merged
+
+
+def deduplicate_rows_by_line_timing(
+    rows: List[Dict[str, Any]],
+    countries: List[str],
+) -> List[Dict[str, Any]]:
+    grouped: Dict[Tuple[int, Optional[float], Optional[float]], Dict[str, Any]] = {}
+    order: List[Tuple[int, Optional[float], Optional[float]]] = []
+    for row in rows:
+        key = (row["line"], row["start"], row["end"])
+        if key not in grouped:
+            grouped[key] = {
+                "line": row["line"],
+                "start": row["start"],
+                "end": row["end"],
+                "texts": {c: row["texts"].get(c, "") for c in countries},
+                "texts_portrait": {
+                    c: row.get("texts_portrait", {}).get(c, "") for c in countries
+                },
+            }
+            order.append(key)
+            continue
+
+        for c in countries:
+            extra_l = row["texts"].get(c, "")
+            if extra_l:
+                existing = grouped[key]["texts"][c]
+                if not existing:
+                    grouped[key]["texts"][c] = extra_l
+                elif extra_l not in existing.split("\n"):
+                    grouped[key]["texts"][c] += "\n" + extra_l
+
+            extra_p = row.get("texts_portrait", {}).get(c, "")
+            if extra_p:
+                existing_p = grouped[key]["texts_portrait"][c]
+                if not existing_p:
+                    grouped[key]["texts_portrait"][c] = extra_p
+                elif extra_p not in existing_p.split("\n"):
+                    grouped[key]["texts_portrait"][c] += "\n" + extra_p
+
+    return [grouped[k] for k in order]
+
+
+def merge_and_dedup_video_rows(
+    videos: Dict[str, Dict[str, Any]],
+    countries: List[str],
+    merge_subtitles: bool,
+) -> None:
+    row_keys = ("sub_rows", "super_a_rows", "super_b_rows")
+    for _, vdata in videos.items():
+        for row_key in row_keys:
+            rows = vdata.get(row_key, [])
+            if not rows:
+                continue
+            merged_rows = merge_rows_with_same_line(
+                rows=rows,
+                countries=countries,
+                merge_enabled=merge_subtitles,
+            )
+            vdata[row_key] = deduplicate_rows_by_line_timing(
+                rows=merged_rows,
+                countries=countries,
+            )
