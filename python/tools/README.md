@@ -67,6 +67,11 @@ Reverse mode notes:
 - Timecode format is auto-detected per input file (`HH:MM:SS:FF` or `HH:MM:SS,SSS`); mixed formats in one file are rejected.
 - Joined reverse mode requires marker rows: empty Start/End with filename in Text.
 - Missing positional input files fail with friendly CLI messaging: `No such file or directory: '<path>'`.
+- Multi-country reverse: when text headers match ISO forms (`AAA` or `AAA_BBB`, case-insensitive), reverse emits one SRT per country.
+  - Examples: `DEU`, `BEL_FRA`.
+  - Output names: `<base>_<ISO>.srt` in `--reverse`, and `<marker>_<ISO>.srt` in `--reverse-joined`.
+  - Non-compliant headers (including placeholders like `<ISO>6`) are ignored.
+  - If no ISO-compliant headers are found, reverse falls back to legacy `Text`/`subtitle`/`caption` behavior.
 
 XLSX notes:
 - XLSX output writes a single worksheet named `subtitles`.

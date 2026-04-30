@@ -303,3 +303,168 @@ def test_reverse_joined_rejects_positional_output_path():
             os.rmdir(in_dir)
         except Exception:
             pass
+
+
+def test_reverse_multi_country_iso_columns_emit_one_file_per_country():
+    in_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "multi.csv")
+        out_srt = os.path.join(in_dir, "out.srt")
+        _write(
+            in_csv,
+            "Start Time,End Time,DEU,bel_fra,<ISO>6\n"
+            "00:00:00:00,00:00:01:00,Hallo,Bonjour,unused\n"
+            "00:00:01:00,00:00:02:00,,Salut,unused\n",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                in_csv,
+                out_srt,
+                "--fps",
+                "25",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert not os.path.exists(out_srt)
+        deu_path = os.path.join(in_dir, "out_DEU.srt")
+        bel_path = os.path.join(in_dir, "out_BEL_FRA.srt")
+        assert os.path.exists(deu_path)
+        assert os.path.exists(bel_path)
+        with open(deu_path, "r", encoding="utf-8") as f:
+            deu = f.read()
+        with open(bel_path, "r", encoding="utf-8") as f:
+            bel = f.read()
+        assert "Hallo" in deu
+        assert "Bonjour" in bel
+        assert "Salut" in bel
+        # Timed rows with empty text are preserved.
+        assert "00:00:01,000 --> 00:00:02,000\n\n" in deu
+    finally:
+        for name in os.listdir(in_dir):
+            path = os.path.join(in_dir, name)
+            if os.path.isfile(path):
+                os.remove(path)
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass
+
+
+def test_reverse_multi_country_text_col_filters_iso_and_falls_back():
+    in_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "filter.csv")
+        out_srt = os.path.join(in_dir, "filtered.srt")
+        _write(
+            in_csv,
+            "Start Time,End Time,Text,DEU,BEL_FRA\n"
+            "00:00:00:00,00:00:01:00,Legacy,Hallo,Bonjour\n",
+        )
+
+        # text-col filter to ISO: only DEU should be emitted.
+        proc_iso = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                in_csv,
+                out_srt,
+                "--text-col",
+                "DEU",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc_iso.returncode == 0, proc_iso.stderr
+        assert os.path.exists(os.path.join(in_dir, "filtered_DEU.srt"))
+        assert not os.path.exists(os.path.join(in_dir, "filtered_BEL_FRA.srt"))
+
+        # text-col filter to non-ISO: fallback to legacy single-file behavior.
+        proc_legacy = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                in_csv,
+                out_srt,
+                "--text-col",
+                "Text",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc_legacy.returncode == 0, proc_legacy.stderr
+        assert os.path.exists(out_srt)
+        with open(out_srt, "r", encoding="utf-8") as f:
+            legacy = f.read()
+        assert "Legacy" in legacy
+    finally:
+        for name in os.listdir(in_dir):
+            path = os.path.join(in_dir, name)
+            if os.path.isfile(path):
+                os.remove(path)
+        try:
+            os.rmdir(in_dir)
+        except Exception:
+            pass
+
+
+def test_reverse_joined_multi_country_emits_marker_and_iso_suffixes():
+    in_dir = tempfile.mkdtemp()
+    out_dir = tempfile.mkdtemp()
+    try:
+        in_csv = os.path.join(in_dir, "joined_multi.csv")
+        _write(
+            in_csv,
+            "Start Time,End Time,Text,DEU,BEL_FRA\n"
+            ",,A.srt,,\n"
+            "00:00:00:00,00:00:01:00,,Hallo,Bonjour\n"
+            ",,A.srt,,\n"
+            "00:00:01:00,00:00:02:00,,Tschuess,Salut\n",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "python.tools.srt_to_csv",
+                "--reverse",
+                "--reverse-joined",
+                in_csv,
+                "--output-dir",
+                out_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        out_files = sorted(
+            [n for n in os.listdir(out_dir) if n.lower().endswith(".srt")]
+        )
+        assert out_files == [
+            "A_BEL_FRA.srt",
+            "A_BEL_FRA_2.srt",
+            "A_DEU.srt",
+            "A_DEU_2.srt",
+        ]
+    finally:
+        for folder in (in_dir, out_dir):
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path):
+                    os.remove(path)
+            try:
+                os.rmdir(folder)
+            except Exception:
+                pass

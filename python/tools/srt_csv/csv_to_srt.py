@@ -7,6 +7,8 @@ from typing import List, Optional, Tuple
 
 from python.tools.srt_csv.timecode import FRAME_TC_RE, MS_TC_RE, format_time_ms
 
+ISO_HEADER_RE = re.compile(r"^[A-Z]{3}(?:_[A-Z]{3})?$")
+
 try:
     from openpyxl import load_workbook as _load_workbook
 except Exception:  # pragma: no cover - optional dependency
@@ -15,6 +17,13 @@ except Exception:  # pragma: no cover - optional dependency
 
 def _normalize_header_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", (name or "").strip().lower())
+
+
+def _normalize_iso_header(name: str) -> Optional[str]:
+    token = (name or "").strip().upper()
+    if ISO_HEADER_RE.fullmatch(token):
+        return token
+    return None
 
 
 def _resolve_column_index(
@@ -40,6 +49,36 @@ def _resolve_column_index(
         if alias_norm in normalized_headers:
             return normalized_headers.index(alias_norm)
     raise ValueError(f"Could not detect required column. Tried aliases: {aliases}")
+
+
+def _resolve_iso_text_columns(
+    headers: List[str],
+    text_col_filter: Optional[str],
+) -> List[Tuple[int, str]]:
+    iso_columns: List[Tuple[int, str]] = []
+    for i, header in enumerate(headers):
+        iso = _normalize_iso_header(header)
+        if iso:
+            iso_columns.append((i, iso))
+
+    if not iso_columns:
+        return []
+
+    if not text_col_filter:
+        return iso_columns
+
+    if text_col_filter.isdigit():
+        idx = int(text_col_filter) - 1
+        if idx < 0 or idx >= len(headers):
+            raise ValueError(f"Column index out of range: {text_col_filter}")
+        return [(i, iso) for i, iso in iso_columns if i == idx]
+
+    target = _normalize_header_name(text_col_filter)
+    return [
+        (i, iso)
+        for i, iso in iso_columns
+        if _normalize_header_name(headers[i]) == target
+    ]
 
 
 def _read_reverse_table(
@@ -235,6 +274,16 @@ def _dedupe_output_filename(name: str, used: set[str]) -> str:
     return candidate
 
 
+def _prepare_used_filenames(out_dir: str) -> set[str]:
+    used: set[str] = set()
+    if not os.path.isdir(out_dir):
+        return used
+    for name in os.listdir(out_dir):
+        if os.path.isfile(os.path.join(out_dir, name)):
+            used.add(name.lower())
+    return used
+
+
 def csv_to_srt(
     in_path: str,
     out_path: str,
@@ -258,13 +307,40 @@ def csv_to_srt(
         end_col,
         aliases=("End Time", "end", "out", "outpoint"),
     )
+
+    country_columns = _resolve_iso_text_columns(headers, text_col)
+    time_format = _detect_reverse_time_format(rows, idx_start, idx_end)
+
+    out_dir = os.path.dirname(out_path) or "."
+    out_base = os.path.splitext(os.path.basename(out_path))[0]
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Multi-country mode when ISO headers are present (or filtered to ISO headers).
+    if country_columns:
+        used_names = _prepare_used_filenames(out_dir)
+        for idx_text, iso in country_columns:
+            records = _rows_to_reverse_records(
+                rows,
+                idx_start=idx_start,
+                idx_end=idx_end,
+                idx_text=idx_text,
+                time_format=time_format,
+                fps=fps,
+            )
+            if not records:
+                continue
+            fname = _dedupe_output_filename(f"{out_base}_{iso}.srt", used_names)
+            out_country_path = os.path.join(out_dir, fname)
+            with open(out_country_path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(_records_to_srt_text(records))
+        return
+
+    # Fallback to legacy single text-column behavior.
     idx_text = _resolve_column_index(
         headers,
         text_col,
         aliases=("Text", "subtitle", "caption"),
     )
-
-    time_format = _detect_reverse_time_format(rows, idx_start, idx_end)
     records = _rows_to_reverse_records(
         rows,
         idx_start=idx_start,
@@ -274,7 +350,6 @@ def csv_to_srt(
         fps=fps,
     )
 
-    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(_records_to_srt_text(records))
 
@@ -302,19 +377,63 @@ def csv_to_srt_joined(
         end_col,
         aliases=("End Time", "end", "out", "outpoint"),
     )
+
+    country_columns = _resolve_iso_text_columns(headers, text_col)
+
+    os.makedirs(out_dir, exist_ok=True)
+    used_names: set[str] = _prepare_used_filenames(out_dir)
+    written: List[str] = []
+
+    if country_columns:
+        marker_idx = None
+        try:
+            marker_idx = _resolve_column_index(
+                headers,
+                None,
+                aliases=("Text", "subtitle", "caption"),
+            )
+        except ValueError:
+            marker_idx = country_columns[0][0]
+
+        blocks = _extract_joined_reverse_blocks(rows, idx_start, idx_end, marker_idx)
+        timed_rows = [r for _, block_rows in blocks for r in block_rows]
+        time_format = _detect_reverse_time_format(timed_rows, idx_start, idx_end)
+
+        for marker_name, block_rows in blocks:
+            if not block_rows:
+                continue
+            marker_base = os.path.splitext(
+                _sanitize_joined_marker_filename(marker_name)
+            )[0]
+            for idx_text, iso in country_columns:
+                records = _rows_to_reverse_records(
+                    block_rows,
+                    idx_start=idx_start,
+                    idx_end=idx_end,
+                    idx_text=idx_text,
+                    time_format=time_format,
+                    fps=fps,
+                )
+                if not records:
+                    continue
+                fname = _dedupe_output_filename(f"{marker_base}_{iso}.srt", used_names)
+                out_path = os.path.join(out_dir, fname)
+                with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(_records_to_srt_text(records))
+                written.append(out_path)
+
+        if not written:
+            raise ValueError("No timed subtitle blocks found under joined markers")
+        return written
+
     idx_text = _resolve_column_index(
         headers,
         text_col,
         aliases=("Text", "subtitle", "caption"),
     )
-
     blocks = _extract_joined_reverse_blocks(rows, idx_start, idx_end, idx_text)
     timed_rows = [r for _, block_rows in blocks for r in block_rows]
     time_format = _detect_reverse_time_format(timed_rows, idx_start, idx_end)
-
-    os.makedirs(out_dir, exist_ok=True)
-    used_names: set[str] = set()
-    written: List[str] = []
 
     for marker_name, block_rows in blocks:
         if not block_rows:
@@ -343,7 +462,9 @@ def csv_to_srt_joined(
 
 __all__ = [
     "_normalize_header_name",
+    "_normalize_iso_header",
     "_resolve_column_index",
+    "_resolve_iso_text_columns",
     "_read_reverse_table",
     "_detect_reverse_time_format",
     "_parse_reverse_timecode",
