@@ -50,6 +50,15 @@ from python.core.timecode import (
     parse_timecode as _core_parse_timecode,
     safe_int as _core_safe_int,
 )
+from python.core.unified_processors import (
+    UnifiedState,
+    collect_country_texts as _core_collect_country_texts,
+    normalize_controller_record as _core_normalize_controller_record,
+    normalize_duration_token as _core_normalize_duration_token,
+    process_meta_global_row as _core_process_meta_global_row,
+    process_meta_local_row as _core_process_meta_local_row,
+    propagate_all_scope_texts as _core_propagate_all_scope_texts,
+)
 
 
 def _resolve_tools_path(module_name: str) -> str:
@@ -382,21 +391,22 @@ def convert_csv_to_json(
                 return f"{val:.{round_ndigits}f}"
             return float(val)
 
-        global_meta: Dict[str, Any] = {}
+        unified_state = UnifiedState()
+        global_meta = unified_state.global_meta
         # Per-country overrides for certain meta_global keys (currently jobNumber)
-        job_number_per_country: Dict[str, str] = {}
+        job_number_per_country = unified_state.job_number_per_country
         # Per-country language mapping from meta_global language row
-        language_per_country: Dict[str, str] = {}
-        videos: Dict[str, Dict[str, Any]] = {}
-        video_order: List[str] = []
+        language_per_country = unified_state.language_per_country
+        videos = unified_state.videos
+        video_order = unified_state.video_order
         # Per-video, per-country meta_local overrides for flag keys (auto-detected by *_flag suffix)
-        per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        per_video_meta_local_country = unified_state.per_video_meta_local_country
         # Global default flags per country (meta_global rows without target_duration)
-        global_flag_defaults_per_country: Dict[str, Dict[str, str]] = {}
+        global_flag_defaults_per_country = unified_state.global_flag_defaults_per_country
         # Global targeted flags per country (meta_global rows with target_duration)
-        global_flag_targeted_per_country: Dict[str, Dict[str, Dict[str, str]]] = {}
+        global_flag_targeted_per_country = unified_state.global_flag_targeted_per_country
         # All globally detected flags (for metadataGlobal overview emission)
-        global_flags_seen: set[str] = set()
+        global_flags_seen = unified_state.global_flags_seen
         # Intermediate containers before splitting per country
         claims_rows: List[Dict[str, Any]] = []  # global claim rows
         per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = {}
@@ -431,40 +441,6 @@ def convert_csv_to_json(
         auto_sub_line_per_video: Dict[str, int] = {}
         auto_super_a_line_per_video: Dict[str, int] = {}
         auto_super_b_line_per_video: Dict[str, int] = {}
-        warned_logo_anim_legacy_country_scope = False
-
-        controller_record_re = re.compile(r"^controller_(\d+)$", re.I)
-        controller_flag_re = re.compile(r"^controller_(\d+)_flag$", re.I)
-
-        def _normalize_controller_record(name: str) -> Optional[str]:
-            m = controller_record_re.match((name or "").strip())
-            if not m:
-                return None
-            return f"controller_{int(m.group(1)):02d}"
-
-        def _normalize_controller_flag(name: str) -> Optional[str]:
-            m = controller_flag_re.match((name or "").strip())
-            if not m:
-                return None
-            return f"controller_{int(m.group(1)):02d}_flag"
-
-        def _normalize_flag_key(name: str) -> Optional[str]:
-            normalized_controller = _normalize_controller_flag(name)
-            if normalized_controller:
-                return normalized_controller
-            key = (name or "").strip()
-            if key.lower().endswith("_flag"):
-                return key
-            return None
-
-        def _normalize_duration_token(value: str) -> str:
-            token = (value or "").strip()
-            if not token:
-                return ""
-            if re.fullmatch(r"\d+", token):
-                return str(int(token))
-            return token
-
         for r in rows:
             if len(r) < len(headers):
                 r = r + [""] * (len(headers) - len(r))
@@ -509,168 +485,42 @@ def convert_csv_to_json(
                 else ""
             )
 
-            # Gather per-country texts for both orientations (portrait optional)
-            texts: Dict[str, str] = {}
-            texts_portrait: Dict[str, str] = {}
-            for c in countries:
-                land_idx = country_orientation_cols[c]["landscape"]
-                port_idx = country_orientation_cols[c]["portrait"]
-                land_val = (
-                    r[land_idx].replace("\r", "").rstrip()
-                    if land_idx is not None and land_idx < len(r)
-                    else ""
-                )
-                port_val = (
-                    r[port_idx].replace("\r", "").rstrip()
-                    if port_idx is not None and port_idx < len(r)
-                    else ""
-                )
-                texts[c] = land_val
-                texts_portrait[c] = port_val
-
-            # Propagation for ALL scope on textual rows (claim/disclaimer/sub)
-            if country_scope_val == "ALL":
-                # Propagate separately for each orientation
-                base_land = next((texts[c] for c in countries if texts[c]), "")
-                base_port = next(
-                    (texts_portrait[c] for c in countries if texts_portrait[c]), ""
-                )
-                if base_land:
-                    for c in countries:
-                        if not texts[c]:
-                            texts[c] = base_land
-                if base_port:
-                    for c in countries:
-                        if not texts_portrait[c]:
-                            texts_portrait[c] = base_port
+            texts, texts_portrait = _core_collect_country_texts(
+                row=r,
+                countries=countries,
+                country_orientation_cols=country_orientation_cols,
+            )
+            _core_propagate_all_scope_texts(
+                country_scope_val=country_scope_val,
+                texts=texts,
+                texts_portrait=texts_portrait,
+                countries=countries,
+            )
 
             # Metadata rows
             if rt in ("meta_global", "meta-global"):
-                if not key_name:
+                if _core_process_meta_global_row(
+                    state=unified_state,
+                    key_name=key_name,
+                    countries=countries,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    metadata_cell_val=metadata_cell_val,
+                    target_duration_val=target_duration_val,
+                    country_scope_raw=country_scope_raw,
+                ):
                     continue
-                # Special handling for per-country jobNumber overrides:
-                if key_name == "jobNumber":
-                    # Precedence rules (CSV to JSON 39):
-                    # 1. Use a country-specific jobNumber value if any (from landscape/portrait text cells)
-                    # 2. Else use the metadata cell value (global fallback) for that country
-                    # 3. Else explicitly set empty string so key is still emitted later
-                    for c in countries:
-                        per_country_val = (
-                            texts.get(c, "") or texts_portrait.get(c, "")
-                        ).strip()
-                        if per_country_val:
-                            job_number_per_country[c] = per_country_val
-                        else:
-                            # Will fill from metadata cell (same for all) or final sentinel after loop
-                            if c not in job_number_per_country:
-                                job_number_per_country[c] = ""  # placeholder
-                    # Apply metadata cell fallback for any country still unset / None
-                    if metadata_cell_val:
-                        for c in countries:
-                            if job_number_per_country.get(c) in (None, ""):
-                                job_number_per_country[c] = metadata_cell_val
-                    # Final pass: ensure sentinel value 'noJobNumber' for any remaining None so key is always present
-                    for c in countries:
-                        if job_number_per_country.get(c) is None:
-                            job_number_per_country[c] = "noJobNumber"
-                    # Do not store a single global jobNumber in global_meta; it will be injected per country later.
-                    continue
-                # Per-country flag keys (disclaimer_flag / disclaimer_02_flag / subtitle_flag / super_A_flag / super_B_flag) now can appear as meta_global.
-                # Capture any *_flag key from meta_global and support optional target_duration.
-                flag_key_name = _normalize_flag_key(key_name)
-                if flag_key_name:
-                    global_flags_seen.add(flag_key_name)
-                    duration_subkey = _normalize_duration_token(target_duration_val)
-                    # Backward compatibility for legacy logo_anim_flag rows that used country_scope.
-                    if not duration_subkey and flag_key_name == "logo_anim_flag":
-                        duration_subkey = _normalize_duration_token(country_scope_raw)
-                        if (
-                            duration_subkey
-                            and not warned_logo_anim_legacy_country_scope
-                        ):
-                            print(
-                                "Warning: logo_anim_flag duration from 'country_scope' is deprecated; use 'target_duration' column.",
-                                file=sys.stderr,
-                            )
-                            warned_logo_anim_legacy_country_scope = True
-                    for c in countries:
-                        if flag_key_name == "logo_anim_flag":
-                            per_val = (
-                                texts_portrait.get(c, "")
-                                or texts.get(c, "")
-                                or metadata_cell_val
-                            ).strip()
-                        else:
-                            per_val = (
-                                texts.get(c, "")
-                                or texts_portrait.get(c, "")
-                                or metadata_cell_val
-                            ).strip()
-                        if not per_val:
-                            continue
-                        if duration_subkey:
-                            global_flag_targeted_per_country.setdefault(
-                                c, {}
-                            ).setdefault(flag_key_name, {})[duration_subkey] = per_val
-                        else:
-                            global_flag_defaults_per_country.setdefault(c, {})[
-                                flag_key_name
-                            ] = per_val
-                    # Do not store as a single shared global_meta value; flags are per-country/per-duration.
-                    continue
-                # Per-country language value for metadataGlobal.language (CSV to JSON 167)
-                if key_name == "language":
-                    for ctry in countries:
-                        # Prefer portrait > landscape > metadata cell; if none present, set empty string
-                        val = (
-                            texts_portrait.get(ctry, "")
-                            or texts.get(ctry, "")
-                            or metadata_cell_val
-                            or ""
-                        ).strip()
-                        language_per_country[ctry] = val
-                    # Do not store a single shared language in global_meta; injected per-country later
-                    continue
-                # Generic meta_global: pick first non-empty per-country value else metadata column
-                country_val = next((texts[c] for c in countries if texts[c]), "")
-                value = country_val or metadata_cell_val
-                if value != "":
-                    global_meta[key_name] = value
-                continue
             if rt in ("meta_local", "meta-local"):
-                if not key_name or not video_id:
+                if _core_process_meta_local_row(
+                    state=unified_state,
+                    key_name=key_name,
+                    video_id=video_id,
+                    countries=countries,
+                    texts=texts,
+                    texts_portrait=texts_portrait,
+                    metadata_cell_val=metadata_cell_val,
+                ):
                     continue
-                if video_id not in videos:
-                    videos[video_id] = {
-                        "metadata": {},
-                        "sub_rows": [],
-                        "super_a_rows": [],
-                        "super_b_rows": [],
-                    }
-                    video_order.append(video_id)
-                # Special per-country meta_local keys: collect *_flag values per country.
-                local_flag_key = _normalize_flag_key(key_name)
-                if local_flag_key:
-                    if video_id not in per_video_meta_local_country:
-                        per_video_meta_local_country[video_id] = {}
-                    # For each country, pick per-country landscape/portrait cell (first non-empty among them)
-                    for c in countries:
-                        val = (texts.get(c, "") or texts_portrait.get(c, "")).strip()
-                        if not val and metadata_cell_val:
-                            # Fallback if metadata cell provided (legacy style)
-                            val = metadata_cell_val.strip()
-                        if val:
-                            bucket = per_video_meta_local_country[video_id].setdefault(
-                                c, {}
-                            )
-                            bucket[local_flag_key] = val
-                    # Do not store shared value in videos[video_id]["metadata"] for these keys
-                else:
-                    country_val = next((texts[c] for c in countries if texts[c]), "")
-                    value = country_val or metadata_cell_val
-                    if value != "":
-                        videos[video_id]["metadata"][key_name] = value
-                continue
 
             # Claim rows (each row independent)
             if rt == "claim":
@@ -978,7 +828,7 @@ def convert_csv_to_json(
                 continue
 
             # Controller timed rows (scalable): controller_01 .. controller_NN
-            controller_key = _normalize_controller_record(rt)
+            controller_key = _core_normalize_controller_record(rt)
             if controller_key:
                 controller_keys_seen.add(controller_key)
                 if video_id:
@@ -1647,7 +1497,9 @@ def convert_csv_to_json(
                 base_meta = vdata.get("metadata", {}).copy()
                 # Inject global *_flag defaults and duration-targeted values.
                 # Precedence so far: targeted meta_global > untargeted meta_global.
-                dur_key = _normalize_duration_token(str(base_meta.get("duration", "")))
+                dur_key = _core_normalize_duration_token(
+                    str(base_meta.get("duration", ""))
+                )
                 defaults_for_country = global_flag_defaults_per_country.get(c, {})
                 for mk, mv in defaults_for_country.items():
                     if mk not in base_meta:
