@@ -1,4 +1,11 @@
 from .columns import _normalize_header_map, _resolve_column, detect_columns
+from .output_paths import (
+    build_country_token,
+    ensure_country_placeholder,
+    resolve_country_output_path,
+    resolve_single_country_output_path,
+    trim_logo_anim_flag_for_country,
+)
 from .sectioned_mode import convert_sectioned_mode
 from .simple_mode import convert_simple_mode
 from .table_reader import _read_table, _sniff_delimiter
@@ -10,6 +17,8 @@ from .unified_processors import (
     build_unified_multi_country_output,
     collect_country_texts,
     deduplicate_rows_by_line_timing,
+    join_claim_rows_by_timing,
+    join_claim_rows_by_timing_per_video,
     merge_and_dedup_video_rows,
     merge_disclaimer_blocks,
     merge_disclaimer_rows_by_video,
@@ -36,6 +45,11 @@ __all__ = [
     "_normalize_header_map",
     "_resolve_column",
     "detect_columns",
+    "ensure_country_placeholder",
+    "build_country_token",
+    "resolve_country_output_path",
+    "resolve_single_country_output_path",
+    "trim_logo_anim_flag_for_country",
     "convert_simple_mode",
     "convert_sectioned_mode",
     "_sniff_delimiter",
@@ -47,6 +61,8 @@ __all__ = [
     "normalize_controller_record",
     "normalize_duration_token",
     "collect_country_texts",
+    "join_claim_rows_by_timing",
+    "join_claim_rows_by_timing_per_video",
     "merge_disclaimer_blocks",
     "merge_disclaimer_rows_by_video",
     "merge_rows_with_same_line",

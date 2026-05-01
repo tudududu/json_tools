@@ -828,6 +828,61 @@ def merge_and_dedup_video_rows(
             )
 
 
+def join_claim_rows_by_timing(
+    claims_rows: List[Dict[str, Any]],
+    countries: List[str],
+) -> List[Dict[str, Any]]:
+    grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
+    for row in claims_rows:
+        key = (
+            (row["start"], row["end"])
+            if (row["start"] is not None and row["end"] is not None)
+            else (None, None)
+        )
+        if key not in grouped:
+            grouped[key] = {
+                "start": row["start"],
+                "end": row["end"],
+                "texts": {c: row["texts"].get(c, "") for c in countries},
+            }
+            continue
+
+        for c in countries:
+            t = row["texts"].get(c, "")
+            if t:
+                if grouped[key]["texts"][c]:
+                    grouped[key]["texts"][c] += "\n" + t
+                else:
+                    grouped[key]["texts"][c] = t
+
+    new_claims: List[Dict[str, Any]] = []
+    ln = 1
+    for _, data in grouped.items():
+        new_claims.append(
+            {
+                "line": ln,
+                "start": data["start"],
+                "end": data["end"],
+                "texts": data["texts"],
+            }
+        )
+        ln += 1
+    return new_claims
+
+
+def join_claim_rows_by_timing_per_video(
+    per_video_claim_rows: Dict[str, List[Dict[str, Any]]],
+    countries: List[str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    joined: Dict[str, List[Dict[str, Any]]] = {}
+    for vid, rows_list in per_video_claim_rows.items():
+        joined[vid] = join_claim_rows_by_timing(
+            claims_rows=rows_list,
+            countries=countries,
+        )
+    return joined
+
+
 def _maybe_cast_metadata_value(value: Any, cast_metadata: bool) -> Any:
     if not cast_metadata:
         return value

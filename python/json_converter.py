@@ -40,6 +40,12 @@ from python.core.columns import (
     _resolve_column as _core_resolve_column,
     detect_columns as _core_detect_columns,
 )
+from python.core.output_paths import (
+    ensure_country_placeholder as _core_ensure_country_placeholder,
+    resolve_country_output_path as _core_resolve_country_output_path,
+    resolve_single_country_output_path as _core_resolve_single_country_output_path,
+    trim_logo_anim_flag_for_country as _core_trim_logo_anim_flag_for_country,
+)
 from python.core.table_reader import (
     _read_table as _core_read_table,
     _sniff_delimiter as _core_sniff_delimiter,
@@ -54,6 +60,8 @@ from python.core.unified_processors import (
     UnifiedState,
     build_unified_multi_country_output as _core_build_unified_multi_country_output,
     collect_country_texts as _core_collect_country_texts,
+    join_claim_rows_by_timing as _core_join_claim_rows_by_timing,
+    join_claim_rows_by_timing_per_video as _core_join_claim_rows_by_timing_per_video,
     merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
     merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
     normalize_controller_record as _core_normalize_controller_record,
@@ -688,83 +696,19 @@ def convert_csv_to_json(
             merge_subtitles=merge_subtitles,
         )
 
-        # Optional join of claim rows by identical timing (global)
+        # Optional join of claim rows by identical timing.
         if join_claim and claims_rows:
-            grouped: Dict[Tuple[Optional[float], Optional[float]], Dict[str, Any]] = {}
-            for row in claims_rows:
-                key = (
-                    (row["start"], row["end"])
-                    if (row["start"] is not None and row["end"] is not None)
-                    else (None, None)
-                )
-                if key not in grouped:
-                    grouped[key] = {
-                        "start": row["start"],
-                        "end": row["end"],
-                        "texts": {c: row["texts"].get(c, "") for c in countries},
-                    }
-                else:
-                    for c in countries:
-                        t = row["texts"].get(c, "")
-                        if t:
-                            if grouped[key]["texts"][c]:
-                                grouped[key]["texts"][c] += "\n" + t
-                            else:
-                                grouped[key]["texts"][c] = t
-            # Convert back to claims_rows-like list with synthetic line numbers
-            new_claims: List[Dict[str, Any]] = []
-            ln = 1
-            for key, data in grouped.items():
-                new_claims.append(
-                    {
-                        "line": ln,
-                        "start": data["start"],
-                        "end": data["end"],
-                        "texts": data["texts"],
-                    }
-                )
-                ln += 1
-            claims_rows = new_claims
+            claims_rows = _core_join_claim_rows_by_timing(
+                claims_rows=claims_rows,
+                countries=countries,
+            )
 
-        # Optional join for per-video claim rows
+        # Optional join for per-video claim rows.
         if join_claim and per_video_claim_rows:
-            for vid, rows_list in list(per_video_claim_rows.items()):
-                grouped: Dict[
-                    Tuple[Optional[float], Optional[float]], Dict[str, Any]
-                ] = {}
-                for row in rows_list:
-                    key = (
-                        (row["start"], row["end"])
-                        if (row["start"] is not None and row["end"] is not None)
-                        else (None, None)
-                    )
-                    if key not in grouped:
-                        grouped[key] = {
-                            "start": row["start"],
-                            "end": row["end"],
-                            "texts": {c: row["texts"].get(c, "") for c in countries},
-                        }
-                    else:
-                        for c in countries:
-                            t = row["texts"].get(c, "")
-                            if t:
-                                if grouped[key]["texts"][c]:
-                                    grouped[key]["texts"][c] += "\n" + t
-                                else:
-                                    grouped[key]["texts"][c] = t
-                new_rows: List[Dict[str, Any]] = []
-                ln = 1
-                for key, data in grouped.items():
-                    new_rows.append(
-                        {
-                            "line": ln,
-                            "start": data["start"],
-                            "end": data["end"],
-                            "texts": data["texts"],
-                        }
-                    )
-                    ln += 1
-                per_video_claim_rows[vid] = new_rows
+            per_video_claim_rows = _core_join_claim_rows_by_timing_per_video(
+                per_video_claim_rows=per_video_claim_rows,
+                countries=countries,
+            )
 
         return _core_build_unified_multi_country_output(
             countries=countries,
@@ -1864,10 +1808,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print(f"Failed to write validation report: {ex}", file=sys.stderr)
             print("Check mode output targets:")
             if args.split_by_country:
-                pattern = args.output_pattern or args.output
-                if "{country}" not in pattern:
-                    root, ext = os.path.splitext(pattern)
-                    pattern = f"{root}_{{country}}{ext}"
+                pattern = _core_ensure_country_placeholder(
+                    args.output_pattern or args.output
+                )
                 variant_counts: Dict[str, int] = (
                     data.get("_countryVariantCount", {})
                     if isinstance(data, dict)
@@ -1918,14 +1861,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                             if isinstance(payload, dict)
                             else None
                         )
-                        lang = ""
-                        if isinstance(mg, dict):
-                            try:
-                                lang = str(mg.get("language") or "").strip()
-                            except Exception:
-                                lang = ""
-                        country_token = f"{c}_{lang}" if lang else c
-                        out_path = pattern.replace("{country}", country_token)
+                        out_path = _core_resolve_country_output_path(
+                            pattern=pattern,
+                            country_code=c,
+                            metadata_global=mg,
+                        )
                         variant_label = (
                             f" [{c} variant {vi}]" if count > 1 else f" [{c}]"
                         )
@@ -1944,29 +1884,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 mg = (
                     payload.get("metadataGlobal") if isinstance(payload, dict) else None
                 )
-                out_path_single = args.output
-                if "{country}" in (out_path_single or ""):
-                    lang_sel = ""
-                    if isinstance(mg, dict):
-                        try:
-                            lang_sel = str(mg.get("language") or "").strip()
-                        except Exception:
-                            lang_sel = ""
-                    token = f"{csel}_{lang_sel}" if lang_sel else csel
-                    out_path_single = out_path_single.replace("{country}", token)
-                elif args.output_pattern:
-                    root_pattern = args.output_pattern
-                    if "{country}" not in root_pattern:
-                        rroot, rext = os.path.splitext(root_pattern)
-                        root_pattern = f"{rroot}_{{country}}{rext}"
-                    lang_sel = ""
-                    if isinstance(mg, dict):
-                        try:
-                            lang_sel = str(mg.get("language") or "").strip()
-                        except Exception:
-                            lang_sel = ""
-                    token = f"{csel}_{lang_sel}" if lang_sel else csel
-                    out_path_single = root_pattern.replace("{country}", token)
+                out_path_single = _core_resolve_single_country_output_path(
+                    output=args.output,
+                    output_pattern=args.output_pattern,
+                    country_code=csel,
+                    metadata_global=mg,
+                )
                 print(f"  - {out_path_single} [selected country: {csel}]")
                 if args.sample:
                     print(
@@ -1989,11 +1912,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return exit_code
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
         if args.split_by_country:
-            pattern = args.output_pattern or args.output
-            # If pattern lacks {country}, inject before extension
-            if "{country}" not in pattern:
-                root, ext = os.path.splitext(pattern)
-                pattern = f"{root}_{{country}}{ext}"
+            pattern = _core_ensure_country_placeholder(args.output_pattern or args.output)
             # Variant counts per country (if provided by convert)
             variant_counts: Dict[str, int] = (
                 data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
@@ -2063,34 +1982,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                     if isinstance(payload, dict):
                         _inject_media(payload, c)
                         _inject_layer_config(payload)
-                    # Per-country export: reduce logo_anim_flag overview to only this country's values
-                    mg = (
-                        payload.get("metadataGlobal")
-                        if isinstance(payload, dict)
-                        else None
+                    if isinstance(payload, dict):
+                        _core_trim_logo_anim_flag_for_country(
+                            payload=payload,
+                            country_code=c,
+                        )
+                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                    out_path = _core_resolve_country_output_path(
+                        pattern=pattern,
+                        country_code=c,
+                        metadata_global=mg,
                     )
-                    if isinstance(mg, dict) and "logo_anim_flag" in mg:
-                        overview = mg["logo_anim_flag"]
-                        if isinstance(overview, dict):
-                            trimmed: Dict[str, Any] = {}
-                            for dur, val in overview.items():
-                                if isinstance(val, dict) and "_default" in val:
-                                    # Pick country-specific if exists; else fallback to _default
-                                    country_val = val.get(c, val.get("_default"))
-                                    trimmed[dur] = country_val
-                                else:
-                                    # Simple scalar applies to all countries; keep as-is
-                                    trimmed[dur] = val
-                            mg["logo_anim_flag"] = trimmed
-                    # Include language ISO in filename token when present
-                    lang = ""
-                    if isinstance(mg, dict):
-                        try:
-                            lang = str(mg.get("language") or "").strip()
-                        except Exception:
-                            lang = ""
-                    country_token = f"{c}_{lang}" if lang else c
-                    out_path = pattern.replace("{country}", country_token)
                     if args.verbose:
                         print(f"Writing {out_path}")
                     write_json(out_path, payload)
@@ -2107,46 +2009,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             payload = by_country.get(
                 csel, {"subtitles": [], "claim": [], "disclaimer": [], "metadata": {}}
             )
-            # Also trim overview for single selected country (same logic as split loop)
+            if isinstance(payload, dict):
+                _core_trim_logo_anim_flag_for_country(
+                    payload=payload,
+                    country_code=csel,
+                )
             mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
-            if isinstance(mg, dict) and "logo_anim_flag" in mg:
-                overview = mg["logo_anim_flag"]
-                if isinstance(overview, dict):
-                    trimmed: Dict[str, Any] = {}
-                    for dur, val in overview.items():
-                        if isinstance(val, dict) and "_default" in val:
-                            country_val = val.get(csel, val.get("_default"))
-                            trimmed[dur] = country_val
-                        else:
-                            trimmed[dur] = val
-                    mg["logo_anim_flag"] = trimmed
-            # Support {country} templating for single-country output (auto-output or explicit pattern containing {country})
-            out_path_single = args.output
-            # Expand {country} if present in output or pattern (single-country mode)
-            if "{country}" in (out_path_single or ""):
-                # Use language suffix when present in payload metadataGlobal
-                lang_sel = ""
-                if isinstance(mg, dict):
-                    try:
-                        lang_sel = str(mg.get("language") or "").strip()
-                    except Exception:
-                        lang_sel = ""
-                token = f"{csel}_{lang_sel}" if lang_sel else csel
-                out_path_single = out_path_single.replace("{country}", token)
-            elif args.output_pattern:
-                root_pattern = args.output_pattern
-                if "{country}" not in root_pattern:
-                    rroot, rext = os.path.splitext(root_pattern)
-                    root_pattern = f"{rroot}_{{country}}{rext}"
-                # Likewise include language suffix when present
-                lang_sel = ""
-                if isinstance(mg, dict):
-                    try:
-                        lang_sel = str(mg.get("language") or "").strip()
-                    except Exception:
-                        lang_sel = ""
-                token = f"{csel}_{lang_sel}" if lang_sel else csel
-                out_path_single = root_pattern.replace("{country}", token)
+            out_path_single = _core_resolve_single_country_output_path(
+                output=args.output,
+                output_pattern=args.output_pattern,
+                country_code=csel,
+                metadata_global=mg,
+            )
             if args.verbose:
                 print(f"Writing {out_path_single} (selected country: {csel})")
             # Inject media/layer config for selected country before writing
