@@ -14,7 +14,7 @@ For standalone executable packaging and rebuild steps, see `../installer/README.
 
 The public script entrypoint remains `python/json_converter.py`, but it now acts as a thin shell:
 
-* `convert_csv_to_json(...)` stays in `python/json_converter.py` as the conversion API used by tests and callers.
+* `convert_csv_to_json(...)` now lives in `python/core/converter_engine.py` and is re-exported from `python/json_converter.py` for compatibility with existing callers/tests.
 * CLI parsing, `--check` flow, output writing, sample generation, and integration wiring are delegated to `python/core/cli_runner.py`.
 * Optional tool loading for media/layer integrations is centralized in `python/core/optional_tools.py`.
 

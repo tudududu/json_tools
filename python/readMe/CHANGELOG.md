@@ -1,3 +1,15 @@
+# 1.12.3 - 2026-05-01
+
+Added:
+- Refactor Phase 6.3 completed against the thin-entrypoint-only goal.
+
+Completion summary:
+1. Moved conversion orchestration from `python/json_converter.py` into `python/core/converter_engine.py`.
+2. Kept API compatibility by re-exporting `convert_csv_to_json`, `parse_timecode`, `safe_int`, `detect_columns`, `_sniff_delimiter`, and related helpers from `python/json_converter.py`.
+3. Kept runtime behavior stable: `python/json_converter.py` now acts as a thin shell that delegates CLI flow to `python/core/cli_runner.py` and optional tool loading to `python/core/optional_tools.py`.
+4. Updated package and installer wiring for the new module boundary (`python/core/__init__.py`, `python/installer/build_json_converter.py`).
+5. Verification: full pytest passed (249 passed, 0 failed).
+
 # 1.12.2 - 2026-05-01
 
 Added:

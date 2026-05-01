@@ -127,6 +127,7 @@ def build_pyinstaller_args(
         "--hidden-import=python.core",
         "--hidden-import=python.core.columns",
         "--hidden-import=python.core.cli_runner",
+        "--hidden-import=python.core.converter_engine",
         "--hidden-import=python.core.generation_metadata",
         "--hidden-import=python.core.integration_injections",
         "--hidden-import=python.core.optional_tools",

@@ -1,5 +1,6 @@
 from .columns import _normalize_header_map, _resolve_column, detect_columns
 from .cli_runner import build_cli_parser, run_cli
+from .converter_engine import convert_csv_to_json
 from .generation_metadata import inject_generation_metadata
 from .integration_injections import (
     inject_layer_config_payload,
@@ -56,6 +57,7 @@ __all__ = [
     "safe_int",
     "build_cli_parser",
     "run_cli",
+    "convert_csv_to_json",
     "_normalize_header_map",
     "_resolve_column",
     "detect_columns",
