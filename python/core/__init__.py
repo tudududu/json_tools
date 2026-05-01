@@ -39,6 +39,7 @@ from .unified_processors import (
     process_super_b_row,
     propagate_all_scope_texts,
 )
+from .validation_reports import write_validation_report
 
 __all__ = [
     "parse_timecode",
@@ -56,6 +57,7 @@ __all__ = [
     "convert_sectioned_mode",
     "_sniff_delimiter",
     "_read_table",
+    "write_validation_report",
     "UnifiedState",
     "build_country_orientation_data",
     "build_country_payload",

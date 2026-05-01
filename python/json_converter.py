@@ -50,6 +50,9 @@ from python.core.table_reader import (
     _read_table as _core_read_table,
     _sniff_delimiter as _core_sniff_delimiter,
 )
+from python.core.validation_reports import (
+    write_validation_report as _core_write_validation_report,
+)
 from python.core.sectioned_mode import convert_sectioned_mode as _core_convert_sectioned_mode
 from python.core.simple_mode import convert_simple_mode as _core_convert_simple_mode
 from python.core.timecode import (
@@ -1688,15 +1691,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "warnings": len(all_warnings),
                     },
                 }
-                try:
-                    os.makedirs(
-                        os.path.dirname(os.path.abspath(args.validation_report)),
-                        exist_ok=True,
+                report_error = _core_write_validation_report(
+                    report_path=args.validation_report,
+                    report_obj=report_obj,
+                )
+                if report_error:
+                    print(
+                        f"Failed to write validation report: {report_error}",
+                        file=sys.stderr,
                     )
-                    with open(args.validation_report, "w", encoding="utf-8") as rf:
-                        json.dump(report_obj, rf, ensure_ascii=False, indent=2)
-                except Exception as ex:
-                    print(f"Failed to write validation report: {ex}", file=sys.stderr)
             print("Check mode output targets:")
             if args.split_by_country:
                 pattern = _core_ensure_country_placeholder(
@@ -1949,15 +1952,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "errors": errors,
                     "warnings": warnings,
                 }
-                try:
-                    os.makedirs(
-                        os.path.dirname(os.path.abspath(args.validation_report)),
-                        exist_ok=True,
+                report_error = _core_write_validation_report(
+                    report_path=args.validation_report,
+                    report_obj=report_obj,
+                )
+                if report_error:
+                    print(
+                        f"Failed to write validation report: {report_error}",
+                        file=sys.stderr,
                     )
-                    with open(args.validation_report, "w", encoding="utf-8") as rf:
-                        json.dump(report_obj, rf, ensure_ascii=False, indent=2)
-                except Exception as ex:
-                    print(f"Failed to write validation report: {ex}", file=sys.stderr)
             print("Check mode output targets:")
             print(f"  - {args.output}")
             if args.sample:
