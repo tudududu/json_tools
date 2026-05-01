@@ -4,6 +4,11 @@ from .integration_injections import (
     inject_layer_config_payload,
     inject_media_mapping,
 )
+from .optional_tools import (
+    load_layer_config_converter,
+    load_media_tools,
+    resolve_tools_path,
+)
 from .output_paths import (
     build_country_token,
     ensure_country_placeholder,
@@ -54,6 +59,9 @@ __all__ = [
     "inject_generation_metadata",
     "inject_media_mapping",
     "inject_layer_config_payload",
+    "resolve_tools_path",
+    "load_media_tools",
+    "load_layer_config_converter",
     "ensure_country_placeholder",
     "build_country_token",
     "resolve_country_output_path",

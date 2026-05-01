@@ -45,6 +45,10 @@ try:
         inject_layer_config_payload as _core_inject_layer_config_payload,
         inject_media_mapping as _core_inject_media_mapping,
     )
+    from python.core.optional_tools import (
+        load_layer_config_converter as _core_load_layer_config_converter,
+        load_media_tools as _core_load_media_tools,
+    )
     from python.core.output_paths import (
         ensure_country_placeholder as _core_ensure_country_placeholder,
         resolve_country_output_path as _core_resolve_country_output_path,
@@ -100,6 +104,10 @@ except ModuleNotFoundError:
         inject_layer_config_payload as _core_inject_layer_config_payload,
         inject_media_mapping as _core_inject_media_mapping,
     )
+    from core.optional_tools import (
+        load_layer_config_converter as _core_load_layer_config_converter,
+        load_media_tools as _core_load_media_tools,
+    )
     from core.output_paths import (
         ensure_country_placeholder as _core_ensure_country_placeholder,
         resolve_country_output_path as _core_resolve_country_output_path,
@@ -143,124 +151,18 @@ except ModuleNotFoundError:
         propagate_all_scope_texts as _core_propagate_all_scope_texts,
     )
 
+media_read_csv, media_group_by_country_language, media_convert_rows = (
+    _core_load_media_tools(__file__)
+)
+layercfg_convert_workbook = _core_load_layer_config_converter(__file__)
 
-def _resolve_tools_path(module_name: str) -> str:
-    meipass = getattr(sys, "_MEIPASS", None)
-    if getattr(sys, "frozen", False) and isinstance(meipass, str):
-        bundled_path = os.path.join(meipass, "python", "tools", f"{module_name}.py")
-        if os.path.exists(bundled_path):
-            return bundled_path
-        alt_bundled_path = os.path.join(meipass, "tools", f"{module_name}.py")
-        if os.path.exists(alt_bundled_path):
-            return alt_bundled_path
-        return bundled_path
-    return os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "tools", f"{module_name}.py"
-    )
-
-
-# Optional media injection support (CSV → JSON media tool)
-try:
-    from python.tools.media_converter import (
-        read_csv as media_read_csv,
-        group_by_country_language as media_group_by_country_language,
-        convert_rows as media_convert_rows,
-    )
-except Exception:
-    # Fallback: load from local tools path when executed as a script from within the package directory
-    try:
-        import importlib.util as _ilu
-
-        _tools_path = _resolve_tools_path("media_converter")
-        _spec = _ilu.spec_from_file_location("_media_converter", _tools_path)
-        if _spec and _spec.loader:
-            _mod = _ilu.module_from_spec(_spec)
-            _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
-            media_read_csv = getattr(_mod, "read_csv", None)
-            media_group_by_country_language = getattr(
-                _mod, "group_by_country_language", None
-            )
-            media_convert_rows = getattr(_mod, "convert_rows", None)
-        else:
-            media_read_csv = None  # type: ignore[assignment]
-            media_group_by_country_language = None  # type: ignore[assignment]
-            media_convert_rows = None  # type: ignore[assignment]
-    except Exception:
-        media_read_csv = None  # type: ignore[assignment]
-        media_group_by_country_language = None  # type: ignore[assignment]
-        media_convert_rows = None  # type: ignore[assignment]
-
-# Optional addLayers injection support (XLSX -> LAYER_NAME_CONFIG)
-try:
-    from python.tools.config_converter import (
-        convert_workbook as layercfg_convert_workbook,
-    )
-except Exception:
-    try:
-        import importlib.util as _ilu
-
-        _tools_path = _resolve_tools_path("config_converter")
-        _spec = _ilu.spec_from_file_location("_config_converter", _tools_path)
-        if _spec and _spec.loader:
-            _mod = _ilu.module_from_spec(_spec)
-            _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
-            layercfg_convert_workbook = getattr(_mod, "convert_workbook", None)
-        else:
-            layercfg_convert_workbook = None  # type: ignore[assignment]
-    except Exception:
-        layercfg_convert_workbook = None  # type: ignore[assignment]
-
-
-def parse_timecode(value: str, fps: float) -> float:
-    return _core_parse_timecode(value, fps)
-
-
-def safe_int(val: Any, default: int = 0) -> int:
-    return _core_safe_int(val, default)
-
-
-def _normalize_header_map(headers: List[str]) -> Dict[str, str]:
-    return _core_normalize_header_map(headers)
-
-
-def _resolve_column(
-    headers: List[str],
-    override: Optional[str],
-    candidates: Tuple[str, ...],
-) -> Optional[str]:
-    return _core_resolve_column(headers, override, candidates)
-
-
-def detect_columns(
-    headers: List[str],
-    start_override: Optional[str] = None,
-    end_override: Optional[str] = None,
-    text_override: Optional[str] = None,
-) -> Tuple[str, str, str]:
-    return _core_detect_columns(
-        headers,
-        start_override=start_override,
-        end_override=end_override,
-        text_override=text_override,
-    )
-
-
-def _sniff_delimiter(sample: str, preferred: Optional[str] = None) -> str:
-    return _core_sniff_delimiter(sample, preferred)
-
-
-def _read_table(
-    path: str,
-    encoding: str = "utf-8-sig",
-    delimiter: Optional[str] = None,
-    xlsx_sheet: Optional[str] = None,
-) -> Tuple[List[str], List[List[str]], str]:
-    return _core_read_table(
-        path,
-        encoding=encoding,
-        delimiter=delimiter,
-        xlsx_sheet=xlsx_sheet,
-    )
+parse_timecode = _core_parse_timecode
+safe_int = _core_safe_int
+_normalize_header_map = _core_normalize_header_map
+_resolve_column = _core_resolve_column
+detect_columns = _core_detect_columns
+_sniff_delimiter = _core_sniff_delimiter
+_read_table = _core_read_table
 
 
 def convert_csv_to_json(
