@@ -44,7 +44,9 @@ def convert_sectioned_mode(
         nonlocal country_codes
         if idx >= len(country_codes):
             for k in range(len(country_codes), idx + 1):
-                country_codes.append(code or f"col{k - (len(text_cols) - len(country_codes)) + 1}")
+                country_codes.append(
+                    code or f"col{k - (len(text_cols) - len(country_codes)) + 1}"
+                )
         c = country_codes[idx]
         if c not in per_country:
             per_country[c] = {
@@ -127,8 +129,14 @@ def convert_sectioned_mode(
 
             for ti, tcol in enumerate(text_cols):
                 text_val = r[tcol] if tcol < len(r) else ""
-                text_val = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
-                if skip_empty_text and (text_val is None or str(text_val).strip() == ""):
+                text_val = (
+                    text_val.strip()
+                    if strip_text and isinstance(text_val, str)
+                    else text_val
+                )
+                if skip_empty_text and (
+                    text_val is None or str(text_val).strip() == ""
+                ):
                     continue
                 ccode = ensure_country(ti)
                 item = {

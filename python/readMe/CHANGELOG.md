@@ -1,3 +1,8 @@
+# 1.12.0 - 2026-05-01
+
+Added:
+- Refactor Phase 1-5 is now effectively completed.
+
 # 1.11.0 - 2026-04-30
 
 Added:

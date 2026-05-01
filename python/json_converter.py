@@ -57,7 +57,9 @@ from python.core.table_reader import (
 from python.core.validation_reports import (
     write_validation_report as _core_write_validation_report,
 )
-from python.core.sectioned_mode import convert_sectioned_mode as _core_convert_sectioned_mode
+from python.core.sectioned_mode import (
+    convert_sectioned_mode as _core_convert_sectioned_mode,
+)
 from python.core.simple_mode import convert_simple_mode as _core_convert_simple_mode
 from python.core.timecode import (
     parse_timecode as _core_parse_timecode,
@@ -427,9 +429,13 @@ def convert_csv_to_json(
         # Per-video, per-country meta_local overrides for flag keys (auto-detected by *_flag suffix)
         per_video_meta_local_country = unified_state.per_video_meta_local_country
         # Global default flags per country (meta_global rows without target_duration)
-        global_flag_defaults_per_country = unified_state.global_flag_defaults_per_country
+        global_flag_defaults_per_country = (
+            unified_state.global_flag_defaults_per_country
+        )
         # Global targeted flags per country (meta_global rows with target_duration)
-        global_flag_targeted_per_country = unified_state.global_flag_targeted_per_country
+        global_flag_targeted_per_country = (
+            unified_state.global_flag_targeted_per_country
+        )
         # All globally detected flags (for metadataGlobal overview emission)
         global_flags_seen = unified_state.global_flags_seen
         # Intermediate containers before splitting per country
@@ -1783,7 +1789,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             return exit_code
         # Split branch only when explicitly splitting; otherwise handle single-country templating separately
         if args.split_by_country:
-            pattern = _core_ensure_country_placeholder(args.output_pattern or args.output)
+            pattern = _core_ensure_country_placeholder(
+                args.output_pattern or args.output
+            )
             # Variant counts per country (if provided by convert)
             variant_counts: Dict[str, int] = (
                 data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
@@ -1863,7 +1871,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                             payload=payload,
                             country_code=c,
                         )
-                    mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
+                    mg = (
+                        payload.get("metadataGlobal")
+                        if isinstance(payload, dict)
+                        else None
+                    )
                     out_path = _core_resolve_country_output_path(
                         pattern=pattern,
                         country_code=c,

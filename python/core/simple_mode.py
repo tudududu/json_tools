@@ -42,7 +42,9 @@ def convert_simple_mode(
     line_no = start_line_index
     for d in dict_rows:
         text_val = d.get(text_name, "")
-        text = text_val.strip() if strip_text and isinstance(text_val, str) else text_val
+        text = (
+            text_val.strip() if strip_text and isinstance(text_val, str) else text_val
+        )
         if skip_empty_text and (text is None or str(text).strip() == ""):
             continue
         try:

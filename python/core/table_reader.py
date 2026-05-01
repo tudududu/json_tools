@@ -66,7 +66,9 @@ def _read_table(
                     )
                 ws = wb[xlsx_sheet]
             else:
-                default_sheet_name = "data" if "data" in wb.sheetnames else wb.sheetnames[0]
+                default_sheet_name = (
+                    "data" if "data" in wb.sheetnames else wb.sheetnames[0]
+                )
                 ws = wb[default_sheet_name]
 
             if delimiter and str(delimiter).lower() not in ("", "auto"):

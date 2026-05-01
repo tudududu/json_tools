@@ -29,13 +29,17 @@ class UnifiedState:
     claims_rows: List[Dict[str, Any]] = field(default_factory=list)
     per_video_claim_rows: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     disc_rows_raw: List[Dict[str, Any]] = field(default_factory=list)
-    per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]] = field(
+        default_factory=dict
+    )
     disc_02_rows_raw: List[Dict[str, Any]] = field(default_factory=list)
     per_video_disc_02_rows_raw: Dict[str, List[Dict[str, Any]]] = field(
         default_factory=dict
     )
     logo_rows_raw: List[Dict[str, Any]] = field(default_factory=list)
-    per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]] = field(
+        default_factory=dict
+    )
     endframe_rows_raw: List[Dict[str, Any]] = field(default_factory=list)
     per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]] = field(
         default_factory=dict
@@ -188,15 +192,11 @@ def process_meta_global_row(
         for c in countries:
             if flag_key_name == "logo_anim_flag":
                 per_val = (
-                    texts_portrait.get(c, "")
-                    or texts.get(c, "")
-                    or metadata_cell_val
+                    texts_portrait.get(c, "") or texts.get(c, "") or metadata_cell_val
                 ).strip()
             else:
                 per_val = (
-                    texts.get(c, "")
-                    or texts_portrait.get(c, "")
-                    or metadata_cell_val
+                    texts.get(c, "") or texts_portrait.get(c, "") or metadata_cell_val
                 ).strip()
             if not per_val:
                 continue
@@ -605,20 +605,18 @@ def process_controller_row(
         state.per_video_controller_rows_raw[controller_key].setdefault(video_id, [])
         state.auto_controller_line_per_video_per_key.setdefault(controller_key, {})
         if video_id not in state.auto_controller_line_per_video_per_key[controller_key]:
-            state.auto_controller_line_per_video_per_key[controller_key][
-                video_id
-            ] = start_line_index
+            state.auto_controller_line_per_video_per_key[controller_key][video_id] = (
+                start_line_index
+            )
         if line_num is None:
             line_num = state.auto_controller_line_per_video_per_key[controller_key][
                 video_id
             ]
-            state.auto_controller_line_per_video_per_key[controller_key][
-                video_id
-            ] += 1
+            state.auto_controller_line_per_video_per_key[controller_key][video_id] += 1
         else:
-            state.auto_controller_line_per_video_per_key[controller_key][
-                video_id
-            ] = line_num + 1
+            state.auto_controller_line_per_video_per_key[controller_key][video_id] = (
+                line_num + 1
+            )
         state.per_video_controller_rows_raw[controller_key][video_id].append(
             {
                 "line": line_num,
@@ -967,7 +965,9 @@ def build_country_orientation_data(
         g_port: List[str] = []
         for grow in controller_rows_raw.get(gk, []):
             txt_l = (grow.get("texts", {}).get(country_code, "") or "").rstrip()
-            txt_p = (grow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            txt_p = (
+                grow.get("texts_portrait", {}).get(country_code, "") or ""
+            ).rstrip()
             g_land.append(txt_l)
             g_port.append(txt_p if txt_p else txt_l)
         controller_top_land[gk] = g_land
@@ -980,7 +980,9 @@ def build_country_orientation_data(
         subs_port: List[Dict[str, Any]] = []
         for srow in vdata.get("sub_rows", []):
             txt_l = (srow["texts"].get(country_code, "") or "").rstrip()
-            txt_p = (srow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            txt_p = (
+                srow.get("texts_portrait", {}).get(country_code, "") or ""
+            ).rstrip()
             if skip_empty_text and not txt_l:
                 continue
             if srow["start"] is None or srow["end"] is None:
@@ -1009,7 +1011,9 @@ def build_country_orientation_data(
         super_b_port: List[Dict[str, Any]] = []
         for sarow in vdata.get("super_a_rows", []):
             txt_l = (sarow["texts"].get(country_code, "") or "").rstrip()
-            txt_p = (sarow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            txt_p = (
+                sarow.get("texts_portrait", {}).get(country_code, "") or ""
+            ).rstrip()
             if skip_empty_text and not txt_l:
                 continue
             if sarow["start"] is None or sarow["end"] is None:
@@ -1034,7 +1038,9 @@ def build_country_orientation_data(
 
         for sbrow in vdata.get("super_b_rows", []):
             txt_l = (sbrow["texts"].get(country_code, "") or "").rstrip()
-            txt_p = (sbrow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            txt_p = (
+                sbrow.get("texts_portrait", {}).get(country_code, "") or ""
+            ).rstrip()
             if skip_empty_text and not txt_l and not txt_p:
                 continue
             if sbrow["start"] is None or sbrow["end"] is None:
@@ -1064,11 +1070,16 @@ def build_country_orientation_data(
             if mk not in base_meta:
                 base_meta.setdefault(mk, mv)
         if dur_key:
-            targeted_for_country = global_flag_targeted_per_country.get(country_code, {})
+            targeted_for_country = global_flag_targeted_per_country.get(
+                country_code, {}
+            )
             for mk, duration_map in targeted_for_country.items():
                 if dur_key in duration_map:
                     base_meta[mk] = duration_map[dur_key]
-        if vid in per_video_meta_local_country and country_code in per_video_meta_local_country[vid]:
+        if (
+            vid in per_video_meta_local_country
+            and country_code in per_video_meta_local_country[vid]
+        ):
             for mk, mv in per_video_meta_local_country[vid][country_code].items():
                 base_meta[mk] = mv
 
@@ -1147,9 +1158,7 @@ def populate_video_level_fields(
         for r in claims_rows
     }
     global_claim_map_port = {
-        timing_key(r): (
-            r.get("texts_portrait", {}).get(country_code, "") or ""
-        ).strip()
+        timing_key(r): (r.get("texts_portrait", {}).get(country_code, "") or "").strip()
         for r in claims_rows
     }
     global_controller_map_land: Dict[
@@ -1187,8 +1196,7 @@ def populate_video_level_fields(
         for r in disclaimers_02_rows_merged
     ]
     global_logo_land = [
-        (r.get("texts", {}).get(country_code, "") or "").strip()
-        for r in logo_rows_raw
+        (r.get("texts", {}).get(country_code, "") or "").strip() for r in logo_rows_raw
     ]
     global_logo_port = [
         (r.get("texts_portrait", {}).get(country_code, "") or "").strip()
@@ -1219,7 +1227,9 @@ def populate_video_level_fields(
         base_video_id = vid_full.rsplit("_", 1)[0]
         orientation = "portrait" if vid_full.endswith("_portrait") else "landscape"
         global_claim_map = (
-            global_claim_map_port if orientation == "portrait" else global_claim_map_land
+            global_claim_map_port
+            if orientation == "portrait"
+            else global_claim_map_land
         )
         global_disc_texts = (
             global_disc_port if orientation == "portrait" else global_disc_land
@@ -1245,8 +1255,14 @@ def populate_video_level_fields(
                 ).get(country_code, "")
                 or ""
             ).rstrip()
-            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if (
+                orientation == "portrait"
+                and prefer_local_claim_disclaimer
+                and not txt_local
+            ):
+                alt_land_local = (
+                    row.get("texts", {}).get(country_code, "") or ""
+                ).rstrip()
                 if alt_land_local:
                     txt_local = alt_land_local
             txt_global_timing = global_claim_map.get(timing_key(row), "")
@@ -1261,7 +1277,10 @@ def populate_video_level_fields(
                 text_value = txt_global_timing or txt_global_index or txt_local
             if test_mode and text_value:
                 text_value = f"{vid_full}_{text_value}"
-            entry: Dict[str, Any] = {"line": row.get("line", idx + 1), "text": text_value}
+            entry: Dict[str, Any] = {
+                "line": row.get("line", idx + 1),
+                "text": text_value,
+            }
             if row.get("start") is not None and row.get("end") is not None:
                 entry["in"] = fmt_time(row["start"])
                 entry["out"] = fmt_time(row["end"])
@@ -1295,11 +1314,19 @@ def populate_video_level_fields(
         disc_items: List[Dict[str, Any]] = []
         for i, row in enumerate(src_discs):
             if orientation == "portrait":
-                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+                txt_local = (
+                    row.get("texts_portrait", {}).get(country_code, "") or ""
+                ).rstrip()
             else:
                 txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
-            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if (
+                orientation == "portrait"
+                and prefer_local_claim_disclaimer
+                and not txt_local
+            ):
+                alt_land_local = (
+                    row.get("texts", {}).get(country_code, "") or ""
+                ).rstrip()
                 if alt_land_local:
                     txt_local = alt_land_local
             txt_global = (
@@ -1311,7 +1338,9 @@ def populate_video_level_fields(
                 if i < len(global_disc_land):
                     txt_global = global_disc_land[i]
             text_value = (
-                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                txt_local
+                if (prefer_local_claim_disclaimer and txt_local)
+                else txt_global
             )
             if test_mode and text_value:
                 text_value = f"{vid_full}_{text_value}"
@@ -1325,15 +1354,25 @@ def populate_video_level_fields(
             disc_items.append(entry)
         vobj["disclaimer"] = disc_items
 
-        src_discs_02 = per_video_disc_02_merged.get(base_video_id) or disclaimers_02_rows_merged
+        src_discs_02 = (
+            per_video_disc_02_merged.get(base_video_id) or disclaimers_02_rows_merged
+        )
         disc_02_items: List[Dict[str, Any]] = []
         for i, row in enumerate(src_discs_02):
             if orientation == "portrait":
-                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+                txt_local = (
+                    row.get("texts_portrait", {}).get(country_code, "") or ""
+                ).rstrip()
             else:
                 txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
-            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if (
+                orientation == "portrait"
+                and prefer_local_claim_disclaimer
+                and not txt_local
+            ):
+                alt_land_local = (
+                    row.get("texts", {}).get(country_code, "") or ""
+                ).rstrip()
                 if alt_land_local:
                     txt_local = alt_land_local
             txt_global = (
@@ -1345,7 +1384,9 @@ def populate_video_level_fields(
                 if i < len(global_disc_02_land):
                     txt_global = global_disc_02_land[i]
             text_value = (
-                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                txt_local
+                if (prefer_local_claim_disclaimer and txt_local)
+                else txt_global
             )
             if test_mode and text_value:
                 text_value = f"{vid_full}_{text_value}"
@@ -1363,11 +1404,19 @@ def populate_video_level_fields(
         logo_items: List[Dict[str, Any]] = []
         for i, row in enumerate(src_logos):
             if orientation == "portrait":
-                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+                txt_local = (
+                    row.get("texts_portrait", {}).get(country_code, "") or ""
+                ).rstrip()
             else:
                 txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
-            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if (
+                orientation == "portrait"
+                and prefer_local_claim_disclaimer
+                and not txt_local
+            ):
+                alt_land_local = (
+                    row.get("texts", {}).get(country_code, "") or ""
+                ).rstrip()
                 if alt_land_local:
                     txt_local = alt_land_local
             txt_global = (
@@ -1379,7 +1428,9 @@ def populate_video_level_fields(
                 if i < len(global_logo_land):
                     txt_global = global_logo_land[i]
             text_value = (
-                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                txt_local
+                if (prefer_local_claim_disclaimer and txt_local)
+                else txt_global
             )
             if test_mode and text_value:
                 text_value = f"{vid_full}_{text_value}"
@@ -1397,11 +1448,19 @@ def populate_video_level_fields(
         end_items: List[Dict[str, Any]] = []
         for i, row in enumerate(src_end):
             if orientation == "portrait":
-                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+                txt_local = (
+                    row.get("texts_portrait", {}).get(country_code, "") or ""
+                ).rstrip()
             else:
                 txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
-            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if (
+                orientation == "portrait"
+                and prefer_local_claim_disclaimer
+                and not txt_local
+            ):
+                alt_land_local = (
+                    row.get("texts", {}).get(country_code, "") or ""
+                ).rstrip()
                 if alt_land_local:
                     txt_local = alt_land_local
             txt_global = (
@@ -1434,7 +1493,9 @@ def populate_video_level_fields(
                 if i < len(global_endframe_land):
                     txt_global = global_endframe_land[i]
             text_value = (
-                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+                txt_local
+                if (prefer_local_claim_disclaimer and txt_local)
+                else txt_global
             )
             if test_mode and text_value:
                 text_value = f"{vid_full}_{text_value}"
@@ -1449,7 +1510,9 @@ def populate_video_level_fields(
         vobj["endFrame"] = end_items
 
         for gk in controller_keys_sorted:
-            local_controller = per_video_controller_rows_raw.get(gk, {}).get(base_video_id, [])
+            local_controller = per_video_controller_rows_raw.get(gk, {}).get(
+                base_video_id, []
+            )
             src_controller = (
                 local_controller or controller_rows_raw.get(gk, [])
                 if controller_always_emit
@@ -1457,7 +1520,9 @@ def populate_video_level_fields(
             )
             controller_items: List[Dict[str, Any]] = []
             controller_texts_global = (
-                controller_top_port[gk] if orientation == "portrait" else controller_top_land[gk]
+                controller_top_port[gk]
+                if orientation == "portrait"
+                else controller_top_land[gk]
             )
             global_controller_map = (
                 global_controller_map_port[gk]
@@ -1473,8 +1538,14 @@ def populate_video_level_fields(
                     ).get(country_code, "")
                     or ""
                 ).rstrip()
-                if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
-                    alt_land_local = (grow.get("texts", {}).get(country_code, "") or "").rstrip()
+                if (
+                    orientation == "portrait"
+                    and prefer_local_claim_disclaimer
+                    and not txt_local
+                ):
+                    alt_land_local = (
+                        grow.get("texts", {}).get(country_code, "") or ""
+                    ).rstrip()
                     if alt_land_local:
                         txt_local = alt_land_local
                 txt_global_timing = global_controller_map.get(timing_key(grow), "")
@@ -1484,7 +1555,9 @@ def populate_video_level_fields(
                     else (controller_texts_global[0] if controller_texts_global else "")
                 )
                 text_value = (
-                    txt_local if txt_local else (txt_global_timing or txt_global_index or txt_local)
+                    txt_local
+                    if txt_local
+                    else (txt_global_timing or txt_global_index or txt_local)
                 )
                 if test_mode and text_value:
                     text_value = f"{vid_full}_{text_value}"
