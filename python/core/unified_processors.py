@@ -1574,3 +1574,145 @@ def build_country_payload(
         }
     payload["videos"] = vlist_cast
     return payload
+
+
+def build_unified_multi_country_output(
+    *,
+    countries: List[str],
+    country_variant_counts: Dict[str, int],
+    controller_keys_seen: set[str],
+    claims_rows: List[Dict[str, Any]],
+    disclaimers_rows_merged: List[Dict[str, Any]],
+    disclaimers_02_rows_merged: List[Dict[str, Any]],
+    logo_rows_raw: List[Dict[str, Any]],
+    controller_rows_raw: Dict[str, List[Dict[str, Any]]],
+    video_order: List[str],
+    videos: Dict[str, Dict[str, Any]],
+    global_flag_defaults_per_country: Dict[str, Dict[str, str]],
+    global_flag_targeted_per_country: Dict[str, Dict[str, Dict[str, str]]],
+    per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]],
+    skip_empty_text: bool,
+    fmt_time: Callable[[float], Any],
+    per_video_claim_rows: Dict[str, List[Dict[str, Any]]],
+    per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]],
+    merge_disclaimer: bool,
+    per_video_disc_02_rows_raw: Dict[str, List[Dict[str, Any]]],
+    merge_disclaimer_02: bool,
+    per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]],
+    endframe_rows_raw: List[Dict[str, Any]],
+    per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]],
+    per_video_controller_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]],
+    prefer_local_claim_disclaimer: bool,
+    test_mode: bool,
+    claims_as_objects: bool,
+    controller_always_emit: bool,
+    global_meta: Dict[str, Any],
+    job_number_per_country: Dict[str, str],
+    language_per_country: Dict[str, str],
+    cast_metadata: bool,
+    flags_overview_object_always: bool,
+    schema_version: str,
+    no_orientation: bool,
+) -> Dict[str, Any]:
+    def _controller_sort_key(key_name: str) -> int:
+        match = re.search(r"(\d+)$", key_name)
+        if not match:
+            return 9999
+        return int(match.group(1))
+
+    controller_keys_sorted = sorted(
+        controller_keys_seen,
+        key=_controller_sort_key,
+    )
+
+    by_country: Dict[str, Any] = {}
+    for c in countries:
+        country_data = build_country_orientation_data(
+            country_code=c,
+            claims_rows=claims_rows,
+            disclaimers_rows_merged=disclaimers_rows_merged,
+            disclaimers_02_rows_merged=disclaimers_02_rows_merged,
+            logo_rows_raw=logo_rows_raw,
+            controller_keys_sorted=controller_keys_sorted,
+            controller_rows_raw=controller_rows_raw,
+            video_order=video_order,
+            videos=videos,
+            global_flag_defaults_per_country=global_flag_defaults_per_country,
+            global_flag_targeted_per_country=global_flag_targeted_per_country,
+            per_video_meta_local_country=per_video_meta_local_country,
+            skip_empty_text=skip_empty_text,
+            fmt_time=fmt_time,
+        )
+        claim_landscape = country_data["claim_landscape"]
+        claim_portrait = country_data["claim_portrait"]
+        disc_landscape = country_data["disc_landscape"]
+        disc_portrait = country_data["disc_portrait"]
+        disc_02_landscape = country_data["disc_02_landscape"]
+        disc_02_portrait = country_data["disc_02_portrait"]
+        logo_landscape = country_data["logo_landscape"]
+        logo_portrait = country_data["logo_portrait"]
+        controller_top_land = country_data["controller_top_land"]
+        controller_top_port = country_data["controller_top_port"]
+        videos_list = country_data["videos_list"]
+
+        populate_video_level_fields(
+            country_code=c,
+            videos_list=videos_list,
+            claims_rows=claims_rows,
+            per_video_claim_rows=per_video_claim_rows,
+            claim_landscape=claim_landscape,
+            claim_portrait=claim_portrait,
+            disclaimers_rows_merged=disclaimers_rows_merged,
+            per_video_disc_rows_raw=per_video_disc_rows_raw,
+            merge_disclaimer=merge_disclaimer,
+            disclaimers_02_rows_merged=disclaimers_02_rows_merged,
+            per_video_disc_02_rows_raw=per_video_disc_02_rows_raw,
+            merge_disclaimer_02=merge_disclaimer_02,
+            logo_rows_raw=logo_rows_raw,
+            per_video_logo_rows_raw=per_video_logo_rows_raw,
+            endframe_rows_raw=endframe_rows_raw,
+            per_video_endframe_rows_raw=per_video_endframe_rows_raw,
+            controller_keys_sorted=controller_keys_sorted,
+            controller_rows_raw=controller_rows_raw,
+            per_video_controller_rows_raw=per_video_controller_rows_raw,
+            controller_top_land=controller_top_land,
+            controller_top_port=controller_top_port,
+            prefer_local_claim_disclaimer=prefer_local_claim_disclaimer,
+            test_mode=test_mode,
+            claims_as_objects=claims_as_objects,
+            controller_always_emit=controller_always_emit,
+            fmt_time=fmt_time,
+        )
+
+        by_country[c] = build_country_payload(
+            country_code=c,
+            global_meta=global_meta,
+            global_flag_defaults_per_country=global_flag_defaults_per_country,
+            global_flag_targeted_per_country=global_flag_targeted_per_country,
+            job_number_per_country=job_number_per_country,
+            language_per_country=language_per_country,
+            videos_list=videos_list,
+            controller_keys_sorted=controller_keys_sorted,
+            controller_top_land=controller_top_land,
+            controller_top_port=controller_top_port,
+            claim_landscape=claim_landscape,
+            claim_portrait=claim_portrait,
+            disc_landscape=disc_landscape,
+            disc_portrait=disc_portrait,
+            disc_02_landscape=disc_02_landscape,
+            disc_02_portrait=disc_02_portrait,
+            logo_landscape=logo_landscape,
+            logo_portrait=logo_portrait,
+            cast_metadata=cast_metadata,
+            claims_as_objects=claims_as_objects,
+            flags_overview_object_always=flags_overview_object_always,
+            schema_version=schema_version,
+            no_orientation=no_orientation,
+        )
+
+    return {
+        "_multi": True,
+        "countries": countries,
+        "byCountry": by_country,
+        "_countryVariantCount": country_variant_counts,
+    }

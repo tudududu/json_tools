@@ -52,13 +52,11 @@ from python.core.timecode import (
 )
 from python.core.unified_processors import (
     UnifiedState,
-    build_country_orientation_data as _core_build_country_orientation_data,
-    build_country_payload as _core_build_country_payload,
+    build_unified_multi_country_output as _core_build_unified_multi_country_output,
     collect_country_texts as _core_collect_country_texts,
     merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
     merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
     normalize_controller_record as _core_normalize_controller_record,
-    populate_video_level_fields as _core_populate_video_level_fields,
     process_claim_row as _core_process_claim_row,
     process_controller_row as _core_process_controller_row,
     process_disclaimer_row as _core_process_disclaimer_row,
@@ -768,110 +766,43 @@ def convert_csv_to_json(
                     ln += 1
                 per_video_claim_rows[vid] = new_rows
 
-        # Build multi structure similar to earlier _multi output
-        by_country: Dict[str, Any] = {}
-
-        def _controller_sort_key(key_name: str) -> int:
-            match = re.search(r"(\d+)$", key_name)
-            if not match:
-                return 9999
-            return int(match.group(1))
-
-        controller_keys_sorted = sorted(
-            controller_keys_seen,
-            key=_controller_sort_key,
+        return _core_build_unified_multi_country_output(
+            countries=countries,
+            country_variant_counts=country_variant_counts,
+            controller_keys_seen=controller_keys_seen,
+            claims_rows=claims_rows,
+            disclaimers_rows_merged=disclaimers_rows_merged,
+            disclaimers_02_rows_merged=disclaimers_02_rows_merged,
+            logo_rows_raw=logo_rows_raw,
+            controller_rows_raw=controller_rows_raw,
+            video_order=video_order,
+            videos=videos,
+            global_flag_defaults_per_country=global_flag_defaults_per_country,
+            global_flag_targeted_per_country=global_flag_targeted_per_country,
+            per_video_meta_local_country=per_video_meta_local_country,
+            skip_empty_text=skip_empty_text,
+            fmt_time=fmt_time,
+            per_video_claim_rows=per_video_claim_rows,
+            per_video_disc_rows_raw=per_video_disc_rows_raw,
+            merge_disclaimer=merge_disclaimer,
+            per_video_disc_02_rows_raw=per_video_disc_02_rows_raw,
+            merge_disclaimer_02=merge_disclaimer_02,
+            per_video_logo_rows_raw=per_video_logo_rows_raw,
+            endframe_rows_raw=endframe_rows_raw,
+            per_video_endframe_rows_raw=per_video_endframe_rows_raw,
+            per_video_controller_rows_raw=per_video_controller_rows_raw,
+            prefer_local_claim_disclaimer=prefer_local_claim_disclaimer,
+            test_mode=test_mode,
+            claims_as_objects=claims_as_objects,
+            controller_always_emit=controller_always_emit,
+            global_meta=global_meta,
+            job_number_per_country=job_number_per_country,
+            language_per_country=language_per_country,
+            cast_metadata=cast_metadata,
+            flags_overview_object_always=flags_overview_object_always,
+            schema_version=schema_version,
+            no_orientation=no_orientation,
         )
-        for c in countries:
-            country_data = _core_build_country_orientation_data(
-                country_code=c,
-                claims_rows=claims_rows,
-                disclaimers_rows_merged=disclaimers_rows_merged,
-                disclaimers_02_rows_merged=disclaimers_02_rows_merged,
-                logo_rows_raw=logo_rows_raw,
-                controller_keys_sorted=controller_keys_sorted,
-                controller_rows_raw=controller_rows_raw,
-                video_order=video_order,
-                videos=videos,
-                global_flag_defaults_per_country=global_flag_defaults_per_country,
-                global_flag_targeted_per_country=global_flag_targeted_per_country,
-                per_video_meta_local_country=per_video_meta_local_country,
-                skip_empty_text=skip_empty_text,
-                fmt_time=fmt_time,
-            )
-            claim_landscape = country_data["claim_landscape"]
-            claim_portrait = country_data["claim_portrait"]
-            disc_landscape = country_data["disc_landscape"]
-            disc_portrait = country_data["disc_portrait"]
-            disc_02_landscape = country_data["disc_02_landscape"]
-            disc_02_portrait = country_data["disc_02_portrait"]
-            logo_landscape = country_data["logo_landscape"]
-            logo_portrait = country_data["logo_portrait"]
-            controller_top_land = country_data["controller_top_land"]
-            controller_top_port = country_data["controller_top_port"]
-            videos_list = country_data["videos_list"]
-
-            _core_populate_video_level_fields(
-                country_code=c,
-                videos_list=videos_list,
-                claims_rows=claims_rows,
-                per_video_claim_rows=per_video_claim_rows,
-                claim_landscape=claim_landscape,
-                claim_portrait=claim_portrait,
-                disclaimers_rows_merged=disclaimers_rows_merged,
-                per_video_disc_rows_raw=per_video_disc_rows_raw,
-                merge_disclaimer=merge_disclaimer,
-                disclaimers_02_rows_merged=disclaimers_02_rows_merged,
-                per_video_disc_02_rows_raw=per_video_disc_02_rows_raw,
-                merge_disclaimer_02=merge_disclaimer_02,
-                logo_rows_raw=logo_rows_raw,
-                per_video_logo_rows_raw=per_video_logo_rows_raw,
-                endframe_rows_raw=endframe_rows_raw,
-                per_video_endframe_rows_raw=per_video_endframe_rows_raw,
-                controller_keys_sorted=controller_keys_sorted,
-                controller_rows_raw=controller_rows_raw,
-                per_video_controller_rows_raw=per_video_controller_rows_raw,
-                controller_top_land=controller_top_land,
-                controller_top_port=controller_top_port,
-                prefer_local_claim_disclaimer=prefer_local_claim_disclaimer,
-                test_mode=test_mode,
-                claims_as_objects=claims_as_objects,
-                controller_always_emit=controller_always_emit,
-                fmt_time=fmt_time,
-            )
-
-            by_country[c] = _core_build_country_payload(
-                country_code=c,
-                global_meta=global_meta,
-                global_flag_defaults_per_country=global_flag_defaults_per_country,
-                global_flag_targeted_per_country=global_flag_targeted_per_country,
-                job_number_per_country=job_number_per_country,
-                language_per_country=language_per_country,
-                videos_list=videos_list,
-                controller_keys_sorted=controller_keys_sorted,
-                controller_top_land=controller_top_land,
-                controller_top_port=controller_top_port,
-                claim_landscape=claim_landscape,
-                claim_portrait=claim_portrait,
-                disc_landscape=disc_landscape,
-                disc_portrait=disc_portrait,
-                disc_02_landscape=disc_02_landscape,
-                disc_02_portrait=disc_02_portrait,
-                logo_landscape=logo_landscape,
-                logo_portrait=logo_portrait,
-                cast_metadata=cast_metadata,
-                claims_as_objects=claims_as_objects,
-                flags_overview_object_always=flags_overview_object_always,
-                schema_version=schema_version,
-                no_orientation=no_orientation,
-            )
-
-        # Multi output
-        return {
-            "_multi": True,
-            "countries": countries,
-            "byCountry": by_country,
-            "_countryVariantCount": country_variant_counts,
-        }
 
     # Normalize headers for index lookup, preserving duplicates
     norm_headers = [re.sub(r"[^a-z]", "", (h or "").lower()) for h in headers]
