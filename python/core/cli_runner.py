@@ -216,8 +216,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "--converter-version",
         default="auto",
         help=(
-            "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically in this order: "
-            "1) CONVERTER_VERSION env var, 2) first heading in CHANGELOG.md, 3) latest git tag, 4) '0.0.0+<shortcommit>', else 'dev'."
+            "Converter build/version tag. If set to 'auto' (default) or left as 'dev', the tool will attempt to derive a version automatically. "
+            "Source runs prefer CHANGELOG heading first; frozen runs use CONVERTER_VERSION env when available. "
+            "Fallback order then uses latest git tag, then '0.0.0+<shortcommit>', else 'dev'."
         ),
     )
     p.add_argument(
@@ -310,7 +311,9 @@ def run_cli(
 
     def _auto_version() -> str:
         env_val = os.getenv("CONVERTER_VERSION")
-        if env_val and env_val.strip():
+        # In frozen binaries, the runtime hook bakes this value and source files
+        # may be unavailable. Prefer env in that context only.
+        if getattr(sys, "frozen", False) and env_val and env_val.strip():
             return env_val.strip()
         try:
             repo_root = os.path.dirname(
@@ -340,6 +343,9 @@ def run_cli(
                                 break
         except Exception:
             pass
+        # For source runs, allow env fallback only when changelog parsing fails.
+        if env_val and env_val.strip():
+            return env_val.strip()
         try:
             tag = (
                 subprocess.check_output(

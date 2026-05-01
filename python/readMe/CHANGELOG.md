@@ -1,3 +1,13 @@
+# 1.12.4 - 2026-05-01
+
+Added:
+- Fixed source-run `converterVersion` auto-resolution precedence so stale `CONVERTER_VERSION` environment values no longer override the current changelog version.
+
+Details:
+1. Source runs now prefer the first CHANGELOG heading as the primary version source.
+2. Frozen runtime keeps env-first behavior (needed for baked standalone binaries).
+3. Env var remains as fallback for source runs when changelog parsing is unavailable.
+
 # 1.12.3 - 2026-05-01
 
 Added:
