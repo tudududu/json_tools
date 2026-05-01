@@ -7,6 +7,10 @@ Outputs:
 - Normal run: standard pytest output, exit code mirrors test success.
 - COVERAGE=1: generates XML report at python/tests/coverage/coverage.xml and
   updates the SVG badge at python/tests/coverage/coverage.svg.
+
+Refactor note:
+- CLI orchestration now lives in python/core/cli_runner.py and is exercised
+    through tests that call python/json_converter.py via subprocess and mod.main.
 """
 
 import os

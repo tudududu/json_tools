@@ -10,6 +10,16 @@ This Python CLI converts several related CSV formats into structured JSON suitab
 
 For standalone executable packaging and rebuild steps, see `../installer/README.md`.
 
+## Internal Architecture (Phase 6)
+
+The public script entrypoint remains `python/json_converter.py`, but it now acts as a thin shell:
+
+* `convert_csv_to_json(...)` stays in `python/json_converter.py` as the conversion API used by tests and callers.
+* CLI parsing, `--check` flow, output writing, sample generation, and integration wiring are delegated to `python/core/cli_runner.py`.
+* Optional tool loading for media/layer integrations is centralized in `python/core/optional_tools.py`.
+
+This keeps CLI behavior backward compatible while reducing entrypoint complexity.
+
 ## Timecode Formats Supported
 * `HH:MM:SS:FF` (frames; uses `meta_global fps` by default, or `--fps` override)
 * `HH:MM:SS[.ms]`

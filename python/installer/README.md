@@ -39,6 +39,8 @@ Build output:
 
 The helper builds a `--onefile` binary and bundles required converter tooling (`media_converter.py`, `config_converter.py`) so `--media-config` and `--layer-config` work in the executable.
 
+At runtime, the executable still enters via `python/json_converter.py`, which now delegates CLI orchestration to `python/core/cli_runner.py`. Packaging remains unchanged for users: invoke the same binary and flags.
+
 During build, a PyInstaller runtime hook is generated to bake `CONVERTER_VERSION` into the standalone binary.
 Default resolution order for baked version is:
 

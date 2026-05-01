@@ -1,4 +1,5 @@
 from .columns import _normalize_header_map, _resolve_column, detect_columns
+from .cli_runner import build_cli_parser, run_cli
 from .generation_metadata import inject_generation_metadata
 from .integration_injections import (
     inject_layer_config_payload,
@@ -53,6 +54,8 @@ from .validation_reports import write_validation_report
 __all__ = [
     "parse_timecode",
     "safe_int",
+    "build_cli_parser",
+    "run_cli",
     "_normalize_header_map",
     "_resolve_column",
     "detect_columns",
