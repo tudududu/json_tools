@@ -826,3 +826,156 @@ def merge_and_dedup_video_rows(
                 rows=merged_rows,
                 countries=countries,
             )
+
+
+def _maybe_cast_metadata_value(value: Any, cast_metadata: bool) -> Any:
+    if not cast_metadata:
+        return value
+    if isinstance(value, str):
+        v = value.strip()
+        if re.fullmatch(r"[-+]?[0-9]+", v):
+            try:
+                return int(v)
+            except Exception:
+                return value
+        if re.fullmatch(r"[-+]?[0-9]*\.[0-9]+", v):
+            try:
+                return float(v)
+            except Exception:
+                return value
+    return value
+
+
+def build_country_payload(
+    *,
+    country_code: str,
+    global_meta: Dict[str, Any],
+    global_flag_defaults_per_country: Dict[str, Dict[str, str]],
+    global_flag_targeted_per_country: Dict[str, Dict[str, Dict[str, str]]],
+    job_number_per_country: Dict[str, str],
+    language_per_country: Dict[str, str],
+    videos_list: List[Dict[str, Any]],
+    controller_keys_sorted: List[str],
+    controller_top_land: Dict[str, List[str]],
+    controller_top_port: Dict[str, List[str]],
+    claim_landscape: List[str],
+    claim_portrait: List[str],
+    disc_landscape: List[str],
+    disc_portrait: List[str],
+    disc_02_landscape: List[str],
+    disc_02_portrait: List[str],
+    logo_landscape: List[str],
+    logo_portrait: List[str],
+    cast_metadata: bool,
+    claims_as_objects: bool,
+    flags_overview_object_always: bool,
+    schema_version: str,
+    no_orientation: bool,
+) -> Dict[str, Any]:
+    gm_cast = {
+        k: _maybe_cast_metadata_value(v, cast_metadata)
+        for k, v in global_meta.copy().items()
+    }
+
+    defaults_for_country = global_flag_defaults_per_country.get(country_code, {})
+    targeted_for_country = global_flag_targeted_per_country.get(country_code, {})
+    flag_keys_for_country = sorted(
+        set(defaults_for_country.keys()) | set(targeted_for_country.keys())
+    )
+    for flag_key in flag_keys_for_country:
+        dur_map = targeted_for_country.get(flag_key, {})
+        default_value = defaults_for_country.get(flag_key)
+        if flags_overview_object_always:
+            overview_obj: Dict[str, Any] = {}
+            if default_value is not None:
+                overview_obj["_default"] = default_value
+            for dur in sorted(dur_map.keys(), key=lambda x: (len(x), x)):
+                overview_obj[dur] = dur_map[dur]
+            if overview_obj:
+                gm_cast[flag_key] = overview_obj
+            continue
+
+        if dur_map:
+            overview_obj = {}
+            if default_value is not None:
+                overview_obj["_default"] = default_value
+            for dur in sorted(dur_map.keys(), key=lambda x: (len(x), x)):
+                overview_obj[dur] = dur_map[dur]
+            gm_cast[flag_key] = overview_obj
+        elif default_value is not None:
+            gm_cast[flag_key] = default_value
+
+    if country_code in job_number_per_country:
+        gm_cast["jobNumber"] = job_number_per_country[country_code]
+    else:
+        gm_cast.setdefault("jobNumber", "noJobNumber")
+    gm_cast["language"] = language_per_country.get(country_code, "")
+    gm_cast.pop("orientation", None)
+
+    vlist_cast: List[Dict[str, Any]] = []
+    for vobj in videos_list:
+        meta_cast = {
+            k: _maybe_cast_metadata_value(v, cast_metadata)
+            for k, v in vobj["metadata"].items()
+        }
+        base = {
+            "videoId": vobj["videoId"],
+            "metadata": meta_cast,
+            "subtitles": vobj["subtitles"],
+            "super_A": vobj.get("super_A", []),
+            "super_B": vobj.get("super_B", []),
+            "claim": vobj.get("claim", []),
+            "disclaimer": vobj.get("disclaimer", []),
+            "disclaimer_02": vobj.get("disclaimer_02", []),
+            "logo": vobj.get("logo", []),
+            "endFrame": vobj.get("endFrame", []),
+        }
+        for gk in controller_keys_sorted:
+            base[gk] = vobj.get(gk, [])
+        if claims_as_objects:
+            for k, val in vobj.items():
+                if isinstance(k, str) and k.startswith("claim_"):
+                    base[k] = val
+            base.pop("claim", None)
+        else:
+            base["claim"] = vobj.get("claim", [])
+        vlist_cast.append(base)
+
+    if "schemaVersion" not in gm_cast:
+        gm_cast["schemaVersion"] = schema_version
+    if "country" not in gm_cast:
+        gm_cast["country"] = country_code
+
+    if no_orientation:
+        payload: Dict[str, Any] = {
+            "metadataGlobal": gm_cast,
+            "claim": claim_landscape,
+            "disclaimer": disc_landscape if disc_landscape else [""],
+            "disclaimer_02": disc_02_landscape if disc_02_landscape else [""],
+            "logo": logo_landscape,
+        }
+        for gk in controller_keys_sorted:
+            payload[gk] = controller_top_land.get(gk, [])
+        payload["videos"] = vlist_cast
+        return payload
+
+    payload = {
+        "metadataGlobal": gm_cast,
+        "claim": {"landscape": claim_landscape, "portrait": claim_portrait},
+        "disclaimer": {
+            "landscape": disc_landscape,
+            "portrait": disc_portrait,
+        },
+        "disclaimer_02": {
+            "landscape": disc_02_landscape,
+            "portrait": disc_02_portrait,
+        },
+        "logo": {"landscape": logo_landscape, "portrait": logo_portrait},
+    }
+    for gk in controller_keys_sorted:
+        payload[gk] = {
+            "landscape": controller_top_land.get(gk, []),
+            "portrait": controller_top_port.get(gk, []),
+        }
+    payload["videos"] = vlist_cast
+    return payload

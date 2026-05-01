@@ -5,6 +5,7 @@ from .table_reader import _read_table, _sniff_delimiter
 from .timecode import parse_timecode, safe_int
 from .unified_processors import (
     UnifiedState,
+    build_country_payload,
     collect_country_texts,
     deduplicate_rows_by_line_timing,
     merge_and_dedup_video_rows,
@@ -37,6 +38,7 @@ __all__ = [
     "_sniff_delimiter",
     "_read_table",
     "UnifiedState",
+    "build_country_payload",
     "normalize_controller_record",
     "normalize_duration_token",
     "collect_country_texts",
