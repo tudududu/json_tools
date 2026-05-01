@@ -28,17 +28,17 @@ import json
 import os
 import re
 import copy
-import hashlib
-from datetime import datetime
 import subprocess
 import sys
-import platform
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from python.core.columns import (
     _normalize_header_map as _core_normalize_header_map,
     _resolve_column as _core_resolve_column,
     detect_columns as _core_detect_columns,
+)
+from python.core.generation_metadata import (
+    inject_generation_metadata as _core_inject_generation_metadata,
 )
 from python.core.output_paths import (
     ensure_country_placeholder as _core_ensure_country_placeholder,
@@ -1222,123 +1222,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             _strip(data)
 
-    # Inject generation timestamp & checksum (before validation so they appear in output / sample)
-    def _inject_generation_metadata(obj: Dict[str, Any]):
-        try:
-            # Compute SHA256 of input CSV once
-            h = hashlib.sha256()
-            with open(args.input, "rb") as f_in:
-                for chunk in iter(lambda: f_in.read(8192), b""):
-                    h.update(chunk)
-            checksum = h.hexdigest()
-        except Exception:
-            checksum = ""
-        # Use timezone-aware UTC timestamp (utcnow is deprecated in upcoming Python versions)
-        try:
-            # Python 3.11+ provides datetime.UTC
-            utc_now = datetime.now(datetime.UTC)  # type: ignore[attr-defined]
-        except AttributeError:  # Fallback for older Python versions
-            from datetime import timezone
-
-            utc_now = datetime.now(timezone.utc)
-        # Normalize to Z suffix and drop microseconds for stability
-        timestamp = utc_now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-        # Attempt to resolve git commit (best-effort, cached)
-        git_commit: Optional[str] = None
-        try:
-            git_commit = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-                )
-                .decode("utf-8")
-                .strip()
-                or None
-            )
-        except Exception:
-            git_commit = None
-
-        # Environment / toolchain metadata
-        py_version = sys.version.split()[0]
-        impl = platform.python_implementation()
-        platform_str = platform.platform()
-        # Parse CHANGELOG.md for last change id (first markdown heading or first line containing a version/commit)
-        last_change_id: Optional[str] = None
-        # Look for CHANGELOG near this script (python/) or in readMe fallback
-        try:
-            py_dir = os.path.dirname(os.path.abspath(__file__))
-            changelog_candidates = [
-                os.path.join(py_dir, "CHANGELOG.md"),
-                os.path.join(py_dir, "readMe", "CHANGELOG.md"),
-            ]
-            for changelog_path in changelog_candidates:
-                if os.path.isfile(changelog_path):
-                    with open(changelog_path, "r", encoding="utf-8") as chf:
-                        for line in chf:
-                            stripped_line = line.strip()
-                            if stripped_line.startswith("#"):
-                                # e.g., '# 1.3.0 - 2025-09-29' or '# [1.3.0]'
-                                last_change_id = stripped_line.lstrip("#").strip()
-                                break
-                            if (
-                                stripped_line
-                                and ("202" in stripped_line or "20" in stripped_line)
-                                and any(c.isdigit() for c in stripped_line)
-                            ):
-                                last_change_id = stripped_line
-                                break
-                        if last_change_id:
-                            break
-        except Exception:
-            last_change_id = None
-
-        def _augment_payload(pld: Dict[str, Any]):
-            if "metadataGlobal" in pld and isinstance(pld.get("metadataGlobal"), dict):
-                mg = pld["metadataGlobal"]
-                mg["generatedAt"] = timestamp
-                mg["inputSha256"] = checksum
-                mg.setdefault("inputFileName", os.path.basename(args.input))
-                mg["converterVersion"] = args.converter_version
-                if git_commit and "converterCommit" not in mg:
-                    mg["converterCommit"] = git_commit
-                # Environment/toolchain
-                mg.setdefault("pythonVersion", py_version)
-                mg.setdefault("pythonImplementation", impl)
-                mg.setdefault("platform", platform_str)
-                if last_change_id and "lastChangeId" not in mg:
-                    mg["lastChangeId"] = last_change_id
-            elif "metadata" in pld and isinstance(
-                pld.get("metadata"), dict
-            ):  # simple/legacy single output shape
-                mg = pld["metadata"]
-                mg["generatedAt"] = timestamp
-                mg["inputSha256"] = checksum
-                mg.setdefault("inputFileName", os.path.basename(args.input))
-                mg["converterVersion"] = args.converter_version
-                if git_commit and "converterCommit" not in mg:
-                    mg["converterCommit"] = git_commit
-                mg.setdefault("pythonVersion", py_version)
-                mg.setdefault("pythonImplementation", impl)
-                mg.setdefault("platform", platform_str)
-                if last_change_id and "lastChangeId" not in mg:
-                    mg["lastChangeId"] = last_change_id
-
-        # Multi-country wrapper
-        if (
-            isinstance(obj, dict)
-            and obj.get("_multi")
-            and isinstance(obj.get("byCountry"), dict)
-        ):
-            for _c, p in obj.get("byCountry", {}).items():
-                if isinstance(p, dict):
-                    _augment_payload(p)
-        else:
-            if isinstance(obj, dict):
-                _augment_payload(obj)
-
     # Only inject when we are actually writing outputs (skip --check mode)
     if (not args.no_generation_meta) and (not getattr(args, "check", False)):
-        _inject_generation_metadata(data)
+        _core_inject_generation_metadata(
+            data,
+            input_path=args.input,
+            converter_version=args.converter_version,
+            script_file_path=__file__,
+        )
 
     # Prepare addLayers config once (if provided)
     layer_config_payload: Optional[Dict[str, Any]] = None
@@ -1964,7 +1855,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                         # Inject generation metadata for alternate variant payloads as well
                         if not args.no_generation_meta:
                             try:
-                                _inject_generation_metadata(alt)  # type: ignore[arg-type]
+                                _core_inject_generation_metadata(
+                                    alt,  # type: ignore[arg-type]
+                                    input_path=args.input,
+                                    converter_version=args.converter_version,
+                                    script_file_path=__file__,
+                                )
                             except Exception:
                                 pass
                         payload = (

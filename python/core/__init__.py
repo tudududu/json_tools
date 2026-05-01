@@ -1,4 +1,5 @@
 from .columns import _normalize_header_map, _resolve_column, detect_columns
+from .generation_metadata import inject_generation_metadata
 from .output_paths import (
     build_country_token,
     ensure_country_placeholder,
@@ -45,6 +46,7 @@ __all__ = [
     "_normalize_header_map",
     "_resolve_column",
     "detect_columns",
+    "inject_generation_metadata",
     "ensure_country_placeholder",
     "build_country_token",
     "resolve_country_output_path",
