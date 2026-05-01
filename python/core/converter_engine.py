@@ -278,8 +278,6 @@ def convert_csv_to_json(
         global_flag_targeted_per_country = (
             unified_state.global_flag_targeted_per_country
         )
-        # All globally detected flags (for metadataGlobal overview emission)
-        global_flags_seen = unified_state.global_flags_seen
         # Intermediate containers before splitting per country
         claims_rows = unified_state.claims_rows
         per_video_claim_rows = unified_state.per_video_claim_rows
@@ -299,23 +297,6 @@ def convert_csv_to_json(
         controller_keys_seen = unified_state.controller_keys_seen
         # subs_rows reserved for future use (not needed currently)
 
-        auto_claim_line = unified_state.auto_claim_line
-        auto_disc_line = unified_state.auto_disc_line
-        auto_disc_02_line = unified_state.auto_disc_02_line
-        auto_logo_line = unified_state.auto_logo_line
-        auto_claim_line_per_video = unified_state.auto_claim_line_per_video
-        auto_disc_line_per_video = unified_state.auto_disc_line_per_video
-        auto_disc_02_line_per_video = unified_state.auto_disc_02_line_per_video
-        auto_logo_line_per_video = unified_state.auto_logo_line_per_video
-        auto_endframe_line = unified_state.auto_endframe_line
-        auto_endframe_line_per_video = unified_state.auto_endframe_line_per_video
-        auto_controller_line_per_key = unified_state.auto_controller_line_per_key
-        auto_controller_line_per_video_per_key = (
-            unified_state.auto_controller_line_per_video_per_key
-        )
-        auto_sub_line_per_video = unified_state.auto_sub_line_per_video
-        auto_super_a_line_per_video = unified_state.auto_super_a_line_per_video
-        auto_super_b_line_per_video = unified_state.auto_super_b_line_per_video
         for r in rows:
             if len(r) < len(headers):
                 r = r + [""] * (len(headers) - len(r))
@@ -399,7 +380,7 @@ def convert_csv_to_json(
 
             # Claim rows (each row independent)
             if rt == "claim":
-                if _core_process_claim_row(
+                _core_process_claim_row(
                     state=unified_state,
                     video_id=video_id,
                     line_num=line_num,
@@ -407,13 +388,12 @@ def convert_csv_to_json(
                     end_tc=end_tc,
                     texts=texts,
                     texts_portrait=texts_portrait,
-                ):
-                    auto_claim_line = unified_state.auto_claim_line
+                )
                 continue
 
             # Disclaimer rows (will merge later)
             if rt == "disclaimer":
-                if _core_process_disclaimer_row(
+                _core_process_disclaimer_row(
                     state=unified_state,
                     video_id=video_id,
                     line_num=line_num,
@@ -422,13 +402,12 @@ def convert_csv_to_json(
                     texts=texts,
                     texts_portrait=texts_portrait,
                     is_disclaimer_02=False,
-                ):
-                    auto_disc_line = unified_state.auto_disc_line
+                )
                 continue
 
             # Disclaimer_02 rows (will merge later)
             if rt == "disclaimer_02":
-                if _core_process_disclaimer_row(
+                _core_process_disclaimer_row(
                     state=unified_state,
                     video_id=video_id,
                     line_num=line_num,
@@ -437,13 +416,12 @@ def convert_csv_to_json(
                     texts=texts,
                     texts_portrait=texts_portrait,
                     is_disclaimer_02=True,
-                ):
-                    auto_disc_02_line = unified_state.auto_disc_02_line
+                )
                 continue
 
             # Logo rows (timed per-video, text defined globally)
             if rt == "logo":
-                if _core_process_logo_row(
+                _core_process_logo_row(
                     state=unified_state,
                     video_id=video_id,
                     line_num=line_num,
@@ -451,13 +429,12 @@ def convert_csv_to_json(
                     end_tc=end_tc,
                     texts=texts,
                     texts_portrait=texts_portrait,
-                ):
-                    auto_logo_line = unified_state.auto_logo_line
+                )
                 continue
 
             # endFrame rows (timed per-video, optional text like logo)
             if rt == "endframe" or rt == "end_frame":
-                if _core_process_endframe_row(
+                _core_process_endframe_row(
                     state=unified_state,
                     video_id=video_id,
                     line_num=line_num,
@@ -465,8 +442,7 @@ def convert_csv_to_json(
                     end_tc=end_tc,
                     texts=texts,
                     texts_portrait=texts_portrait,
-                ):
-                    auto_endframe_line = unified_state.auto_endframe_line
+                )
                 continue
 
             # Subtitle rows

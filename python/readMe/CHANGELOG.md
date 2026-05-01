@@ -1,3 +1,37 @@
+# 1.12.5 - 2026-05-01
+
+Added:
+-	py 411 Tests:
+	Frozen build + executable smoke test (item 1)
+	Source vs frozen version-precedence regression tests
+-	py 412 json_converter Fix: Ruff Errors
+
+Refactor completition review:
+-	Concise Schema Of New json_converter.py
+	1. Module role:
+		Thin compatibility entrypoint and runtime dispatcher only.
+	2. Import boundary:
+		Uses dual import path strategy for package and frozen contexts:
+		python.core.* first
+		fallback to core.*
+	3. Compatibility surface re-exported from core engine:
+		convert_csv_to_json
+		parse_timecode
+		safe_int
+		detect_columns
+		_sniff_delimiter
+		_read_table
+		_normalize_header_map
+		_resolve_column
+	4. Runtime dependency bootstrap:
+		Loads optional tool functions once at module load:
+		media loaders
+		layer config converter
+	5. Execution path:
+		main forwards args and tool handles into core runner:
+		json_converter.py:44 -> cli_runner.py:267
+
+
 # 1.12.4 - 2026-05-01
 
 Added:

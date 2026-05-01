@@ -124,7 +124,9 @@ class InstallerFrozenSmokeTests(unittest.TestCase):
                     f"stderr:\n{run_result.stderr}"
                 ),
             )
-            self.assertTrue(output_path.exists(), "Frozen run did not write output JSON")
+            self.assertTrue(
+                output_path.exists(), "Frozen run did not write output JSON"
+            )
 
             with output_path.open("r", encoding="utf-8") as f:
                 payload = json.load(f)

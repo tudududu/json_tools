@@ -45,6 +45,19 @@ media_read_csv, media_group_by_country_language, media_convert_rows = (
 )
 layercfg_convert_workbook = _core_load_layer_config_converter(__file__)
 
+# Public compatibility surface retained for legacy imports.
+__all__ = [
+    "main",
+    "convert_csv_to_json",
+    "parse_timecode",
+    "safe_int",
+    "detect_columns",
+    "_sniff_delimiter",
+    "_read_table",
+    "_normalize_header_map",
+    "_resolve_column",
+]
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     return _core_run_cli(
