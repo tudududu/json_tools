@@ -48,6 +48,7 @@ detect_columns = _core_detect_columns
 _sniff_delimiter = _core_sniff_delimiter
 _read_table = _core_read_table
 
+
 def convert_csv_to_json(
     input_csv: str,
     fps: Optional[float] = None,
@@ -654,5 +655,3 @@ def convert_csv_to_json(
         skip_empty_text=skip_empty_text,
         text_col=text_col,
     )
-
-

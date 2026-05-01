@@ -3,8 +3,10 @@ import re
 import json
 import tempfile
 import unittest
+from unittest import mock
 
 from python import json_converter as mod
+from python.core import cli_runner
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYTHON_DIR = os.path.abspath(os.path.join(HERE, ".."))
@@ -62,6 +64,59 @@ class VersionFromChangelogTests(unittest.TestCase):
                 self.assertIsInstance(mg, dict)
                 self.assertIn("converterVersion", mg)
                 self.assertEqual(mg["converterVersion"], expected_version)
+        finally:
+            os.remove(path)
+
+    def test_source_auto_version_prefers_changelog_over_env(self):
+        expected_version = read_expected_version()
+        stale_env_version = "1.12.2"
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;;Hello;\n"
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_path = os.path.join(td, "out_source_env.json")
+                with mock.patch.dict(
+                    os.environ, {"CONVERTER_VERSION": stale_env_version}, clear=False
+                ):
+                    rc = mod.main([path, out_path])
+                self.assertEqual(rc, 0)
+                with open(out_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                mg = data.get("metadataGlobal") or data.get("metadata") or {}
+                self.assertIsInstance(mg, dict)
+                self.assertEqual(mg.get("converterVersion"), expected_version)
+                self.assertNotEqual(mg.get("converterVersion"), stale_env_version)
+        finally:
+            os.remove(path)
+
+    def test_frozen_auto_version_prefers_env_over_changelog(self):
+        frozen_env_version = "9.9.9-frozen"
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL;FRA;GBL;FRA\n"
+            "meta_global;;;;;briefVersion;Y;ALL;53;;;;\n"
+            "meta_global;;;;;fps;Y;ALL;25;;;;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;;Hello;\n"
+        )
+        path = tmp_csv(csv_content)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_path = os.path.join(td, "out_frozen_env.json")
+                with mock.patch.dict(
+                    os.environ, {"CONVERTER_VERSION": frozen_env_version}, clear=False
+                ):
+                    with mock.patch.object(cli_runner.sys, "frozen", True, create=True):
+                        rc = mod.main([path, out_path])
+                self.assertEqual(rc, 0)
+                with open(out_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                mg = data.get("metadataGlobal") or data.get("metadata") or {}
+                self.assertIsInstance(mg, dict)
+                self.assertEqual(mg.get("converterVersion"), frozen_env_version)
         finally:
             os.remove(path)
 
