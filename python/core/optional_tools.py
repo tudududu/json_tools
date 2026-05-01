@@ -22,7 +22,11 @@ def resolve_tools_path(module_name: str, script_file_path: str) -> str:
 
 def load_media_tools(
     script_file_path: str,
-) -> Tuple[Optional[Callable[..., Any]], Optional[Callable[..., Any]], Optional[Callable[..., Any]]]:
+) -> Tuple[
+    Optional[Callable[..., Any]],
+    Optional[Callable[..., Any]],
+    Optional[Callable[..., Any]],
+]:
     try:
         from python.tools.media_converter import (
             read_csv,

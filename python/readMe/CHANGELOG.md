@@ -1,3 +1,14 @@
+# 1.12.2 - 2026-05-01
+
+Added:
+- Refactor review record for Phase 6 (Thin Entrypoint Finalization).
+
+Review summary:
+1. Partially complete: CLI entrypoint is thin and delegated (`main()` calls core runner), but conversion orchestration still lives in `python/json_converter.py` (`convert_csv_to_json(...)`), so the Phase 6 goal "entrypoint orchestration only" is not fully met yet.
+2. Completed: Phase 6 documentation touchpoints are present in Python README, installer README, and test runner notes.
+3. Verification: full pytest passed (249 passed, 0 failed).
+
+
 # 1.12.1 - 2026-05-01
 
 Added:

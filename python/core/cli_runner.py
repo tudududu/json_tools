@@ -313,7 +313,9 @@ def run_cli(
         if env_val and env_val.strip():
             return env_val.strip()
         try:
-            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(script_file_path)))
+            repo_root = os.path.dirname(
+                os.path.dirname(os.path.abspath(script_file_path))
+            )
             py_dir = os.path.dirname(os.path.abspath(script_file_path))
             changelog_candidates = [
                 os.path.join(repo_root, "CHANGELOG.md"),
@@ -593,6 +595,7 @@ def run_cli(
                 if val is not None and not isinstance(val, list):
                     errs.append(f"{nm} must be a list in --no-orientation mode")
         else:
+
             def _validate_orientation_array(name: str, val: Any):
                 if val is None:
                     return
@@ -859,9 +862,7 @@ def run_cli(
                     )
             print("Check mode output targets:")
             if args.split_by_country:
-                pattern = ensure_country_placeholder(
-                    args.output_pattern or args.output
-                )
+                pattern = ensure_country_placeholder(args.output_pattern or args.output)
                 variant_counts: Dict[str, int] = (
                     data.get("_countryVariantCount", {})
                     if isinstance(data, dict)
@@ -962,9 +963,7 @@ def run_cli(
             _print_conversion_summary(0, len(all_errors))
             return exit_code
         if args.split_by_country:
-            pattern = ensure_country_placeholder(
-                args.output_pattern or args.output
-            )
+            pattern = ensure_country_placeholder(args.output_pattern or args.output)
             variant_counts: Dict[str, int] = (
                 data.get("_countryVariantCount", {}) if isinstance(data, dict) else {}
             )
