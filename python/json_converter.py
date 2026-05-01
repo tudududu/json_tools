@@ -32,60 +32,116 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from python.core.columns import (
-    _normalize_header_map as _core_normalize_header_map,
-    _resolve_column as _core_resolve_column,
-    detect_columns as _core_detect_columns,
-)
-from python.core.generation_metadata import (
-    inject_generation_metadata as _core_inject_generation_metadata,
-)
-from python.core.integration_injections import (
-    inject_layer_config_payload as _core_inject_layer_config_payload,
-    inject_media_mapping as _core_inject_media_mapping,
-)
-from python.core.output_paths import (
-    ensure_country_placeholder as _core_ensure_country_placeholder,
-    resolve_country_output_path as _core_resolve_country_output_path,
-    resolve_single_country_output_path as _core_resolve_single_country_output_path,
-    trim_logo_anim_flag_for_country as _core_trim_logo_anim_flag_for_country,
-)
-from python.core.table_reader import (
-    _read_table as _core_read_table,
-    _sniff_delimiter as _core_sniff_delimiter,
-)
-from python.core.validation_reports import (
-    write_validation_report as _core_write_validation_report,
-)
-from python.core.sectioned_mode import (
-    convert_sectioned_mode as _core_convert_sectioned_mode,
-)
-from python.core.simple_mode import convert_simple_mode as _core_convert_simple_mode
-from python.core.timecode import (
-    parse_timecode as _core_parse_timecode,
-    safe_int as _core_safe_int,
-)
-from python.core.unified_processors import (
-    UnifiedState,
-    build_unified_multi_country_output as _core_build_unified_multi_country_output,
-    collect_country_texts as _core_collect_country_texts,
-    join_claim_rows_by_timing as _core_join_claim_rows_by_timing,
-    join_claim_rows_by_timing_per_video as _core_join_claim_rows_by_timing_per_video,
-    merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
-    merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
-    normalize_controller_record as _core_normalize_controller_record,
-    process_claim_row as _core_process_claim_row,
-    process_controller_row as _core_process_controller_row,
-    process_disclaimer_row as _core_process_disclaimer_row,
-    process_endframe_row as _core_process_endframe_row,
-    process_meta_global_row as _core_process_meta_global_row,
-    process_meta_local_row as _core_process_meta_local_row,
-    process_logo_row as _core_process_logo_row,
-    process_sub_row as _core_process_sub_row,
-    process_super_a_row as _core_process_super_a_row,
-    process_super_b_row as _core_process_super_b_row,
-    propagate_all_scope_texts as _core_propagate_all_scope_texts,
-)
+try:
+    from python.core.columns import (
+        _normalize_header_map as _core_normalize_header_map,
+        _resolve_column as _core_resolve_column,
+        detect_columns as _core_detect_columns,
+    )
+    from python.core.generation_metadata import (
+        inject_generation_metadata as _core_inject_generation_metadata,
+    )
+    from python.core.integration_injections import (
+        inject_layer_config_payload as _core_inject_layer_config_payload,
+        inject_media_mapping as _core_inject_media_mapping,
+    )
+    from python.core.output_paths import (
+        ensure_country_placeholder as _core_ensure_country_placeholder,
+        resolve_country_output_path as _core_resolve_country_output_path,
+        resolve_single_country_output_path as _core_resolve_single_country_output_path,
+        trim_logo_anim_flag_for_country as _core_trim_logo_anim_flag_for_country,
+    )
+    from python.core.table_reader import (
+        _read_table as _core_read_table,
+        _sniff_delimiter as _core_sniff_delimiter,
+    )
+    from python.core.validation_reports import (
+        write_validation_report as _core_write_validation_report,
+    )
+    from python.core.sectioned_mode import (
+        convert_sectioned_mode as _core_convert_sectioned_mode,
+    )
+    from python.core.simple_mode import convert_simple_mode as _core_convert_simple_mode
+    from python.core.timecode import (
+        parse_timecode as _core_parse_timecode,
+        safe_int as _core_safe_int,
+    )
+    from python.core.unified_processors import (
+        UnifiedState,
+        build_unified_multi_country_output as _core_build_unified_multi_country_output,
+        collect_country_texts as _core_collect_country_texts,
+        join_claim_rows_by_timing as _core_join_claim_rows_by_timing,
+        join_claim_rows_by_timing_per_video as _core_join_claim_rows_by_timing_per_video,
+        merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
+        merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
+        normalize_controller_record as _core_normalize_controller_record,
+        process_claim_row as _core_process_claim_row,
+        process_controller_row as _core_process_controller_row,
+        process_disclaimer_row as _core_process_disclaimer_row,
+        process_endframe_row as _core_process_endframe_row,
+        process_meta_global_row as _core_process_meta_global_row,
+        process_meta_local_row as _core_process_meta_local_row,
+        process_logo_row as _core_process_logo_row,
+        process_sub_row as _core_process_sub_row,
+        process_super_a_row as _core_process_super_a_row,
+        process_super_b_row as _core_process_super_b_row,
+        propagate_all_scope_texts as _core_propagate_all_scope_texts,
+    )
+except ModuleNotFoundError:
+    from core.columns import (
+        _normalize_header_map as _core_normalize_header_map,
+        _resolve_column as _core_resolve_column,
+        detect_columns as _core_detect_columns,
+    )
+    from core.generation_metadata import (
+        inject_generation_metadata as _core_inject_generation_metadata,
+    )
+    from core.integration_injections import (
+        inject_layer_config_payload as _core_inject_layer_config_payload,
+        inject_media_mapping as _core_inject_media_mapping,
+    )
+    from core.output_paths import (
+        ensure_country_placeholder as _core_ensure_country_placeholder,
+        resolve_country_output_path as _core_resolve_country_output_path,
+        resolve_single_country_output_path as _core_resolve_single_country_output_path,
+        trim_logo_anim_flag_for_country as _core_trim_logo_anim_flag_for_country,
+    )
+    from core.table_reader import (
+        _read_table as _core_read_table,
+        _sniff_delimiter as _core_sniff_delimiter,
+    )
+    from core.validation_reports import (
+        write_validation_report as _core_write_validation_report,
+    )
+    from core.sectioned_mode import (
+        convert_sectioned_mode as _core_convert_sectioned_mode,
+    )
+    from core.simple_mode import convert_simple_mode as _core_convert_simple_mode
+    from core.timecode import (
+        parse_timecode as _core_parse_timecode,
+        safe_int as _core_safe_int,
+    )
+    from core.unified_processors import (
+        UnifiedState,
+        build_unified_multi_country_output as _core_build_unified_multi_country_output,
+        collect_country_texts as _core_collect_country_texts,
+        join_claim_rows_by_timing as _core_join_claim_rows_by_timing,
+        join_claim_rows_by_timing_per_video as _core_join_claim_rows_by_timing_per_video,
+        merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
+        merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
+        normalize_controller_record as _core_normalize_controller_record,
+        process_claim_row as _core_process_claim_row,
+        process_controller_row as _core_process_controller_row,
+        process_disclaimer_row as _core_process_disclaimer_row,
+        process_endframe_row as _core_process_endframe_row,
+        process_meta_global_row as _core_process_meta_global_row,
+        process_meta_local_row as _core_process_meta_local_row,
+        process_logo_row as _core_process_logo_row,
+        process_sub_row as _core_process_sub_row,
+        process_super_a_row as _core_process_super_a_row,
+        process_super_b_row as _core_process_super_b_row,
+        propagate_all_scope_texts as _core_propagate_all_scope_texts,
+    )
 
 
 def _resolve_tools_path(module_name: str) -> str:

@@ -106,6 +106,7 @@ def build_pyinstaller_args(
     spec_dir: Path,
     media_tool: Path,
     config_tool: Path,
+    core_package_dir: Optional[Path] = None,
     runtime_hook: Optional[Path] = None,
 ) -> list[str]:
     args = [
@@ -123,7 +124,20 @@ def build_pyinstaller_args(
         "--hidden-import=openpyxl",
         "--hidden-import=python.tools.media_converter",
         "--hidden-import=python.tools.config_converter",
+        "--hidden-import=python.core",
+        "--hidden-import=python.core.columns",
+        "--hidden-import=python.core.generation_metadata",
+        "--hidden-import=python.core.integration_injections",
+        "--hidden-import=python.core.output_paths",
+        "--hidden-import=python.core.sectioned_mode",
+        "--hidden-import=python.core.simple_mode",
+        "--hidden-import=python.core.table_reader",
+        "--hidden-import=python.core.timecode",
+        "--hidden-import=python.core.unified_processors",
+        "--hidden-import=python.core.validation_reports",
     ]
+    if core_package_dir is not None:
+        args.append(f"--add-data={core_package_dir}:core")
     if runtime_hook is not None:
         args.append(f"--runtime-hook={runtime_hook}")
     return args
@@ -155,6 +169,7 @@ def main() -> int:
     work_dir = build_root / "work"
     spec_dir = build_root / "spec"
     tools_dir = python_dir / "tools"
+    core_package_dir = python_dir / "core"
     media_tool = tools_dir / "media_converter.py"
     config_tool = tools_dir / "config_converter.py"
     runtime_hook_template = installer_dir / "runtime_hook_converter_version.py"
@@ -187,6 +202,7 @@ def main() -> int:
             spec_dir=spec_dir,
             media_tool=media_tool,
             config_tool=config_tool,
+            core_package_dir=core_package_dir,
             runtime_hook=runtime_hook_rendered,
         )
     )

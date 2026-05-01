@@ -1,3 +1,13 @@
+# 1.12.1 - 2026-05-01
+
+Added:
+- Implemented a packaging fix that resolves the frozen startup crash (ModuleNotFoundError for python.core/core) and verified the executable now starts correctly.
+
+	1. Added bundling of the core package files into the PyInstaller build args in build_json_converter.py:95.
+	2. Wired the core directory from main into the builder call in build_json_converter.py:165.
+	3. Kept python.core hidden imports and removed noisy non-resolvable core.* hidden imports in build_json_converter.py:123.
+
+
 # 1.12.0 - 2026-05-01
 
 Added:
