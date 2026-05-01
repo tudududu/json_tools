@@ -1,7 +1,7 @@
 import re
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 _CONTROLLER_RECORD_RE = re.compile(r"^controller_(\d+)$", re.I)
@@ -844,6 +844,392 @@ def _maybe_cast_metadata_value(value: Any, cast_metadata: bool) -> Any:
             except Exception:
                 return value
     return value
+
+
+def populate_video_level_fields(
+    *,
+    country_code: str,
+    videos_list: List[Dict[str, Any]],
+    claims_rows: List[Dict[str, Any]],
+    per_video_claim_rows: Dict[str, List[Dict[str, Any]]],
+    claim_landscape: List[str],
+    claim_portrait: List[str],
+    disclaimers_rows_merged: List[Dict[str, Any]],
+    per_video_disc_rows_raw: Dict[str, List[Dict[str, Any]]],
+    merge_disclaimer: bool,
+    disclaimers_02_rows_merged: List[Dict[str, Any]],
+    per_video_disc_02_rows_raw: Dict[str, List[Dict[str, Any]]],
+    merge_disclaimer_02: bool,
+    logo_rows_raw: List[Dict[str, Any]],
+    per_video_logo_rows_raw: Dict[str, List[Dict[str, Any]]],
+    endframe_rows_raw: List[Dict[str, Any]],
+    per_video_endframe_rows_raw: Dict[str, List[Dict[str, Any]]],
+    controller_keys_sorted: List[str],
+    controller_rows_raw: Dict[str, List[Dict[str, Any]]],
+    per_video_controller_rows_raw: Dict[str, Dict[str, List[Dict[str, Any]]]],
+    controller_top_land: Dict[str, List[str]],
+    controller_top_port: Dict[str, List[str]],
+    prefer_local_claim_disclaimer: bool,
+    test_mode: bool,
+    claims_as_objects: bool,
+    controller_always_emit: bool,
+    fmt_time: Callable[[float], Any],
+) -> None:
+    def timing_key(r: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+        return (r.get("start"), r.get("end"))
+
+    global_claim_map_land = {
+        timing_key(r): (r["texts"].get(country_code, "") or "").strip()
+        for r in claims_rows
+    }
+    global_claim_map_port = {
+        timing_key(r): (
+            r.get("texts_portrait", {}).get(country_code, "") or ""
+        ).strip()
+        for r in claims_rows
+    }
+    global_controller_map_land: Dict[
+        str, Dict[Tuple[Optional[float], Optional[float]], str]
+    ] = {}
+    global_controller_map_port: Dict[
+        str, Dict[Tuple[Optional[float], Optional[float]], str]
+    ] = {}
+    for gk in controller_keys_sorted:
+        global_controller_map_land[gk] = {
+            timing_key(r): (r.get("texts", {}).get(country_code, "") or "").strip()
+            for r in controller_rows_raw.get(gk, [])
+        }
+        global_controller_map_port[gk] = {
+            timing_key(r): (
+                r.get("texts_portrait", {}).get(country_code, "") or ""
+            ).strip()
+            for r in controller_rows_raw.get(gk, [])
+        }
+
+    global_disc_land = [
+        (r.get("texts", {}).get(country_code, "") or "").rstrip()
+        for r in disclaimers_rows_merged
+    ]
+    global_disc_port = [
+        (r.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        for r in disclaimers_rows_merged
+    ]
+    global_disc_02_land = [
+        (r.get("texts", {}).get(country_code, "") or "").rstrip()
+        for r in disclaimers_02_rows_merged
+    ]
+    global_disc_02_port = [
+        (r.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        for r in disclaimers_02_rows_merged
+    ]
+    global_logo_land = [
+        (r.get("texts", {}).get(country_code, "") or "").strip()
+        for r in logo_rows_raw
+    ]
+    global_logo_port = [
+        (r.get("texts_portrait", {}).get(country_code, "") or "").strip()
+        for r in logo_rows_raw
+    ]
+    global_endframe_land = [
+        (r.get("texts", {}).get(country_code, "") or "").strip()
+        for r in endframe_rows_raw
+    ]
+    global_endframe_port = [
+        (r.get("texts_portrait", {}).get(country_code, "") or "").strip()
+        for r in endframe_rows_raw
+    ]
+
+    per_video_disc_merged = merge_disclaimer_rows_by_video(
+        per_video_rows_raw=per_video_disc_rows_raw,
+        countries=[country_code],
+        merge_enabled=merge_disclaimer,
+    )
+    per_video_disc_02_merged = merge_disclaimer_rows_by_video(
+        per_video_rows_raw=per_video_disc_02_rows_raw,
+        countries=[country_code],
+        merge_enabled=merge_disclaimer_02,
+    )
+
+    for vobj in videos_list:
+        vid_full = vobj["videoId"]
+        base_video_id = vid_full.rsplit("_", 1)[0]
+        orientation = "portrait" if vid_full.endswith("_portrait") else "landscape"
+        global_claim_map = (
+            global_claim_map_port if orientation == "portrait" else global_claim_map_land
+        )
+        global_disc_texts = (
+            global_disc_port if orientation == "portrait" else global_disc_land
+        )
+        global_disc_02_texts = (
+            global_disc_02_port if orientation == "portrait" else global_disc_02_land
+        )
+        global_logo_texts = (
+            global_logo_port if orientation == "portrait" else global_logo_land
+        )
+
+        src_claims = per_video_claim_rows.get(base_video_id) or claims_rows
+        claim_items: List[Dict[str, Any]] = []
+        claim_texts_global = (
+            claim_portrait if orientation == "portrait" else claim_landscape
+        )
+        for idx, row in enumerate(src_claims):
+            txt_local = (
+                (
+                    row.get("texts_portrait", {})
+                    if orientation == "portrait"
+                    else row.get("texts", {})
+                ).get(country_code, "")
+                or ""
+            ).rstrip()
+            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+                if alt_land_local:
+                    txt_local = alt_land_local
+            txt_global_timing = global_claim_map.get(timing_key(row), "")
+            txt_global_index = (
+                claim_texts_global[idx]
+                if idx < len(claim_texts_global)
+                else (claim_texts_global[0] if claim_texts_global else "")
+            )
+            if txt_local:
+                text_value = txt_local
+            else:
+                text_value = txt_global_timing or txt_global_index or txt_local
+            if test_mode and text_value:
+                text_value = f"{vid_full}_{text_value}"
+            entry: Dict[str, Any] = {"line": row.get("line", idx + 1), "text": text_value}
+            if row.get("start") is not None and row.get("end") is not None:
+                entry["in"] = fmt_time(row["start"])
+                entry["out"] = fmt_time(row["end"])
+            claim_items.append(entry)
+        if len(claim_items) == 1:
+            base = claim_items[0]
+            text2 = (
+                claim_texts_global[1]
+                if len(claim_texts_global) >= 2
+                else (
+                    claim_texts_global[0]
+                    if claim_texts_global
+                    else base.get("text", "")
+                )
+            )
+            if test_mode and text2 and not str(text2).startswith(f"{vid_full}_"):
+                text2 = f"{vid_full}_{text2}"
+            second: Dict[str, Any] = {"line": 2, "text": text2}
+            if "in" in base:
+                second["in"] = base["in"]
+            if "out" in base:
+                second["out"] = base["out"]
+            claim_items.append(second)
+        vobj["claim"] = claim_items
+        if claims_as_objects:
+            for i, item in enumerate(claim_items, start=1):
+                vobj[f"claim_{i:02d}"] = [item]
+            del vobj["claim"]
+
+        src_discs = per_video_disc_merged.get(base_video_id) or disclaimers_rows_merged
+        disc_items: List[Dict[str, Any]] = []
+        for i, row in enumerate(src_discs):
+            if orientation == "portrait":
+                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            else:
+                txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+                if alt_land_local:
+                    txt_local = alt_land_local
+            txt_global = (
+                global_disc_texts[i]
+                if i < len(global_disc_texts)
+                else (global_disc_texts[0] if global_disc_texts else "")
+            )
+            if orientation == "portrait" and not txt_local and not txt_global:
+                if i < len(global_disc_land):
+                    txt_global = global_disc_land[i]
+            text_value = (
+                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+            )
+            if test_mode and text_value:
+                text_value = f"{vid_full}_{text_value}"
+            entry = {"line": row.get("line", i + 1), "text": text_value}
+            if row.get("start") is not None and row.get("end") is not None:
+                entry["in"] = fmt_time(row["start"])
+                entry["out"] = fmt_time(row["end"])
+            else:
+                entry["in"] = None
+                entry["out"] = None
+            disc_items.append(entry)
+        vobj["disclaimer"] = disc_items
+
+        src_discs_02 = per_video_disc_02_merged.get(base_video_id) or disclaimers_02_rows_merged
+        disc_02_items: List[Dict[str, Any]] = []
+        for i, row in enumerate(src_discs_02):
+            if orientation == "portrait":
+                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            else:
+                txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+                if alt_land_local:
+                    txt_local = alt_land_local
+            txt_global = (
+                global_disc_02_texts[i]
+                if i < len(global_disc_02_texts)
+                else (global_disc_02_texts[0] if global_disc_02_texts else "")
+            )
+            if orientation == "portrait" and not txt_local and not txt_global:
+                if i < len(global_disc_02_land):
+                    txt_global = global_disc_02_land[i]
+            text_value = (
+                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+            )
+            if test_mode and text_value:
+                text_value = f"{vid_full}_{text_value}"
+            entry = {"line": row.get("line", i + 1), "text": text_value}
+            if row.get("start") is not None and row.get("end") is not None:
+                entry["in"] = fmt_time(row["start"])
+                entry["out"] = fmt_time(row["end"])
+            else:
+                entry["in"] = None
+                entry["out"] = None
+            disc_02_items.append(entry)
+        vobj["disclaimer_02"] = disc_02_items
+
+        src_logos = per_video_logo_rows_raw.get(base_video_id) or logo_rows_raw
+        logo_items: List[Dict[str, Any]] = []
+        for i, row in enumerate(src_logos):
+            if orientation == "portrait":
+                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            else:
+                txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+                if alt_land_local:
+                    txt_local = alt_land_local
+            txt_global = (
+                global_logo_texts[i]
+                if i < len(global_logo_texts)
+                else (global_logo_texts[0] if global_logo_texts else "")
+            )
+            if orientation == "portrait" and not txt_local and not txt_global:
+                if i < len(global_logo_land):
+                    txt_global = global_logo_land[i]
+            text_value = (
+                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+            )
+            if test_mode and text_value:
+                text_value = f"{vid_full}_{text_value}"
+            entry = {"line": row.get("line", i + 1), "text": text_value}
+            if row.get("start") is not None and row.get("end") is not None:
+                entry["in"] = fmt_time(row["start"])
+                entry["out"] = fmt_time(row["end"])
+            else:
+                entry["in"] = None
+                entry["out"] = None
+            logo_items.append(entry)
+        vobj["logo"] = logo_items
+
+        src_end = per_video_endframe_rows_raw.get(base_video_id) or endframe_rows_raw
+        end_items: List[Dict[str, Any]] = []
+        for i, row in enumerate(src_end):
+            if orientation == "portrait":
+                txt_local = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            else:
+                txt_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+            if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                alt_land_local = (row.get("texts", {}).get(country_code, "") or "").rstrip()
+                if alt_land_local:
+                    txt_local = alt_land_local
+            txt_global = (
+                (
+                    global_endframe_port[i]
+                    if orientation == "portrait"
+                    else global_endframe_land[i]
+                )
+                if i
+                < (
+                    len(global_endframe_port)
+                    if orientation == "portrait"
+                    else len(global_endframe_land)
+                )
+                else (
+                    (
+                        global_endframe_port[0]
+                        if orientation == "portrait"
+                        else global_endframe_land[0]
+                    )
+                    if (
+                        global_endframe_port
+                        if orientation == "portrait"
+                        else global_endframe_land
+                    )
+                    else ""
+                )
+            )
+            if orientation == "portrait" and not txt_local and not txt_global:
+                if i < len(global_endframe_land):
+                    txt_global = global_endframe_land[i]
+            text_value = (
+                txt_local if (prefer_local_claim_disclaimer and txt_local) else txt_global
+            )
+            if test_mode and text_value:
+                text_value = f"{vid_full}_{text_value}"
+            entry = {"line": row.get("line", i + 1), "text": text_value}
+            if row.get("start") is not None and row.get("end") is not None:
+                entry["in"] = fmt_time(row["start"])
+                entry["out"] = fmt_time(row["end"])
+            else:
+                entry["in"] = None
+                entry["out"] = None
+            end_items.append(entry)
+        vobj["endFrame"] = end_items
+
+        for gk in controller_keys_sorted:
+            local_controller = per_video_controller_rows_raw.get(gk, {}).get(base_video_id, [])
+            src_controller = (
+                local_controller or controller_rows_raw.get(gk, [])
+                if controller_always_emit
+                else local_controller
+            )
+            controller_items: List[Dict[str, Any]] = []
+            controller_texts_global = (
+                controller_top_port[gk] if orientation == "portrait" else controller_top_land[gk]
+            )
+            global_controller_map = (
+                global_controller_map_port[gk]
+                if orientation == "portrait"
+                else global_controller_map_land[gk]
+            )
+            for idx, grow in enumerate(src_controller):
+                txt_local = (
+                    (
+                        grow.get("texts_portrait", {})
+                        if orientation == "portrait"
+                        else grow.get("texts", {})
+                    ).get(country_code, "")
+                    or ""
+                ).rstrip()
+                if orientation == "portrait" and prefer_local_claim_disclaimer and not txt_local:
+                    alt_land_local = (grow.get("texts", {}).get(country_code, "") or "").rstrip()
+                    if alt_land_local:
+                        txt_local = alt_land_local
+                txt_global_timing = global_controller_map.get(timing_key(grow), "")
+                txt_global_index = (
+                    controller_texts_global[idx]
+                    if idx < len(controller_texts_global)
+                    else (controller_texts_global[0] if controller_texts_global else "")
+                )
+                text_value = (
+                    txt_local if txt_local else (txt_global_timing or txt_global_index or txt_local)
+                )
+                if test_mode and text_value:
+                    text_value = f"{vid_full}_{text_value}"
+                entry = {"line": grow.get("line", idx + 1), "text": text_value}
+                if grow.get("start") is not None and grow.get("end") is not None:
+                    entry["in"] = fmt_time(grow["start"])
+                    entry["out"] = fmt_time(grow["end"])
+                controller_items.append(entry)
+            vobj[gk] = controller_items
 
 
 def build_country_payload(
