@@ -40,6 +40,10 @@ from python.core.columns import (
 from python.core.generation_metadata import (
     inject_generation_metadata as _core_inject_generation_metadata,
 )
+from python.core.integration_injections import (
+    inject_layer_config_payload as _core_inject_layer_config_payload,
+    inject_media_mapping as _core_inject_media_mapping,
+)
 from python.core.output_paths import (
     ensure_country_placeholder as _core_ensure_country_placeholder,
     resolve_country_output_path as _core_resolve_country_output_path,
@@ -1331,33 +1335,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                     file=sys.stderr,
                 )
 
-    def _inject_media(payload: Dict[str, Any], country_code: str):
-        if not media_groups_map:
-            return
-        mg = payload.get("metadataGlobal") if isinstance(payload, dict) else None
-        if not isinstance(mg, dict):
-            return
-        try:
-            lang = str(mg.get("language") or "").strip()
-        except Exception:
-            lang = ""
-        key = (country_code, lang)
-        media_map = media_groups_map.get(key)
-        if media_map:
-            # Inject into config namespace: config.pack.EXTRA_OUTPUT_COMPS
-            config = payload.setdefault("config", {})
-            if isinstance(config, dict):
-                pack = config.setdefault("pack", {})
-                if isinstance(pack, dict):
-                    pack["EXTRA_OUTPUT_COMPS"] = media_map
-
-    def _inject_layer_config(payload: Dict[str, Any]):
-        if not layer_config_payload:
-            return
-        config = payload.setdefault("config", {})
-        if isinstance(config, dict):
-            config["addLayers"] = copy.deepcopy(layer_config_payload)
-
     # Basic validation helper
     def _validate_structure(obj: Dict[str, Any]) -> Dict[str, List[str]]:
         errs: List[str] = []
@@ -1879,8 +1856,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                         )
                     # Inject media/layer config before writing
                     if isinstance(payload, dict):
-                        _inject_media(payload, c)
-                        _inject_layer_config(payload)
+                        _core_inject_media_mapping(payload, c, media_groups_map)
+                        _core_inject_layer_config_payload(payload, layer_config_payload)
                     if isinstance(payload, dict):
                         _core_trim_logo_anim_flag_for_country(
                             payload=payload,
@@ -1924,8 +1901,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"Writing {out_path_single} (selected country: {csel})")
             # Inject media/layer config for selected country before writing
             if isinstance(payload, dict):
-                _inject_media(payload, csel)
-                _inject_layer_config(payload)
+                _core_inject_media_mapping(payload, csel, media_groups_map)
+                _core_inject_layer_config_payload(payload, layer_config_payload)
             write_json(out_path_single, payload)
             if args.sample:
                 sample_path = derive_sample_path(out_path_single)
@@ -1979,7 +1956,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             _print_conversion_summary(0, len(errors))
             return exit_code
         if isinstance(data, dict):
-            _inject_layer_config(data)
+            _core_inject_layer_config_payload(data, layer_config_payload)
         write_json(args.output, data)
         if args.sample and not args.check:
             sample_path = derive_sample_path(args.output)

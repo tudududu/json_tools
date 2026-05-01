@@ -1,5 +1,9 @@
 from .columns import _normalize_header_map, _resolve_column, detect_columns
 from .generation_metadata import inject_generation_metadata
+from .integration_injections import (
+    inject_layer_config_payload,
+    inject_media_mapping,
+)
 from .output_paths import (
     build_country_token,
     ensure_country_placeholder,
@@ -48,6 +52,8 @@ __all__ = [
     "_resolve_column",
     "detect_columns",
     "inject_generation_metadata",
+    "inject_media_mapping",
+    "inject_layer_config_payload",
     "ensure_country_placeholder",
     "build_country_token",
     "resolve_country_output_path",
