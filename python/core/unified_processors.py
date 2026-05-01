@@ -846,6 +846,215 @@ def _maybe_cast_metadata_value(value: Any, cast_metadata: bool) -> Any:
     return value
 
 
+def build_country_orientation_data(
+    *,
+    country_code: str,
+    claims_rows: List[Dict[str, Any]],
+    disclaimers_rows_merged: List[Dict[str, Any]],
+    disclaimers_02_rows_merged: List[Dict[str, Any]],
+    logo_rows_raw: List[Dict[str, Any]],
+    controller_keys_sorted: List[str],
+    controller_rows_raw: Dict[str, List[Dict[str, Any]]],
+    video_order: List[str],
+    videos: Dict[str, Dict[str, Any]],
+    global_flag_defaults_per_country: Dict[str, Dict[str, str]],
+    global_flag_targeted_per_country: Dict[str, Dict[str, Dict[str, str]]],
+    per_video_meta_local_country: Dict[str, Dict[str, Dict[str, Any]]],
+    skip_empty_text: bool,
+    fmt_time: Callable[[float], Any],
+) -> Dict[str, Any]:
+    claim_landscape: List[str] = []
+    claim_portrait: List[str] = []
+    for row in claims_rows:
+        txt_l = (row["texts"].get(country_code, "") or "").rstrip()
+        txt_p = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        claim_landscape.append(txt_l)
+        claim_portrait.append(txt_p if txt_p else txt_l)
+
+    disc_landscape: List[str] = []
+    disc_portrait: List[str] = []
+    for row in disclaimers_rows_merged:
+        txt_l = (row["texts"].get(country_code, "") or "").rstrip()
+        txt_p = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        disc_landscape.append(txt_l)
+        disc_portrait.append(txt_p if txt_p else txt_l)
+    if not disc_landscape:
+        disc_landscape = [""]
+    if not disc_portrait and disc_landscape:
+        disc_portrait = disc_landscape.copy()
+
+    disc_02_landscape: List[str] = []
+    disc_02_portrait: List[str] = []
+    for row in disclaimers_02_rows_merged:
+        txt_l = (row["texts"].get(country_code, "") or "").rstrip()
+        txt_p = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        disc_02_landscape.append(txt_l)
+        disc_02_portrait.append(txt_p if txt_p else txt_l)
+    if not disc_02_landscape:
+        disc_02_landscape = [""]
+    if not disc_02_portrait and disc_02_landscape:
+        disc_02_portrait = disc_02_landscape.copy()
+
+    logo_landscape: List[str] = []
+    logo_portrait: List[str] = []
+    for row in logo_rows_raw:
+        txt_l = (row["texts"].get(country_code, "") or "").rstrip()
+        txt_p = (row.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+        logo_landscape.append(txt_l)
+        logo_portrait.append(txt_p if txt_p else txt_l)
+    if not logo_portrait and logo_landscape:
+        logo_portrait = logo_landscape.copy()
+
+    controller_top_land: Dict[str, List[str]] = {}
+    controller_top_port: Dict[str, List[str]] = {}
+    for gk in controller_keys_sorted:
+        g_land: List[str] = []
+        g_port: List[str] = []
+        for grow in controller_rows_raw.get(gk, []):
+            txt_l = (grow.get("texts", {}).get(country_code, "") or "").rstrip()
+            txt_p = (grow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            g_land.append(txt_l)
+            g_port.append(txt_p if txt_p else txt_l)
+        controller_top_land[gk] = g_land
+        controller_top_port[gk] = g_port
+
+    videos_list: List[Dict[str, Any]] = []
+    for vid in video_order:
+        vdata = videos[vid]
+        subs_land: List[Dict[str, Any]] = []
+        subs_port: List[Dict[str, Any]] = []
+        for srow in vdata.get("sub_rows", []):
+            txt_l = (srow["texts"].get(country_code, "") or "").rstrip()
+            txt_p = (srow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            if skip_empty_text and not txt_l:
+                continue
+            if srow["start"] is None or srow["end"] is None:
+                continue
+            subs_land.append(
+                {
+                    "line": srow["line"],
+                    "in": fmt_time(srow["start"]),
+                    "out": fmt_time(srow["end"]),
+                    "text": txt_l,
+                }
+            )
+            txt_port_final = txt_p if txt_p else txt_l
+            subs_port.append(
+                {
+                    "line": srow["line"],
+                    "in": fmt_time(srow["start"]),
+                    "out": fmt_time(srow["end"]),
+                    "text": txt_port_final,
+                }
+            )
+
+        super_a_land: List[Dict[str, Any]] = []
+        super_a_port: List[Dict[str, Any]] = []
+        super_b_land: List[Dict[str, Any]] = []
+        super_b_port: List[Dict[str, Any]] = []
+        for sarow in vdata.get("super_a_rows", []):
+            txt_l = (sarow["texts"].get(country_code, "") or "").rstrip()
+            txt_p = (sarow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            if skip_empty_text and not txt_l:
+                continue
+            if sarow["start"] is None or sarow["end"] is None:
+                continue
+            super_a_land.append(
+                {
+                    "line": sarow["line"],
+                    "in": fmt_time(sarow["start"]),
+                    "out": fmt_time(sarow["end"]),
+                    "text": txt_l,
+                }
+            )
+            txt_port_final = txt_p if txt_p else txt_l
+            super_a_port.append(
+                {
+                    "line": sarow["line"],
+                    "in": fmt_time(sarow["start"]),
+                    "out": fmt_time(sarow["end"]),
+                    "text": txt_port_final,
+                }
+            )
+
+        for sbrow in vdata.get("super_b_rows", []):
+            txt_l = (sbrow["texts"].get(country_code, "") or "").rstrip()
+            txt_p = (sbrow.get("texts_portrait", {}).get(country_code, "") or "").rstrip()
+            if skip_empty_text and not txt_l and not txt_p:
+                continue
+            if sbrow["start"] is None or sbrow["end"] is None:
+                continue
+            super_b_land.append(
+                {
+                    "line": sbrow["line"],
+                    "in": fmt_time(sbrow["start"]),
+                    "out": fmt_time(sbrow["end"]),
+                    "text": txt_l,
+                }
+            )
+            txt_port_final_b = txt_p if txt_p else txt_l
+            super_b_port.append(
+                {
+                    "line": sbrow["line"],
+                    "in": fmt_time(sbrow["start"]),
+                    "out": fmt_time(sbrow["end"]),
+                    "text": txt_port_final_b,
+                }
+            )
+
+        base_meta = vdata.get("metadata", {}).copy()
+        dur_key = normalize_duration_token(str(base_meta.get("duration", "")))
+        defaults_for_country = global_flag_defaults_per_country.get(country_code, {})
+        for mk, mv in defaults_for_country.items():
+            if mk not in base_meta:
+                base_meta.setdefault(mk, mv)
+        if dur_key:
+            targeted_for_country = global_flag_targeted_per_country.get(country_code, {})
+            for mk, duration_map in targeted_for_country.items():
+                if dur_key in duration_map:
+                    base_meta[mk] = duration_map[dur_key]
+        if vid in per_video_meta_local_country and country_code in per_video_meta_local_country[vid]:
+            for mk, mv in per_video_meta_local_country[vid][country_code].items():
+                base_meta[mk] = mv
+
+        land_meta = base_meta.copy()
+        land_meta["orientation"] = "landscape"
+        port_meta = base_meta.copy()
+        port_meta["orientation"] = "portrait"
+        videos_list.append(
+            {
+                "videoId": f"{vid}_landscape",
+                "metadata": land_meta,
+                "subtitles": subs_land,
+                "super_A": super_a_land,
+                "super_B": super_b_land,
+            }
+        )
+        videos_list.append(
+            {
+                "videoId": f"{vid}_portrait",
+                "metadata": port_meta,
+                "subtitles": subs_port,
+                "super_A": super_a_port,
+                "super_B": super_b_port,
+            }
+        )
+
+    return {
+        "claim_landscape": claim_landscape,
+        "claim_portrait": claim_portrait,
+        "disc_landscape": disc_landscape,
+        "disc_portrait": disc_portrait,
+        "disc_02_landscape": disc_02_landscape,
+        "disc_02_portrait": disc_02_portrait,
+        "logo_landscape": logo_landscape,
+        "logo_portrait": logo_portrait,
+        "controller_top_land": controller_top_land,
+        "controller_top_port": controller_top_port,
+        "videos_list": videos_list,
+    }
+
+
 def populate_video_level_fields(
     *,
     country_code: str,

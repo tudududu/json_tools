@@ -52,12 +52,12 @@ from python.core.timecode import (
 )
 from python.core.unified_processors import (
     UnifiedState,
+    build_country_orientation_data as _core_build_country_orientation_data,
     build_country_payload as _core_build_country_payload,
     collect_country_texts as _core_collect_country_texts,
     merge_and_dedup_video_rows as _core_merge_and_dedup_video_rows,
     merge_disclaimer_blocks as _core_merge_disclaimer_blocks,
     normalize_controller_record as _core_normalize_controller_record,
-    normalize_duration_token as _core_normalize_duration_token,
     populate_video_level_fields as _core_populate_video_level_fields,
     process_claim_row as _core_process_claim_row,
     process_controller_row as _core_process_controller_row,
@@ -782,202 +782,33 @@ def convert_csv_to_json(
             key=_controller_sort_key,
         )
         for c in countries:
-            # Build orientation-specific top-level arrays
-            claim_landscape: List[str] = []
-            claim_portrait: List[str] = []
-            for row in claims_rows:
-                txt_l = (row["texts"].get(c, "") or "").rstrip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                # Keep claim line alignment by falling back portrait per row index.
-                # Preserve all explicitly defined claim rows (including empty/empty rows)
-                # so index-based fallback remains aligned for per-video claims.
-                claim_landscape.append(txt_l)
-                claim_portrait.append(txt_p if txt_p else txt_l)
-
-            disc_landscape: List[str] = []
-            disc_portrait: List[str] = []
-            for row in disclaimers_rows_merged:
-                txt_l = (row["texts"].get(c, "") or "").rstrip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                disc_landscape.append(txt_l)
-                disc_portrait.append(txt_p if txt_p else txt_l)
-            if not disc_landscape:
-                disc_landscape = [""]
-            if not disc_portrait and disc_landscape:
-                disc_portrait = disc_landscape.copy()
-
-            disc_02_landscape: List[str] = []
-            disc_02_portrait: List[str] = []
-            for row in disclaimers_02_rows_merged:
-                txt_l = (row["texts"].get(c, "") or "").rstrip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                disc_02_landscape.append(txt_l)
-                disc_02_portrait.append(txt_p if txt_p else txt_l)
-            if not disc_02_landscape:
-                disc_02_landscape = [""]
-            if not disc_02_portrait and disc_02_landscape:
-                disc_02_portrait = disc_02_landscape.copy()
-
-            logo_landscape: List[str] = []
-            logo_portrait: List[str] = []
-            for row in logo_rows_raw:
-                txt_l = (row["texts"].get(c, "") or "").rstrip()
-                txt_p = (row.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                logo_landscape.append(txt_l)
-                logo_portrait.append(txt_p if txt_p else txt_l)
-            if not logo_portrait and logo_landscape:
-                logo_portrait = logo_landscape.copy()
-
-            # Controller top-level orientation arrays (line-aligned, portrait fallback per row)
-            controller_top_land: Dict[str, List[str]] = {}
-            controller_top_port: Dict[str, List[str]] = {}
-            for gk in controller_keys_sorted:
-                g_land: List[str] = []
-                g_port: List[str] = []
-                for grow in controller_rows_raw.get(gk, []):
-                    txt_l = (grow.get("texts", {}).get(c, "") or "").rstrip()
-                    txt_p = (grow.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                    g_land.append(txt_l)
-                    g_port.append(txt_p if txt_p else txt_l)
-                controller_top_land[gk] = g_land
-                controller_top_port[gk] = g_port
-
-            # Videos (create landscape + portrait objects always, mirroring when portrait empty)
-            videos_list: List[Dict[str, Any]] = []
-            for vid in video_order:
-                vdata = videos[vid]
-                subs_land: List[Dict[str, Any]] = []
-                subs_port: List[Dict[str, Any]] = []
-                for srow in vdata.get("sub_rows", []):
-                    txt_l = (srow["texts"].get(c, "") or "").rstrip()
-                    txt_p = (srow.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                    # Skip subtitle if landscape text empty and skipping empties
-                    if skip_empty_text and not txt_l:
-                        continue
-                    if srow["start"] is None or srow["end"] is None:
-                        continue
-                    subs_land.append(
-                        {
-                            "line": srow["line"],
-                            "in": fmt_time(srow["start"]),
-                            "out": fmt_time(srow["end"]),
-                            "text": txt_l,
-                        }
-                    )
-                    # Portrait: use portrait text if provided else mirror landscape
-                    txt_port_final = txt_p if txt_p else txt_l
-                    subs_port.append(
-                        {
-                            "line": srow["line"],
-                            "in": fmt_time(srow["start"]),
-                            "out": fmt_time(srow["end"]),
-                            "text": txt_port_final,
-                        }
-                    )
-                # Super_A processing (follows subtitle pattern exactly)
-                super_a_land: List[Dict[str, Any]] = []
-                super_a_port: List[Dict[str, Any]] = []
-                super_b_land: List[
-                    Dict[str, Any]
-                ] = []  # ensure defined even if no rows
-                super_b_port: List[Dict[str, Any]] = []
-
-                for sarow in vdata.get("super_a_rows", []):
-                    txt_l = (sarow["texts"].get(c, "") or "").rstrip()
-                    txt_p = (sarow.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                    # Skip super_A if landscape text empty and skipping empties
-                    if skip_empty_text and not txt_l:
-                        continue
-                    if sarow["start"] is None or sarow["end"] is None:
-                        continue
-                    super_a_land.append(
-                        {
-                            "line": sarow["line"],
-                            "in": fmt_time(sarow["start"]),
-                            "out": fmt_time(sarow["end"]),
-                            "text": txt_l,
-                        }
-                    )
-                    # Portrait: use portrait text if provided else mirror landscape
-                    txt_port_final = txt_p if txt_p else txt_l
-                    super_a_port.append(
-                        {
-                            "line": sarow["line"],
-                            "in": fmt_time(sarow["start"]),
-                            "out": fmt_time(sarow["end"]),
-                            "text": txt_port_final,
-                        }
-                    )
-                # Super_B processing (mirrors super_A)
-                for sbrow in vdata.get("super_b_rows", []):
-                    txt_l = (sbrow["texts"].get(c, "") or "").rstrip()
-                    txt_p = (sbrow.get("texts_portrait", {}).get(c, "") or "").rstrip()
-                    # Keep row if either orientation has text; skip only if both empty when skipping empties
-                    if skip_empty_text and not txt_l and not txt_p:
-                        continue
-                    if sbrow["start"] is None or sbrow["end"] is None:
-                        continue
-                    super_b_land.append(
-                        {
-                            "line": sbrow["line"],
-                            "in": fmt_time(sbrow["start"]),
-                            "out": fmt_time(sbrow["end"]),
-                            "text": txt_l,
-                        }
-                    )
-                    txt_port_final_b = txt_p if txt_p else txt_l
-                    super_b_port.append(
-                        {
-                            "line": sbrow["line"],
-                            "in": fmt_time(sbrow["start"]),
-                            "out": fmt_time(sbrow["end"]),
-                            "text": txt_port_final_b,
-                        }
-                    )
-                base_meta = vdata.get("metadata", {}).copy()
-                # Inject global *_flag defaults and duration-targeted values.
-                # Precedence so far: targeted meta_global > untargeted meta_global.
-                dur_key = _core_normalize_duration_token(
-                    str(base_meta.get("duration", ""))
-                )
-                defaults_for_country = global_flag_defaults_per_country.get(c, {})
-                for mk, mv in defaults_for_country.items():
-                    if mk not in base_meta:
-                        base_meta.setdefault(mk, mv)
-                if dur_key:
-                    targeted_for_country = global_flag_targeted_per_country.get(c, {})
-                    for mk, duration_map in targeted_for_country.items():
-                        if dur_key in duration_map:
-                            base_meta[mk] = duration_map[dur_key]
-                # Then apply per-video overrides (which may overwrite the global defaults if provided)
-                if (
-                    vid in per_video_meta_local_country
-                    and c in per_video_meta_local_country[vid]
-                ):
-                    for mk, mv in per_video_meta_local_country[vid][c].items():
-                        base_meta[mk] = mv
-                land_meta = base_meta.copy()
-                land_meta["orientation"] = "landscape"
-                port_meta = base_meta.copy()
-                port_meta["orientation"] = "portrait"
-                videos_list.append(
-                    {
-                        "videoId": f"{vid}_landscape",
-                        "metadata": land_meta,
-                        "subtitles": subs_land,
-                        "super_A": super_a_land,
-                        "super_B": super_b_land,
-                    }
-                )
-                videos_list.append(
-                    {
-                        "videoId": f"{vid}_portrait",
-                        "metadata": port_meta,
-                        "subtitles": subs_port,
-                        "super_A": super_a_port,
-                        "super_B": super_b_port,
-                    }
-                )
+            country_data = _core_build_country_orientation_data(
+                country_code=c,
+                claims_rows=claims_rows,
+                disclaimers_rows_merged=disclaimers_rows_merged,
+                disclaimers_02_rows_merged=disclaimers_02_rows_merged,
+                logo_rows_raw=logo_rows_raw,
+                controller_keys_sorted=controller_keys_sorted,
+                controller_rows_raw=controller_rows_raw,
+                video_order=video_order,
+                videos=videos,
+                global_flag_defaults_per_country=global_flag_defaults_per_country,
+                global_flag_targeted_per_country=global_flag_targeted_per_country,
+                per_video_meta_local_country=per_video_meta_local_country,
+                skip_empty_text=skip_empty_text,
+                fmt_time=fmt_time,
+            )
+            claim_landscape = country_data["claim_landscape"]
+            claim_portrait = country_data["claim_portrait"]
+            disc_landscape = country_data["disc_landscape"]
+            disc_portrait = country_data["disc_portrait"]
+            disc_02_landscape = country_data["disc_02_landscape"]
+            disc_02_portrait = country_data["disc_02_portrait"]
+            logo_landscape = country_data["logo_landscape"]
+            logo_portrait = country_data["logo_portrait"]
+            controller_top_land = country_data["controller_top_land"]
+            controller_top_port = country_data["controller_top_port"]
+            videos_list = country_data["videos_list"]
 
             _core_populate_video_level_fields(
                 country_code=c,
