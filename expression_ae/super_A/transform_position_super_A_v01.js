@@ -1,3 +1,4 @@
+// transform_position_super_A_v01
 // TARGET ► Position — vertical centering for oneline and multiline TEXT
 var holder = thisComp.layer("Size_Holder_super_A");
 var group  = holder.content("PLACEHOLDER");
@@ -24,7 +25,6 @@ var ax  = Math.max(-1, Math.min(1, ctrl("Align X", 0))); // -1..1
 var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1
 // Automatic vertical centering for multiline TEXT (2D point text only).
 // Simplified: 1 line = baseline align; >=2 lines = compute baseline offset so block visually centers in holder.
-// (Prev sliders removed for clarity; remove any old "V Align" / "Center Mode" controls if not needed.)
 
 halfW = Math.max(0, halfW - pad);
 halfH = Math.max(0, halfH - pad);
