@@ -7,16 +7,19 @@ inline registry assignments in script/ae/template/expressions_library.jsx.
 Usage examples:
   python3 -m python.tools.express_lib_bundler --write
   python3 -m python.tools.express_lib_bundler --check
+  python3 -m python.tools.express_lib_bundler --write --sources script/ae/config/expressions_bundle_sources.json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Iterable, List, Sequence, Tuple
 
 START_MARKER = "// >>> AE_EXPRESSIONS_BUNDLE:START"
 END_MARKER = "// <<< AE_EXPRESSIONS_BUNDLE:END"
+DEFAULT_SOURCES_CONFIG_REL = "script/ae/config/expressions_bundle_sources.json"
 
 # (symbolic key, source path relative to repository root)
 EXPRESSION_SOURCES: Sequence[Tuple[str, str]] = (
@@ -69,7 +72,73 @@ def _render_assignment_block(key: str, rel_path: str, lines: Iterable[str]) -> s
     return "\n".join(out)
 
 
-def _render_generated_region(root: Path) -> str:
+def _parse_source_entries(raw: object, config_path: Path) -> List[Tuple[str, str]]:
+    if isinstance(raw, dict):
+        entries = raw.get("sources")
+    else:
+        entries = raw
+
+    if not isinstance(entries, list):
+        raise ValueError(
+            f"Invalid sources list in {config_path}: expected list or object with 'sources' list"
+        )
+
+    parsed: List[Tuple[str, str]] = []
+    seen = set()
+
+    for idx, item in enumerate(entries):
+        key: str
+        rel_path: str
+
+        if isinstance(item, dict):
+            key_obj = item.get("key")
+            path_obj = item.get("path")
+            key = str(key_obj or "").strip()
+            rel_path = str(path_obj or "").strip()
+        elif isinstance(item, list) and len(item) == 2:
+            key = str(item[0] or "").strip()
+            rel_path = str(item[1] or "").strip()
+        else:
+            raise ValueError(
+                f"Invalid entry at index {idx} in {config_path}: "
+                "expected object {key,path} or [key,path]"
+            )
+
+        if not key:
+            raise ValueError(f"Invalid entry at index {idx} in {config_path}: empty key")
+        if not rel_path:
+            raise ValueError(f"Invalid entry at index {idx} in {config_path}: empty path")
+        if key in seen:
+            raise ValueError(f"Duplicate key '{key}' in {config_path}")
+
+        seen.add(key)
+        parsed.append((key, rel_path))
+
+    if not parsed:
+        raise ValueError(f"No expression sources found in {config_path}")
+
+    return parsed
+
+
+def _load_expression_sources(root: Path, sources_arg: str | None) -> List[Tuple[str, str]]:
+    if sources_arg:
+        config_path = Path(sources_arg)
+        if not config_path.is_absolute():
+            config_path = root / config_path
+        if not config_path.is_file():
+            raise FileNotFoundError(f"Sources config not found: {config_path}")
+        raw = json.loads(config_path.read_text(encoding="utf-8"))
+        return _parse_source_entries(raw, config_path)
+
+    default_path = root / DEFAULT_SOURCES_CONFIG_REL
+    if default_path.is_file():
+        raw = json.loads(default_path.read_text(encoding="utf-8"))
+        return _parse_source_entries(raw, default_path)
+
+    return list(EXPRESSION_SOURCES)
+
+
+def _render_generated_region(root: Path, expression_sources: Sequence[Tuple[str, str]]) -> str:
     sections: List[str] = []
     sections.append("    // AUTO-GENERATED: AE expressions bundle")
     sections.append("    // Do not edit this block manually.")
@@ -77,7 +146,7 @@ def _render_generated_region(root: Path) -> str:
     sections.append("")
 
     last_group = ""
-    for key, rel in EXPRESSION_SOURCES:
+    for key, rel in expression_sources:
         group = key.split("_", 1)[0]
         if group != last_group:
             if sections and sections[-1] != "":
@@ -132,6 +201,15 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Repository root path (default: auto-detected from script location)",
     )
+    parser.add_argument(
+        "--sources",
+        default=None,
+        help=(
+            "Optional JSON source-list path, repo-relative or absolute. "
+            "If omitted, uses script/ae/config/expressions_bundle_sources.json when present; "
+            "otherwise falls back to hardcoded EXPRESSION_SOURCES."
+        ),
+    )
 
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
@@ -157,8 +235,10 @@ def main() -> int:
     if not target.is_file():
         raise FileNotFoundError(f"Target file not found: {target}")
 
+    expression_sources = _load_expression_sources(root, args.sources)
+
     original = target.read_text(encoding="utf-8")
-    generated = _render_generated_region(root)
+    generated = _render_generated_region(root, expression_sources)
     updated = _replace_between_markers(original, generated)
 
     if args.check:
