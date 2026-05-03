@@ -29,6 +29,16 @@
       "group": "claim",
       "key": "claim_opacity",
       "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
+    },
+    {
+      "group": "subtitles",
+      "key": "subtitles_source_text",
+      "path": "expression_ae/sourceText/sourceText_json_wire_v11.js"
+    },
+    {
+      "group": "subtitles",
+      "key": "subtitles_position",
+      "path": "expression_ae/subtitles/transform_position_subtitles_v04.js"
     }
   ]
 }

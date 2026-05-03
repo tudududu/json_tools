@@ -185,5 +185,100 @@
     // First multi-layer proving slice; requires shape layer support in layer_template.jsx.
     // Deferred to implementation after info is validated.
     // globalObj.AE_LAYER_TEMPLATES["subtitles"] = { ... };
+    
+    // Two-layer bundle: text (subtitles) + shape (locker_subtitles).
+    // Top layer is text; shape holder sits below and drives positioning/containment expressions.
+    globalObj.AE_LAYER_TEMPLATES["subtitles"] = {
+        id:    "subtitles",
+        label: "Subtitles",
+        layers: [
+            {
+                type: "text",
+                name: "subtitles",
+                textStyle: {
+                    font: "Arial Regular",
+                    fontSize: 48,
+                    leading: 55,
+                    fillColor: "#FFFFFF",
+                    paragraph: "Center Align Text",
+                    fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
+                },
+                properties: {
+                    "Transform.Position": [960, 540]
+                },
+                expressions: {
+                    "Source Text":      "subtitles_source_text",
+                    // "Transform.Anchor": "subtitles_anchor",
+                    // "Transform.Scale":   "subtitles_scale",
+                    // "Transform.Opacity": "subtitles_opacity",
+                    "Transform.Position":"subtitles_position"
+                },
+                effectControls: [
+                    { type: "slider",   name: "Name Shift",       defaultValue: 1 },
+                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 1 },
+                    { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
+                    { type: "slider",   name: "Desired Line",     defaultValue: 0 },
+                    { type: "slider",   name: "Fade In",          defaultValue: 0.0 },
+                    { type: "slider",   name: "Fade Out",         defaultValue: 0.0 },
+                    { type: "slider",   name: "Opacity In",       defaultValue: 0 }
+                ],
+                effects: [
+                    {
+                        matchName: "ADBE Drop Shadow",
+                        properties: {
+                            "Color": "#000000",
+                            "Opacity": 98,
+                            "Direction": 145,
+                            "Distance": 3,
+                            "Softness": 1
+                        }
+                    }
+                ],
+                attributes: {
+                    label:      "Red",
+                    guideLayer: false,
+                    shy:        false,
+                    locked:     false
+                }
+            },
+            {
+                type: "shape",
+                name: "locker_Subtitles",
+                shapeContents: [
+                    {
+                        name: "PLACEHOLDER",
+                        rectangle: {
+                            size: [870, 113],
+                            roundness: 0
+                        },
+                        stroke: {
+                            color: "#00FF00",
+                            width: 1,
+                            dash: 10
+                        },
+                        fill: {
+                            color: "#000000",
+                            opacity: 100
+                        }
+                    }
+                ],
+                properties: {
+                    "Transform.Position": [960, 1010],
+                    "Transform.Opacity": 50
+                },
+                effectControls: [
+                    { type: "slider", name: "Padding", defaultValue: 0 },
+                    { type: "slider", name: "Align X", defaultValue: 0 },
+                    { type: "slider", name: "Align Y", defaultValue: 0 }
+                ],
+                attributes: {
+                    label:      "Cyan",
+                    guideLayer: true,
+                    shy:        false,
+                    locked:     false
+                }
+            }
+        ]
+    };
 
 }($.global));

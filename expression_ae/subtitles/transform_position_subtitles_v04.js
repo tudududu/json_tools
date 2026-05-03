@@ -1,7 +1,8 @@
+// transform_position_subtitles_v04
 // TARGET ► Position — Baseline-locked for TEXT;
 // v04 baseline-consistent approach for 3+ lines
 
-var holder = thisComp.layer("Size_Holder_Subtitles");
+var holder = thisComp.layer("locker_Subtitles");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
@@ -26,7 +27,6 @@ var ax  = Math.max(-1, Math.min(1, ctrl("Align X", 0))); // -1..1
 var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1
 // Automatic vertical centering for multiline TEXT (2D point text only).
 // Simplified: 1 line = baseline align; >=2 lines = compute baseline offset so block visually centers in holder.
-// (Prev sliders removed for clarity; remove any old "V Align" / "Center Mode" controls if not needed.)
 
 halfW = Math.max(0, halfW - pad);
 halfH = Math.max(0, halfH - pad);

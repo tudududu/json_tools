@@ -789,6 +789,7 @@
         "Copy default preset",
         "Layer template: info",
         "Layer template: claim",
+        "Layer template: subtitles",
         "Expression injector (coming soon)"
     ]);
     ddTemplateOp.preferredSize.width = 210;
@@ -946,6 +947,10 @@
         }
         if (op === "Layer template: claim") {
             runLayerTemplateItem("claim");
+            return;
+        }
+        if (op === "Layer template: subtitles") {
+            runLayerTemplateItem("subtitles");
             return;
         }
         setTemplateStatus("Expression injector is not implemented yet.");
