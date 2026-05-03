@@ -15,6 +15,7 @@
 //                                      fontSize {number}
 //                                      leading {number|"Auto"}
 //                                      fillColor {string HEX, e.g. "#FFFFFF"}
+//                                      paragraph {string} — "Left Align Text" | "Center Align Text" | "Right Align Text"
 //                                      fontCandidates {Array<string>} (optional fallback list)
 //   properties  {Object}           — explicit property values keyed by canonical path
 //   expressions {Object}           — symbolic expression key per property path;
@@ -60,6 +61,9 @@
                 textStyle: {
                     font: "Courier Regular",
                     fontSize: 27,
+                    leading: "Auto",
+                    fillColor: "#FFFFFF",
+                    paragraph: "Left Align Text",
                     fontCandidates: ["Courier Regular", "Courier", "CourierNewPSMT"]
                 },
                 properties: {
@@ -95,6 +99,7 @@
                     fontSize: 52,
                     leading: "Auto",
                     fillColor: "#FFFFFF",
+                    paragraph: "Center Align Text",
                     fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
                 },
                 properties: {

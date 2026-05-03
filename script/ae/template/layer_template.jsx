@@ -164,6 +164,9 @@
     //   "Transform.Opacity"   — number 0..100
     //   (extend only when needed by concrete items)
 
+    // Text paragraph alignment aliases (textStyle.paragraph):
+    //   "Left Align Text", "Center Align Text", "Right Align Text"
+
     function applyPropertyValue(layer, path, value) {
         try {
             if (path === "Transform.Position") {
@@ -310,14 +313,32 @@
             }
 
             if (textStyle.hasOwnProperty("leading")) {
-                // "Auto" means default AE leading — do not set the property (setting it to -1
-                // is invalid in AE's scripting API and throws, discarding all pending changes).
-                // Only apply when a positive numeric value is specified.
+                // "Auto" maps to 120% of provided fontSize. If fontSize is not provided,
+                // skip leading assignment to avoid forcing an unintended value.
                 try {
                     var leadingValue = textStyle.leading;
-                    if (String(leadingValue).toLowerCase() !== "auto") {
+                    if (String(leadingValue).toLowerCase() === "auto") {
+                        if (textStyle.hasOwnProperty("fontSize")) {
+                            var autoFs = parseFloat(textStyle.fontSize);
+                            if (!isNaN(autoFs) && autoFs > 0) td.leading = autoFs * 1.2;
+                        }
+                    } else {
                         var ld = parseFloat(leadingValue);
                         if (!isNaN(ld) && ld > 0) td.leading = ld;
+                    }
+                } catch(_) {}
+            }
+
+            if (textStyle.hasOwnProperty("paragraph")) {
+                try {
+                    var paragraphRaw = String(textStyle.paragraph || "");
+                    var paragraphKey = paragraphRaw.replace(/^\s+|\s+$/g, "").toLowerCase();
+                    if (paragraphKey === "left align text" || paragraphKey === "left" || paragraphKey === "left align") {
+                        td.justification = ParagraphJustification.LEFT_JUSTIFY;
+                    } else if (paragraphKey === "center align text" || paragraphKey === "center" || paragraphKey === "center align") {
+                        td.justification = ParagraphJustification.CENTER_JUSTIFY;
+                    } else if (paragraphKey === "right align text" || paragraphKey === "right" || paragraphKey === "right align") {
+                        td.justification = ParagraphJustification.RIGHT_JUSTIFY;
                     }
                 } catch(_) {}
             }
