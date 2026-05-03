@@ -286,6 +286,11 @@
                 }
             }
 
+            // Re-fetch td: src.setValue() inside the font candidates loop invalidates
+            // the previous TextDocument reference. All further writes must use a fresh copy.
+            td = src.value;
+            if (!td) return;
+
             if (!chosenFont && textStyle.hasOwnProperty("font")) {
                 td.font = String(textStyle.font || "");
             }
@@ -354,13 +359,18 @@
 
             if (controlType === "dropdown") {
                 var menuFx = parade.addProperty("ADBE Dropdown Control");
-                menuFx.name = controlName;
 
                 var menuProp = menuFx.property("Menu");
                 var items = (spec.items instanceof Array) ? spec.items : [];
                 if (items.length > 0) {
                     menuProp.setPropertyParameters(items);
+                    // Re-fetch: setPropertyParameters() invalidates the property reference
+                    // and resets the effect display name; both must be addressed after this call.
+                    menuProp = menuFx.property("Menu");
                 }
+
+                // Name must be set AFTER setPropertyParameters, which resets it to default.
+                menuFx.name = controlName;
 
                 var selected = 1;
                 if (spec.hasOwnProperty("defaultSelectedIndex")) {
