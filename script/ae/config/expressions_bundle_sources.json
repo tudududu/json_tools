@@ -1,26 +1,32 @@
 {
   "sources": [
     {
+      "group": "info",
       "key": "info_source_text",
       "path": "expression_ae/sourceText/sourceText_json_info.js"
     },
     {
+      "group": "claim",
       "key": "claim_source_text",
       "path": "expression_ae/claim/sourceText_json_wire_simple.js"
     },
     {
+      "group": "claim",
       "key": "claim_anchor",
       "path": "expression_ae/claim/anchor_baseline_centered_text.js"
     },
     {
+      "group": "claim",
       "key": "claim_position",
       "path": "expression_ae/claim/position_baseline_locked_text_multiline.js"
     },
     {
+      "group": "claim",
       "key": "claim_scale",
       "path": "expression_ae/claim/scale_uniform_contain_v02.js"
     },
     {
+      "group": "claim",
       "key": "claim_opacity",
       "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
     }

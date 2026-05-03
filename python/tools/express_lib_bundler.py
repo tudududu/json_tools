@@ -15,12 +15,20 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, NamedTuple, Sequence, Tuple
 
 START_MARKER = "// >>> AE_EXPRESSIONS_BUNDLE:START"
 END_MARKER = "// <<< AE_EXPRESSIONS_BUNDLE:END"
 DEFAULT_SOURCES_CONFIG_REL = "script/ae/config/expressions_bundle_sources.json"
 
+
+class SourceEntry(NamedTuple):
+    key: str
+    path: str
+    group: str
+
+
+# Hardcoded fallback list if no JSON source config is provided.
 # (symbolic key, source path relative to repository root)
 EXPRESSION_SOURCES: Sequence[Tuple[str, str]] = (
     ("info_source_text", "expression_ae/sourceText/sourceText_json_info.js"),
@@ -38,6 +46,11 @@ EXPRESSION_SOURCES: Sequence[Tuple[str, str]] = (
 def _repo_root() -> Path:
     # .../repo/python/tools/express_lib_bundler.py -> parents[2] == repo root
     return Path(__file__).resolve().parents[2]
+
+
+def _default_group_for_key(key: str) -> str:
+    token = key.split("_", 1)[0].strip()
+    return token if token else "misc"
 
 
 def _js_quote_single(s: str) -> str:
@@ -72,7 +85,7 @@ def _render_assignment_block(key: str, rel_path: str, lines: Iterable[str]) -> s
     return "\n".join(out)
 
 
-def _parse_source_entries(raw: object, config_path: Path) -> List[Tuple[str, str]]:
+def _parse_source_entries(raw: object, config_path: Path) -> List[SourceEntry]:
     if isinstance(raw, dict):
         entries = raw.get("sources")
     else:
@@ -83,25 +96,30 @@ def _parse_source_entries(raw: object, config_path: Path) -> List[Tuple[str, str
             f"Invalid sources list in {config_path}: expected list or object with 'sources' list"
         )
 
-    parsed: List[Tuple[str, str]] = []
+    parsed: List[SourceEntry] = []
     seen = set()
 
     for idx, item in enumerate(entries):
         key: str
         rel_path: str
+        group: str
 
         if isinstance(item, dict):
             key_obj = item.get("key")
             path_obj = item.get("path")
+            group_obj = item.get("group")
             key = str(key_obj or "").strip()
             rel_path = str(path_obj or "").strip()
+            raw_group = str(group_obj or "").strip()
+            group = raw_group if raw_group else _default_group_for_key(key)
         elif isinstance(item, list) and len(item) == 2:
             key = str(item[0] or "").strip()
             rel_path = str(item[1] or "").strip()
+            group = _default_group_for_key(key)
         else:
             raise ValueError(
                 f"Invalid entry at index {idx} in {config_path}: "
-                "expected object {key,path} or [key,path]"
+                "expected object {key,path[,group]} or [key,path]"
             )
 
         if not key:
@@ -112,7 +130,7 @@ def _parse_source_entries(raw: object, config_path: Path) -> List[Tuple[str, str
             raise ValueError(f"Duplicate key '{key}' in {config_path}")
 
         seen.add(key)
-        parsed.append((key, rel_path))
+        parsed.append(SourceEntry(key=key, path=rel_path, group=group))
 
     if not parsed:
         raise ValueError(f"No expression sources found in {config_path}")
@@ -120,7 +138,14 @@ def _parse_source_entries(raw: object, config_path: Path) -> List[Tuple[str, str
     return parsed
 
 
-def _load_expression_sources(root: Path, sources_arg: str | None) -> List[Tuple[str, str]]:
+def _fallback_sources() -> List[SourceEntry]:
+    return [
+        SourceEntry(key=key, path=rel_path, group=_default_group_for_key(key))
+        for key, rel_path in EXPRESSION_SOURCES
+    ]
+
+
+def _load_expression_sources(root: Path, sources_arg: str | None) -> List[SourceEntry]:
     if sources_arg:
         config_path = Path(sources_arg)
         if not config_path.is_absolute():
@@ -135,10 +160,10 @@ def _load_expression_sources(root: Path, sources_arg: str | None) -> List[Tuple[
         raw = json.loads(default_path.read_text(encoding="utf-8"))
         return _parse_source_entries(raw, default_path)
 
-    return list(EXPRESSION_SOURCES)
+    return _fallback_sources()
 
 
-def _render_generated_region(root: Path, expression_sources: Sequence[Tuple[str, str]]) -> str:
+def _render_generated_region(root: Path, expression_sources: Sequence[SourceEntry]) -> str:
     sections: List[str] = []
     sections.append("    // AUTO-GENERATED: AE expressions bundle")
     sections.append("    // Do not edit this block manually.")
@@ -146,8 +171,8 @@ def _render_generated_region(root: Path, expression_sources: Sequence[Tuple[str,
     sections.append("")
 
     last_group = ""
-    for key, rel in expression_sources:
-        group = key.split("_", 1)[0]
+    for entry in expression_sources:
+        group = entry.group
         if group != last_group:
             if sections and sections[-1] != "":
                 sections.append("")
@@ -157,9 +182,9 @@ def _render_generated_region(root: Path, expression_sources: Sequence[Tuple[str,
             sections.append("")
             last_group = group
 
-        source_path = root / rel
+        source_path = root / entry.path
         src_lines = _read_source_lines(source_path)
-        sections.append(_render_assignment_block(key, rel, src_lines))
+        sections.append(_render_assignment_block(entry.key, entry.path, src_lines))
         sections.append("")
 
     # Trim trailing blank line for stable idempotent writes.

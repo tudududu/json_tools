@@ -20,6 +20,7 @@ For the GitHub Pages site, see `docs/index.md`.
   - Packaging (standalone binary): `python/installer/README.md` (PyInstaller build and validation workflow)
 - Expressions library for AE
   - Folder: `expression_ae/` (small expression snippets used in comps)
+  - Bundler workflow: `python3 -m python.tools.express_lib_bundler --write` reads `script/ae/config/expressions_bundle_sources.json` (if present) and updates the generated region in `script/ae/template/expressions_library.jsx`
 - Samples and inputs
   - Inputs: `in/`
   - Samples: `samples/`
