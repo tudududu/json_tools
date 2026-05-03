@@ -292,32 +292,39 @@
             if (!td) return;
 
             if (!chosenFont && textStyle.hasOwnProperty("font")) {
-                td.font = String(textStyle.font || "");
+                try { td.font = String(textStyle.font || ""); } catch(_) {}
             }
 
             if (textStyle.hasOwnProperty("fontSize")) {
-                var fs = parseFloat(textStyle.fontSize);
-                if (!isNaN(fs) && fs > 0) td.fontSize = fs;
+                try {
+                    var fs = parseFloat(textStyle.fontSize);
+                    if (!isNaN(fs) && fs > 0) td.fontSize = fs;
+                } catch(_) {}
             }
 
             if (textStyle.hasOwnProperty("fillColor")) {
-                td.applyFill = true;
-                td.fillColor = parseHexColor(textStyle.fillColor);
+                try {
+                    td.applyFill = true;
+                    td.fillColor = parseHexColor(textStyle.fillColor);
+                } catch(_) {}
             }
 
             if (textStyle.hasOwnProperty("leading")) {
-                var leadingValue = textStyle.leading;
-                if (String(leadingValue).toLowerCase() === "auto") {
-                    td.leading = -1;
-                } else {
-                    var ld = parseFloat(leadingValue);
-                    if (!isNaN(ld) && ld > 0) {
-                        td.leading = ld;
+                // "Auto" means default AE leading — do not set the property (setting it to -1
+                // is invalid in AE's scripting API and throws, discarding all pending changes).
+                // Only apply when a positive numeric value is specified.
+                try {
+                    var leadingValue = textStyle.leading;
+                    if (String(leadingValue).toLowerCase() !== "auto") {
+                        var ld = parseFloat(leadingValue);
+                        if (!isNaN(ld) && ld > 0) td.leading = ld;
                     }
-                }
+                } catch(_) {}
             }
 
-            src.setValue(td);
+            try { src.setValue(td); } catch(eSet) {
+                $.writeln("[layer_template] applyTextStyle setValue: " + (eSet.message || String(eSet)));
+            }
         } catch(e) {
             $.writeln("[layer_template] applyTextStyle: " + (e.message || String(e)));
         }
@@ -359,13 +366,17 @@
 
             if (controlType === "dropdown") {
                 var menuFx = parade.addProperty("ADBE Dropdown Control");
+                // Capture the parade index immediately so we can re-fetch after
+                // setPropertyParameters, which invalidates both menuProp AND menuFx.
+                var menuFxIndex = parade.numProperties;
 
                 var menuProp = menuFx.property("Menu");
                 var items = (spec.items instanceof Array) ? spec.items : [];
                 if (items.length > 0) {
                     menuProp.setPropertyParameters(items);
-                    // Re-fetch: setPropertyParameters() invalidates the property reference
-                    // and resets the effect display name; both must be addressed after this call.
+                    // setPropertyParameters invalidates menuFx (not just menuProp).
+                    // Re-fetch the entire effect from the parade by its captured index.
+                    menuFx = parade.property(menuFxIndex);
                     menuProp = menuFx.property("Menu");
                 }
 
