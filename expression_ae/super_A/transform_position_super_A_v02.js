@@ -3,7 +3,7 @@
 // — vertical centering for oneline and multiline TEXT
 // - horizontal alignment switchable L/C/R (inline control)
 
-var holder = thisComp.layer("Size_Holder_super_A");
+var holder = thisComp.layer("locker_super_A");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 

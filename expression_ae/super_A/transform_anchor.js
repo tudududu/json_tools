@@ -1,3 +1,4 @@
+// transform_anchor
 // TEXT layer ► Anchor Point — left + vertical center for one-line and multiline POINT text
 // Sets anchor so position expression can directly place left edge & vertical center to holder.
 // For point text: r.top may be negative (ascender). Center = r.top + r.height/2.

@@ -1,4 +1,4 @@
-// sourceText_json_wire v11 260430
+// sourceText_json_wire v11 260502
 // (orientation-aware/override, time-gated, multi-line)
 // JSON → text; orientation-specific global keys + oriented videoIds
 // DATA_KEY: "subtitles" | "claim" | "disclaimer" | "logo"
@@ -22,7 +22,7 @@ function ctrl(name, def) {
 }
 
 // Keep menu arrays in the same order as Dropdown items in AE.
-var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A"];
+var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"];
 var ORIENT_OPTIONS = ["Auto", "Landscape", "Portrait"];
 
 var _dkIdx = Math.round(ctrl("Data Key Menu", 2)) - 1;      // default "disclaimer"

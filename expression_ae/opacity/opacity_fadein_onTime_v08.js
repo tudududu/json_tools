@@ -5,7 +5,7 @@
 
 // Simplified from multi-key version: drive opacity from one user-defined data key.
 // JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).
-// Supported keys: (E.g. claim | disclaimer | logo | subtitles) timed arrays of objects with in/out;
+// Supported keys: (E.g. claim | disclaimer | logo | subtitles) timed arrays of objects with in/out; global arrays w/out timing;
 // CONFIG:
 //   DATA_KEY    → which array to read
 //   desiredLine → line number (1-based). For subtitles: if 0 gather ALL subtitle lines' time windows (union)
@@ -24,7 +24,7 @@
 // FOOTAGE_NAME stays inline; all other config comes from Expression Controls on this layer.
 //
 // Required effects (Effects > Expression Controls):
-//   Dropdown Menu Control  "Data Key Menu"  — items: logo | claim | disclaimer | subtitles | super_A
+//   Dropdown Menu Control  "Data Key Menu"  — items: claim | disclaimer | logo | subtitles | super_A
 //                                             Add further items in any order; keep this array in sync:
 //   Slider Control         "Desired Line"   — 0 = all / subtitle union; ≥1 = specific line (integer)
 //   Slider Control         "Fade In"        — seconds, decimals supported (e.g. 0.5)
@@ -43,7 +43,7 @@ function ctrl(name, def) {
 
 // Map Dropdown index (1-based) to a JSON key string.
 // Keep this array in the same order as the "Data Key Menu" dropdown items.
-var DATA_KEY_OPTIONS = ["logo", "claim", "disclaimer", "subtitles", "super_A"];
+var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"];
 var _dkIdx = Math.round(ctrl("Data Key Menu", 1)) - 1; // 0-based
 var DATA_KEY = DATA_KEY_OPTIONS[Math.max(0, Math.min(DATA_KEY_OPTIONS.length - 1, _dkIdx))];
 

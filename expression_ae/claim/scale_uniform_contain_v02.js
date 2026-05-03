@@ -1,7 +1,8 @@
+// scale_uniform_contain_v02
 // TARGET (Text) ► Scale — Contain, only shrink; JSON/text-safe
 
 // --- Holder rect (rotation/scale aware) ---
-var holder = thisComp.layer("Size_Holder_Claim");
+var holder = thisComp.layer("locker_Claim");
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
