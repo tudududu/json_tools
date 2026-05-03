@@ -2,7 +2,8 @@
 // TARGET ► Position — Baseline-locked for TEXT;
 // v04 baseline-consistent approach for 3+ lines
 
-var holder = thisComp.layer("locker_Subtitles");
+var holderName = "locker_" + thisLayer.name;
+var holder = thisComp.layer(holderName);
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 

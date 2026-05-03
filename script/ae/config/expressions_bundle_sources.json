@@ -5,6 +5,7 @@
       "key": "info_source_text",
       "path": "expression_ae/sourceText/sourceText_json_info.js"
     },
+
     {
       "group": "claim",
       "key": "claim_source_text",
@@ -30,6 +31,33 @@
       "key": "claim_opacity",
       "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
     },
+
+    {
+      "group": "super_A",
+      "key": "super_A_source_text",
+      "path": "expression_ae/sourceText/sourceText_json_wire_v11.js"
+    },
+    {
+      "group": "super_A",
+      "key": "super_A_anchor",
+      "path": "expression_ae/super_A/transform_anchor.js"
+    },
+    {
+      "group": "super_A",
+      "key": "super_A_position",
+      "path": "expression_ae/super_A/transform_position_super_A_v02.js"
+    },
+    {
+      "group": "super_A",
+      "key": "super_A_scale",
+      "path": "expression_ae/claim/scale_uniform_contain_v02.js"
+    },
+    {
+      "group": "super_A",
+      "key": "super_A_opacity",
+      "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
+    },
+
     {
       "group": "subtitles",
       "key": "subtitles_source_text",

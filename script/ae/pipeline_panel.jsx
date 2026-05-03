@@ -789,8 +789,8 @@
         "Copy default preset",
         "Layer template: info",
         "Layer template: claim",
-        "Layer template: subtitles",
-        "Expression injector (coming soon)"
+        "Layer template: super_A",
+        "Layer template: subtitles"
     ]);
     ddTemplateOp.preferredSize.width = 210;
 
@@ -947,6 +947,10 @@
         }
         if (op === "Layer template: claim") {
             runLayerTemplateItem("claim");
+            return;
+        }
+        if (op === "Layer template: super_A") {
+            runLayerTemplateItem("super_A");
             return;
         }
         if (op === "Layer template: subtitles") {

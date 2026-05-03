@@ -2,7 +2,8 @@
 // TARGET (Text) ► Scale — Contain, only shrink; JSON/text-safe
 
 // --- Holder rect (rotation/scale aware) ---
-var holder = thisComp.layer("locker_Claim");
+var holderName = "locker_" + thisLayer.name;
+var holder = thisComp.layer(holderName);
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 

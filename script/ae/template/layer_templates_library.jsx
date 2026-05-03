@@ -118,7 +118,7 @@
                     { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
                     { type: "slider",   name: "Desired Line",     defaultValue: 0 },
                     { type: "slider",   name: "Fade In",          defaultValue: 1.0 },
-                    { type: "slider",   name: "Fade Out",         defaultValue: 1.0 },
+                    { type: "slider",   name: "Fade Out",         defaultValue: 0 },
                     { type: "slider",   name: "Opacity In",       defaultValue: 0 }
                 ],
                 effects: [
@@ -128,8 +128,8 @@
                             "Color": "#000000",
                             "Opacity": 98,
                             "Direction": 145,
-                            "Distance": 3,
-                            "Softness": 1
+                            "Distance": 5,
+                            "Softness": 300
                         }
                     }
                 ],
@@ -142,7 +142,7 @@
             },
             {
                 type: "shape",
-                name: "locker_Claim",
+                name: "locker_claim",
                 shapeContents: [
                     {
                         name: "PLACEHOLDER",
@@ -180,13 +180,109 @@
         ]
     };
 
+    // ── ITEM: super_A ───────────────────────────────────────────────────────────
+    // Two-layer bundle: text (super_A) + shape (locker_Super_A).
+    // Top layer is text; shape holder sits below and drives positioning/containment expressions.
+    globalObj.AE_LAYER_TEMPLATES["super_A"] = {
+        id:    "super_A",
+        label: "Super A",
+        layers: [
+            {
+                type: "text",
+                name: "super_A",
+                textStyle: {
+                    font: "Arial Regular",
+                    fontSize: 52,
+                    leading: "Auto",
+                    fillColor: "#FFFFFF",
+                    paragraph: "Center Align Text",
+                    fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
+                },
+                properties: {
+                    "Transform.Position": [960, 540]
+                },
+                expressions: {
+                    "Source Text":      "super_A_source_text",
+                    "Transform.Anchor": "super_A_anchor",
+                    "Transform.Position":"super_A_position",
+                    "Transform.Scale":   "super_A_scale",
+                    "Transform.Opacity": "super_A_opacity"
+                },
+                effectControls: [
+                    { type: "slider",   name: "Name Shift",       defaultValue: 1 },
+                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 5 },
+                    { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
+                    { type: "slider",   name: "Desired Line",     defaultValue: 0 },
+                    { type: "slider",   name: "Fade In",          defaultValue: 0 },
+                    { type: "slider",   name: "Fade Out",         defaultValue: 0 },
+                    { type: "slider",   name: "Opacity In",       defaultValue: 0 }
+                ],
+                effects: [
+                    {
+                        matchName: "ADBE Drop Shadow",
+                        properties: {
+                            "Color": "#000000",
+                            "Opacity": 98,
+                            "Direction": 145,
+                            "Distance": 5,
+                            "Softness": 300
+                        }
+                    }
+                ],
+                attributes: {
+                    label:      "Red",
+                    guideLayer: false,
+                    shy:        false,
+                    locked:     false
+                }
+            },
+            {
+                type: "shape",
+                name: "locker_super_A",
+                shapeContents: [
+                    {
+                        name: "PLACEHOLDER",
+                        rectangle: {
+                            size: [870, 113],
+                            roundness: 0
+                        },
+                        stroke: {
+                            color: "#00FF00",
+                            width: 1,
+                            dash: 10
+                        },
+                        fill: {
+                            color: "#000000",
+                            opacity: 100
+                        }
+                    }
+                ],
+                properties: {
+                    "Transform.Position": [509, 759],
+                    "Transform.Opacity": 50
+                },
+                effectControls: [
+                    { type: "slider", name: "Padding", defaultValue: 0 },
+                    { type: "slider", name: "Align X", defaultValue: -1 },
+                    { type: "slider", name: "Align Y", defaultValue: 0 }
+                ],
+                attributes: {
+                    label:      "Cyan",
+                    guideLayer: true,
+                    shy:        false,
+                    locked:     false
+                }
+            }
+        ]
+    };
+
     // ── ITEM: subtitles (reserved — not implemented in AE 343) ──────────────
-    // Two-layer bundle: text (claim) + shape (Locker_Subtitles).
+    // Two-layer bundle: text (subtitles) + shape (locker_Subtitles).
     // First multi-layer proving slice; requires shape layer support in layer_template.jsx.
     // Deferred to implementation after info is validated.
     // globalObj.AE_LAYER_TEMPLATES["subtitles"] = { ... };
     
-    // Two-layer bundle: text (subtitles) + shape (locker_subtitles).
+    // Two-layer bundle: text (subtitles) + shape (locker_Subtitles).
     // Top layer is text; shape holder sits below and drives positioning/containment expressions.
     globalObj.AE_LAYER_TEMPLATES["subtitles"] = {
         id:    "subtitles",
@@ -215,7 +311,7 @@
                 },
                 effectControls: [
                     { type: "slider",   name: "Name Shift",       defaultValue: 1 },
-                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 1 },
+                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 4 },
                     { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
                     { type: "slider",   name: "Desired Line",     defaultValue: 0 },
                     { type: "slider",   name: "Fade In",          defaultValue: 0.0 },
@@ -243,7 +339,7 @@
             },
             {
                 type: "shape",
-                name: "locker_Subtitles",
+                name: "locker_subtitles",
                 shapeContents: [
                     {
                         name: "PLACEHOLDER",

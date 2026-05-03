@@ -1,6 +1,7 @@
 // position_baseline_locked_text_multiline
 // TARGET ► Position — vertical centering for multiline TEXT
-var holder = thisComp.layer("locker_Claim");
+var holderName = "locker_" + thisLayer.name;
+var holder = thisComp.layer(holderName);
 var group  = holder.content("PLACEHOLDER");
 var rect   = group.content("Rectangle Path 1");
 
