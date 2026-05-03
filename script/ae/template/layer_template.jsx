@@ -125,14 +125,44 @@
         return makeResult(true, "OK", "", body);
     }
 
+    function clampNumber(n, min, max, fallback) {
+        var v = parseFloat(n);
+        if (isNaN(v)) return fallback;
+        if (!isNaN(min) && v < min) v = min;
+        if (!isNaN(max) && v > max) v = max;
+        return v;
+    }
+
+    function parseHexColor(hexValue) {
+        var raw = String(hexValue || "");
+        var s = raw.replace(/^\s+|\s+$/g, "");
+        if (s.charAt(0) === "#") s = s.substring(1);
+        if (s.length === 3) {
+            s = s.charAt(0) + s.charAt(0) + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2);
+        }
+        if (s.length !== 6) {
+            throw new Error("Invalid HEX color '" + raw + "'. Expected #RRGGBB or #RGB.");
+        }
+        var isHex = /^[0-9a-fA-F]+$/.test(s);
+        if (!isHex) {
+            throw new Error("Invalid HEX color '" + raw + "'. Non-hex character found.");
+        }
+        var r = parseInt(s.substring(0, 2), 16) / 255;
+        var g = parseInt(s.substring(2, 4), 16) / 255;
+        var b = parseInt(s.substring(4, 6), 16) / 255;
+        return [r, g, b];
+    }
+
     // ── PROPERTY SETTERS ──────────────────────────────────────────────────────
     // Explicit per-path setters. Only add new entries here when a real item needs them.
 
     // Set a property value or expression on a layer by canonical path string.
-    // Supported paths (first-slice):
+    // Supported paths:
     //   "Transform.Position"  — 2-element array [x, y]
+    //   "Transform.Scale"     — 2/3-element array [x, y, (z)]
+    //   "Transform.Anchor"    — 2/3-element array [x, y, (z)]
     //   "Transform.Opacity"   — number 0..100
-    //   (extend here for later items)
+    //   (extend only when needed by concrete items)
 
     function applyPropertyValue(layer, path, value) {
         try {
@@ -143,12 +173,32 @@
                 }
                 return true;
             }
+            if (path === "Transform.Scale") {
+                var scale = layer.property("Transform").property("Scale");
+                if (value instanceof Array && value.length >= 2) {
+                    if (scale.value instanceof Array && scale.value.length >= 3) {
+                        scale.setValue([value[0], value[1], (value.length >= 3 ? value[2] : scale.value[2])]);
+                    } else {
+                        scale.setValue([value[0], value[1]]);
+                    }
+                }
+                return true;
+            }
+            if (path === "Transform.Anchor" || path === "Transform.Anchor Point") {
+                var anchor = layer.property("Transform").property("Anchor Point");
+                if (value instanceof Array && value.length >= 2) {
+                    if (anchor.value instanceof Array && anchor.value.length >= 3) {
+                        anchor.setValue([value[0], value[1], (value.length >= 3 ? value[2] : anchor.value[2])]);
+                    } else {
+                        anchor.setValue([value[0], value[1]]);
+                    }
+                }
+                return true;
+            }
             if (path === "Transform.Opacity") {
                 var opacity = layer.property("Transform").property("Opacity");
-                var op = parseFloat(value);
+                var op = clampNumber(value, 0, 100, NaN);
                 if (!isNaN(op)) {
-                    if (op < 0) op = 0;
-                    if (op > 100) op = 100;
                     opacity.setValue(op);
                 }
                 return true;
@@ -169,6 +219,18 @@
             }
             if (path === "Transform.Position") {
                 layer.property("Transform").property("Position").expression = expressionBody;
+                return true;
+            }
+            if (path === "Transform.Scale") {
+                layer.property("Transform").property("Scale").expression = expressionBody;
+                return true;
+            }
+            if (path === "Transform.Anchor" || path === "Transform.Anchor Point") {
+                layer.property("Transform").property("Anchor Point").expression = expressionBody;
+                return true;
+            }
+            if (path === "Transform.Opacity") {
+                layer.property("Transform").property("Opacity").expression = expressionBody;
                 return true;
             }
             // Unknown path — log and skip
@@ -233,9 +295,188 @@
                 if (!isNaN(fs) && fs > 0) td.fontSize = fs;
             }
 
+            if (textStyle.hasOwnProperty("fillColor")) {
+                td.applyFill = true;
+                td.fillColor = parseHexColor(textStyle.fillColor);
+            }
+
+            if (textStyle.hasOwnProperty("leading")) {
+                var leadingValue = textStyle.leading;
+                if (String(leadingValue).toLowerCase() === "auto") {
+                    td.leading = -1;
+                } else {
+                    var ld = parseFloat(leadingValue);
+                    if (!isNaN(ld) && ld > 0) {
+                        td.leading = ld;
+                    }
+                }
+            }
+
             src.setValue(td);
         } catch(e) {
             $.writeln("[layer_template] applyTextStyle: " + (e.message || String(e)));
+        }
+    }
+
+    function applyExpressions(layer, expressionsSpec) {
+        var exprs = expressionsSpec || {};
+        for (var e in exprs) {
+            if (!exprs.hasOwnProperty(e)) continue;
+            var resolved = resolveExpression(exprs[e]);
+            if (!resolved.ok) {
+                throw new Error("Expression resolution failed for '" + e + "': " + resolved.message);
+            }
+            applyExpression(layer, e, resolved.details);
+        }
+    }
+
+    function applyEffectControls(layer, controlsSpec) {
+        if (!(controlsSpec instanceof Array) || controlsSpec.length === 0) return;
+        var parade = layer.property("ADBE Effect Parade");
+        if (!parade) throw new Error("Effect Parade not found on layer '" + layer.name + "'.");
+
+        for (var i = 0; i < controlsSpec.length; i++) {
+            var spec = controlsSpec[i] || {};
+            var controlType = String(spec.type || "").toLowerCase();
+            var controlName = String(spec.name || "");
+            if (!controlName.length) {
+                throw new Error("effectControls[" + i + "] is missing required field 'name'.");
+            }
+
+            if (controlType === "slider") {
+                var sliderFx = parade.addProperty("ADBE Slider Control");
+                sliderFx.name = controlName;
+                if (spec.hasOwnProperty("defaultValue")) {
+                    sliderFx.property("Slider").setValue(parseFloat(spec.defaultValue));
+                }
+                continue;
+            }
+
+            if (controlType === "dropdown") {
+                var menuFx = parade.addProperty("ADBE Dropdown Control");
+                menuFx.name = controlName;
+
+                var menuProp = menuFx.property("Menu");
+                var items = (spec.items instanceof Array) ? spec.items : [];
+                if (items.length > 0) {
+                    menuProp.setPropertyParameters(items);
+                }
+
+                var selected = 1;
+                if (spec.hasOwnProperty("defaultSelectedIndex")) {
+                    selected = Math.round(parseFloat(spec.defaultSelectedIndex));
+                }
+                if (items.length > 0) {
+                    if (selected < 1) selected = 1;
+                    if (selected > items.length) selected = items.length;
+                } else {
+                    if (selected < 1) selected = 1;
+                }
+                menuProp.setValue(selected);
+                continue;
+            }
+
+            throw new Error("Unsupported effect control type '" + controlType + "' on layer '" + layer.name + "'.");
+        }
+    }
+
+    function applyEffects(layer, effectsSpec) {
+        if (!(effectsSpec instanceof Array) || effectsSpec.length === 0) return;
+        var parade = layer.property("ADBE Effect Parade");
+        if (!parade) throw new Error("Effect Parade not found on layer '" + layer.name + "'.");
+
+        for (var i = 0; i < effectsSpec.length; i++) {
+            var spec = effectsSpec[i] || {};
+            var matchName = String(spec.matchName || "");
+            if (!matchName.length) {
+                throw new Error("effects[" + i + "] is missing required field 'matchName'.");
+            }
+            var fx = parade.addProperty(matchName);
+            if (!fx) {
+                throw new Error("Could not add effect '" + matchName + "' to layer '" + layer.name + "'.");
+            }
+
+            var props = spec.properties || {};
+            for (var key in props) {
+                if (!props.hasOwnProperty(key)) continue;
+                var prop = fx.property(key);
+                if (!prop && key === "Color") {
+                    prop = fx.property("Shadow Color");
+                } else if (!prop && key === "Shadow Color") {
+                    prop = fx.property("Color");
+                }
+                if (!prop) {
+                    throw new Error("Effect property '" + key + "' not found for effect '" + matchName + "'.");
+                }
+                if (String(key).toLowerCase().indexOf("color") >= 0) {
+                    prop.setValue(parseHexColor(props[key]));
+                } else {
+                    prop.setValue(props[key]);
+                }
+            }
+        }
+    }
+
+    function applyShapeContents(layer, shapeContentsSpec) {
+        if (!(shapeContentsSpec instanceof Array) || shapeContentsSpec.length === 0) return;
+        var layerContents = layer.property("Contents");
+        if (!layerContents) throw new Error("Shape layer has no Contents group: '" + layer.name + "'.");
+
+        for (var i = 0; i < shapeContentsSpec.length; i++) {
+            var groupSpec = shapeContentsSpec[i] || {};
+            var groupName = String(groupSpec.name || "");
+            if (!groupName.length) {
+                throw new Error("shapeContents[" + i + "] is missing required field 'name'.");
+            }
+
+            var group = layerContents.addProperty("ADBE Vector Group");
+            group.name = groupName;
+
+            var groupContents = group.property("Contents");
+            if (!groupContents) throw new Error("Could not access group Contents for '" + groupName + "'.");
+
+            var rectangle = groupSpec.rectangle || null;
+            if (rectangle) {
+                var rect = groupContents.addProperty("ADBE Vector Shape - Rect");
+                rect.name = "Rectangle Path 1";
+                if (rectangle.hasOwnProperty("size") && rectangle.size instanceof Array && rectangle.size.length >= 2) {
+                    rect.property("Size").setValue([rectangle.size[0], rectangle.size[1]]);
+                }
+                if (rectangle.hasOwnProperty("roundness")) {
+                    rect.property("Roundness").setValue(parseFloat(rectangle.roundness));
+                }
+            }
+
+            var strokeSpec = groupSpec.stroke || null;
+            if (strokeSpec) {
+                var stroke = groupContents.addProperty("ADBE Vector Graphic - Stroke");
+                stroke.name = "Stroke 1";
+                if (strokeSpec.hasOwnProperty("color")) {
+                    stroke.property("Color").setValue(parseHexColor(strokeSpec.color));
+                }
+                if (strokeSpec.hasOwnProperty("width")) {
+                    stroke.property("Stroke Width").setValue(parseFloat(strokeSpec.width));
+                }
+                if (strokeSpec.hasOwnProperty("dash")) {
+                    var dashes = stroke.property("Dashes");
+                    if (!dashes) throw new Error("Stroke dashes property not found in group '" + groupName + "'.");
+                    var dashProp = dashes.addProperty("ADBE Vector Stroke Dash 1");
+                    if (!dashProp) throw new Error("Could not add dash property in group '" + groupName + "'.");
+                    dashProp.setValue(parseFloat(strokeSpec.dash));
+                }
+            }
+
+            var fillSpec = groupSpec.fill || null;
+            if (fillSpec) {
+                var fill = groupContents.addProperty("ADBE Vector Graphic - Fill");
+                fill.name = "Fill 1";
+                if (fillSpec.hasOwnProperty("color")) {
+                    fill.property("Color").setValue(parseHexColor(fillSpec.color));
+                }
+                if (fillSpec.hasOwnProperty("opacity")) {
+                    fill.property("Opacity").setValue(clampNumber(fillSpec.opacity, 0, 100, 100));
+                }
+            }
         }
     }
 
@@ -256,18 +497,34 @@
             applyPropertyValue(layer, p, props[p]);
         }
 
+        // Effects/controls must exist before expressions that reference them.
+        applyEffectControls(layer, layerSpec.effectControls);
+        applyEffects(layer, layerSpec.effects);
+
         // Apply expressions (resolved from AE_EXPRESSIONS by key)
-        var exprs = layerSpec.expressions || {};
-        for (var e in exprs) {
-            if (!exprs.hasOwnProperty(e)) continue;
-            var resolved = resolveExpression(exprs[e]);
-            if (!resolved.ok) {
-                throw new Error("Expression resolution failed for '" + e + "': " + resolved.message);
-            }
-            applyExpression(layer, e, resolved.details);
-        }
+        applyExpressions(layer, layerSpec.expressions);
 
         // Apply layer attributes
+        applyAttributes(layer, layerSpec.attributes);
+
+        return layer;
+    }
+
+    function createShapeLayer(comp, layerSpec) {
+        var layer = comp.layers.addShape();
+        layer.name = String(layerSpec.name || "shape_layer");
+
+        applyShapeContents(layer, layerSpec.shapeContents);
+
+        var props = layerSpec.properties || {};
+        for (var p in props) {
+            if (!props.hasOwnProperty(p)) continue;
+            applyPropertyValue(layer, p, props[p]);
+        }
+
+        applyEffectControls(layer, layerSpec.effectControls);
+        applyEffects(layer, layerSpec.effects);
+        applyExpressions(layer, layerSpec.expressions);
         applyAttributes(layer, layerSpec.attributes);
 
         return layer;
@@ -323,6 +580,8 @@
 
                     if (layerType === "text") {
                         createdLayer = createTextLayer(comp, spec);
+                    } else if (layerType === "shape") {
+                        createdLayer = createShapeLayer(comp, spec);
                     } else {
                         $.writeln("[layer_template] Unsupported layer type '" + layerType + "' — skipped.");
                         continue;

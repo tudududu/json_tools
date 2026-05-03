@@ -90,108 +90,39 @@
         '[0 + thisComp.width * 0.05, 0 + thisComp.height * 0.05];'
     ].join("\n");
 
-    // ── claim (reserved for future item) ─────────────────────────────────────
+    // ── claim ────────────────────────────────────────────────────────────────
 
-    // claim_source_text
-    // Reads the claim text field from data.json for the resolved video and orientation.
-    // DATA_KEY is set to "claim"; reads line 1 by default.
-    globalObj.AE_EXPRESSIONS["claim_source_text"] = [
-        '// claim_source_text — orientation-aware claim from data.json',
-        'var FOOTAGE_NAME = "data.json";',
-        'var DATA_KEY = "claim";',
-        'var desiredLine = 1;',
-        'var ORIENT_MODE = "Auto";',
-        'var nameShift = 1;',
-        'var compOrientation;',
-        'var nameLower = thisComp.name.toLowerCase();',
-        'if (ORIENT_MODE === "Landscape") { compOrientation = "landscape"; }',
-        'else if (ORIENT_MODE === "Portrait") { compOrientation = "portrait"; }',
-        'else {',
-        '  var compAR = thisComp.width / Math.max(1, thisComp.height);',
-        '  compOrientation = compAR > 1 ? "landscape" : "portrait";',
-        '  if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";',
-        '  else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";',
-        '}',
-        'var token1 = 0 + nameShift; var token2 = 1 + nameShift;',
-        'function baseVideoId() {',
-        '  var p = thisComp.name.split("_");',
-        '  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : "";',
-        '}',
-        'var baseId = baseVideoId();',
-        'var orientedId = baseId ? (baseId + "_" + compOrientation) : "";',
-        'var directId = thisComp.name;',
-        'function pickFromArray(arr, lineNum) {',
-        '  if (!arr || arr.length === 0) return "";',
-        '  var first = arr[0];',
-        '  if (typeof first === "string") {',
-        '    var idx = Math.max(0, Math.min(arr.length - 1, lineNum - 1));',
-        '    return (arr[idx] || "") + "";',
-        '  } else {',
-        '    for (var i = 0; i < arr.length; i++) {',
-        '      if (arr[i] && arr[i].line == lineNum) return (arr[i].text || "") + "";',
-        '    }',
-        '    return "";',
-        '  }',
-        '}',
-        'function findVideo(data, candidates) {',
-        '  if (!data || !data.videos) return null;',
-        '  var vids = data.videos;',
-        '  for (var c = 0; c < candidates.length; c++) {',
-        '    var target = (candidates[c] + "").toLowerCase();',
-        '    if (!target) continue;',
-        '    for (var i = 0; i < vids.length; i++) {',
-        '      if ((vids[i].videoId + "").toLowerCase() === target) return vids[i];',
-        '    }',
-        '  }',
-        '  return null;',
-        '}',
-        'var result = "";',
-        'try {',
-        '  var data = footage(FOOTAGE_NAME).sourceData;',
-        '  var video = findVideo(data, [orientedId, directId, baseId]);',
-        '  var orientKey = compOrientation;',
-        '  var arr = video ? (video[DATA_KEY] ? video[DATA_KEY] : (data[DATA_KEY] ? data[DATA_KEY][orientKey] : null)) : (data[DATA_KEY] ? data[DATA_KEY][orientKey] : null);',
-        '  result = arr ? pickFromArray(arr, desiredLine) : "";',
-        '} catch(e) { result = ""; }',
-        'result;'
-    ].join("\n");
+    function readTextFile(absPath) {
+        var f = new File(absPath);
+        if (!f.exists) return "";
+        try {
+            f.encoding = "UTF-8";
+            if (!f.open("r")) return "";
+            var t = f.read();
+            f.close();
+            return String(t || "");
+        } catch(_) {
+            try { f.close(); } catch(__) {}
+            return "";
+        }
+    }
 
-    // claim_position
-    // Baseline-locked position tied to the Size_Holder_Claim shape layer in the comp.
-    // Reads Padding, Align X, Align Y from expression controls on the holder.
-    globalObj.AE_EXPRESSIONS["claim_position"] = [
-        '// claim_position — baseline-locked to Size_Holder_Claim',
-        'var holder = thisComp.layer("Size_Holder_Claim");',
-        'var group  = holder.content("PLACEHOLDER");',
-        'var rect   = group.content("Rectangle Path 1");',
-        'function norm(v){ var L=length(v,[0,0,0]); return (L>0)?v/L:v; }',
-        'var gp=group.transform.position;',
-        'var C=holder.toComp(gp);',
-        'var Xax=norm(holder.toCompVec([1,0,0]));',
-        'var Yax=norm(holder.toCompVec([0,1,0]));',
-        'var cCtr=C;',
-        'var cR=holder.toComp([gp[0]+rect.size[0]/2,gp[1]]);',
-        'var cT=holder.toComp([gp[0],gp[1]-rect.size[1]/2]);',
-        'var halfW=length(cR-cCtr); var halfH=length(cT-cCtr);',
-        'function ctrl(name,def){',
-        '  try{return holder.effect(name)(name.match(/Menu/i)?"Menu":"Slider").value;}catch(e){return def;}',
-        '}',
-        'var pad=Math.max(0,ctrl("Padding",0));',
-        'var ax=Math.max(-1,Math.min(1,ctrl("Align X",0)));',
-        'var ay=Math.max(-1,Math.min(1,ctrl("Align Y",0)));',
-        'halfW=Math.max(0,halfW-pad); halfH=Math.max(0,halfH-pad);',
-        'var P=C+Xax*(ax*halfW)+Yax*(ay*halfH);',
-        'function isText(li){try{li.text.sourceText;return true;}catch(e){return false;}}',
-        'if(isText(thisLayer)){',
-        '  var r=sourceRectAtTime(time,false);',
-        '  var w=Math.max(1,r.width); var bx=r.left+w/2;',
-        '  var pL=[bx,0];',
-        '  var lP=fromComp(P); var deltaL=pL-lP;',
-        '  var deltaC=toComp(deltaL)-toComp([0,0]);',
-        '  thisLayer.threeDLayer?value+[deltaC[0],deltaC[1],0]:value+deltaC;',
-        '} else {',
-        '  thisLayer.threeDLayer?[P[0],P[1],value[2]]:P;',
-        '}'
-    ].join("\n");
+    function registerExpressionFromProjectPath(key, relativePathFromRoot) {
+        var base = null;
+        try { base = File($.fileName).parent; } catch(_) { base = null; }
+        if (!base) {
+            globalObj.AE_EXPRESSIONS[key] = "";
+            return;
+        }
+        var abs = base.fsName + "/../../../" + String(relativePathFromRoot || "");
+        var body = readTextFile(abs);
+        globalObj.AE_EXPRESSIONS[key] = body;
+    }
+
+    registerExpressionFromProjectPath("claim_source_text", "expression_ae/claim/sourceText_json_wire_simple.js");
+    registerExpressionFromProjectPath("claim_anchor",      "expression_ae/claim/anchor_baseline_centered_text.js");
+    registerExpressionFromProjectPath("claim_position",    "expression_ae/claim/position_baseline_locked_text_multiline.js");
+    registerExpressionFromProjectPath("claim_scale",       "expression_ae/claim/scale_uniform_contain_v02.js");
+    registerExpressionFromProjectPath("claim_opacity",     "expression_ae/opacity/opacity_fadein_onTime_v08.js");
 
 }($.global));

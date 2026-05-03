@@ -788,6 +788,7 @@
     var ddTemplateOp = mkLabeledDropdown(secTemplate, "Operation:", [
         "Copy default preset",
         "Layer template: info",
+        "Layer template: claim",
         "Expression injector (coming soon)"
     ]);
     ddTemplateOp.preferredSize.width = 210;
@@ -941,6 +942,10 @@
         }
         if (op === "Layer template: info") {
             runLayerTemplateItem("info");
+            return;
+        }
+        if (op === "Layer template: claim") {
+            runLayerTemplateItem("claim");
             return;
         }
         setTemplateStatus("Expression injector is not implemented yet.");
