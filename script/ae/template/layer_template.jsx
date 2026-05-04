@@ -153,6 +153,35 @@
         return [r, g, b];
     }
 
+    function generateUniqueName(comp, desiredName) {
+        try {
+            comp.layer(desiredName);
+            // Layer exists; need to find unique suffix
+        } catch(e) {
+            // Layer does not exist; name is available
+            return desiredName;
+        }
+
+        // Try name_01, name_02, ..., name_99, then name_001, name_002, etc.
+        for (var suffix = 1; suffix <= 999; suffix++) {
+            var candidateName;
+            if (suffix <= 99) {
+                candidateName = desiredName + "_" + (suffix < 10 ? "0" : "") + suffix;
+            } else {
+                candidateName = desiredName + "_" + suffix;
+            }
+            try {
+                comp.layer(candidateName);
+                // This name also exists; continue looping
+            } catch(e) {
+                // Name is available
+                return candidateName;
+            }
+        }
+        // Fallback (unlikely): return the original name if we can't find a unique one
+        return desiredName;
+    }
+
     // ── PROPERTY SETTERS ──────────────────────────────────────────────────────
     // Explicit per-path setters. Only add new entries here when a real item needs them.
 
@@ -527,7 +556,9 @@
     function createTextLayer(comp, layerSpec) {
         // Create at top (index 1 in AE stack). addText always inserts at the top.
         var layer = comp.layers.addText("");
-        layer.name = String(layerSpec.name || "text_layer");
+        var desiredName = String(layerSpec.name || "text_layer");
+        var uniqueName = generateUniqueName(comp, desiredName);
+        layer.name = uniqueName;
 
         // Apply optional text styling (font, size) before property/expression wiring.
         applyTextStyle(layer, layerSpec.textStyle);
@@ -554,7 +585,9 @@
 
     function createShapeLayer(comp, layerSpec) {
         var layer = comp.layers.addShape();
-        layer.name = String(layerSpec.name || "shape_layer");
+        var desiredName = String(layerSpec.name || "shape_layer");
+        var uniqueName = generateUniqueName(comp, desiredName);
+        layer.name = uniqueName;
 
         applyShapeContents(layer, layerSpec.shapeContents);
 
