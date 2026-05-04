@@ -1,96 +1,69 @@
 {
-  "sources": [
+  "pool": [
     {
-      "group": "info",
-      "key": "info_source_text",
+      "id": "sourceText_json_info",
       "path": "expression_ae/sourceText/sourceText_json_info.js"
     },
-
     {
-      "group": "claim",
-      "key": "claim_source_text",
+      "id": "sourceText_json_wire_simple",
       "path": "expression_ae/claim/sourceText_json_wire_simple.js"
     },
     {
-      "group": "claim",
-      "key": "claim_anchor",
+      "id": "anchor_baseline_centered_text",
       "path": "expression_ae/claim/anchor_baseline_centered_text.js"
     },
     {
-      "group": "claim",
-      "key": "claim_position",
+      "id": "position_baseline_locked_text_multiline",
       "path": "expression_ae/claim/position_baseline_locked_text_multiline.js"
     },
     {
-      "group": "claim",
-      "key": "claim_scale",
+      "id": "scale_uniform_contain_v02",
       "path": "expression_ae/claim/scale_uniform_contain_v02.js"
     },
     {
-      "group": "claim",
-      "key": "claim_opacity",
+      "id": "opacity_fadein_onTime_v08",
       "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
     },
-
-
     {
-      "group": "super_A",
-      "key": "super_A_source_text",
+      "id": "sourceText_json_wire_v11",
       "path": "expression_ae/sourceText/sourceText_json_wire_v11.js"
     },
     {
-      "group": "super_A",
-      "key": "super_A_anchor",
+      "id": "transform_anchor_super_A",
       "path": "expression_ae/super_A/transform_anchor.js"
     },
     {
-      "group": "super_A",
-      "key": "super_A_position",
+      "id": "transform_position_super_A_v02",
       "path": "expression_ae/super_A/transform_position_super_A_v02.js"
     },
     {
-      "group": "super_A",
-      "key": "super_A_scale",
-      "path": "expression_ae/claim/scale_uniform_contain_v02.js"
-    },
-    {
-      "group": "super_A",
-      "key": "super_A_opacity",
-      "path": "expression_ae/opacity/opacity_fadein_onTime_v08.js"
-    },
-
-    
-    {
-      "group": "disclaimer",
-      "key": "disclaimer_source_text",
-      "path": "expression_ae/sourceText/sourceText_json_wire_v11.js"
-    },
-    {
-      "group": "disclaimer",
-      "key": "disclaimer_anchor",
-      "path": "expression_ae/super_A/transform_anchor.js"
-    },
-    {
-      "group": "disclaimer",
-      "key": "disclaimer_position",
-      "path": "expression_ae/super_A/transform_position_super_A_v02.js"
-    },
-    {
-      "group": "disclaimer",
-      "key": "disclaimer_scale",
-      "path": "expression_ae/claim/scale_uniform_contain_v02.js"
-    },
-
-
-    {
-      "group": "subtitles",
-      "key": "subtitles_source_text",
-      "path": "expression_ae/sourceText/sourceText_json_wire_v11.js"
-    },
-    {
-      "group": "subtitles",
-      "key": "subtitles_position",
+      "id": "transform_position_subtitles_v04",
       "path": "expression_ae/subtitles/transform_position_subtitles_v04.js"
     }
+  ],
+
+  "bindings": [
+    { "group": "info",       "key": "info_source_text",       "expr": "sourceText_json_info" },
+
+    { "group": "claim",      "key": "claim_source_text",       "expr": "sourceText_json_wire_simple" },
+    { "group": "claim",      "key": "claim_anchor",            "expr": "anchor_baseline_centered_text" },
+    { "group": "claim",      "key": "claim_position",          "expr": "position_baseline_locked_text_multiline" },
+    { "group": "claim",      "key": "claim_scale",             "expr": "scale_uniform_contain_v02" },
+    { "group": "claim",      "key": "claim_opacity",           "expr": "opacity_fadein_onTime_v08" },
+
+    { "group": "super_A",    "key": "super_A_source_text",     "expr": "sourceText_json_wire_v11" },
+    { "group": "super_A",    "key": "super_A_anchor",          "expr": "transform_anchor_super_A" },
+    { "group": "super_A",    "key": "super_A_position",        "expr": "transform_position_super_A_v02" },
+    { "group": "super_A",    "key": "super_A_scale",           "expr": "scale_uniform_contain_v02" },
+    { "group": "super_A",    "key": "super_A_opacity",         "expr": "opacity_fadein_onTime_v08" },
+
+    { "group": "disclaimer", "key": "disclaimer_source_text",  "expr": "sourceText_json_wire_v11" },
+    { "group": "disclaimer", "key": "disclaimer_anchor",       "expr": "transform_anchor_super_A" },
+    { "group": "disclaimer", "key": "disclaimer_position",     "expr": "transform_position_super_A_v02" },
+    { "group": "disclaimer", "key": "disclaimer_scale",        "expr": "scale_uniform_contain_v02" },
+
+    { "group": "subtitles",  "key": "subtitles_source_text",   "expr": "sourceText_json_wire_v11" },
+    { "group": "subtitles",  "key": "subtitles_position",      "expr": "transform_position_subtitles_v04" }
   ]
 }
+

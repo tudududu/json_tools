@@ -25,14 +25,16 @@
     ].join("\n");
 
 // >>> AE_EXPRESSIONS_BUNDLE:START
-    // AUTO-GENERATED: AE expressions bundle
+    // AUTO-GENERATED: AE expressions bundle (pool/bindings mode)
     // Do not edit this block manually.
     // Source of truth lives in expression_ae/*.js files.
 
-    // ── info (generated) ─────────────────────────────────────────────────────
+    // ── EXPRESSION POOL ─────────────────────────────────────────────────────
 
-    // info_source_text — expression_ae/sourceText/sourceText_json_info.js
-    globalObj.AE_EXPRESSIONS["info_source_text"] = [
+    var __POOL = {};
+
+    // sourceText_json_info — expression_ae/sourceText/sourceText_json_info.js
+    __POOL["sourceText_json_info"] = [
         '// sourceText_json_info v04 251209 (per-video metadata inspector)',
         '// Builds an informational multiline string combining global metadata and the resolved video object\'s metadata.',
         '// Intended for a debug / QA text layer inside AE.',
@@ -164,10 +166,8 @@
         'out;'
     ].join("\n");
 
-    // ── claim (generated) ────────────────────────────────────────────────────
-
-    // claim_source_text — expression_ae/claim/sourceText_json_wire_simple.js
-    globalObj.AE_EXPRESSIONS["claim_source_text"] = [
+    // sourceText_json_wire_simple — expression_ae/claim/sourceText_json_wire_simple.js
+    __POOL["sourceText_json_wire_simple"] = [
         '// sourceText_json_wire_simple 260502',
         '// not-time-gated, orientation-aware/override',
         '// ------------------------------------------------------------------------------',
@@ -303,8 +303,8 @@
         '}'
     ].join("\n");
 
-    // claim_anchor — expression_ae/claim/anchor_baseline_centered_text.js
-    globalObj.AE_EXPRESSIONS["claim_anchor"] = [
+    // anchor_baseline_centered_text — expression_ae/claim/anchor_baseline_centered_text.js
+    __POOL["anchor_baseline_centered_text"] = [
         '// anchor_baseline_centered_text',
         '// TEXT layer ► Anchor Point — Baseline-centered (no Y drift)',
         'var is3D = thisLayer.threeDLayer;',
@@ -321,8 +321,8 @@
         '}'
     ].join("\n");
 
-    // claim_position — expression_ae/claim/position_baseline_locked_text_multiline.js
-    globalObj.AE_EXPRESSIONS["claim_position"] = [
+    // position_baseline_locked_text_multiline — expression_ae/claim/position_baseline_locked_text_multiline.js
+    __POOL["position_baseline_locked_text_multiline"] = [
         '// position_baseline_locked_text_multiline',
         '// TARGET ► Position — vertical centering for multiline TEXT',
         'var holderName = "locker_" + thisLayer.name;',
@@ -398,8 +398,8 @@
         '}'
     ].join("\n");
 
-    // claim_scale — expression_ae/claim/scale_uniform_contain_v02.js
-    globalObj.AE_EXPRESSIONS["claim_scale"] = [
+    // scale_uniform_contain_v02 — expression_ae/claim/scale_uniform_contain_v02.js
+    __POOL["scale_uniform_contain_v02"] = [
         '// scale_uniform_contain_v02',
         '// TARGET (Text) ► Scale — Contain, only shrink; JSON/text-safe',
         '',
@@ -481,8 +481,8 @@
         'thisLayer.threeDLayer ? [k, k, value[2]] : [k, k];'
     ].join("\n");
 
-    // claim_opacity — expression_ae/opacity/opacity_fadein_onTime_v08.js
-    globalObj.AE_EXPRESSIONS["claim_opacity"] = [
+    // opacity_fadein_onTime_v08 — expression_ae/opacity/opacity_fadein_onTime_v08.js
+    __POOL["opacity_fadein_onTime_v08"] = [
         '// opacity_fadein_onTime_v08 260502',
         '// (orientation-aware, SINGLE KEY, fade in, fade out)',
         '',
@@ -679,10 +679,8 @@
         '}'
     ].join("\n");
 
-    // ── super_A (generated) ──────────────────────────────────────────────────
-
-    // super_A_source_text — expression_ae/sourceText/sourceText_json_wire_v11.js
-    globalObj.AE_EXPRESSIONS["super_A_source_text"] = [
+    // sourceText_json_wire_v11 — expression_ae/sourceText/sourceText_json_wire_v11.js
+    __POOL["sourceText_json_wire_v11"] = [
         '// sourceText_json_wire v11 260502',
         '// (orientation-aware/override, time-gated, multi-line)',
         '// JSON → text; orientation-specific global keys + oriented videoIds',
@@ -851,8 +849,8 @@
         '} catch (e) { ""; }'
     ].join("\n");
 
-    // super_A_anchor — expression_ae/super_A/transform_anchor.js
-    globalObj.AE_EXPRESSIONS["super_A_anchor"] = [
+    // transform_anchor_super_A — expression_ae/super_A/transform_anchor.js
+    __POOL["transform_anchor_super_A"] = [
         '// transform_anchor',
         '// TEXT layer ► Anchor Point — left + vertical center for one-line and multiline POINT text',
         '// Sets anchor so position expression can directly place left edge & vertical center to holder.',
@@ -868,8 +866,8 @@
         '}'
     ].join("\n");
 
-    // super_A_position — expression_ae/super_A/transform_position_super_A_v02.js
-    globalObj.AE_EXPRESSIONS["super_A_position"] = [
+    // transform_position_super_A_v02 — expression_ae/super_A/transform_position_super_A_v02.js
+    __POOL["transform_position_super_A_v02"] = [
         '// transform_position_super_A_v02',
         '// TARGET ► Position v02 260502',
         '// — vertical centering for oneline and multiline TEXT',
@@ -931,796 +929,8 @@
         '}'
     ].join("\n");
 
-    // super_A_scale — expression_ae/claim/scale_uniform_contain_v02.js
-    globalObj.AE_EXPRESSIONS["super_A_scale"] = [
-        '// scale_uniform_contain_v02',
-        '// TARGET (Text) ► Scale — Contain, only shrink; JSON/text-safe',
-        '',
-        '// --- Holder rect (rotation/scale aware) ---',
-        'var holderName = "locker_" + thisLayer.name;',
-        'var holder = thisComp.layer(holderName);',
-        'var group  = holder.content("PLACEHOLDER");',
-        'var rect   = group.content("Rectangle Path 1");',
-        '',
-        'var gp = group.transform.position;',
-        'var cC = holder.toComp(gp);',
-        'var cR = holder.toComp([gp[0] + rect.size[0]/2, gp[1]]);',
-        'var cL = holder.toComp([gp[0] - rect.size[0]/2, gp[1]]);',
-        'var cT = holder.toComp([gp[0], gp[1] - rect.size[1]/2]);',
-        'var cB = holder.toComp([gp[0], gp[1] + rect.size[1]/2]);',
-        '',
-        'var holderW = Math.max(1, length(cL, cR));',
-        'var holderH = Math.max(1, length(cT, cB));',
-        '',
-        '// Optional padding from holder effects',
-        'function ctrl(name, def){',
-        '  try { return holder.effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value; } catch(e) { return def; }',
-        '}',
-        'var pad = Math.max(0, ctrl("Padding", 0));',
-        'holderW = Math.max(1, holderW - 2*pad);',
-        'holderH = Math.max(1, holderH - 2*pad);',
-        '',
-        '// --- Dependencies & robust text measurement ---',
-        'function isText(li){ try{ li.text.sourceText; return true; } catch(e){ return false; } }',
-        '',
-        '// Force AE to evaluate after Source Text expression by referencing it (dependency only).',
-        '// We don\'t actually use the string here; it\'s just to ensure correct evaluation order.',
-        'var _txtDep = (function(){',
-        '  try { return thisLayer.text.sourceText.text; } catch(e) { return ""; }',
-        '})();',
-        '',
-        '// Safe sourceRectAtTime for text: tries current frame; if 0×0, tries previous frame.',
-        'function safeTextSize(){',
-        '  function rectAt(t){ var r = sourceRectAtTime(t, false); return [r.width, r.height]; }',
-        '  var w = 0, h = 0;',
-        '',
-        '  // Try now',
-        '  var r0 = rectAt(time);',
-        '  w = r0[0]; h = r0[1];',
-        '',
-        '  // If empty (common right after JSON updates), try previous frame (if possible)',
-        '  if ((w < 1 || h < 1) && time > thisComp.displayStartTime){',
-        '    var tPrev = time - thisComp.frameDuration;',
-        '    var r1 = rectAt(tPrev);',
-        '    w = Math.max(w, r1[0]);',
-        '    h = Math.max(h, r1[1]);',
-        '  }',
-        '',
-        '  // Final clamp to avoid div-by-zero and accidental upscales',
-        '  return [Math.max(1, w), Math.max(1, h)];',
-        '}',
-        '',
-        'function contentSize(li){',
-        '  if (isText(li)){',
-        '    return safeTextSize(); // never fallback to comp size for text',
-        '  }',
-        '  // Non-text: SRAT if available, else layer dims',
-        '  try {',
-        '    var r = li.sourceRectAtTime(time, false);',
-        '    if (r.width > 0 && r.height > 0) return [r.width, r.height];',
-        '  } catch(e){}',
-        '  return [Math.max(1, li.width), Math.max(1, li.height)];',
-        '}',
-        '',
-        'var s = contentSize(thisLayer);',
-        '',
-        '// --- Only-shrink uniform contain ---',
-        'var fit = Math.min(holderW / s[0], holderH / s[1]) * 100;',
-        '',
-        '// Baseline: respect your keyed X scale (never upscale beyond it)',
-        'var base = value[0];',
-        'var k = Math.min(base, fit);',
-        '',
-        'thisLayer.threeDLayer ? [k, k, value[2]] : [k, k];'
-    ].join("\n");
-
-    // super_A_opacity — expression_ae/opacity/opacity_fadein_onTime_v08.js
-    globalObj.AE_EXPRESSIONS["super_A_opacity"] = [
-        '// opacity_fadein_onTime_v08 260502',
-        '// (orientation-aware, SINGLE KEY, fade in, fade out)',
-        '',
-        '// union does not work (of multiple segments when desiredLine == 0 for subtitles.)',
-        '',
-        '// Simplified from multi-key version: drive opacity from one user-defined data key.',
-        '// JSON duplication per orientation (videoId suffixed, e.g. Title_30s_landscape).',
-        '// Supported keys: (E.g. claim | disclaimer | logo | subtitles) timed arrays of objects with in/out; global arrays w/out timing;',
-        '// CONFIG:',
-        '//   DATA_KEY    → which array to read',
-        '//   desiredLine → line number (1-based). For subtitles: if 0 gather ALL subtitle lines\' time windows (union)',
-        '// Behavior:',
-        '//   - Collect timed segments for the oriented video under DATA_KEY.',
-        '//   - Opacity per segment: fade from OPAC_IN to 100 over FADE_IN starting at \'in\',',
-        '//     then fade from 100 to OPAC_IN over FADE_OUT ending at \'out\'. Exclusive out: [in, out).',
-        '//   - Multiple segments (e.g. subtitles lines) are treated as a union (any active segment → visible).',
-        '//   - If no timed segments but a global orientation fallback array exists for DATA_KEY → constant 100.',
-        '//   - Else → 0.',
-        '// Notes:',
-        '//   - Fade durations auto-clamped so they never exceed segment length.',
-        '//   - Orientation: square treated as portrait; can override by suffix _landscape / _portrait in comp name.',
-        '',
-        '// -------- CONFIG --------',
-        '// FOOTAGE_NAME stays inline; all other config comes from Expression Controls on this layer.',
-        '//',
-        '// Required effects (Effects > Expression Controls):',
-        '//   Dropdown Menu Control  "Data Key Menu"  — items: claim | disclaimer | logo | subtitles | super_A',
-        '//                                             Add further items in any order; keep this array in sync:',
-        '//   Slider Control         "Desired Line"   — 0 = all / subtitle union; ≥1 = specific line (integer)',
-        '//   Slider Control         "Fade In"        — seconds, decimals supported (e.g. 0.5)',
-        '//   Slider Control         "Fade Out"       — seconds, decimals supported (e.g. 0.5)',
-        '//   Slider Control         "Opacity In"     — 0–100',
-        '//   Slider Control         "Name Shift"     — 0 = Title_30s | 1 = Client_Title_30s | 2 = Client_Brand_Title_30s',
-        '',
-        'var FOOTAGE_NAME = "data.json";',
-        '',
-        '// Read a named effect from this layer; Menu effects need the "Menu" property, Sliders need "Slider".',
-        'function ctrl(name, def) {',
-        '  try {',
-        '    return effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value;',
-        '  } catch (e) { return def; }',
-        '}',
-        '',
-        '// Map Dropdown index (1-based) to a JSON key string.',
-        '// Keep this array in the same order as the "Data Key Menu" dropdown items.',
-        'var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"];',
-        'var _dkIdx = Math.round(ctrl("Data Key Menu", 1)) - 1; // 0-based',
-        'var DATA_KEY = DATA_KEY_OPTIONS[Math.max(0, Math.min(DATA_KEY_OPTIONS.length - 1, _dkIdx))];',
-        '',
-        'var desiredLine = Math.round(ctrl("Desired Line", 0));',
-        'var FADE_IN     = ctrl("Fade In",     0);   // float seconds',
-        'var FADE_OUT    = ctrl("Fade Out",    0);   // float seconds',
-        'var OPAC_IN     = ctrl("Opacity In",  0);   // 0–100',
-        'var nameShift   = Math.round(ctrl("Name Shift", 1));',
-        '',
-        '// -------- Orientation detection --------',
-        'var compAR = thisComp.width / Math.max(1, thisComp.height);',
-        'var compOrientation = compAR > 1 ? "landscape" : "portrait";',
-        'var nameLower = thisComp.name.toLowerCase();',
-        'if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";',
-        'else if (nameLower.indexOf("_portrait")  >= 0) compOrientation = "portrait";',
-        '',
-        '// -------- VideoId derivation --------',
-        'var token1 = 0 + nameShift;',
-        'var token2 = 1 + nameShift;',
-        '',
-        'function baseVideoId(){',
-        '  var p = thisComp.name.split("_");',
-        '  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // e.g. Title_30s',
-        '}',
-        'var baseId     = baseVideoId();',
-        'var orientedId = baseId ? (baseId + "_" + compOrientation) : "";',
-        'var directId   = thisComp.name;',
-        '',
-        'function findVideo(data, candidates){',
-        '  if (!data || !data.videos) return null;',
-        '  var vids = data.videos;',
-        '  for (var c=0;c<candidates.length;c++){',
-        '    var target = (candidates[c] + "").toLowerCase();',
-        '    if (!target) continue;',
-        '    for (var i=0;i<vids.length;i++){',
-        '      var v = vids[i];',
-        '      if ((v.videoId + "").toLowerCase() === target) return v;',
-        '    }',
-        '  }',
-        '  return null;',
-        '}',
-        '',
-        'function getGlobalArray(data, key){',
-        '  if (!data) return null;',
-        '  var blk = data[key];',
-        '  if (!blk) return null;',
-        '  if (blk instanceof Array) return blk;',
-        '  return blk[compOrientation] || null;',
-        '}',
-        '',
-        'function collectSegments(videoObj, key){',
-        '  var segs = [];',
-        '  if (!videoObj) return segs;',
-        '  var arr = videoObj[key];',
-        '  if (!arr) return segs;',
-        '  if (key === "subtitles" && desiredLine === 0){',
-        '    for (var i=0;i<arr.length;i++){',
-        '      var it = arr[i]; if (!it) continue;',
-        '      var s = Number(it["in"]), e = Number(it["out"]);',
-        '      if (!isNaN(s) && !isNaN(e) && e > s) segs.push([s,e]);',
-        '    }',
-        '    return segs;',
-        '  }',
-        '  var lineNum = desiredLine < 1 ? 1 : desiredLine;',
-        '  for (var j=0;j<arr.length;j++){',
-        '    var it2 = arr[j];',
-        '    if (it2 && it2.line == lineNum){',
-        '      var ss = Number(it2["in"]), ee = Number(it2["out"]);',
-        '      if (!isNaN(ss) && !isNaN(ee) && ee > ss) segs.push([ss,ee]);',
-        '      break;',
-        '    }',
-        '  }',
-        '  return segs;',
-        '}',
-        '',
-        '// Optional: merge overlapping/touching segments for cleaner evaluation',
-        'function mergeSegments(list){',
-        '  if (list.length <= 1) return list;',
-        '  list.sort(function(a,b){ return a[0]-b[0]; });',
-        '  var out = [list[0]];',
-        '  for (var i=1;i<list.length;i++){',
-        '    var cur = list[i];',
-        '    var prev = out[out.length-1];',
-        '    if (cur[0] <= prev[1]){',
-        '      if (cur[1] > prev[1]) prev[1] = cur[1];',
-        '    } else {',
-        '      out.push(cur);',
-        '    }',
-        '  }',
-        '  return out;',
-        '}',
-        '',
-        '// Fade from OPAC_IN to 100 over segment start window',
-        'function fadeOpacity(t, sT, eT, fin){',
-        '  if (fin <= 0.000001 || fin <= thisComp.frameDuration){',
-        '    // Treat as instant',
-        '    return 100;',
-        '  }',
-        '  var progress = (t - sT) / fin;',
-        '  progress = Math.min(Math.max(progress, 0), 1);',
-        '  return OPAC_IN + (100 - OPAC_IN) * progress;',
-        '}',
-        '',
-        '// Fade from 100 to OPAC_IN over segment end window',
-        'function fadeOutOpacity(t, outStart, outEnd, fout){',
-        '  if (fout <= 0.000001 || fout <= thisComp.frameDuration){',
-        '    // Treat as instant at out window start',
-        '    return OPAC_IN;',
-        '  }',
-        '  var progress = (t - outStart) / fout;',
-        '  progress = Math.min(Math.max(progress, 0), 1);',
-        '  return 100 + (OPAC_IN - 100) * progress;',
-        '}',
-        '',
-        'var dataRef = null, videoObj = null, segments = [], hasGlobalFallback = false;',
-        'try {',
-        '  dataRef = footage(FOOTAGE_NAME).sourceData;',
-        '  videoObj = findVideo(dataRef, [orientedId, directId, baseId]);',
-        '  segments = collectSegments(videoObj, DATA_KEY);',
-        '  if (!segments.length){',
-        '    var gArr = getGlobalArray(dataRef, DATA_KEY);',
-        '    if (gArr && gArr.length) hasGlobalFallback = true;',
-        '  }',
-        '} catch(err){}',
-        '',
-        'if (segments.length === 0){',
-        '  hasGlobalFallback ? 100 : 0;',
-        '} else {',
-        '  segments = mergeSegments(segments);',
-        '  var t = time;',
-        '  var active = null;',
-        '  for (var iS=0;iS<segments.length;iS++){',
-        '    var sg = segments[iS];',
-        '    if (t >= sg[0] && t < sg[1]) { active = sg; break; }',
-        '  }',
-        '  if (!active){',
-        '    0;',
-        '  } else {',
-        '    var sT = active[0], eT = active[1];',
-        '    var segLen = Math.max(0.0005, eT - sT);',
-        '    var fin = Math.min(Math.max(0.0005, FADE_IN), segLen);',
-        '    var fout = Math.min(Math.max(0.0005, FADE_OUT), segLen);',
-        '    var outStart = eT - fout;',
-        '    (t < sT) ? 0 :',
-        '    (t < sT + fin) ? fadeOpacity(t, sT, eT, fin) :',
-        '    (t >= outStart && t < eT) ? fadeOutOpacity(t, outStart, eT, fout) : 100;',
-        '  }',
-        '}'
-    ].join("\n");
-
-    // ── disclaimer (generated) ───────────────────────────────────────────────
-
-    // disclaimer_source_text — expression_ae/sourceText/sourceText_json_wire_v11.js
-    globalObj.AE_EXPRESSIONS["disclaimer_source_text"] = [
-        '// sourceText_json_wire v11 260502',
-        '// (orientation-aware/override, time-gated, multi-line)',
-        '// JSON → text; orientation-specific global keys + oriented videoIds',
-        '// DATA_KEY: "subtitles" | "claim" | "disclaimer" | "logo"',
-        '// Behavior:',
-        '//   subtitles: show ALL active lines (time ∈ [in,out)) stacked',
-        '//   claim/disclaimer/logo: desiredLine>0 → that line only (gated); desiredLine=0 → all active',
-        '// Orientation resolution order: explicit suffix in comp name (_landscape/_portrait) else aspect ratio (>1 landscape, else portrait). Square (1:1) treated as portrait by using >1 test.',
-        '',
-        'var FOOTAGE_NAME = "data.json"; // JSON footage name',
-        '',
-        '// Read controls from this text layer (Effects > Expression Controls)',
-        '// Required effects:',
-        '//   Dropdown Menu Control  "Data Key Menu"     -> claim | disclaimer | logo | subtitles | super_A',
-        '//   Slider Control         "Desired Line"      -> 0 = time-driven multi; >0 fixed line',
-        '//   Dropdown Menu Control  "Orientation Menu"  -> Auto | Landscape | Portrait',
-        '//   Slider Control         "Name Shift"        -> 0,1,2...',
-        'function ctrl(name, def) {',
-        '  try {',
-        '    return effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value;',
-        '  } catch (e) { return def; }',
-        '}',
-        '',
-        '// Keep menu arrays in the same order as Dropdown items in AE.',
-        'var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"];',
-        'var ORIENT_OPTIONS = ["Auto", "Landscape", "Portrait"];',
-        '',
-        'var _dkIdx = Math.round(ctrl("Data Key Menu", 2)) - 1;      // default "disclaimer"',
-        'var _omIdx = Math.round(ctrl("Orientation Menu", 1)) - 1;   // default "Auto"',
-        '',
-        'var DATA_KEY = DATA_KEY_OPTIONS[Math.max(0, Math.min(DATA_KEY_OPTIONS.length - 1, _dkIdx))];',
-        'var desiredLine = Math.round(ctrl("Desired Line", 0));      // 0=time-driven multi; >0 fixed line',
-        'var ORIENT_MODE = ORIENT_OPTIONS[Math.max(0, Math.min(ORIENT_OPTIONS.length - 1, _omIdx))];',
-        'var nameShift = Math.round(ctrl("Name Shift", 1));  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s',
-        '',
-        '// -------- Orientation detection / override -------- ',
-        'var compOrientation;',
-        'var nameLower = thisComp.name.toLowerCase();',
-        'if (ORIENT_MODE === "Landscape") {',
-        '  compOrientation = "landscape";',
-        '} else if (ORIENT_MODE === "Portrait") {',
-        '  compOrientation = "portrait";',
-        '} else {',
-        '  // Auto: aspect-based with suffix override',
-        '  var compAR = thisComp.width / Math.max(1, thisComp.height);',
-        '  compOrientation = compAR > 1 ? "landscape" : "portrait"; // square -> portrait',
-        '  if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";',
-        '  else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";',
-        '}',
-        '',
-        '// -------- VideoId derivation --------',
-        'var token1 = 0 + nameShift;',
-        'var token2 = 1 + nameShift;',
-        '',
-        'function baseVideoId() {',
-        '  var p = thisComp.name.split("_");',
-        '  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // Title_15s',
-        '}',
-        'var baseId = baseVideoId();',
-        'var orientedId = baseId ? (baseId + "_" + compOrientation) : "";',
-        'var directId = thisComp.name; // full comp name fallback',
-        '',
-        'function findVideo(data, candidates) {',
-        '  if (!data || !data.videos) return null;',
-        '  var vids = data.videos;',
-        '  for (var c = 0; c < candidates.length; c++) {',
-        '    var target = (candidates[c] + "").toLowerCase();',
-        '    if (!target) continue;',
-        '    for (var i = 0; i < vids.length; i++) {',
-        '      var v = vids[i];',
-        '      if ((v.videoId + "").toLowerCase() === target) return v;',
-        '    }',
-        '  }',
-        '  return null;',
-        '}',
-        '',
-        'function getOrientationGlobalBlock(data, key) {',
-        '  if (!data) return null;',
-        '  var block = data[key];',
-        '  if (!block) return null;',
-        '  if (block instanceof Array) {',
-        '    // legacy shape fallback',
-        '    return block;',
-        '  }',
-        '  return block[compOrientation] || null;',
-        '}',
-        '',
-        'function getVideoArray(vidObj, key) {',
-        '  if (!vidObj) return null;',
-        '  return vidObj[key] || null;',
-        '}',
-        '',
-        'function getText(it) {',
-        '  return (it && it.text != null) ? (it.text + "") : "";',
-        '}',
-        '',
-        'function pickLine(arr, lineNum) {',
-        '  if (!arr) return null;',
-        '  for (var i = 0; i < arr.length; i++) {',
-        '    var it = arr[i];',
-        '    if (it && it.line == lineNum) return it;',
-        '  }',
-        '  return null;',
-        '}',
-        '',
-        '// Exclusive-out check: visible when t ∈ [in, out)',
-        'function activeByTime(arr, t) {',
-        '  var res = [];',
-        '  if (!arr) return res;',
-        '  for (var i = 0; i < arr.length; i++) {',
-        '    var it = arr[i];',
-        '    if (!it) continue;',
-        '    var s = Number(it["in"]);',
-        '    var e = Number(it["out"]);',
-        '    if (!isNaN(s) && !isNaN(e) && t >= s && t < e) res.push(it);',
-        '  }',
-        '  return res;',
-        '}',
-        '',
-        'function joinTexts(items) {',
-        '  var out = "";',
-        '  for (var i = 0; i < items.length; i++) {',
-        '    if (!items[i]) continue;',
-        '    if (out.length > 0) out += "\\r"; // stack on new lines',
-        '    out += getText(items[i]);',
-        '  }',
-        '  return out;',
-        '}',
-        '',
-        'try {',
-        '  var data = footage(FOOTAGE_NAME).sourceData;',
-        '  var vid = findVideo(data, [orientedId, directId, baseId]);',
-        '  var arr = getVideoArray(vid, DATA_KEY);',
-        '  var t = time;',
-        '',
-        '  if (!arr) {',
-        '    // Fallback: orientation-specific global block (only for non-subtitles keys)',
-        '    if (DATA_KEY === "subtitles") {',
-        '      "";',
-        '    } else {',
-        '      var glob = getOrientationGlobalBlock(data, DATA_KEY);',
-        '      if (!glob) {',
-        '        "";',
-        '      } else {',
-        '        // global arrays are plain strings → no timing; just index',
-        '        if (desiredLine < 1) desiredLine = 1;',
-        '        var idx = Math.min(glob.length - 1, desiredLine - 1);',
-        '        (glob[idx] || "") + "";',
-        '      }',
-        '    }',
-        '  } else {',
-        '    if (DATA_KEY === "subtitles" || desiredLine === 0) {',
-        '      var items = activeByTime(arr, t);',
-        '      joinTexts(items);',
-        '    } else {',
-        '      var item = pickLine(arr, desiredLine);',
-        '      if (!item) {',
-        '        "";',
-        '      } else {',
-        '        var s = Number(item["in"]);',
-        '        var e = Number(item["out"]);',
-        '        (isNaN(s) || isNaN(e) || (t < s || t >= e)) ? "" : getText(item);',
-        '      }',
-        '    }',
-        '  }',
-        '} catch (e) { ""; }'
-    ].join("\n");
-
-    // disclaimer_anchor — expression_ae/super_A/transform_anchor.js
-    globalObj.AE_EXPRESSIONS["disclaimer_anchor"] = [
-        '// transform_anchor',
-        '// TEXT layer ► Anchor Point — left + vertical center for one-line and multiline POINT text',
-        '// Sets anchor so position expression can directly place left edge & vertical center to holder.',
-        '// For point text: r.top may be negative (ascender). Center = r.top + r.height/2.',
-        'var is3D = thisLayer.threeDLayer;',
-        'try {',
-        '  var r = sourceRectAtTime(time, false);',
-        '  var ax = r.left; // left edge',
-        '  var ay = r.top + r.height/2; // geometric vertical center independent of line count',
-        '  is3D ? [ax, ay, value[2]] : [ax, ay];',
-        '} catch(e) {',
-        '  value; // fallback',
-        '}'
-    ].join("\n");
-
-    // disclaimer_position — expression_ae/super_A/transform_position_super_A_v02.js
-    globalObj.AE_EXPRESSIONS["disclaimer_position"] = [
-        '// transform_position_super_A_v02',
-        '// TARGET ► Position v02 260502',
-        '// — vertical centering for oneline and multiline TEXT',
-        '// - horizontal alignment switchable L/C/R (inline control)',
-        '',
-        'var holderName = "locker_" + thisLayer.name;',
-        'var holder = thisComp.layer(holderName);',
-        'var group  = holder.content("PLACEHOLDER");',
-        'var rect   = group.content("Rectangle Path 1");',
-        '',
-        '// --- Holder center/axes/half-extents in comp space (rotation aware) ---',
-        'function norm(v){ var L = length(v,[0,0,0]); return (L>0)? v/L : v; }',
-        'var gp   = group.transform.position;',
-        'var C    = holder.toComp(gp);',
-        'var Xax  = norm(holder.toCompVec([1,0,0]));',
-        'var Yax  = norm(holder.toCompVec([0,1,0]));',
-        'var cCtr = C;',
-        'var cR   = holder.toComp([gp[0] + rect.size[0]/2, gp[1]]);',
-        'var cT   = holder.toComp([gp[0], gp[1] - rect.size[1]/2]);',
-        'var halfW = length(cR - cCtr);',
-        'var halfH = length(cT - cCtr);',
-        '',
-        '// Optional controls',
-        'function ctrl(name, def){',
-        '  try{ return holder.effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value; } catch(e){ return def; }',
-        '}',
-        'var pad = Math.max(0, ctrl("Padding", 0));',
-        '// Horizontal alignment from holder control: -1..1 (left..right)',
-        'var ax  = Math.max(-1, Math.min(1, ctrl("Align X", 0))); // -1..1',
-        '// Optional vertical alignment slider still supported (0=center)',
-        'var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1',
-        '// Automatic vertical centering for multiline TEXT (2D point text only).',
-        '// Simplified: 1 line = baseline align; >=2 lines = compute baseline offset so block visually centers in holder.',
-        '',
-        'halfW = Math.max(0, halfW - pad);',
-        'halfH = Math.max(0, halfH - pad);',
-        '',
-        '// Target comp-space point inside the placeholder',
-        '// Map ax to left..right range',
-        'var xp = ax * halfW;',
-        'var P = C + Xax*(xp) + Yax*(ay*halfH);',
-        '',
-        '// --- Baseline lock for TEXT layers ---',
-        'function isText(li){ try{ li.text.sourceText; return true; } catch(e) { return false; } }',
-        '',
-        'if (isText(thisLayer)){',
-        '  // Align selected horizontal reference (from ax) & vertical geometric center',
-        '  var r = sourceRectAtTime(time, false);',
-        '  var centerY = r.top + r.height/2; // vertical center',
-        '  var refLocalX = r.left + ((ax + 1) * 0.5) * r.width;',
-        '  var refComp = toComp([refLocalX, centerY]);',
-        '  // Delta from current placed center-left to target P',
-        '  var dx = P[0] - refComp[0];',
-        '  var dy = P[1] - refComp[1];',
-        '  thisLayer.threeDLayer ? value + [dx, dy, 0] : value + [dx, dy];',
-        '} else {',
-        '  // Non-text: keep prior behavior (position to alignment target)',
-        '  thisLayer.threeDLayer ? [P[0], P[1], value[2]] : P;',
-        '}'
-    ].join("\n");
-
-    // disclaimer_scale — expression_ae/claim/scale_uniform_contain_v02.js
-    globalObj.AE_EXPRESSIONS["disclaimer_scale"] = [
-        '// scale_uniform_contain_v02',
-        '// TARGET (Text) ► Scale — Contain, only shrink; JSON/text-safe',
-        '',
-        '// --- Holder rect (rotation/scale aware) ---',
-        'var holderName = "locker_" + thisLayer.name;',
-        'var holder = thisComp.layer(holderName);',
-        'var group  = holder.content("PLACEHOLDER");',
-        'var rect   = group.content("Rectangle Path 1");',
-        '',
-        'var gp = group.transform.position;',
-        'var cC = holder.toComp(gp);',
-        'var cR = holder.toComp([gp[0] + rect.size[0]/2, gp[1]]);',
-        'var cL = holder.toComp([gp[0] - rect.size[0]/2, gp[1]]);',
-        'var cT = holder.toComp([gp[0], gp[1] - rect.size[1]/2]);',
-        'var cB = holder.toComp([gp[0], gp[1] + rect.size[1]/2]);',
-        '',
-        'var holderW = Math.max(1, length(cL, cR));',
-        'var holderH = Math.max(1, length(cT, cB));',
-        '',
-        '// Optional padding from holder effects',
-        'function ctrl(name, def){',
-        '  try { return holder.effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value; } catch(e) { return def; }',
-        '}',
-        'var pad = Math.max(0, ctrl("Padding", 0));',
-        'holderW = Math.max(1, holderW - 2*pad);',
-        'holderH = Math.max(1, holderH - 2*pad);',
-        '',
-        '// --- Dependencies & robust text measurement ---',
-        'function isText(li){ try{ li.text.sourceText; return true; } catch(e){ return false; } }',
-        '',
-        '// Force AE to evaluate after Source Text expression by referencing it (dependency only).',
-        '// We don\'t actually use the string here; it\'s just to ensure correct evaluation order.',
-        'var _txtDep = (function(){',
-        '  try { return thisLayer.text.sourceText.text; } catch(e) { return ""; }',
-        '})();',
-        '',
-        '// Safe sourceRectAtTime for text: tries current frame; if 0×0, tries previous frame.',
-        'function safeTextSize(){',
-        '  function rectAt(t){ var r = sourceRectAtTime(t, false); return [r.width, r.height]; }',
-        '  var w = 0, h = 0;',
-        '',
-        '  // Try now',
-        '  var r0 = rectAt(time);',
-        '  w = r0[0]; h = r0[1];',
-        '',
-        '  // If empty (common right after JSON updates), try previous frame (if possible)',
-        '  if ((w < 1 || h < 1) && time > thisComp.displayStartTime){',
-        '    var tPrev = time - thisComp.frameDuration;',
-        '    var r1 = rectAt(tPrev);',
-        '    w = Math.max(w, r1[0]);',
-        '    h = Math.max(h, r1[1]);',
-        '  }',
-        '',
-        '  // Final clamp to avoid div-by-zero and accidental upscales',
-        '  return [Math.max(1, w), Math.max(1, h)];',
-        '}',
-        '',
-        'function contentSize(li){',
-        '  if (isText(li)){',
-        '    return safeTextSize(); // never fallback to comp size for text',
-        '  }',
-        '  // Non-text: SRAT if available, else layer dims',
-        '  try {',
-        '    var r = li.sourceRectAtTime(time, false);',
-        '    if (r.width > 0 && r.height > 0) return [r.width, r.height];',
-        '  } catch(e){}',
-        '  return [Math.max(1, li.width), Math.max(1, li.height)];',
-        '}',
-        '',
-        'var s = contentSize(thisLayer);',
-        '',
-        '// --- Only-shrink uniform contain ---',
-        'var fit = Math.min(holderW / s[0], holderH / s[1]) * 100;',
-        '',
-        '// Baseline: respect your keyed X scale (never upscale beyond it)',
-        'var base = value[0];',
-        'var k = Math.min(base, fit);',
-        '',
-        'thisLayer.threeDLayer ? [k, k, value[2]] : [k, k];'
-    ].join("\n");
-
-    // ── subtitles (generated) ────────────────────────────────────────────────
-
-    // subtitles_source_text — expression_ae/sourceText/sourceText_json_wire_v11.js
-    globalObj.AE_EXPRESSIONS["subtitles_source_text"] = [
-        '// sourceText_json_wire v11 260502',
-        '// (orientation-aware/override, time-gated, multi-line)',
-        '// JSON → text; orientation-specific global keys + oriented videoIds',
-        '// DATA_KEY: "subtitles" | "claim" | "disclaimer" | "logo"',
-        '// Behavior:',
-        '//   subtitles: show ALL active lines (time ∈ [in,out)) stacked',
-        '//   claim/disclaimer/logo: desiredLine>0 → that line only (gated); desiredLine=0 → all active',
-        '// Orientation resolution order: explicit suffix in comp name (_landscape/_portrait) else aspect ratio (>1 landscape, else portrait). Square (1:1) treated as portrait by using >1 test.',
-        '',
-        'var FOOTAGE_NAME = "data.json"; // JSON footage name',
-        '',
-        '// Read controls from this text layer (Effects > Expression Controls)',
-        '// Required effects:',
-        '//   Dropdown Menu Control  "Data Key Menu"     -> claim | disclaimer | logo | subtitles | super_A',
-        '//   Slider Control         "Desired Line"      -> 0 = time-driven multi; >0 fixed line',
-        '//   Dropdown Menu Control  "Orientation Menu"  -> Auto | Landscape | Portrait',
-        '//   Slider Control         "Name Shift"        -> 0,1,2...',
-        'function ctrl(name, def) {',
-        '  try {',
-        '    return effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value;',
-        '  } catch (e) { return def; }',
-        '}',
-        '',
-        '// Keep menu arrays in the same order as Dropdown items in AE.',
-        'var DATA_KEY_OPTIONS = ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"];',
-        'var ORIENT_OPTIONS = ["Auto", "Landscape", "Portrait"];',
-        '',
-        'var _dkIdx = Math.round(ctrl("Data Key Menu", 2)) - 1;      // default "disclaimer"',
-        'var _omIdx = Math.round(ctrl("Orientation Menu", 1)) - 1;   // default "Auto"',
-        '',
-        'var DATA_KEY = DATA_KEY_OPTIONS[Math.max(0, Math.min(DATA_KEY_OPTIONS.length - 1, _dkIdx))];',
-        'var desiredLine = Math.round(ctrl("Desired Line", 0));      // 0=time-driven multi; >0 fixed line',
-        'var ORIENT_MODE = ORIENT_OPTIONS[Math.max(0, Math.min(ORIENT_OPTIONS.length - 1, _omIdx))];',
-        'var nameShift = Math.round(ctrl("Name Shift", 1));  // 0 = Title_30s; 1 = Clien_Title_30s; 2 = Client_Brand_Title_30s',
-        '',
-        '// -------- Orientation detection / override -------- ',
-        'var compOrientation;',
-        'var nameLower = thisComp.name.toLowerCase();',
-        'if (ORIENT_MODE === "Landscape") {',
-        '  compOrientation = "landscape";',
-        '} else if (ORIENT_MODE === "Portrait") {',
-        '  compOrientation = "portrait";',
-        '} else {',
-        '  // Auto: aspect-based with suffix override',
-        '  var compAR = thisComp.width / Math.max(1, thisComp.height);',
-        '  compOrientation = compAR > 1 ? "landscape" : "portrait"; // square -> portrait',
-        '  if (nameLower.indexOf("_landscape") >= 0) compOrientation = "landscape";',
-        '  else if (nameLower.indexOf("_portrait") >= 0) compOrientation = "portrait";',
-        '}',
-        '',
-        '// -------- VideoId derivation --------',
-        'var token1 = 0 + nameShift;',
-        'var token2 = 1 + nameShift;',
-        '',
-        'function baseVideoId() {',
-        '  var p = thisComp.name.split("_");',
-        '  return (p.length >= 2) ? (p[token1] + "_" + p[token2]) : ""; // Title_15s',
-        '}',
-        'var baseId = baseVideoId();',
-        'var orientedId = baseId ? (baseId + "_" + compOrientation) : "";',
-        'var directId = thisComp.name; // full comp name fallback',
-        '',
-        'function findVideo(data, candidates) {',
-        '  if (!data || !data.videos) return null;',
-        '  var vids = data.videos;',
-        '  for (var c = 0; c < candidates.length; c++) {',
-        '    var target = (candidates[c] + "").toLowerCase();',
-        '    if (!target) continue;',
-        '    for (var i = 0; i < vids.length; i++) {',
-        '      var v = vids[i];',
-        '      if ((v.videoId + "").toLowerCase() === target) return v;',
-        '    }',
-        '  }',
-        '  return null;',
-        '}',
-        '',
-        'function getOrientationGlobalBlock(data, key) {',
-        '  if (!data) return null;',
-        '  var block = data[key];',
-        '  if (!block) return null;',
-        '  if (block instanceof Array) {',
-        '    // legacy shape fallback',
-        '    return block;',
-        '  }',
-        '  return block[compOrientation] || null;',
-        '}',
-        '',
-        'function getVideoArray(vidObj, key) {',
-        '  if (!vidObj) return null;',
-        '  return vidObj[key] || null;',
-        '}',
-        '',
-        'function getText(it) {',
-        '  return (it && it.text != null) ? (it.text + "") : "";',
-        '}',
-        '',
-        'function pickLine(arr, lineNum) {',
-        '  if (!arr) return null;',
-        '  for (var i = 0; i < arr.length; i++) {',
-        '    var it = arr[i];',
-        '    if (it && it.line == lineNum) return it;',
-        '  }',
-        '  return null;',
-        '}',
-        '',
-        '// Exclusive-out check: visible when t ∈ [in, out)',
-        'function activeByTime(arr, t) {',
-        '  var res = [];',
-        '  if (!arr) return res;',
-        '  for (var i = 0; i < arr.length; i++) {',
-        '    var it = arr[i];',
-        '    if (!it) continue;',
-        '    var s = Number(it["in"]);',
-        '    var e = Number(it["out"]);',
-        '    if (!isNaN(s) && !isNaN(e) && t >= s && t < e) res.push(it);',
-        '  }',
-        '  return res;',
-        '}',
-        '',
-        'function joinTexts(items) {',
-        '  var out = "";',
-        '  for (var i = 0; i < items.length; i++) {',
-        '    if (!items[i]) continue;',
-        '    if (out.length > 0) out += "\\r"; // stack on new lines',
-        '    out += getText(items[i]);',
-        '  }',
-        '  return out;',
-        '}',
-        '',
-        'try {',
-        '  var data = footage(FOOTAGE_NAME).sourceData;',
-        '  var vid = findVideo(data, [orientedId, directId, baseId]);',
-        '  var arr = getVideoArray(vid, DATA_KEY);',
-        '  var t = time;',
-        '',
-        '  if (!arr) {',
-        '    // Fallback: orientation-specific global block (only for non-subtitles keys)',
-        '    if (DATA_KEY === "subtitles") {',
-        '      "";',
-        '    } else {',
-        '      var glob = getOrientationGlobalBlock(data, DATA_KEY);',
-        '      if (!glob) {',
-        '        "";',
-        '      } else {',
-        '        // global arrays are plain strings → no timing; just index',
-        '        if (desiredLine < 1) desiredLine = 1;',
-        '        var idx = Math.min(glob.length - 1, desiredLine - 1);',
-        '        (glob[idx] || "") + "";',
-        '      }',
-        '    }',
-        '  } else {',
-        '    if (DATA_KEY === "subtitles" || desiredLine === 0) {',
-        '      var items = activeByTime(arr, t);',
-        '      joinTexts(items);',
-        '    } else {',
-        '      var item = pickLine(arr, desiredLine);',
-        '      if (!item) {',
-        '        "";',
-        '      } else {',
-        '        var s = Number(item["in"]);',
-        '        var e = Number(item["out"]);',
-        '        (isNaN(s) || isNaN(e) || (t < s || t >= e)) ? "" : getText(item);',
-        '      }',
-        '    }',
-        '  }',
-        '} catch (e) { ""; }'
-    ].join("\n");
-
-    // subtitles_position — expression_ae/subtitles/transform_position_subtitles_v04.js
-    globalObj.AE_EXPRESSIONS["subtitles_position"] = [
+    // transform_position_subtitles_v04 — expression_ae/subtitles/transform_position_subtitles_v04.js
+    __POOL["transform_position_subtitles_v04"] = [
         '// transform_position_subtitles_v04',
         '// TARGET ► Position — Baseline-locked for TEXT;',
         '// v04 baseline-consistent approach for 3+ lines',
@@ -1806,6 +1016,67 @@
         '  thisLayer.threeDLayer ? [P[0], P[1], value[2]] : P;',
         '}'
     ].join("\n");
+
+    // ── info (generated) ─────────────────────────────────────────────────────
+
+    // info_source_text → sourceText_json_info
+    globalObj.AE_EXPRESSIONS["info_source_text"] = __POOL["sourceText_json_info"];
+
+    // ── claim (generated) ────────────────────────────────────────────────────
+
+    // claim_source_text → sourceText_json_wire_simple
+    globalObj.AE_EXPRESSIONS["claim_source_text"] = __POOL["sourceText_json_wire_simple"];
+
+    // claim_anchor → anchor_baseline_centered_text
+    globalObj.AE_EXPRESSIONS["claim_anchor"] = __POOL["anchor_baseline_centered_text"];
+
+    // claim_position → position_baseline_locked_text_multiline
+    globalObj.AE_EXPRESSIONS["claim_position"] = __POOL["position_baseline_locked_text_multiline"];
+
+    // claim_scale → scale_uniform_contain_v02
+    globalObj.AE_EXPRESSIONS["claim_scale"] = __POOL["scale_uniform_contain_v02"];
+
+    // claim_opacity → opacity_fadein_onTime_v08
+    globalObj.AE_EXPRESSIONS["claim_opacity"] = __POOL["opacity_fadein_onTime_v08"];
+
+    // ── super_A (generated) ──────────────────────────────────────────────────
+
+    // super_A_source_text → sourceText_json_wire_v11
+    globalObj.AE_EXPRESSIONS["super_A_source_text"] = __POOL["sourceText_json_wire_v11"];
+
+    // super_A_anchor → transform_anchor_super_A
+    globalObj.AE_EXPRESSIONS["super_A_anchor"] = __POOL["transform_anchor_super_A"];
+
+    // super_A_position → transform_position_super_A_v02
+    globalObj.AE_EXPRESSIONS["super_A_position"] = __POOL["transform_position_super_A_v02"];
+
+    // super_A_scale → scale_uniform_contain_v02
+    globalObj.AE_EXPRESSIONS["super_A_scale"] = __POOL["scale_uniform_contain_v02"];
+
+    // super_A_opacity → opacity_fadein_onTime_v08
+    globalObj.AE_EXPRESSIONS["super_A_opacity"] = __POOL["opacity_fadein_onTime_v08"];
+
+    // ── disclaimer (generated) ───────────────────────────────────────────────
+
+    // disclaimer_source_text → sourceText_json_wire_v11
+    globalObj.AE_EXPRESSIONS["disclaimer_source_text"] = __POOL["sourceText_json_wire_v11"];
+
+    // disclaimer_anchor → transform_anchor_super_A
+    globalObj.AE_EXPRESSIONS["disclaimer_anchor"] = __POOL["transform_anchor_super_A"];
+
+    // disclaimer_position → transform_position_super_A_v02
+    globalObj.AE_EXPRESSIONS["disclaimer_position"] = __POOL["transform_position_super_A_v02"];
+
+    // disclaimer_scale → scale_uniform_contain_v02
+    globalObj.AE_EXPRESSIONS["disclaimer_scale"] = __POOL["scale_uniform_contain_v02"];
+
+    // ── subtitles (generated) ────────────────────────────────────────────────
+
+    // subtitles_source_text → sourceText_json_wire_v11
+    globalObj.AE_EXPRESSIONS["subtitles_source_text"] = __POOL["sourceText_json_wire_v11"];
+
+    // subtitles_position → transform_position_subtitles_v04
+    globalObj.AE_EXPRESSIONS["subtitles_position"] = __POOL["transform_position_subtitles_v04"];
 // <<< AE_EXPRESSIONS_BUNDLE:END
 
 }($.global));
