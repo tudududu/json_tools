@@ -73,7 +73,7 @@ def _read_source_lines(path: Path) -> List[str]:
 def _render_assignment_block(key: str, rel_path: str, lines: Iterable[str]) -> str:
     out: List[str] = []
     out.append(f"    // {key} — {rel_path}")
-    out.append(f"    globalObj.AE_EXPRESSIONS[\"{key}\"] = [")
+    out.append(f'    globalObj.AE_EXPRESSIONS["{key}"] = [')
 
     src_lines = list(lines)
     for idx, line in enumerate(src_lines):
@@ -123,9 +123,13 @@ def _parse_source_entries(raw: object, config_path: Path) -> List[SourceEntry]:
             )
 
         if not key:
-            raise ValueError(f"Invalid entry at index {idx} in {config_path}: empty key")
+            raise ValueError(
+                f"Invalid entry at index {idx} in {config_path}: empty key"
+            )
         if not rel_path:
-            raise ValueError(f"Invalid entry at index {idx} in {config_path}: empty path")
+            raise ValueError(
+                f"Invalid entry at index {idx} in {config_path}: empty path"
+            )
         if key in seen:
             raise ValueError(f"Duplicate key '{key}' in {config_path}")
 
@@ -163,7 +167,9 @@ def _load_expression_sources(root: Path, sources_arg: str | None) -> List[Source
     return _fallback_sources()
 
 
-def _render_generated_region(root: Path, expression_sources: Sequence[SourceEntry]) -> str:
+def _render_generated_region(
+    root: Path, expression_sources: Sequence[SourceEntry]
+) -> str:
     sections: List[str] = []
     sections.append("    // AUTO-GENERATED: AE expressions bundle")
     sections.append("    // Do not edit this block manually.")
