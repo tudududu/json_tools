@@ -790,6 +790,7 @@
         "Layer template: info",
         "Layer template: claim",
         "Layer template: super_A",
+        "Layer template: disclaimer",
         "Layer template: subtitles"
     ]);
     ddTemplateOp.preferredSize.width = 210;
@@ -951,6 +952,10 @@
         }
         if (op === "Layer template: super_A") {
             runLayerTemplateItem("super_A");
+            return;
+        }
+        if (op === "Layer template: disclaimer") {
+            runLayerTemplateItem("disclaimer");
             return;
         }
         if (op === "Layer template: subtitles") {

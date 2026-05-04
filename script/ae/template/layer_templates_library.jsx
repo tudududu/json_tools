@@ -276,6 +276,102 @@
         ]
     };
 
+    // ── ITEM: disclaimer ───────────────────────────────────────────────────────────
+    // Two-layer bundle: text (disclaimer) + shape (locker_disclaimer).
+    // Top layer is text; shape holder sits below and drives positioning/containment expressions.
+    globalObj.AE_LAYER_TEMPLATES["disclaimer"] = {
+        id:    "disclaimer",
+        label: "Disclaimer",
+        layers: [
+            {
+                type: "text",
+                name: "disclaimer",
+                textStyle: {
+                    font: "Arial Regular",
+                    fontSize: 24.5,
+                    leading: "Auto",
+                    fillColor: "#FFFFFF",
+                    paragraph: "Center Align Text",
+                    fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
+                },
+                properties: {
+                    "Transform.Position": [960, 540]
+                },
+                expressions: {
+                    "Source Text":       "disclaimer_source_text",
+                    "Transform.Anchor":  "disclaimer_anchor",
+                    "Transform.Position":"disclaimer_position",
+                    "Transform.Scale":   "disclaimer_scale",
+                    // "Transform.Opacity": "disclaimer_opacity"
+                },
+                effectControls: [
+                    { type: "slider",   name: "Name Shift",       defaultValue: 1 },
+                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 2 },
+                    { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
+                    { type: "slider",   name: "Desired Line",     defaultValue: 0 },
+                    { type: "slider",   name: "Fade In",          defaultValue: 0 },
+                    { type: "slider",   name: "Fade Out",         defaultValue: 0 },
+                    { type: "slider",   name: "Opacity In",       defaultValue: 0 }
+                ],
+                effects: [
+                    {
+                        matchName: "ADBE Drop Shadow",
+                        properties: {
+                            "Color": "#000000",
+                            "Opacity": 98,
+                            "Direction": 145,
+                            "Distance": 3,
+                            "Softness": 1
+                        }
+                    }
+                ],
+                attributes: {
+                    label:      "Red",
+                    guideLayer: false,
+                    shy:        false,
+                    locked:     false
+                }
+            },
+            {
+                type: "shape",
+                name: "locker_disclaimer",
+                shapeContents: [
+                    {
+                        name: "PLACEHOLDER",
+                        rectangle: {
+                            size: [1730, 122],
+                            roundness: 0
+                        },
+                        stroke: {
+                            color: "#00FF00",
+                            width: 1,
+                            dash: 10
+                        },
+                        fill: {
+                            color: "#000000",
+                            opacity: 100
+                        }
+                    }
+                ],
+                properties: {
+                    "Transform.Position": [960, 999],
+                    "Transform.Opacity": 50
+                },
+                effectControls: [
+                    { type: "slider", name: "Padding", defaultValue: 0 },
+                    { type: "slider", name: "Align X", defaultValue: 0 },
+                    { type: "slider", name: "Align Y", defaultValue: 0 }
+                ],
+                attributes: {
+                    label:      "Cyan",
+                    guideLayer: true,
+                    shy:        false,
+                    locked:     false
+                }
+            }
+        ]
+    };
+
     // ── ITEM: subtitles (reserved — not implemented in AE 343) ──────────────
     // Two-layer bundle: text (subtitles) + shape (locker_Subtitles).
     // First multi-layer proving slice; requires shape layer support in layer_template.jsx.
