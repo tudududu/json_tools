@@ -154,13 +154,17 @@
     }
 
     function generateUniqueName(comp, desiredName) {
-        try {
-            comp.layer(desiredName);
-            // Layer exists; need to find unique suffix
-        } catch(e) {
-            // Layer does not exist; name is available
-            return desiredName;
-        }
+            var existingLayer = null;
+            try {
+                existingLayer = comp.layer(desiredName);
+                // Layer exists; need to find unique suffix
+            } catch(e) {
+                // Layer does not exist; name is available
+                existingLayer = null;
+            }
+            if (!existingLayer) {
+                return desiredName;
+            }
 
         // Try name_01, name_02, ..., name_99, then name_001, name_002, etc.
         for (var suffix = 1; suffix <= 999; suffix++) {
@@ -170,11 +174,15 @@
             } else {
                 candidateName = desiredName + "_" + suffix;
             }
-            try {
-                comp.layer(candidateName);
-                // This name also exists; continue looping
-            } catch(e) {
-                // Name is available
+                var candidateLayer = null;
+                try {
+                    candidateLayer = comp.layer(candidateName);
+                    // This name also exists; continue looping
+                } catch(e) {
+                    // Name is available
+                    candidateLayer = null;
+                }
+                if (!candidateLayer) {
                 return candidateName;
             }
         }
