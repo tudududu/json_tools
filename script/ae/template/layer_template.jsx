@@ -349,6 +349,34 @@
                 } catch(_) {}
             }
 
+            if (textStyle.hasOwnProperty("characterStroke")) {
+                // Character stroke control path:
+                //   textStyle.characterStroke.enabled  {bool}
+                //   textStyle.characterStroke.color    {HEX}
+                //   textStyle.characterStroke.width    {number >= 0}
+                //   textStyle.characterStroke.overFill {bool}
+                try {
+                    var strokeSpec = textStyle.characterStroke;
+                    if (strokeSpec === false) {
+                        td.applyStroke = false;
+                    } else if (strokeSpec && typeof strokeSpec === "object") {
+                        if (strokeSpec.hasOwnProperty("enabled")) {
+                            td.applyStroke = strokeSpec.enabled === true;
+                        }
+                        if (strokeSpec.hasOwnProperty("color")) {
+                            td.strokeColor = parseHexColor(strokeSpec.color);
+                        }
+                        if (strokeSpec.hasOwnProperty("width")) {
+                            var sw = parseFloat(strokeSpec.width);
+                            if (!isNaN(sw) && sw >= 0) td.strokeWidth = sw;
+                        }
+                        if (strokeSpec.hasOwnProperty("overFill")) {
+                            td.strokeOverFill = strokeSpec.overFill === true;
+                        }
+                    }
+                } catch(_) {}
+            }
+
             if (textStyle.hasOwnProperty("leading")) {
                 // "Auto" maps to 120% of provided fontSize. If fontSize is not provided,
                 // skip leading assignment to avoid forcing an unintended value.

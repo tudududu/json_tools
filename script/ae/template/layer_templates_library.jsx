@@ -15,6 +15,11 @@
 //                                      fontSize {number}
 //                                      leading {number|"Auto"}
 //                                      fillColor {string HEX, e.g. "#FFFFFF"}
+//                                      characterStroke {Object|false} (optional):
+//                                        enabled {bool}   — turns text stroke on/off
+//                                        color   {string HEX, e.g. "#000000"}
+//                                        width   {number >= 0}
+//                                        overFill {bool}
 //                                      paragraph {string} — "Left Align Text" | "Center Align Text" | "Right Align Text"
 //                                      fontCandidates {Array<string>} (optional fallback list)
 //   properties  {Object}           — explicit property values keyed by canonical path
@@ -63,6 +68,7 @@
                     fontSize: 27,
                     leading: "Auto",
                     fillColor: "#FFFFFF",
+                    characterStroke: { enabled: false },
                     paragraph: "Left Align Text",
                     fontCandidates: ["Courier Regular", "Courier", "CourierNewPSMT"]
                 },
@@ -99,6 +105,7 @@
                     fontSize: 52,
                     leading: "Auto",
                     fillColor: "#FFFFFF",
+                    characterStroke: { enabled: false },
                     paragraph: "Center Align Text",
                     fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
                 },
@@ -195,6 +202,7 @@
                     fontSize: 52,
                     leading: "Auto",
                     fillColor: "#FFFFFF",
+                    characterStroke: { enabled: false },
                     paragraph: "Center Align Text",
                     fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
                 },
@@ -291,6 +299,7 @@
                     fontSize: 24.5,
                     leading: "Auto",
                     fillColor: "#FFFFFF",
+                    characterStroke: { enabled: false },
                     paragraph: "Center Align Text",
                     fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
                 },
@@ -392,6 +401,7 @@
                     fontSize: 48,
                     leading: 55,
                     fillColor: "#FFFFFF",
+                    characterStroke: { enabled: false },
                     paragraph: "Center Align Text",
                     fontCandidates: ["Arial Regular", "ArialMT", "Arial", "Arial-Regular"]
                 },
