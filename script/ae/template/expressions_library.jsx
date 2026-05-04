@@ -14,15 +14,16 @@
         globalObj.AE_EXPRESSIONS = {};
     }
 
-    // ── info ─────────────────────────────────────────────────────────────────
+// >>> Manually injected expressions─────────────────────────────────────────
 
+    // ── info ─────────────────────────────────────────────────────────────────
     // info_position
-    // Positions this text layer baseline at the vertical and horizontal center of the comp.
-    // Intended as a safe default position for the info debug layer.
-    globalObj.AE_EXPRESSIONS["info_position"] = [
-        '// info_position — centered in comp',
-        '[0 + thisComp.width * 0.05, 0 + thisComp.height * 0.05];'
-    ].join("\n");
+    // Top left corner of comp - info debug layer default position.
+
+    // globalObj.AE_EXPRESSIONS["info_position"] = [
+    //     '// info_position — centered in comp',
+    //     '[0 + thisComp.width * 0.05, 0 + thisComp.height * 0.05];'
+    // ].join("\n");
 
 // >>> AE_EXPRESSIONS_BUNDLE:START
     // AUTO-GENERATED: AE expressions bundle (pool/bindings mode)
@@ -164,6 +165,14 @@
         '}',
         '',
         'out;'
+    ].join("\n");
+
+    // position_info — expression_ae/position/position_info.js
+    __POOL["position_info"] = [
+        '// info_position',
+        '// Top left corner of comp - info debug layer default position',
+        '',
+        '[0 + thisComp.width * 0.05, 0 + thisComp.height * 0.05];'
     ].join("\n");
 
     // sourceText_json_wire_simple — expression_ae/claim/sourceText_json_wire_simple.js
@@ -1021,6 +1030,9 @@
 
     // info_source_text → sourceText_json_info
     globalObj.AE_EXPRESSIONS["info_source_text"] = __POOL["sourceText_json_info"];
+
+    // info_position → position_info
+    globalObj.AE_EXPRESSIONS["info_position"] = __POOL["position_info"];
 
     // ── claim (generated) ────────────────────────────────────────────────────
 

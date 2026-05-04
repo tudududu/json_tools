@@ -5,6 +5,10 @@
       "path": "expression_ae/sourceText/sourceText_json_info.js"
     },
     {
+      "id": "position_info",
+      "path": "expression_ae/position/position_info.js"
+    },
+    {
       "id": "sourceText_json_wire_simple",
       "path": "expression_ae/claim/sourceText_json_wire_simple.js"
     },
@@ -44,6 +48,7 @@
 
   "bindings": [
     { "group": "info",       "key": "info_source_text",       "expr": "sourceText_json_info" },
+    { "group": "info",       "key": "info_position",          "expr": "position_info" },
 
     { "group": "claim",      "key": "claim_source_text",       "expr": "sourceText_json_wire_simple" },
     { "group": "claim",      "key": "claim_anchor",            "expr": "anchor_baseline_centered_text" },
