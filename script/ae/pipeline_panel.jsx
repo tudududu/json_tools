@@ -128,6 +128,46 @@
         return null;
     }
 
+    function resolvePresetFileForWrite() {
+        // DEV-first behavior matches resolvePresetFile(), but writing may create a missing file.
+        var useDev = false;
+        try { useDev = !!(DEV_PRESET_FLAG && DEV_PRESET_FLAG.exists); } catch(e) {}
+        if (useDev && DEV_PRESET_FILE) return DEV_PRESET_FILE;
+
+        // POST fallback: project must be open under POST/WORK/
+        try {
+            if (app.project && app.project.file) {
+                var work = app.project.file.parent;
+                var post = work ? work.parent : null;
+                if (post && post.exists) {
+                    return new File(joinFs(post.fsName, "IN/data/config/pipeline.preset.json"));
+                }
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    function writeJSONFile(file, obj) {
+        try {
+            if (!file) return false;
+            if (typeof JSON === "undefined" || typeof JSON.stringify !== "function") return false;
+
+            var parentFolder = file.parent;
+            if (parentFolder && !parentFolder.exists) {
+                if (!parentFolder.create()) return false;
+            }
+
+            if (!file.open("w")) return false;
+            file.write(JSON.stringify(obj, null, 2));
+            file.write("\n");
+            file.close();
+            return true;
+        } catch(e) {
+            try { file.close(); } catch(_) {}
+            return false;
+        }
+    }
+
     function readPreset() {
         var f = resolvePresetFile();
         if (!f) return null;
@@ -378,9 +418,13 @@
     var topBar = mkRow(root);
     var reloadBtn = topBar.add("button", undefined, "Reload Preset");
     reloadBtn.preferredSize.width = 105;
+    var savePresetBtn = topBar.add("button", undefined, "Save Preset");
+    savePresetBtn.preferredSize.width = 95;
     var resetLayoutBtn = topBar.add("button", undefined, "Reset Layout");
     resetLayoutBtn.preferredSize.width = 92;
-    var statusText = topBar.add("statictext", undefined, "");
+
+    var statusBar = mkRow(root);
+    var statusText = statusBar.add("statictext", undefined, "");
     statusText.alignment = ["fill", "center"];
 
     function setStatus(msg) {
@@ -1186,6 +1230,26 @@
     };
 
     // ── 11. RELOAD ───────────────────────────────────────────────────────────
+    
+    savePresetBtn.onClick = function() {
+        var targetFile = resolvePresetFileForWrite();
+        if (!targetFile) {
+            setStatus("Save failed: no target preset path (save/open project first).");
+            return;
+        }
+
+        // Flexible by design: Save uses the same collector as run path.
+        // Any future UI fields added to buildUserOptions() are automatically persisted.
+        var existingPreset = readPreset() || {};
+        var panelOverrides = buildUserOptions();
+        var mergedPreset = deepMerge(existingPreset, panelOverrides);
+
+        if (writeJSONFile(targetFile, mergedPreset)) {
+            setStatus("Preset saved: " + targetFile.fsName);
+        } else {
+            setStatus("Save failed: could not write preset file.");
+        }
+    };
 
     reloadBtn.onClick = function() {
         var p = readPreset();
