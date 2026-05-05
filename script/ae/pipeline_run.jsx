@@ -279,16 +279,6 @@
                     v.push("  insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_FALLBACK_TO_ISO_SUBFOLDER === true));
                     v.push("  insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER=" + (OPTS.insertRelink.SOUND_FLAT_ABORT_IF_NO_ISO_SUBFOLDER === true));
                 }
-                // linkData / Option A
-                if (OPTS.linkData) {
-                    v.push("  linkData.DATA_JSON_ISO_MODE=" + (OPTS.linkData.DATA_JSON_ISO_MODE||""));
-                    v.push("  linkData.DATA_JSON_ISO_CODE_MANUAL=" + (OPTS.linkData.DATA_JSON_ISO_CODE_MANUAL||""));
-                    v.push("  linkData.OPTION_A_ENABLED=" + (OPTS.linkData.OPTION_A_ENABLED === true));
-                    if (OPTS.linkData.OPTION_A_ENABLED === true) {
-                        v.push("  linkData.OPTION_A_CANONICAL_FS_SUBPATH=" + (OPTS.linkData.OPTION_A_CANONICAL_FS_SUBPATH ? OPTS.linkData.OPTION_A_CANONICAL_FS_SUBPATH.join('/') : ''));
-                        v.push("  linkData.OPTION_A_CANONICAL_FILENAME=" + (OPTS.linkData.OPTION_A_CANONICAL_FILENAME||""));
-                    }
-                }
                 // unified log prune count (applies to all families); legacy PIPELINE_FILE_LOG_MAX_FILES respected if set
                 try {
                     var __keepUnified = 24;

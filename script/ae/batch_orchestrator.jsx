@@ -96,19 +96,7 @@
             // When true (and DRY_RUN=true), logs a small regex self-test matrix for ISO tokens
             ENABLE_ISO_TOKEN_SELF_TEST: true,
             // Save policy at END close (Step 8): true => force-save, false => force-no-save
-            SAVE_AFTER_RUN: false,
-            // Option A — Fixed-path pre-copy (AE 373)
-            // Master gate: when true, batch copies data_<ISO>[_LANG].json → canonical fixed-path before each run.
-            // Step 1 (link_data) then reads/reloads the fixed canonical file without using replace() or delete+reimport.
-            OPTION_A_PRECOPY_ENABLED: false,
-            // FS sub-path under POST where source ISO files live (same as DATA_FS_SUBPATH by default)
-            OPTION_A_SOURCE_FS_SUBPATH: ["IN","data"],
-            // FS sub-path under POST for the canonical fixed-path destination
-            OPTION_A_DEST_FS_SUBPATH: ["IN","data","src"],
-            // Fixed canonical filename written at destination (must match OPTION_A_CANONICAL_FILENAME in linkData)
-            OPTION_A_CANONICAL_FILENAME: "data.json",
-            // When true, pre-copy failure marks run as failed and skips pipeline execution for that ISO
-            OPTION_A_FATAL_ON_ERROR: false
+            SAVE_AFTER_RUN: false
         };
         return deepMerge(def, b);
     }
@@ -285,68 +273,6 @@
             // Optional: quieten phase file logs if master disabled in preset
             if (runOpts.PHASE_FILE_LOGS_MASTER_ENABLE === false) {
                 try { runOpts.linkData.ENABLE_FILE_LOG = false; } catch(eLF){}
-            }
-
-            // Option A — Pre-copy: copy ISO file to canonical fixed path before pipeline execution (AE 373)
-            if (batchCfg.OPTION_A_PRECOPY_ENABLED === true) {
-                var __optASrcSub0 = (batchCfg.OPTION_A_SOURCE_FS_SUBPATH && batchCfg.OPTION_A_SOURCE_FS_SUBPATH[0]) || 'IN';
-                var __optASrcSub1 = (batchCfg.OPTION_A_SOURCE_FS_SUBPATH && batchCfg.OPTION_A_SOURCE_FS_SUBPATH[1]) || 'data';
-                var __optADstSub0 = (batchCfg.OPTION_A_DEST_FS_SUBPATH && batchCfg.OPTION_A_DEST_FS_SUBPATH[0]) || 'IN';
-                var __optADstSub1 = (batchCfg.OPTION_A_DEST_FS_SUBPATH && batchCfg.OPTION_A_DEST_FS_SUBPATH[1]) || 'data';
-                var __optADstSub2 = (batchCfg.OPTION_A_DEST_FS_SUBPATH && batchCfg.OPTION_A_DEST_FS_SUBPATH[2]) || 'src';
-                var __optACanonical = batchCfg.OPTION_A_CANONICAL_FILENAME || 'data.json';
-
-                // Build source path: POST/IN/data/data_<ISO>[_<LANG>].json
-                var __optASrcFileName = batchCfg.FILE_PREFIX + runTag + batchCfg.FILE_SUFFIX;
-                var __optASrcFolder = new Folder(joinFs(post.fsName, joinFs(__optASrcSub0, __optASrcSub1)));
-                var __optASrcFile = new File(joinFs(__optASrcFolder.fsName, __optASrcFileName));
-
-                // Build destination path: POST/IN/data/src/data.json
-                var __optADstFolder = new Folder(joinFs(post.fsName, joinFs(__optADstSub0, joinFs(__optADstSub1, __optADstSub2))));
-                var __optADstFile = new File(joinFs(__optADstFolder.fsName, __optACanonical));
-
-                var __optACopyOk = false;
-                try {
-                    if (!__optASrcFile.exists) {
-                        flog("   [OptionA] PRECOPY FAILED: source not found: " + __optASrcFile.fsName);
-                    } else {
-                        // Create destination folder if needed
-                        if (!__optADstFolder.exists) {
-                            if (!__optADstFolder.create()) {
-                                flog("   [OptionA] PRECOPY FAILED: cannot create dest folder: " + __optADstFolder.fsName);
-                            }
-                        }
-                        if (__optADstFolder.exists) {
-                            var __optACopyResult = __optASrcFile.copy(__optADstFile.fsName);
-                            if (__optACopyResult) {
-                                __optACopyOk = true;
-                                flog("   [OptionA] Precopy OK: " + __optASrcFile.fsName + " -> " + __optADstFile.fsName);
-                            } else {
-                                flog("   [OptionA] PRECOPY FAILED: File.copy() returned false. src=" + __optASrcFile.fsName + " dst=" + __optADstFile.fsName);
-                            }
-                        }
-                    }
-                } catch(eOptACopy) {
-                    flog("   [OptionA] PRECOPY ERROR: " + (eOptACopy && eOptACopy.message ? eOptACopy.message : String(eOptACopy)));
-                }
-
-                if (__optACopyOk) {
-                    // Signal Step 1 to use the fixed-path canonical file
-                    runOpts.linkData.OPTION_A_ENABLED = true;
-                    runOpts.linkData.OPTION_A_CANONICAL_FS_SUBPATH = batchCfg.OPTION_A_DEST_FS_SUBPATH;
-                    runOpts.linkData.OPTION_A_CANONICAL_FILENAME = __optACanonical;
-                } else {
-                    // Pre-copy failed: fall back to legacy POST/IN/data scan in Step 1
-                    flog("   [OptionA] WARN: Falling back to legacy Step 1 scan for ISO=" + runTag + " (fixed-path not used for this run)");
-                    if (batchCfg.OPTION_A_FATAL_ON_ERROR === true) {
-                        ok = false;
-                        errMsg = "Option A precopy failed for " + runTag + "; OPTION_A_FATAL_ON_ERROR=true";
-                        flog("   [OptionA] FATAL: " + errMsg);
-                        results.push({ iso: iso, lang: lang, ok: false, err: errMsg, counts: counts });
-                        flog("   Result: ok=false err=" + errMsg);
-                        continue;
-                    }
-                }
             }
 
             // Expose to pipeline via AE_PIPE

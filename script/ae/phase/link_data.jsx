@@ -47,17 +47,6 @@ function __LinkData_coreRun(opts) {
     var DATA_JSON_IMPORT_IF_MISSING = !!pick('DATA_JSON_IMPORT_IF_MISSING', true);
     var DATA_JSON_RENAME_IMPORTED_TO_CANONICAL = !!pick('DATA_JSON_RENAME_IMPORTED_TO_CANONICAL', true);
     var DATA_JSON_LOG_VERBOSE = !!pick('DATA_JSON_LOG_VERBOSE', true);
-    // Option A — Fixed-path strategy (AE 373)
-    var OPTION_A_ENABLED = !!pick('OPTION_A_ENABLED', false);
-    var OPTION_A_CANONICAL_FS_SUBPATH = pick('OPTION_A_CANONICAL_FS_SUBPATH', ['IN','data','src']);
-    var OPTION_A_CANONICAL_FILENAME = String(pick('OPTION_A_CANONICAL_FILENAME', 'data.json'));
-    var OPTION_A_CANONICAL_PROJECT_FOLDER = pick('OPTION_A_CANONICAL_PROJECT_FOLDER', ['project','in','data','src']);
-
-    // Compatibility guard: auto-detection is incompatible with fixed-path mode (ISO must be known in advance)
-    if (OPTION_A_ENABLED && DATA_JSON_ISO_MODE !== 'manual') {
-        log('[data.json] [OptionA] WARNING: DATA_JSON_ISO_MODE="' + DATA_JSON_ISO_MODE + '" is incompatible with fixed-path mode; overriding to "manual".');
-        DATA_JSON_ISO_MODE = 'manual';
-    }
 
     if (!ENABLE_RELINK_DATA_JSON) { log("[data.json] disabled by options"); app.endUndoGroup(); return { ok:true, relinked:false, imported:false }; }
 
@@ -208,64 +197,6 @@ function __LinkData_coreRun(opts) {
     var projDataFolder = findOrCreateProjectFolder(DATA_JSON_PROJECT_FOLDER);
     var existing = findItemByNameInFolder(projDataFolder, DATA_JSON_PROJECT_ITEM_NAME);
     var relinked = false, imported = false, projectItem = null;
-
-    // ── OPTION A: Fixed-path branch (AE 373) ────────────────────────────────
-    // When enabled, the batch orchestrator has already copied data_<ISO>.json to a canonical fixed path.
-    // We read/reload from that fixed path using reload() or importFile() — no replace(), no delete+reimport.
-    // This avoids AE's "data structure changed" warning triggered by the Option B workaround.
-    if (OPTION_A_ENABLED) {
-        var __aFsSub0 = (OPTION_A_CANONICAL_FS_SUBPATH && OPTION_A_CANONICAL_FS_SUBPATH[0]) || 'IN';
-        var __aFsSub1 = (OPTION_A_CANONICAL_FS_SUBPATH && OPTION_A_CANONICAL_FS_SUBPATH[1]) || 'data';
-        var __aFsSub2 = (OPTION_A_CANONICAL_FS_SUBPATH && OPTION_A_CANONICAL_FS_SUBPATH[2]) || 'src';
-        var __aCanonicalFolder = new Folder(joinPath(postFolder.fsName, joinPath(__aFsSub0, joinPath(__aFsSub1, __aFsSub2))));
-        var __aCanonicalFile = new File(joinPath(__aCanonicalFolder.fsName, OPTION_A_CANONICAL_FILENAME));
-
-        log('[data.json] [OptionA] Fixed-path mode active. ISO=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(' LANG='+DATA_JSON_LANG_CODE):'') + ' canonical=' + __aCanonicalFile.fsName);
-
-        if (!__aCanonicalFile.exists) {
-            var __aMsgMissing = '[data.json] [OptionA] Canonical file not found: ' + __aCanonicalFile.fsName + '. Was the pre-copy step successful?';
-            log(__aMsgMissing);
-            try { if (__AE_PIPE__) { __AE_PIPE__.__fatal = __aMsgMissing; } } catch(eAF) {}
-            app.endUndoGroup();
-            return { ok:false, fatal:true, reason:__aMsgMissing, relinked:false, imported:false, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:'fixed-path', isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:null };
-        }
-
-        // Use canonical AE project folder (project/in/data/src) for the footage item
-        var __aProjFolder = findOrCreateProjectFolder(OPTION_A_CANONICAL_PROJECT_FOLDER);
-        var __aExisting = findItemByNameInFolder(__aProjFolder, OPTION_A_CANONICAL_FILENAME);
-
-        if (__aExisting && __aExisting instanceof FootageItem) {
-            // Canonical item already present: reload() to pick up fresh content (no path change → no warning)
-            try {
-                __aExisting.reload();
-                relinked = true; projectItem = __aExisting;
-                log('[data.json] [OptionA] Reloaded canonical item: ' + OPTION_A_CANONICAL_FILENAME);
-            } catch(eARel) {
-                log('[data.json] [OptionA] reload() failed (' + eARel + '). Attempting import as fallback.');
-            }
-        }
-        if (!relinked && !imported) {
-            // Canonical item missing: import from fixed path (first run or project reset)
-            try {
-                var __aIO = new ImportOptions(__aCanonicalFile);
-                var __aImported = proj.importFile(__aIO);
-                if (__aImported) {
-                    __aImported.parentFolder = __aProjFolder;
-                    try { __aImported.name = OPTION_A_CANONICAL_FILENAME; } catch(eANm) {}
-                    imported = true; projectItem = __aImported;
-                    log('[data.json] [OptionA] Imported canonical item (first use): ' + __aCanonicalFile.fsName);
-                } else {
-                    log('[data.json] [OptionA] importFile() returned null for: ' + __aCanonicalFile.fsName);
-                }
-            } catch(eAImp) { log('[data.json] [OptionA] Import failed: ' + eAImp); }
-        }
-
-        var __aSummary = '[data.json] [OptionA] Result: iso=' + DATA_JSON_ISO_CODE + (DATA_JSON_LANG_CODE?(' lang='+DATA_JSON_LANG_CODE):'') + ' relinked=' + relinked + ' imported=' + imported;
-        log(__aSummary);
-        app.endUndoGroup();
-        return { ok:true, relinked:relinked, imported:imported, iso:DATA_JSON_ISO_CODE, lang:DATA_JSON_LANG_CODE, origin:'fixed-path', isoOrigin:__isoOrigin, langOrigin:__langOrigin, projectItem:projectItem };
-    }
-    // ── END OPTION A ─────────────────────────────────────────────────────────
 
     if (existing && existing instanceof FootageItem) {
         // AE 315 workaround: existing.replace() triggers AE's C++ "data structure changed / undo stack

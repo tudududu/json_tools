@@ -113,15 +113,7 @@
             DATA_JSON_FILE_SUFFIX: ".json",
             DATA_JSON_IMPORT_IF_MISSING: true,
             DATA_JSON_RENAME_IMPORTED_TO_CANONICAL: true,
-            DATA_JSON_LOG_VERBOSE: true,
-            // Option A — Fixed-path strategy (AE 373)
-            // When true, Step 1 reads from a fixed canonical path instead of scanning POST/IN/data.
-            // The batch orchestrator pre-copies the ISO-specific file there before each pipeline run.
-            // Auto ISO-detection is incompatible with fixed-path mode and will be overridden to manual.
-            OPTION_A_ENABLED: false,                              // Gate: activate fixed-path consumption
-            OPTION_A_CANONICAL_PROJECT_FOLDER: ["project","in","data","src"],  // AE project panel folder
-            OPTION_A_CANONICAL_FS_SUBPATH: ["IN","data","src"],  // FS folder under POST (must match AE project)
-            OPTION_A_CANONICAL_FILENAME: "data.json"             // Fixed filename written by pre-copy
+            DATA_JSON_LOG_VERBOSE: true
         },
         // New phase: Save As (include ISO)
         saveAsISO: {
