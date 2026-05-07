@@ -18,15 +18,15 @@ except Exception:
     _TableStyleInfo = None
 
 
-def _resolve_optional_file_path(raw_path: Optional[str]) -> Optional[str]:
+def resolve_optional_file_path(raw_path: Optional[str]) -> Optional[str]:
     if raw_path is None:
         return None
     normalized = os.path.expanduser(raw_path.strip())
     return normalized or None
 
 
-def _read_theme_xml_bytes(theme_path_raw: str, source: str) -> bytes:
-    theme_path = _resolve_optional_file_path(theme_path_raw)
+def read_theme_xml_bytes(theme_path_raw: str, source: str) -> bytes:
+    theme_path = resolve_optional_file_path(theme_path_raw)
     if not theme_path:
         raise SystemExit(f"Empty XLSX theme file path from {source}")
     if not os.path.isfile(theme_path):
@@ -53,11 +53,11 @@ def apply_theme_to_workbook(
     2) default_theme_file
     """
     if theme_file:
-        workbook.loaded_theme = _read_theme_xml_bytes(theme_file, "--xlsx-theme-file")
+        workbook.loaded_theme = read_theme_xml_bytes(theme_file, "--xlsx-theme-file")
         return
 
     if default_theme_file and os.path.isfile(default_theme_file):
-        workbook.loaded_theme = _read_theme_xml_bytes(
+        workbook.loaded_theme = read_theme_xml_bytes(
             default_theme_file,
             "default theme",
         )

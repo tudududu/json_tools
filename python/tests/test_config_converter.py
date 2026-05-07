@@ -956,8 +956,8 @@ def test_generator_creates_module_map_sheet():
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["module", "ENABLED", "SOURCE_KEY"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
-        assert ("A", "True", "controller_01") in rows
-        assert ("B", "False", "controller_02") in rows
+        assert ("A", True, "controller_01") in rows
+        assert ("B", False, "controller_02") in rows
         formulas = [dv.formula1 for dv in ws.data_validations.dataValidation]
         assert '"TRUE,FALSE"' in formulas
         wb.close()

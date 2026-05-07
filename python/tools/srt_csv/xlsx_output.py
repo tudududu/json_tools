@@ -6,6 +6,21 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Type
 
 from .forward import HEADER
 
+try:
+    from ..xlsx_styling import (
+        apply_table_style,
+        autosize_columns,
+        read_theme_xml_bytes as _read_theme_xml_bytes,
+        resolve_optional_file_path as _resolve_optional_file_path,
+    )
+except ImportError:
+    from python.tools.xlsx_styling import (  # type: ignore[no-redef]
+        apply_table_style,
+        autosize_columns,
+        read_theme_xml_bytes as _read_theme_xml_bytes,
+        resolve_optional_file_path as _resolve_optional_file_path,
+    )
+
 # openpyxl is an optional runtime dependency (only needed for XLSX output).
 # The TYPE_CHECKING block gives Pylance accurate type information without
 # requiring the package to be installed. The try/except block captures the
@@ -15,30 +30,23 @@ if TYPE_CHECKING:
     from openpyxl.styles import Color as ColorType
     from openpyxl.styles import Font as FontType
     from openpyxl.styles import PatternFill as PatternFillType
-    from openpyxl.worksheet.table import Table as TableType
-    from openpyxl.worksheet.table import TableStyleInfo as TableStyleInfoType
 
 try:
     from openpyxl import Workbook
     from openpyxl import load_workbook
     from openpyxl.styles import Color, Font, PatternFill
-    from openpyxl.worksheet.table import Table, TableStyleInfo
 except Exception:  # pragma: no cover - optional dependency
     Workbook = None  # type: ignore[assignment,misc]
     load_workbook = None  # type: ignore[assignment,misc]
     Color = None  # type: ignore[assignment,misc]
     Font = None  # type: ignore[assignment,misc]
     PatternFill = None  # type: ignore[assignment,misc]
-    Table = None  # type: ignore[assignment,misc]
-    TableStyleInfo = None  # type: ignore[assignment,misc]
 
 _Workbook: Optional[Type["WorkbookType"]] = Workbook
 _load_workbook: Optional[Callable[..., "WorkbookType"]] = load_workbook
 _Color: Optional[Type["ColorType"]] = Color
 _Font: Optional[Type["FontType"]] = Font
 _PatternFill: Optional[Type["PatternFillType"]] = PatternFill
-_Table: Optional[Type["TableType"]] = Table
-_TableStyleInfo: Optional[Type["TableStyleInfoType"]] = TableStyleInfo
 
 XLSX_TEMPLATE_ENV = "SRT_TO_CSV_XLSX_TEMPLATE"
 XLSX_THEME_ENV = "SRT_TO_CSV_XLSX_THEME_FILE"
@@ -52,13 +60,6 @@ DEFAULT_XLSX_THEME_FILE = os.path.normpath(
 )
 
 XLSX_HEADER = HEADER + [f"<ISO>{i}" for i in range(1, 11)]
-
-
-def _resolve_optional_file_path(raw_path: Optional[str]) -> Optional[str]:
-    if raw_path is None:
-        return None
-    normalized = os.path.expanduser(raw_path.strip())
-    return normalized or None
 
 
 def _create_output_workbook(
@@ -94,21 +95,6 @@ def _create_output_workbook(
     except Exception as ex:
         raise SystemExit(
             f"Failed to load XLSX template from {template_source}: {template_path} ({ex})"
-        )
-
-
-def _read_theme_xml_bytes(theme_path_raw: str, source: str) -> bytes:
-    theme_path = _resolve_optional_file_path(theme_path_raw)
-    if not theme_path:
-        raise SystemExit(f"Empty XLSX theme file path from {source}")
-    if not os.path.isfile(theme_path):
-        raise SystemExit(f"XLSX theme file from {source} was not found: {theme_path}")
-    try:
-        with open(theme_path, "rb") as f:
-            return f.read()
-    except Exception as ex:
-        raise SystemExit(
-            f"Failed to read XLSX theme file from {source}: {theme_path} ({ex})"
         )
 
 
@@ -173,8 +159,6 @@ def write_tabular_output(
         or _Color is None
         or _Font is None
         or _PatternFill is None
-        or _Table is None
-        or _TableStyleInfo is None
     ):
         raise SystemExit(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
@@ -201,12 +185,25 @@ def write_tabular_output(
     ws.title = "subtitles"
     ws.append(XLSX_HEADER)
 
-    # Requested widths are in pixels; map to nearest openpyxl column units.
-    ws.column_dimensions["A"].width = 12
-    ws.column_dimensions["B"].width = 12
-    ws.column_dimensions["C"].width = 41
-    for col_letter in ("D", "E", "F", "G", "H", "I", "J", "K", "L", "M"):
-        ws.column_dimensions[col_letter].width = 16
+    # Requested widths in openpyxl column units; reproduce original fixed schema.
+    autosize_columns(
+        ws,
+        manual_width_overrides={
+            "A": 12,
+            "B": 12,
+            "C": 41,
+            "D": 16,
+            "E": 16,
+            "F": 16,
+            "G": 16,
+            "H": 16,
+            "I": 16,
+            "J": 16,
+            "K": 16,
+            "L": 16,
+            "M": 16,
+        },
+    )
 
     # Excel theme color: Plum, Accent 5, Lighter 80%.
     title_fill = _PatternFill(fill_type="solid", fgColor=_Color(theme=8, tint=0.8))
@@ -226,28 +223,7 @@ def write_tabular_output(
 
     # Format the data range as a table with headers.
     if ws.max_row >= 2:
-        table_ref = f"A1:M{ws.max_row}"
-        existing_tables = list(ws.tables.values())
-        if existing_tables:
-            table = existing_tables[0]
-            table.ref = table_ref
-            table.tableStyleInfo = _TableStyleInfo(
-                name="TableStyleMedium9",
-                showFirstColumn=False,
-                showLastColumn=False,
-                showRowStripes=True,
-                showColumnStripes=False,
-            )
-        else:
-            table = _Table(displayName="SubtitlesTable", ref=table_ref)
-            table.tableStyleInfo = _TableStyleInfo(
-                name="TableStyleMedium9",
-                showFirstColumn=False,
-                showLastColumn=False,
-                showRowStripes=True,
-                showColumnStripes=False,
-            )
-            ws.add_table(table)
+        apply_table_style(ws, table_name="SubtitlesTable")
 
     # Re-apply joined title row fill after table insertion so it remains visible.
     for row_idx in range(2, ws.max_row + 1):
