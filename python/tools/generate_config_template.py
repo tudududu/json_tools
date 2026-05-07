@@ -48,7 +48,8 @@ def generate_template(
     layer_names_sheet: str,
     recenter_rules_sheet: str,
     timing_behavior_sheet: Optional[str],
-    explicit_variants_by_videoid: str
+    explicit_variants_by_videoid: str,
+    module_map: str
 ) -> None:
     if _Workbook is None:
         raise RuntimeError(
@@ -96,9 +97,12 @@ def generate_template(
                 maybe_body = modular.get(root_key)
                 if isinstance(maybe_body, dict):
                     body = maybe_body
-                ws_evbv_raw = modular.get("EXPLICIT_VARIANTS_BY_VIDEOID")
-                if isinstance(ws_evbv_raw, dict):
-                    explicit_variants_by_videoid_map = ws_evbv_raw
+                evbv_raw = modular.get("EXPLICIT_VARIANTS_BY_VIDEOID")
+                if isinstance(evbv_raw, dict):
+                    explicit_variants_by_videoid_map = evbv_raw
+                mm_raw = modular.get("MODULE_MAP")
+                if isinstance(mm_raw, dict):
+                    module_map_map = mm_raw
 
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
@@ -194,13 +198,28 @@ def generate_template(
             ws_scc.add_data_validation(dv)
             dv.add(f"B2:B{max(ws_scc.max_row, 2)}")
 
-    if explicit_variants_by_videoid and explicit_variants_by_videoid_map is not None:
+    if explicit_variants_by_videoid_map is not None:
         ws_evbv = wb.create_sheet(title=explicit_variants_by_videoid)
         ws_evbv.append(["video_id", "variants"])
         for video_id, variants in explicit_variants_by_videoid_map.items():
             variants_str = separator.join(_to_list(variants))
             ws_evbv.append([str(video_id), variants_str])
 
+    if module_map is not None:
+        ws_mm = wb.create_sheet(title=module_map)
+        ws_mm.append(["module", "ENABLED", "SOURCE_KEY"])
+        for module_name, config_keys in module_map_map.items():
+            if not isinstance(config_keys, dict):
+                continue
+            mode = config_keys.get("ENABLED", "")
+            value = config_keys.get("SOURCE_KEY", "")
+            ws_mm.append([str(module_name), str(mode), value])
+        
+        if _DataValidation is not None:
+            dv = _DataValidation(type="list", formula1='"TRUE,FALSE"', allow_blank=True)
+            ws_mm.add_data_validation(dv)
+            dv.add(f"B2:B{max(ws_mm.max_row, 2)}")
+            
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
 
@@ -241,6 +260,11 @@ def main() -> None:
         default="EXPLICIT_VARIANTS_BY_VIDEOID",
         help="EXPLICIT_VARIANTS_BY_VIDEOID sheet name (created by default when input JSON contains config.addLayers.EXPLICIT_VARIANTS_BY_VIDEOID)",
     )
+    parser.add_argument(
+        "--module-map",
+        default="MODULE_MAP",
+        help="MODULE_MAP sheet name (created by default when input JSON contains config.modular.MODULE_MAP)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
@@ -254,7 +278,8 @@ def main() -> None:
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
         timing_behavior_sheet=args.timing_behavior_sheet,
-        explicit_variants_by_videoid=args.explicit_variants_by_videoid
+        explicit_variants_by_videoid=args.explicit_variants_by_videoid,
+        module_map=args.module_map
     )
 
 
