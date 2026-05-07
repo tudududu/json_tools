@@ -897,6 +897,214 @@ def test_generator_reads_skip_copy_config_from_sample_shape():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# modular namespace – generator tests
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_generator_no_modular_key_produces_no_extra_sheets():
+    """JSON without config.modular must not crash and must not emit modular sheets."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        # Input has no modular key at all.
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                }
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert "MODULE_MAP" not in titles
+        assert "EXPLICIT_VARIANTS_BY_VIDEOID" not in titles
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_creates_module_map_sheet():
+    """config.modular.MODULE_MAP must produce a MODULE_MAP sheet with correct columns."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                },
+                "modular": {
+                    "MODULE_MAP": {
+                        "A": {"ENABLED": True, "SOURCE_KEY": "controller_01"},
+                        "B": {"ENABLED": False, "SOURCE_KEY": "controller_02"},
+                    }
+                },
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "MODULE_MAP")
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        assert headers == ["module", "ENABLED", "SOURCE_KEY"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        assert ("A", "True", "controller_01") in rows
+        assert ("B", "False", "controller_02") in rows
+        formulas = [dv.formula1 for dv in ws.data_validations.dataValidation]
+        assert '"TRUE,FALSE"' in formulas
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_creates_explicit_variants_sheet():
+    """config.modular.EXPLICIT_VARIANTS_BY_VIDEOID must produce correct sheet."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                },
+                "modular": {
+                    "EXPLICIT_VARIANTS_BY_VIDEOID": {
+                        "Travel_20s": ["A1_B1_C1_D4", "A2_B4_C2_D2"],
+                        "TravelOOH_10s": ["A1_B2_C1", "A2_B1_C2"],
+                    }
+                },
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID")
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        assert headers == ["video_id", "variants"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        video_ids = [r[0] for r in rows]
+        assert "Travel_20s" in video_ids
+        assert "TravelOOH_10s" in video_ids
+        travel_row = next(r for r in rows if r[0] == "Travel_20s")
+        assert "A1_B1_C1_D4" in travel_row[1]
+        assert "A2_B4_C2_D2" in travel_row[1]
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_creates_both_modular_sheets_together():
+    """Both MODULE_MAP and EXPLICIT_VARIANTS_BY_VIDEOID can coexist in the same workbook."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                },
+                "modular": {
+                    "MODULE_MAP": {
+                        "A": {"ENABLED": True, "SOURCE_KEY": "controller_01"},
+                    },
+                    "EXPLICIT_VARIANTS_BY_VIDEOID": {
+                        "Video_A": ["A1"],
+                    },
+                },
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert "MODULE_MAP" in titles
+        assert "EXPLICIT_VARIANTS_BY_VIDEOID" in titles
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_reads_modular_from_sample_shape():
+    """Integration: sample_config_data.json has both modular sheets; both must appear."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        here = os.path.dirname(__file__)
+        sample_json = os.path.normpath(
+            os.path.join(here, "..", "..", "samples", "sample_config_data.json")
+        )
+        if not os.path.isfile(sample_json):
+            pytest.skip("Sample file samples/sample_config_data.json not found")
+
+        out_xlsx = os.path.join(d, "out.xlsx")
+        proc = _run(_GENERATOR, sample_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert "MODULE_MAP" in titles, f"Expected MODULE_MAP, got: {titles}"
+        assert "EXPLICIT_VARIANTS_BY_VIDEOID" in titles, (
+            f"Expected EXPLICIT_VARIANTS_BY_VIDEOID, got: {titles}"
+        )
+        ws_mm = next(w for w in wb.worksheets if w.title == "MODULE_MAP")
+        mm_rows = list(ws_mm.iter_rows(min_row=2, values_only=True))
+        modules = [r[0] for r in mm_rows]
+        assert "A" in modules
+        assert "B" in modules
+        ws_ev = next(w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID")
+        ev_rows = list(ws_ev.iter_rows(min_row=2, values_only=True))
+        video_ids = [r[0] for r in ev_rows]
+        assert "Travel_20s" in video_ids
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_custom_module_map_sheet_name():
+    """--module-map flag changes the MODULE_MAP sheet name."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                },
+                "modular": {
+                    "MODULE_MAP": {
+                        "A": {"ENABLED": True, "SOURCE_KEY": "controller_01"},
+                    },
+                },
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(_GENERATOR, in_json, out_xlsx, "--module-map", "MY_MODULE_MAP")
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert "MY_MODULE_MAP" in titles
+        assert "MODULE_MAP" not in titles
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Roundtrip integration test
 # ──────────────────────────────────────────────────────────────────────────────
 

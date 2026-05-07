@@ -8,6 +8,8 @@ Output workbook shape:
 - Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
 - Sheet "TIMING_ITEM_SELECTOR" (optional) with columns: itemName, mode, value
 - Sheet "SKIP_COPY_CONFIG" (optional) with columns: key, value, names
+- Sheet "MODULE_MAP" (optional) with columns: module, ENABLED, SOURCE_KEY
+- Sheet "EXPLICIT_VARIANTS_BY_VIDEOID" (optional) with columns: video_id, variants
 """
 
 from __future__ import annotations
@@ -63,6 +65,8 @@ def generate_template(
     timing_behavior_map: Optional[Dict[str, object]] = None
     timing_item_selector_map: Optional[Dict[str, object]] = None
     skip_copy_config_map: Optional[Dict[str, object]] = None
+    explicit_variants_by_videoid_map: Optional[Dict[str, object]] = None
+    module_map_map: Optional[Dict[str, object]] = None
 
     if root_key in raw and isinstance(raw[root_key], dict):
         body = raw[root_key]
@@ -205,7 +209,7 @@ def generate_template(
             variants_str = separator.join(_to_list(variants))
             ws_evbv.append([str(video_id), variants_str])
 
-    if module_map is not None:
+    if module_map_map is not None:
         ws_mm = wb.create_sheet(title=module_map)
         ws_mm.append(["module", "ENABLED", "SOURCE_KEY"])
         for module_name, config_keys in module_map_map.items():
