@@ -48,6 +48,7 @@ def generate_template(
     layer_names_sheet: str,
     recenter_rules_sheet: str,
     timing_behavior_sheet: Optional[str],
+    explicit_variants_by_videoid: str
 ) -> None:
     if _Workbook is None:
         raise RuntimeError(
@@ -90,6 +91,14 @@ def generate_template(
                 scc_raw = add_layers.get("SKIP_COPY_CONFIG")
                 if isinstance(scc_raw, dict):
                     skip_copy_config_map = scc_raw
+            modular = config.get("modular")
+            if isinstance(modular, dict):
+                maybe_body = modular.get(root_key)
+                if isinstance(maybe_body, dict):
+                    body = maybe_body
+                ws_evbv_raw = modular.get("EXPLICIT_VARIANTS_BY_VIDEOID")
+                if isinstance(ws_evbv_raw, dict):
+                    explicit_variants_by_videoid_map = ws_evbv_raw
 
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
@@ -185,6 +194,13 @@ def generate_template(
             ws_scc.add_data_validation(dv)
             dv.add(f"B2:B{max(ws_scc.max_row, 2)}")
 
+    if explicit_variants_by_videoid and explicit_variants_by_videoid_map is not None:
+        ws_evbv = wb.create_sheet(title=explicit_variants_by_videoid)
+        ws_evbv.append(["video_id", "variants"])
+        for video_id, variants in explicit_variants_by_videoid_map.items():
+            variants_str = separator.join(_to_list(variants))
+            ws_evbv.append([str(video_id), variants_str])
+
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
 
@@ -220,6 +236,11 @@ def main() -> None:
         default="TIMING_BEHAVIOR",
         help="TIMING_BEHAVIOR sheet name (created by default when input JSON contains config.addLayers.TIMING_BEHAVIOR)",
     )
+    parser.add_argument(
+        "--explicit-variants-by-videoid",
+        default="EXPLICIT_VARIANTS_BY_VIDEOID",
+        help="EXPLICIT_VARIANTS_BY_VIDEOID sheet name (created by default when input JSON contains config.addLayers.EXPLICIT_VARIANTS_BY_VIDEOID)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
@@ -233,6 +254,7 @@ def main() -> None:
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
         timing_behavior_sheet=args.timing_behavior_sheet,
+        explicit_variants_by_videoid=args.explicit_variants_by_videoid
     )
 
 
