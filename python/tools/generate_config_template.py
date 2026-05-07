@@ -19,6 +19,19 @@ import json
 import os
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, cast
 
+try:
+    from .xlsx_styling import (
+        apply_table_style,
+        apply_theme_to_workbook,
+        autosize_columns,
+    )
+except ImportError:
+    from python.tools.xlsx_styling import (
+        apply_table_style,
+        apply_theme_to_workbook,
+        autosize_columns,
+    )
+
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
 
@@ -31,6 +44,13 @@ except Exception:
 
 RE_CENTER_KEYS: Sequence[str] = ("force", "noRecenter", "alignH", "alignV")
 VALID_SELECTOR_MODES: Sequence[str] = ("line", "index", "minMax")
+DEFAULT_XLSX_THEME_FILE = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "themes",
+        "subtitles_theme.xml",
+    )
+)
 
 
 def _to_list(value: object) -> List[str]:
@@ -51,7 +71,11 @@ def generate_template(
     recenter_rules_sheet: str,
     timing_behavior_sheet: Optional[str],
     explicit_variants_by_videoid: str,
-    module_map: str
+    module_map: str,
+    xlsx_theme_file: Optional[str] = None,
+    min_column_width: float = 10.0,
+    max_column_width: float = 60.0,
+    column_width_overrides_by_sheet: Optional[Dict[str, Dict[str, float]]] = None,
 ) -> None:
     if _Workbook is None:
         raise RuntimeError(
@@ -113,6 +137,7 @@ def generate_template(
 
     wb = _Workbook()
     ws_layers = cast("WorksheetType", wb.active)
+    created_sheets: List["WorksheetType"] = [ws_layers]
     ws_layers.title = layer_names_sheet
     ws_layers.append(["key", "exact", "contains"])
 
@@ -127,6 +152,7 @@ def generate_template(
         ws_layers.append([key, separator.join(exact), separator.join(contains)])
 
     ws_rules = wb.create_sheet(title=recenter_rules_sheet)
+    created_sheets.append(ws_rules)
     ws_rules.append(list(RE_CENTER_KEYS))
 
     recenter = body.get("recenterRules")
@@ -148,6 +174,7 @@ def generate_template(
 
     if timing_behavior_sheet and timing_behavior_map is not None:
         ws_tb = wb.create_sheet(title=timing_behavior_sheet)
+        created_sheets.append(ws_tb)
         ws_tb.append(["layerName", "behavior"])
         for layer_name, behavior in timing_behavior_map.items():
             ws_tb.append([str(layer_name), str(behavior)])
@@ -162,6 +189,7 @@ def generate_template(
 
     if timing_item_selector_map is not None:
         ws_tis = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        created_sheets.append(ws_tis)
         ws_tis.append(["itemName", "mode", "value"])
         for item_name, config_value in timing_item_selector_map.items():
             if not isinstance(config_value, dict):
@@ -179,6 +207,7 @@ def generate_template(
 
     if skip_copy_config_map is not None:
         ws_scc = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        created_sheets.append(ws_scc)
         ws_scc.append(["key", "value", "names"])
         for key, config_value in skip_copy_config_map.items():
             if isinstance(config_value, dict):
@@ -204,6 +233,7 @@ def generate_template(
 
     if explicit_variants_by_videoid_map is not None:
         ws_evbv = wb.create_sheet(title=explicit_variants_by_videoid)
+        created_sheets.append(ws_evbv)
         ws_evbv.append(["video_id", "variants"])
         for video_id, variants in explicit_variants_by_videoid_map.items():
             variants_str = separator.join(_to_list(variants))
@@ -211,18 +241,39 @@ def generate_template(
 
     if module_map_map is not None:
         ws_mm = wb.create_sheet(title=module_map)
+        created_sheets.append(ws_mm)
         ws_mm.append(["module", "ENABLED", "SOURCE_KEY"])
         for module_name, config_keys in module_map_map.items():
             if not isinstance(config_keys, dict):
                 continue
             mode = config_keys.get("ENABLED", "")
             value = config_keys.get("SOURCE_KEY", "")
-            ws_mm.append([str(module_name), str(mode), value])
+            ws_mm.append([str(module_name), bool(mode), value])
         
         if _DataValidation is not None:
             dv = _DataValidation(type="list", formula1='"TRUE,FALSE"', allow_blank=True)
             ws_mm.add_data_validation(dv)
             dv.add(f"B2:B{max(ws_mm.max_row, 2)}")
+
+    apply_theme_to_workbook(
+        wb,
+        theme_file=xlsx_theme_file,
+        default_theme_file=DEFAULT_XLSX_THEME_FILE,
+    )
+
+    overrides_by_sheet = column_width_overrides_by_sheet or {}
+    for idx, ws in enumerate(created_sheets, start=1):
+        apply_table_style(
+            ws,
+            table_name=f"TemplateTable_{idx}",
+            style_name="TableStyleMedium9",
+        )
+        autosize_columns(
+            ws,
+            min_width=min_column_width,
+            max_width=max_column_width,
+            manual_width_overrides=overrides_by_sheet.get(ws.title),
+        )
             
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
@@ -269,6 +320,26 @@ def main() -> None:
         default="MODULE_MAP",
         help="MODULE_MAP sheet name (created by default when input JSON contains config.modular.MODULE_MAP)",
     )
+    parser.add_argument(
+        "--xlsx-theme-file",
+        default=None,
+        help=(
+            "Optional path to workbook theme XML file. "
+            "If omitted, built-in python/tools/themes/subtitles_theme.xml is used when present."
+        ),
+    )
+    parser.add_argument(
+        "--min-column-width",
+        type=float,
+        default=10.0,
+        help="Minimum dynamic column width (default 10.0)",
+    )
+    parser.add_argument(
+        "--max-column-width",
+        type=float,
+        default=60.0,
+        help="Maximum dynamic column width (default 60.0)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
@@ -283,7 +354,10 @@ def main() -> None:
         recenter_rules_sheet=args.recenter_rules_sheet,
         timing_behavior_sheet=args.timing_behavior_sheet,
         explicit_variants_by_videoid=args.explicit_variants_by_videoid,
-        module_map=args.module_map
+        module_map=args.module_map,
+        xlsx_theme_file=args.xlsx_theme_file,
+        min_column_width=args.min_column_width,
+        max_column_width=args.max_column_width,
     )
 
 

@@ -1104,6 +1104,70 @@ def test_generator_custom_module_map_sheet_name():
         _cleanup_dir(d)
 
 
+def test_generator_formats_data_sheet_as_table_style_medium9():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        _write_json(in_json, _MINIMAL_JSON)
+        proc = _run(_GENERATOR, in_json, out_xlsx)
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        tables = list(ws.tables.values())
+        assert len(tables) >= 1
+        assert tables[0].tableStyleInfo is not None
+        assert tables[0].tableStyleInfo.name == "TableStyleMedium9"
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_applies_dynamic_column_width_bounds():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        payload = {
+            "LAYER_NAME_CONFIG": {
+                "very_long_key_name_for_width_check": {
+                    "exact": ["x" * 120],
+                    "contains": ["subtitles"],
+                },
+                "recenterRules": {
+                    "force": ["Logo"],
+                    "noRecenter": ["BG"],
+                    "alignH": ["Claim"],
+                    "alignV": ["Disclaimer"],
+                },
+            }
+        }
+        _write_json(in_json, payload)
+        proc = _run(
+            _GENERATOR,
+            in_json,
+            out_xlsx,
+            "--min-column-width",
+            "8",
+            "--max-column-width",
+            "25",
+        )
+        assert proc.returncode == 0, proc.stderr
+        wb = openpyxl.load_workbook(out_xlsx)
+        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        # Column B contains very long value and must be clamped by max width.
+        assert ws.column_dimensions["B"].width is not None
+        assert ws.column_dimensions["B"].width <= 25.1
+        # Column A should still respect min width bound.
+        assert ws.column_dimensions["A"].width is not None
+        assert ws.column_dimensions["A"].width >= 7.9
+        wb.close()
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Roundtrip integration test
 # ──────────────────────────────────────────────────────────────────────────────
