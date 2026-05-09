@@ -324,9 +324,10 @@ def _parse_explicit_variants_by_videoid(
 def convert_workbook(
     in_path: str,
     separator: str,
-    layer_names_sheet: str,
-    recenter_rules_sheet: str,
+    layer_names_sheet: str, # Required: must exist in workbook
+    recenter_rules_sheet: str, # Required: must exist in workbook
     root_key: str,
+    # Optional sheets below: silently skipped if sheet name is None or sheet doesn't exist
     timing_behavior_sheet: Optional[str] = "TIMING_BEHAVIOR",
     timing_item_selector_sheet: Optional[str] = "TIMING_ITEM_SELECTOR",
     skip_config_sheet: Optional[str] = "SKIP_COPY_CONFIG",
