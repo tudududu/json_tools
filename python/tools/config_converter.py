@@ -8,6 +8,8 @@ Expected workbook shape:
 - Sheet "TIMING_BEHAVIOR" (optional) with columns: layerName, behavior
 - Sheet "TIMING_ITEM_SELECTOR" (optional) with columns: itemName, mode, value
 - Sheet "SKIP_COPY_CONFIG" (optional) with columns: key, value, names
+- Sheet "MODULE_MAP" (optional) with columns: module, ENABLED, SOURCE_KEY
+- Sheet "EXPLICIT_VARIANTS_BY_VIDEOID" (optional) with columns: video_id, variants
 
 Rules:
 - Sheet names are matched case-insensitively.
@@ -272,6 +274,53 @@ def _parse_skip_copy_config(
     return out
 
 
+def _parse_module_map(
+    worksheet: "WorksheetType",
+) -> Dict[str, Dict[str, object]]:
+    headers = _read_headers(worksheet)
+    idx = _index_map(headers)
+
+    for required in ("module", "enabled", "source_key"):
+        if required not in idx:
+            raise ValueError(
+                f"MODULE_MAP sheet is missing required column: {required}"
+            )
+
+    out: Dict[str, Dict[str, object]] = {}
+    for row in worksheet.iter_rows(min_row=2, values_only=True):
+        module = str(_cell(row, idx["module"]) or "").strip()
+        if not module:
+            continue
+
+        enabled = _parse_bool_cell(_cell(row, idx["enabled"]), key=module)
+        source_key = str(_cell(row, idx["source_key"]) or "").strip()
+        out[module] = {"ENABLED": enabled, "SOURCE_KEY": source_key}
+
+    return out
+
+
+def _parse_explicit_variants_by_videoid(
+    worksheet: "WorksheetType", separator: str
+) -> Dict[str, List[str]]:
+    headers = _read_headers(worksheet)
+    idx = _index_map(headers)
+
+    for required in ("video_id", "variants"):
+        if required not in idx:
+            raise ValueError(
+                f"EXPLICIT_VARIANTS_BY_VIDEOID sheet is missing required column: {required}"
+            )
+
+    out: Dict[str, List[str]] = {}
+    for row in worksheet.iter_rows(min_row=2, values_only=True):
+        video_id = str(_cell(row, idx["video_id"]) or "").strip()
+        if not video_id:
+            continue
+        out[video_id] = _split_list_cell(_cell(row, idx["variants"]), separator)
+
+    return out
+
+
 def convert_workbook(
     in_path: str,
     separator: str,
@@ -281,6 +330,8 @@ def convert_workbook(
     timing_behavior_sheet: Optional[str] = "TIMING_BEHAVIOR",
     timing_item_selector_sheet: Optional[str] = "TIMING_ITEM_SELECTOR",
     skip_config_sheet: Optional[str] = "SKIP_COPY_CONFIG",
+    modular_module_map_sheet: Optional[str] = "MODULE_MAP",
+    modular_explicit_variants_sheet: Optional[str] = "EXPLICIT_VARIANTS_BY_VIDEOID",
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
@@ -314,7 +365,28 @@ def convert_workbook(
                 add_layers["SKIP_COPY_CONFIG"] = _parse_skip_copy_config(
                     ws_skip, separator
                 )
-        return {"config": {"addLayers": add_layers}}
+
+        config: Dict[str, object] = {"addLayers": add_layers}
+        modular: Dict[str, object] = {}
+        if modular_module_map_sheet:
+            ws_module_map = _sheet_by_name_ci_or_none(wb, modular_module_map_sheet)
+            if ws_module_map is not None:
+                modular["MODULE_MAP"] = _parse_module_map(ws_module_map)
+        if modular_explicit_variants_sheet:
+            ws_explicit_variants = _sheet_by_name_ci_or_none(
+                wb, modular_explicit_variants_sheet
+            )
+            if ws_explicit_variants is not None:
+                modular["EXPLICIT_VARIANTS_BY_VIDEOID"] = (
+                    _parse_explicit_variants_by_videoid(
+                        ws_explicit_variants,
+                        separator,
+                    )
+                )
+        if modular:
+            config["modular"] = modular
+
+        return {"config": config}
     finally:
         wb.close()
 
@@ -367,6 +439,16 @@ def main() -> None:
         help="SKIP_COPY_CONFIG sheet name (parsed by default when present; override to use a different sheet name)",
     )
     parser.add_argument(
+        "--modular-module-map-sheet",
+        default="MODULE_MAP",
+        help="MODULE_MAP sheet name (parsed by default when present; override to use a different sheet name)",
+    )
+    parser.add_argument(
+        "--modular-explicit-variants-sheet",
+        default="EXPLICIT_VARIANTS_BY_VIDEOID",
+        help="EXPLICIT_VARIANTS_BY_VIDEOID sheet name (parsed by default when present; override to use a different sheet name)",
+    )
+    parser.add_argument(
         "--root-key",
         default="LAYER_NAME_CONFIG",
         help="Root key in output JSON (default LAYER_NAME_CONFIG)",
@@ -398,6 +480,8 @@ def main() -> None:
         timing_behavior_sheet=args.timing_behavior_sheet,
         timing_item_selector_sheet=args.timing_item_selector_sheet,
         skip_config_sheet=args.skip_config_sheet,
+        modular_module_map_sheet=args.modular_module_map_sheet,
+        modular_explicit_variants_sheet=args.modular_explicit_variants_sheet,
     )
 
     if args.dry_run:
@@ -418,6 +502,17 @@ def main() -> None:
         if "SKIP_COPY_CONFIG" in add_layers:
             skip_count = len(cast(Dict[str, object], add_layers["SKIP_COPY_CONFIG"]))
             extra += f"; {skip_count} SKIP_COPY_CONFIG entries"
+        modular = cast(Dict[str, object], config.get("modular", {}))
+        if "MODULE_MAP" in modular:
+            module_map_count = len(cast(Dict[str, object], modular["MODULE_MAP"]))
+            extra += f"; {module_map_count} MODULE_MAP entries"
+        if "EXPLICIT_VARIANTS_BY_VIDEOID" in modular:
+            explicit_variants_count = len(
+                cast(Dict[str, object], modular["EXPLICIT_VARIANTS_BY_VIDEOID"])
+            )
+            extra += (
+                f"; {explicit_variants_count} EXPLICIT_VARIANTS_BY_VIDEOID entries"
+            )
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
         )

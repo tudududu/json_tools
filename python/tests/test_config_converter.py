@@ -58,6 +58,10 @@ def _write_minimal_xlsx(
     selector_rows: Optional[List[list]] = None,
     skip_rows: Optional[List[list]] = None,
     skip_sheet_name: str = "SKIP_COPY_CONFIG",
+    module_map_rows: Optional[List[list]] = None,
+    module_map_sheet_name: str = "MODULE_MAP",
+    explicit_variants_rows: Optional[List[list]] = None,
+    explicit_variants_sheet_name: str = "EXPLICIT_VARIANTS_BY_VIDEOID",
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
@@ -88,6 +92,16 @@ def _write_minimal_xlsx(
         ws = wb.create_sheet(title=skip_sheet_name)
         ws.append(["key", "value", "names"])
         for row in skip_rows:
+            ws.append(row)
+    if module_map_rows is not None:
+        ws = wb.create_sheet(title=module_map_sheet_name)
+        ws.append(["module", "ENABLED", "SOURCE_KEY"])
+        for row in module_map_rows:
+            ws.append(row)
+    if explicit_variants_rows is not None:
+        ws = wb.create_sheet(title=explicit_variants_sheet_name)
+        ws.append(["video_id", "variants"])
+        for row in explicit_variants_rows:
             ws.append(row)
     wb.save(path)
 
@@ -613,6 +627,104 @@ def test_converter_skip_copy_config_dry_run_includes_entry_count():
         assert proc.returncode == 0, proc.stderr
         assert "SKIP_COPY_CONFIG" in proc.stdout
         assert "2 SKIP_COPY_CONFIG entries" in proc.stdout
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_modular_sheets_included_by_default_when_present():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            module_map_rows=[
+                ["A", True, "controller_01"],
+                ["B", "FALSE", "controller_02"],
+            ],
+            explicit_variants_rows=[
+                ["Travel_20s", "A1_B1_C1_D4;A2_B4_C2_D2"],
+                ["TravelOOH_10s", "A1_B2_C1;A2_B1_C2"],
+            ],
+        )
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        modular = data["config"]["modular"]
+        assert modular["MODULE_MAP"]["A"] == {
+            "ENABLED": True,
+            "SOURCE_KEY": "controller_01",
+        }
+        assert modular["MODULE_MAP"]["B"] == {
+            "ENABLED": False,
+            "SOURCE_KEY": "controller_02",
+        }
+        assert modular["EXPLICIT_VARIANTS_BY_VIDEOID"]["Travel_20s"] == [
+            "A1_B1_C1_D4",
+            "A2_B4_C2_D2",
+        ]
+        assert modular["EXPLICIT_VARIANTS_BY_VIDEOID"]["TravelOOH_10s"] == [
+            "A1_B2_C1",
+            "A2_B1_C2",
+        ]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_modular_not_emitted_when_sheets_missing():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(openpyxl, xlsx)
+        proc = _run(_CONVERTER, xlsx, out_json)
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        assert "modular" not in data["config"]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_modular_custom_sheet_names():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            module_map_rows=[["A", "TRUE", "controller_01"]],
+            module_map_sheet_name="MM_OVERRIDDEN",
+            explicit_variants_rows=[["Travel_20s", "A1_B1_C1_D4;A2_B4_C2_D2"]],
+            explicit_variants_sheet_name="EV_OVERRIDDEN",
+        )
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--modular-module-map-sheet",
+            "MM_OVERRIDDEN",
+            "--modular-explicit-variants-sheet",
+            "EV_OVERRIDDEN",
+        )
+        assert proc.returncode == 0, proc.stderr
+        with open(out_json, encoding="utf-8") as f:
+            data = json.load(f)
+        modular = data["config"]["modular"]
+        assert modular["MODULE_MAP"]["A"] == {
+            "ENABLED": True,
+            "SOURCE_KEY": "controller_01",
+        }
+        assert modular["EXPLICIT_VARIANTS_BY_VIDEOID"]["Travel_20s"] == [
+            "A1_B1_C1_D4",
+            "A2_B4_C2_D2",
+        ]
     finally:
         _cleanup_dir(d)
 
