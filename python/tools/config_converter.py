@@ -24,6 +24,8 @@ import json
 import os
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, cast
 
+from .sheet_names_config import SHEETS_BY_KEY
+
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet as WorksheetType
 
@@ -324,15 +326,9 @@ def _parse_explicit_variants_by_videoid(
 def convert_workbook(
     in_path: str,
     separator: str,
-    layer_names_sheet: str, # Required: must exist in workbook
-    recenter_rules_sheet: str, # Required: must exist in workbook
+    layer_names_sheet: str,
+    recenter_rules_sheet: str,
     root_key: str,
-    # Optional sheets below: silently skipped if sheet name is None or sheet doesn't exist
-    timing_behavior_sheet: Optional[str] = "TIMING_BEHAVIOR",
-    timing_item_selector_sheet: Optional[str] = "TIMING_ITEM_SELECTOR",
-    skip_config_sheet: Optional[str] = "SKIP_COPY_CONFIG",
-    modular_module_map_sheet: Optional[str] = "MODULE_MAP",
-    modular_explicit_variants_sheet: Optional[str] = "EXPLICIT_VARIANTS_BY_VIDEOID",
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
@@ -350,40 +346,38 @@ def convert_workbook(
         body: Dict[str, object] = dict(layer_map)
         body["recenterRules"] = rules_map
         add_layers: Dict[str, object] = {root_key: body}
-        if timing_behavior_sheet:
-            ws_timing = _sheet_by_name_ci_or_none(wb, timing_behavior_sheet)
-            if ws_timing is not None:
-                add_layers["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws_timing)
-        if timing_item_selector_sheet:
-            ws_selector = _sheet_by_name_ci_or_none(wb, timing_item_selector_sheet)
-            if ws_selector is not None:
-                add_layers["TIMING_ITEM_SELECTOR"] = _parse_timing_item_selector(
-                    ws_selector
-                )
-        if skip_config_sheet:
-            ws_skip = _sheet_by_name_ci_or_none(wb, skip_config_sheet)
-            if ws_skip is not None:
-                add_layers["SKIP_COPY_CONFIG"] = _parse_skip_copy_config(
-                    ws_skip, separator
-                )
+        
+        # Parse optional sheets from config defaults
+        for sheet in SHEETS_BY_KEY.values():
+            if sheet.is_required or sheet.namespace != "addLayers":
+                continue
+            ws = _sheet_by_name_ci_or_none(wb, sheet.default_sheet_name)
+            if ws is None:
+                continue
+            if sheet.json_key == "TIMING_BEHAVIOR":
+                add_layers["TIMING_BEHAVIOR"] = _parse_timing_behavior(ws)
+            elif sheet.json_key == "TIMING_ITEM_SELECTOR":
+                add_layers["TIMING_ITEM_SELECTOR"] = _parse_timing_item_selector(ws)
+            elif sheet.json_key == "SKIP_COPY_CONFIG":
+                add_layers["SKIP_COPY_CONFIG"] = _parse_skip_copy_config(ws, separator)
 
         config: Dict[str, object] = {"addLayers": add_layers}
         modular: Dict[str, object] = {}
-        if modular_module_map_sheet:
-            ws_module_map = _sheet_by_name_ci_or_none(wb, modular_module_map_sheet)
-            if ws_module_map is not None:
-                modular["MODULE_MAP"] = _parse_module_map(ws_module_map)
-        if modular_explicit_variants_sheet:
-            ws_explicit_variants = _sheet_by_name_ci_or_none(
-                wb, modular_explicit_variants_sheet
-            )
-            if ws_explicit_variants is not None:
+        
+        # Parse optional modular sheets from config defaults
+        for sheet in SHEETS_BY_KEY.values():
+            if sheet.namespace != "modular":
+                continue
+            ws = _sheet_by_name_ci_or_none(wb, sheet.default_sheet_name)
+            if ws is None:
+                continue
+            if sheet.json_key == "MODULE_MAP":
+                modular["MODULE_MAP"] = _parse_module_map(ws)
+            elif sheet.json_key == "EXPLICIT_VARIANTS_BY_VIDEOID":
                 modular["EXPLICIT_VARIANTS_BY_VIDEOID"] = (
-                    _parse_explicit_variants_by_videoid(
-                        ws_explicit_variants,
-                        separator,
-                    )
+                    _parse_explicit_variants_by_videoid(ws, separator)
                 )
+        
         if modular:
             config["modular"] = modular
 
@@ -425,31 +419,6 @@ def main() -> None:
         help="Recenter rules sheet name (case-insensitive match, default LAYER_NAME_CONFIG_recenterRules)",
     )
     parser.add_argument(
-        "--timing-behavior-sheet",
-        default="TIMING_BEHAVIOR",
-        help="TIMING_BEHAVIOR sheet name (parsed by default when present; override to use a different sheet name)",
-    )
-    parser.add_argument(
-        "--timing-item-selector-sheet",
-        default="TIMING_ITEM_SELECTOR",
-        help="TIMING_ITEM_SELECTOR sheet name (parsed by default when present; override to use a different sheet name)",
-    )
-    parser.add_argument(
-        "--skip-config-sheet",
-        default="SKIP_COPY_CONFIG",
-        help="SKIP_COPY_CONFIG sheet name (parsed by default when present; override to use a different sheet name)",
-    )
-    parser.add_argument(
-        "--modular-module-map-sheet",
-        default="MODULE_MAP",
-        help="MODULE_MAP sheet name (parsed by default when present; override to use a different sheet name)",
-    )
-    parser.add_argument(
-        "--modular-explicit-variants-sheet",
-        default="EXPLICIT_VARIANTS_BY_VIDEOID",
-        help="EXPLICIT_VARIANTS_BY_VIDEOID sheet name (parsed by default when present; override to use a different sheet name)",
-    )
-    parser.add_argument(
         "--root-key",
         default="LAYER_NAME_CONFIG",
         help="Root key in output JSON (default LAYER_NAME_CONFIG)",
@@ -478,11 +447,6 @@ def main() -> None:
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
         root_key=args.root_key,
-        timing_behavior_sheet=args.timing_behavior_sheet,
-        timing_item_selector_sheet=args.timing_item_selector_sheet,
-        skip_config_sheet=args.skip_config_sheet,
-        modular_module_map_sheet=args.modular_module_map_sheet,
-        modular_explicit_variants_sheet=args.modular_explicit_variants_sheet,
     )
 
     if args.dry_run:
@@ -504,16 +468,10 @@ def main() -> None:
             skip_count = len(cast(Dict[str, object], add_layers["SKIP_COPY_CONFIG"]))
             extra += f"; {skip_count} SKIP_COPY_CONFIG entries"
         modular = cast(Dict[str, object], config.get("modular", {}))
-        if "MODULE_MAP" in modular:
-            module_map_count = len(cast(Dict[str, object], modular["MODULE_MAP"]))
-            extra += f"; {module_map_count} MODULE_MAP entries"
-        if "EXPLICIT_VARIANTS_BY_VIDEOID" in modular:
-            explicit_variants_count = len(
-                cast(Dict[str, object], modular["EXPLICIT_VARIANTS_BY_VIDEOID"])
-            )
-            extra += (
-                f"; {explicit_variants_count} EXPLICIT_VARIANTS_BY_VIDEOID entries"
-            )
+        for sheet in SHEETS_BY_KEY.values():
+            if sheet.namespace == "modular" and sheet.json_key in modular:
+                entry_count = len(cast(Dict[str, object], modular[sheet.json_key]))
+                extra += f"; {entry_count} {sheet.json_key} entries"
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
         )

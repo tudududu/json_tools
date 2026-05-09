@@ -19,6 +19,8 @@ import json
 import os
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, cast
 
+from .sheet_names_config import SHEETS_BY_KEY
+
 try:
     from .xlsx_styling import (
         apply_table_style,
@@ -69,9 +71,6 @@ def generate_template(
     root_key: str,
     layer_names_sheet: str,
     recenter_rules_sheet: str,
-    timing_behavior_sheet: Optional[str],
-    explicit_variants_by_videoid: str,
-    module_map: str,
     xlsx_theme_file: Optional[str] = None,
     min_column_width: float = 10.0,
     max_column_width: float = 60.0,
@@ -172,8 +171,8 @@ def generate_template(
             ]
         )
 
-    if timing_behavior_sheet and timing_behavior_map is not None:
-        ws_tb = wb.create_sheet(title=timing_behavior_sheet)
+    if timing_behavior_map is not None:
+        ws_tb = wb.create_sheet(title=SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name)
         created_sheets.append(ws_tb)
         ws_tb.append(["layerName", "behavior"])
         for layer_name, behavior in timing_behavior_map.items():
@@ -188,7 +187,7 @@ def generate_template(
             dv.add(f"B2:B{max(ws_tb.max_row, 2)}")
 
     if timing_item_selector_map is not None:
-        ws_tis = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws_tis = wb.create_sheet(title=SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name)
         created_sheets.append(ws_tis)
         ws_tis.append(["itemName", "mode", "value"])
         for item_name, config_value in timing_item_selector_map.items():
@@ -206,7 +205,7 @@ def generate_template(
             dv.add(f"B2:B{max(ws_tis.max_row, 2)}")
 
     if skip_copy_config_map is not None:
-        ws_scc = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws_scc = wb.create_sheet(title=SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name)
         created_sheets.append(ws_scc)
         ws_scc.append(["key", "value", "names"])
         for key, config_value in skip_copy_config_map.items():
@@ -232,7 +231,7 @@ def generate_template(
             dv.add(f"B2:B{max(ws_scc.max_row, 2)}")
 
     if explicit_variants_by_videoid_map is not None:
-        ws_evbv = wb.create_sheet(title=explicit_variants_by_videoid)
+        ws_evbv = wb.create_sheet(title=SHEETS_BY_KEY["EXPLICIT_VARIANTS_BY_VIDEOID"].default_sheet_name)
         created_sheets.append(ws_evbv)
         ws_evbv.append(["video_id", "variants"])
         for video_id, variants in explicit_variants_by_videoid_map.items():
@@ -240,7 +239,7 @@ def generate_template(
             ws_evbv.append([str(video_id), variants_str])
 
     if module_map_map is not None:
-        ws_mm = wb.create_sheet(title=module_map)
+        ws_mm = wb.create_sheet(title=SHEETS_BY_KEY["MODULE_MAP"].default_sheet_name)
         created_sheets.append(ws_mm)
         ws_mm.append(["module", "ENABLED", "SOURCE_KEY"])
         for module_name, config_keys in module_map_map.items():
@@ -306,21 +305,6 @@ def main() -> None:
         help="Name of the recenter rules sheet to create (default LAYER_NAME_CONFIG_recenterRules)",
     )
     parser.add_argument(
-        "--timing-behavior-sheet",
-        default="TIMING_BEHAVIOR",
-        help="TIMING_BEHAVIOR sheet name (created by default when input JSON contains config.addLayers.TIMING_BEHAVIOR)",
-    )
-    parser.add_argument(
-        "--explicit-variants-by-videoid",
-        default="EXPLICIT_VARIANTS_BY_VIDEOID",
-        help="EXPLICIT_VARIANTS_BY_VIDEOID sheet name (created by default when input JSON contains config.addLayers.EXPLICIT_VARIANTS_BY_VIDEOID)",
-    )
-    parser.add_argument(
-        "--module-map",
-        default="MODULE_MAP",
-        help="MODULE_MAP sheet name (created by default when input JSON contains config.modular.MODULE_MAP)",
-    )
-    parser.add_argument(
         "--xlsx-theme-file",
         default=None,
         help=(
@@ -352,9 +336,6 @@ def main() -> None:
         root_key=args.root_key,
         layer_names_sheet=args.layer_names_sheet,
         recenter_rules_sheet=args.recenter_rules_sheet,
-        timing_behavior_sheet=args.timing_behavior_sheet,
-        explicit_variants_by_videoid=args.explicit_variants_by_videoid,
-        module_map=args.module_map,
         xlsx_theme_file=args.xlsx_theme_file,
         min_column_width=args.min_column_width,
         max_column_width=args.max_column_width,

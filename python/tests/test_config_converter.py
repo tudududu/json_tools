@@ -57,11 +57,8 @@ def _write_minimal_xlsx(
     timing_rows: Optional[List[list]] = None,
     selector_rows: Optional[List[list]] = None,
     skip_rows: Optional[List[list]] = None,
-    skip_sheet_name: str = "SKIP_COPY_CONFIG",
     module_map_rows: Optional[List[list]] = None,
-    module_map_sheet_name: str = "MODULE_MAP",
     explicit_variants_rows: Optional[List[list]] = None,
-    explicit_variants_sheet_name: str = "EXPLICIT_VARIANTS_BY_VIDEOID",
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
@@ -89,17 +86,17 @@ def _write_minimal_xlsx(
         for row in selector_rows:
             ws.append(row)
     if skip_rows is not None:
-        ws = wb.create_sheet(title=skip_sheet_name)
+        ws = wb.create_sheet(title="SKIP_COPY_CONFIG")
         ws.append(["key", "value", "names"])
         for row in skip_rows:
             ws.append(row)
     if module_map_rows is not None:
-        ws = wb.create_sheet(title=module_map_sheet_name)
+        ws = wb.create_sheet(title="MODULE_MAP")
         ws.append(["module", "ENABLED", "SOURCE_KEY"])
         for row in module_map_rows:
             ws.append(row)
     if explicit_variants_rows is not None:
-        ws = wb.create_sheet(title=explicit_variants_sheet_name)
+        ws = wb.create_sheet(title="EXPLICIT_VARIANTS_BY_VIDEOID")
         ws.append(["video_id", "variants"])
         for row in explicit_variants_rows:
             ws.append(row)
@@ -334,34 +331,6 @@ def test_converter_timing_behavior_not_included_when_sheet_missing():
         _cleanup_dir(d)
 
 
-def test_converter_timing_behavior_included_when_flag_set():
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        xlsx = os.path.join(d, "in.xlsx")
-        out_json = os.path.join(d, "out.json")
-        _write_minimal_xlsx(
-            openpyxl,
-            xlsx,
-            timing_rows=[["logo", "timed"], ["logo_03", "span"]],
-        )
-        proc = _run(
-            _CONVERTER,
-            xlsx,
-            out_json,
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
-        )
-        assert proc.returncode == 0, proc.stderr
-        with open(out_json, encoding="utf-8") as f:
-            data = json.load(f)
-        timing = data["config"]["addLayers"]["TIMING_BEHAVIOR"]
-        assert timing["logo"] == "timed"
-        assert timing["logo_03"] == "span"
-    finally:
-        _cleanup_dir(d)
-
-
 def test_converter_timing_behavior_invalid_value_fails():
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
@@ -373,13 +342,7 @@ def test_converter_timing_behavior_invalid_value_fails():
             xlsx,
             timing_rows=[["logo", "INVALID"]],
         )
-        proc = _run(
-            _CONVERTER,
-            xlsx,
-            out_json,
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
-        )
+        proc = _run(_CONVERTER, xlsx, out_json)
         assert proc.returncode != 0
         assert "INVALID" in (proc.stdout + proc.stderr)
     finally:
@@ -444,41 +407,6 @@ def test_converter_timing_item_selector_not_included_when_sheet_missing():
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
         assert "TIMING_ITEM_SELECTOR" not in data["config"]["addLayers"]
-    finally:
-        _cleanup_dir(d)
-
-
-def test_converter_timing_item_selector_custom_sheet_name():
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        xlsx = os.path.join(d, "in.xlsx")
-        out_json = os.path.join(d, "out.json")
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "LAYER_NAME_CONFIG_items"
-        ws.append(["key", "exact", "contains"])
-        ws.append(["logo", "logo_01", ""])
-        wr = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
-        wr.append(["force", "noRecenter", "alignH", "alignV"])
-        wr.append(["Logo", "BG", "Claim", "Disclaimer"])
-        wt = wb.create_sheet(title="SELECTOR_OVERRIDDEN")
-        wt.append(["itemName", "mode", "value"])
-        wt.append(["logo", "line", 1])
-        wb.save(xlsx)
-
-        proc = _run(
-            _CONVERTER,
-            xlsx,
-            out_json,
-            "--timing-item-selector-sheet",
-            "SELECTOR_OVERRIDDEN",
-        )
-        assert proc.returncode == 0, proc.stderr
-        with open(out_json, encoding="utf-8") as f:
-            data = json.load(f)
-        selector = data["config"]["addLayers"]["TIMING_ITEM_SELECTOR"]
-        assert selector["logo"] == {"mode": "line", "value": 1}
     finally:
         _cleanup_dir(d)
 
@@ -554,34 +482,6 @@ def test_converter_skip_copy_config_not_included_when_sheet_missing():
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
         assert "SKIP_COPY_CONFIG" not in data["config"]["addLayers"]
-    finally:
-        _cleanup_dir(d)
-
-
-def test_converter_skip_copy_config_custom_sheet_name():
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        xlsx = os.path.join(d, "in.xlsx")
-        out_json = os.path.join(d, "out.json")
-        _write_minimal_xlsx(
-            openpyxl,
-            xlsx,
-            skip_rows=[["groups", "TRUE", "info; claim"]],
-            skip_sheet_name="SKIP_CFG_OVERRIDDEN",
-        )
-        proc = _run(
-            _CONVERTER,
-            xlsx,
-            out_json,
-            "--skip-config-sheet",
-            "SKIP_CFG_OVERRIDDEN",
-        )
-        assert proc.returncode == 0, proc.stderr
-        with open(out_json, encoding="utf-8") as f:
-            data = json.load(f)
-        skip_cfg = data["config"]["addLayers"]["SKIP_COPY_CONFIG"]
-        assert skip_cfg["groups"] == {"enabled": True, "names": ["info", "claim"]}
     finally:
         _cleanup_dir(d)
 
@@ -686,45 +586,6 @@ def test_converter_modular_not_emitted_when_sheets_missing():
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
         assert "modular" not in data["config"]
-    finally:
-        _cleanup_dir(d)
-
-
-def test_converter_modular_custom_sheet_names():
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        xlsx = os.path.join(d, "in.xlsx")
-        out_json = os.path.join(d, "out.json")
-        _write_minimal_xlsx(
-            openpyxl,
-            xlsx,
-            module_map_rows=[["A", "TRUE", "controller_01"]],
-            module_map_sheet_name="MM_OVERRIDDEN",
-            explicit_variants_rows=[["Travel_20s", "A1_B1_C1_D4;A2_B4_C2_D2"]],
-            explicit_variants_sheet_name="EV_OVERRIDDEN",
-        )
-        proc = _run(
-            _CONVERTER,
-            xlsx,
-            out_json,
-            "--modular-module-map-sheet",
-            "MM_OVERRIDDEN",
-            "--modular-explicit-variants-sheet",
-            "EV_OVERRIDDEN",
-        )
-        assert proc.returncode == 0, proc.stderr
-        with open(out_json, encoding="utf-8") as f:
-            data = json.load(f)
-        modular = data["config"]["modular"]
-        assert modular["MODULE_MAP"]["A"] == {
-            "ENABLED": True,
-            "SOURCE_KEY": "controller_01",
-        }
-        assert modular["EXPLICIT_VARIANTS_BY_VIDEOID"]["Travel_20s"] == [
-            "A1_B1_C1_D4",
-            "A2_B4_C2_D2",
-        ]
     finally:
         _cleanup_dir(d)
 
@@ -1185,37 +1046,6 @@ def test_generator_reads_modular_from_sample_shape():
         _cleanup_dir(d)
 
 
-def test_generator_custom_module_map_sheet_name():
-    """--module-map flag changes the MODULE_MAP sheet name."""
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        in_json = os.path.join(d, "in.json")
-        out_xlsx = os.path.join(d, "out.xlsx")
-        payload = {
-            "config": {
-                "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
-                },
-                "modular": {
-                    "MODULE_MAP": {
-                        "A": {"ENABLED": True, "SOURCE_KEY": "controller_01"},
-                    },
-                },
-            }
-        }
-        _write_json(in_json, payload)
-        proc = _run(_GENERATOR, in_json, out_xlsx, "--module-map", "MY_MODULE_MAP")
-        assert proc.returncode == 0, proc.stderr
-        wb = openpyxl.load_workbook(out_xlsx)
-        titles = [ws.title for ws in wb.worksheets]
-        assert "MY_MODULE_MAP" in titles
-        assert "MODULE_MAP" not in titles
-        wb.close()
-    finally:
-        _cleanup_dir(d)
-
-
 def test_generator_formats_data_sheet_as_table_style_medium9():
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
@@ -1308,8 +1138,6 @@ def test_roundtrip_via_sample_json():
             template_xlsx,
             "--separator",
             sep,
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
         )
         assert proc.returncode == 0, proc.stderr
 
@@ -1320,8 +1148,6 @@ def test_roundtrip_via_sample_json():
             roundtrip_json,
             "--separator",
             sep,
-            "--timing-behavior-sheet",
-            "TIMING_BEHAVIOR",
         )
         assert proc.returncode == 0, proc.stderr
 
