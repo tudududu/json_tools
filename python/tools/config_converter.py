@@ -326,14 +326,21 @@ def _parse_explicit_variants_by_videoid(
 def convert_workbook(
     in_path: str,
     separator: str,
-    layer_names_sheet: str,
-    recenter_rules_sheet: str,
+    layer_names_sheet: Optional[str],
+    recenter_rules_sheet: Optional[str],
     root_key: str,
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
             "XLSX support requires openpyxl. Install with: pip install openpyxl"
         )
+
+    layer_names_sheet = layer_names_sheet or SHEETS_BY_KEY[
+        "LAYER_NAME_CONFIG_items"
+    ].default_sheet_name
+    recenter_rules_sheet = recenter_rules_sheet or SHEETS_BY_KEY[
+        "LAYER_NAME_CONFIG_recenterRules"
+    ].default_sheet_name
 
     wb = _openpyxl_load_workbook(in_path, read_only=True, data_only=True)
     try:
@@ -410,12 +417,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--layer-names-sheet",
-        default="LAYER_NAME_CONFIG_items",
+        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name,
         help="Layer names sheet name (case-insensitive match, default LAYER_NAME_CONFIG_items)",
     )
     parser.add_argument(
         "--recenter-rules-sheet",
-        default="LAYER_NAME_CONFIG_recenterRules",
+        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name,
         help="Recenter rules sheet name (case-insensitive match, default LAYER_NAME_CONFIG_recenterRules)",
     )
     parser.add_argument(

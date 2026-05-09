@@ -34,45 +34,45 @@ SHEETS = [
     # Required sheets (must exist in workbook)
     SheetConfig(
         json_key="LAYER_NAME_CONFIG_items",
-        default_sheet_name="LAYER_NAME_CONFIG_items",
+        default_sheet_name="a_LAYER_NAME_CONFIG_items",
         is_required=True,
         namespace="addLayers",
     ),
     SheetConfig(
         json_key="LAYER_NAME_CONFIG_recenterRules",
-        default_sheet_name="LAYER_NAME_CONFIG_recenterRules",
+        default_sheet_name="a_LAYER_NAME_CONFIG_recenterRul",
         is_required=True,
         namespace="addLayers",
     ),
     # Optional sheets (addLayers namespace)
     SheetConfig(
         json_key="TIMING_BEHAVIOR",
-        default_sheet_name="TIMING_BEHAVIOR",
+        default_sheet_name="a_TIMING_BEHAVIOR",
         is_required=False,
         namespace="addLayers",
     ),
     SheetConfig(
         json_key="TIMING_ITEM_SELECTOR",
-        default_sheet_name="TIMING_ITEM_SELECTOR",
+        default_sheet_name="a_TIMING_ITEM_SELECTOR",
         is_required=False,
         namespace="addLayers",
     ),
     SheetConfig(
         json_key="SKIP_COPY_CONFIG",
-        default_sheet_name="SKIP_COPY_CONFIG",
+        default_sheet_name="a_SKIP_COPY_CONFIG",
         is_required=False,
         namespace="addLayers",
     ),
     # Optional sheets (modular namespace)
     SheetConfig(
         json_key="MODULE_MAP",
-        default_sheet_name="MODULE_MAP",
+        default_sheet_name="m_MODULE_MAP",
         is_required=False,
         namespace="modular",
     ),
     SheetConfig(
         json_key="EXPLICIT_VARIANTS_BY_VIDEOID",
-        default_sheet_name="EXPLICIT_VARIANTS_BY_VIDEOID",
+        default_sheet_name="m_EXPLICIT_VARIANTS_BY_VIDEOID",
         is_required=False,
         namespace="modular",
     ),

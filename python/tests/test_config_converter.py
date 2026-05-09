@@ -11,7 +11,9 @@ from typing import Any, List, Optional, Tuple
 
 import pytest
 
-from python.tools.config_converter import _split_list_cell
+from python.tools.config_converter import _split_list_cell, convert_workbook
+from python.tools.generate_config_template import generate_template
+from python.tools.sheet_names_config import SHEETS_BY_KEY, SheetConfig
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared helpers
@@ -250,6 +252,100 @@ def test_converter_case_insensitive_sheet_names():
         with open(out_json, encoding="utf-8") as f:
             data = json.load(f)
         assert "LAYER_NAME_CONFIG" in data["config"]["addLayers"]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_required_sheets_follow_shared_defaults(monkeypatch: pytest.MonkeyPatch):
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        custom_items = "CUSTOM_LAYER_ITEMS"
+        custom_rules = "CUSTOM_RECENTER_RULES"
+        monkeypatch.setitem(
+            SHEETS_BY_KEY,
+            "LAYER_NAME_CONFIG_items",
+            SheetConfig(
+                json_key="LAYER_NAME_CONFIG_items",
+                default_sheet_name=custom_items,
+                is_required=True,
+                namespace="addLayers",
+            ),
+        )
+        monkeypatch.setitem(
+            SHEETS_BY_KEY,
+            "LAYER_NAME_CONFIG_recenterRules",
+            SheetConfig(
+                json_key="LAYER_NAME_CONFIG_recenterRules",
+                default_sheet_name=custom_rules,
+                is_required=True,
+                namespace="addLayers",
+            ),
+        )
+
+        xlsx = os.path.join(d, "in.xlsx")
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            sheet_names=(custom_items, custom_rules),
+        )
+
+        data = convert_workbook(
+            in_path=xlsx,
+            separator=";",
+            layer_names_sheet=None,
+            recenter_rules_sheet=None,
+            root_key="LAYER_NAME_CONFIG",
+        )
+        assert "LAYER_NAME_CONFIG" in data["config"]["addLayers"]
+    finally:
+        _cleanup_dir(d)
+
+
+def test_generator_required_sheets_follow_shared_defaults(monkeypatch: pytest.MonkeyPatch):
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        custom_items = "CUSTOM_LAYER_ITEMS"
+        custom_rules = "CUSTOM_RECENTER_RULES"
+        monkeypatch.setitem(
+            SHEETS_BY_KEY,
+            "LAYER_NAME_CONFIG_items",
+            SheetConfig(
+                json_key="LAYER_NAME_CONFIG_items",
+                default_sheet_name=custom_items,
+                is_required=True,
+                namespace="addLayers",
+            ),
+        )
+        monkeypatch.setitem(
+            SHEETS_BY_KEY,
+            "LAYER_NAME_CONFIG_recenterRules",
+            SheetConfig(
+                json_key="LAYER_NAME_CONFIG_recenterRules",
+                default_sheet_name=custom_rules,
+                is_required=True,
+                namespace="addLayers",
+            ),
+        )
+
+        in_json = os.path.join(d, "in.json")
+        out_xlsx = os.path.join(d, "out.xlsx")
+        _write_json(in_json, _MINIMAL_JSON)
+        generate_template(
+            input_json=in_json,
+            output_xlsx=out_xlsx,
+            separator=";",
+            root_key="LAYER_NAME_CONFIG",
+            layer_names_sheet=None,
+            recenter_rules_sheet=None,
+        )
+
+        wb = openpyxl.load_workbook(out_xlsx)
+        titles = [ws.title for ws in wb.worksheets]
+        assert custom_items in titles
+        assert custom_rules in titles
+        wb.close()
     finally:
         _cleanup_dir(d)
 
