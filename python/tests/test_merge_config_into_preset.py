@@ -15,7 +15,6 @@ from python.tools.merge_config_into_preset import (
     _deep_merge_replace_present,
     merge_config_into_preset,
 )
-from python.tools.sheet_names_config import SHEETS_BY_KEY
 
 _MERGE_TOOL = "python.tools.merge_config_into_preset"
 
@@ -124,15 +123,15 @@ def test_deep_merge_replace_present_basic():
         }
     }
     merged, changed_keys = _deep_merge_replace_present(preset, converted)
-    
+
     # Updated keys are present with new values
     assert merged["config"]["addLayers"]["LAYER_NAME_CONFIG"] == {"new": "value"}
     assert merged["config"]["modular"]["MODULE_MAP"] == {"new": "map"}
-    
+
     # Untouched keys remain unchanged
     assert merged["config"]["addLayers"]["TIMING_BEHAVIOR"] == {"old": "timing"}
     assert merged["other_data"]["keep"] == "this"
-    
+
     # Changed keys tracked
     assert "config.addLayers.LAYER_NAME_CONFIG" in changed_keys
     assert "config.modular.MODULE_MAP" in changed_keys
@@ -159,14 +158,14 @@ def test_deep_merge_replace_present_missing_optional_sheets():
         }
     }
     merged, changed_keys = _deep_merge_replace_present(preset, converted)
-    
+
     # Only LAYER_NAME_CONFIG replaced
     assert merged["config"]["addLayers"]["LAYER_NAME_CONFIG"] == {"new": "value"}
-    
+
     # Other keys preserved
     assert merged["config"]["addLayers"]["TIMING_BEHAVIOR"] == {"old": "timing"}
     assert merged["config"]["addLayers"]["SKIP_COPY_CONFIG"] == {"old": "skip"}
-    
+
     # Only one key changed
     assert changed_keys == ["config.addLayers.LAYER_NAME_CONFIG"]
 
@@ -184,7 +183,7 @@ def test_deep_merge_replace_present_no_changes():
         }
     }
     merged, changed_keys = _deep_merge_replace_present(preset, converted)
-    
+
     assert merged["config"]["addLayers"]["LAYER_NAME_CONFIG"] == {"key": "value"}
     assert changed_keys == []
 
@@ -199,11 +198,36 @@ def test_deep_merge_replace_present_creates_missing_namespaces():
         }
     }
     merged, changed_keys = _deep_merge_replace_present(preset, converted)
-    
+
     assert merged["config"]["addLayers"]["LAYER_NAME_CONFIG"] == {"new": "value"}
     assert merged["config"]["modular"]["MODULE_MAP"] == {"new": "map"}
     assert merged["other_data"] == "value"
     assert len(changed_keys) == 2
+
+
+def test_deep_merge_replace_present_top_level_shape():
+    """pipeline.preset top-level addLayers/modular is merged in-place."""
+    preset = {
+        "addLayers": {"TIMING_BEHAVIOR": {"old": "timing"}},
+        "modular": {"ENABLED": False, "MODULE_MAP": {"old": "map"}},
+    }
+    converted = {
+        "config": {
+            "addLayers": {"LAYER_NAME_CONFIG": {"logo": {"exact": [], "contains": []}}},
+            "modular": {
+                "MODULE_MAP": {"A": {"ENABLED": True, "SOURCE_KEY": "controller_01"}}
+            },
+        }
+    }
+
+    merged, changed_keys = _deep_merge_replace_present(preset, converted)
+
+    assert "config" not in merged
+    assert "LAYER_NAME_CONFIG" in merged["addLayers"]
+    assert merged["modular"]["ENABLED"] is False
+    assert merged["modular"]["MODULE_MAP"]["A"]["ENABLED"] is True
+    assert "addLayers.LAYER_NAME_CONFIG" in changed_keys
+    assert "modular.MODULE_MAP" in changed_keys
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -224,21 +248,19 @@ def test_merge_config_into_preset_required_sheets_only():
             layer_rows=[["logo", "logo_01", ""]],
             rule_rows=[["Logo", "BG", "Claim", "Disclaimer"]],
         )
-        
+
         # Create input preset
         preset_in = os.path.join(d, "preset_in.json")
         preset_data = {
-            "config": {
-                "addLayers": {
-                    "LAYER_NAME_CONFIG": {"old": "value"},
-                    "TIMING_BEHAVIOR": {"existing": "timing"},
-                    "other_key": "preserve_me",
-                },
+            "addLayers": {
+                "LAYER_NAME_CONFIG": {"old": "value"},
+                "TIMING_BEHAVIOR": {"existing": "timing"},
+                "other_key": "preserve_me",
             },
             "other_section": {"keep": "this"},
         }
         _write_json(preset_in, preset_data)
-        
+
         # Merge
         preset_out = os.path.join(d, "preset_out.json")
         changed_keys = merge_config_into_preset(
@@ -246,25 +268,25 @@ def test_merge_config_into_preset_required_sheets_only():
             preset_path=preset_in,
             output_path=preset_out,
         )
-        
+
         # Verify output file exists and is valid JSON
         assert os.path.isfile(preset_out)
         with open(preset_out, "r", encoding="utf-8") as f:
             merged = json.load(f)
-        
+
         # Required sheets replaced
-        assert "LAYER_NAME_CONFIG" in merged["config"]["addLayers"]
-        assert "recenterRules" in merged["config"]["addLayers"]["LAYER_NAME_CONFIG"]
-        
+        assert "LAYER_NAME_CONFIG" in merged["addLayers"]
+        assert "recenterRules" in merged["addLayers"]["LAYER_NAME_CONFIG"]
+
         # Optional sheets untouched
-        assert merged["config"]["addLayers"]["TIMING_BEHAVIOR"] == {"existing": "timing"}
-        assert merged["config"]["addLayers"]["other_key"] == "preserve_me"
-        
+        assert merged["addLayers"]["TIMING_BEHAVIOR"] == {"existing": "timing"}
+        assert merged["addLayers"]["other_key"] == "preserve_me"
+
         # Other sections preserved
         assert merged["other_section"]["keep"] == "this"
-        
+
         # Changed keys tracked
-        assert "config.addLayers.LAYER_NAME_CONFIG" in changed_keys
+        assert "addLayers.LAYER_NAME_CONFIG" in changed_keys
     finally:
         _cleanup_dir(d)
 
@@ -284,7 +306,7 @@ def test_merge_config_into_preset_with_optional_sheets():
             timing_rows=[["logo", "timed"], ["logo_02", "span"]],
             selector_rows=[["logo", "line", 1]],
         )
-        
+
         # Create input preset
         preset_in = os.path.join(d, "preset_in.json")
         preset_data = {
@@ -296,7 +318,7 @@ def test_merge_config_into_preset_with_optional_sheets():
             }
         }
         _write_json(preset_in, preset_data)
-        
+
         # Merge
         preset_out = os.path.join(d, "preset_out.json")
         changed_keys = merge_config_into_preset(
@@ -304,14 +326,17 @@ def test_merge_config_into_preset_with_optional_sheets():
             preset_path=preset_in,
             output_path=preset_out,
         )
-        
+
         with open(preset_out, "r", encoding="utf-8") as f:
             merged = json.load(f)
-        
+
         # Optional sheets replaced
         assert merged["config"]["addLayers"]["TIMING_BEHAVIOR"]["logo"] == "timed"
-        assert merged["config"]["addLayers"]["TIMING_ITEM_SELECTOR"]["logo"]["mode"] == "line"
-        
+        assert (
+            merged["config"]["addLayers"]["TIMING_ITEM_SELECTOR"]["logo"]["mode"]
+            == "line"
+        )
+
         # Changed keys tracked
         assert "config.addLayers.TIMING_BEHAVIOR" in changed_keys
         assert "config.addLayers.TIMING_ITEM_SELECTOR" in changed_keys
@@ -339,7 +364,7 @@ def test_merge_config_into_preset_modular_sheets():
                 ["Travel_20s", "A1_B1;A2_B2"],
             ],
         )
-        
+
         # Create input preset
         preset_in = os.path.join(d, "preset_in.json")
         preset_data = {
@@ -352,7 +377,7 @@ def test_merge_config_into_preset_modular_sheets():
             }
         }
         _write_json(preset_in, preset_data)
-        
+
         # Merge
         preset_out = os.path.join(d, "preset_out.json")
         changed_keys = merge_config_into_preset(
@@ -360,17 +385,19 @@ def test_merge_config_into_preset_modular_sheets():
             preset_path=preset_in,
             output_path=preset_out,
         )
-        
+
         with open(preset_out, "r", encoding="utf-8") as f:
             merged = json.load(f)
-        
+
         # Modular sheets replaced
         assert merged["config"]["modular"]["MODULE_MAP"]["A"]["ENABLED"] is True
-        assert "Travel_20s" in merged["config"]["modular"]["EXPLICIT_VARIANTS_BY_VIDEOID"]
-        
+        assert (
+            "Travel_20s" in merged["config"]["modular"]["EXPLICIT_VARIANTS_BY_VIDEOID"]
+        )
+
         # Other modular keys preserved
         assert merged["config"]["modular"]["ENABLED"] is False
-        
+
         # Changed keys tracked
         assert "config.modular.MODULE_MAP" in changed_keys
         assert "config.modular.EXPLICIT_VARIANTS_BY_VIDEOID" in changed_keys
@@ -392,7 +419,7 @@ def test_merge_config_into_preset_idempotency():
             rule_rows=[["Logo", "BG", "Claim", "Disclaimer"]],
             timing_rows=[["logo", "timed"]],
         )
-        
+
         # Create input preset
         preset_in = os.path.join(d, "preset_in.json")
         preset_data = {
@@ -403,7 +430,7 @@ def test_merge_config_into_preset_idempotency():
             }
         }
         _write_json(preset_in, preset_data)
-        
+
         # First merge
         preset_1 = os.path.join(d, "preset_1.json")
         merge_config_into_preset(
@@ -411,7 +438,7 @@ def test_merge_config_into_preset_idempotency():
             preset_path=preset_in,
             output_path=preset_1,
         )
-        
+
         # Second merge (using first output as input)
         preset_2 = os.path.join(d, "preset_2.json")
         changed_keys = merge_config_into_preset(
@@ -419,10 +446,10 @@ def test_merge_config_into_preset_idempotency():
             preset_path=preset_1,
             output_path=preset_2,
         )
-        
+
         # No changes on second merge (idempotent)
         assert changed_keys == []
-        
+
         # Outputs are identical
         with open(preset_1, "r", encoding="utf-8") as f:
             result_1 = json.load(f)
@@ -458,10 +485,10 @@ def test_merge_cli_empty_separator():
         xlsx = os.path.join(d, "config.xlsx")
         preset_in = os.path.join(d, "preset_in.json")
         out = os.path.join(d, "out.json")
-        
+
         _write_minimal_xlsx(openpyxl, xlsx)
         _write_json(preset_in, {"config": {"addLayers": {}}})
-        
+
         proc = _run(
             _MERGE_TOOL,
             xlsx,
@@ -484,7 +511,7 @@ def test_merge_cli_dry_run_no_output_file():
         xlsx = os.path.join(d, "config.xlsx")
         preset_in = os.path.join(d, "preset_in.json")
         out = os.path.join(d, "out.json")
-        
+
         _write_minimal_xlsx(
             openpyxl,
             xlsx,
@@ -492,10 +519,10 @@ def test_merge_cli_dry_run_no_output_file():
             rule_rows=[["Logo", "BG", "Claim", "Disclaimer"]],
             timing_rows=[["logo", "timed"]],
         )
-        _write_json(preset_in, {
-            "config": {"addLayers": {"TIMING_BEHAVIOR": {"old": "value"}}}
-        })
-        
+        _write_json(
+            preset_in, {"config": {"addLayers": {"TIMING_BEHAVIOR": {"old": "value"}}}}
+        )
+
         proc = _run(_MERGE_TOOL, xlsx, preset_in, out, "--dry-run")
         assert proc.returncode == 0
         assert "Will update" in proc.stdout
@@ -514,25 +541,28 @@ def test_merge_cli_dry_run_no_changes():
         xlsx = os.path.join(d, "config.xlsx")
         preset_in = os.path.join(d, "preset_in.json")
         out = os.path.join(d, "out.json")
-        
+
         _write_minimal_xlsx(openpyxl, xlsx, layer_rows=[["logo", "logo_01", ""]])
         # Preset already has LAYER_NAME_CONFIG matching the XLSX
-        _write_json(preset_in, {
-            "config": {
-                "addLayers": {
-                    "LAYER_NAME_CONFIG": {
-                        "logo": {"exact": ["logo_01"], "contains": []},
-                        "recenterRules": {
-                            "force": ["Logo"],
-                            "noRecenter": ["BG"],
-                            "alignH": ["Claim"],
-                            "alignV": ["Disclaimer"],
+        _write_json(
+            preset_in,
+            {
+                "config": {
+                    "addLayers": {
+                        "LAYER_NAME_CONFIG": {
+                            "logo": {"exact": ["logo_01"], "contains": []},
+                            "recenterRules": {
+                                "force": ["Logo"],
+                                "noRecenter": ["BG"],
+                                "alignH": ["Claim"],
+                                "alignV": ["Disclaimer"],
+                            },
                         }
                     }
                 }
-            }
-        })
-        
+            },
+        )
+
         proc = _run(_MERGE_TOOL, xlsx, preset_in, out, "--dry-run")
         assert proc.returncode == 0
         assert "No changes detected" in proc.stdout
@@ -548,14 +578,14 @@ def test_merge_cli_output_written():
         xlsx = os.path.join(d, "config.xlsx")
         preset_in = os.path.join(d, "preset_in.json")
         out = os.path.join(d, "out.json")
-        
+
         _write_minimal_xlsx(openpyxl, xlsx)
         _write_json(preset_in, {"config": {"addLayers": {}}})
-        
+
         proc = _run(_MERGE_TOOL, xlsx, preset_in, out)
         assert proc.returncode == 0
         assert os.path.isfile(out)
-        
+
         with open(out, "r", encoding="utf-8") as f:
             result = json.load(f)
         assert "config" in result
@@ -572,14 +602,14 @@ def test_merge_cli_separator_passthrough():
         xlsx = os.path.join(d, "config.xlsx")
         preset_in = os.path.join(d, "preset_in.json")
         out = os.path.join(d, "out.json")
-        
+
         _write_minimal_xlsx(
             openpyxl,
             xlsx,
             layer_rows=[["logo", "logo_01;logo_02", "contains;values"]],
         )
         _write_json(preset_in, {"config": {"addLayers": {}}})
-        
+
         # Use semicolon separator (explicit)
         proc = _run(
             _MERGE_TOOL,
@@ -590,7 +620,7 @@ def test_merge_cli_separator_passthrough():
             ";",
         )
         assert proc.returncode == 0
-        
+
         with open(out, "r", encoding="utf-8") as f:
             result = json.load(f)
         layer_config = result["config"]["addLayers"]["LAYER_NAME_CONFIG"]["logo"]
@@ -609,18 +639,18 @@ def test_merge_cli_indent_passthrough():
         preset_in = os.path.join(d, "preset_in.json")
         out_compact = os.path.join(d, "out_compact.json")
         out_indent = os.path.join(d, "out_indent.json")
-        
+
         _write_minimal_xlsx(openpyxl, xlsx)
         _write_json(preset_in, {"config": {"addLayers": {}}})
-        
+
         # Compact output (indent=0)
         proc = _run(_MERGE_TOOL, xlsx, preset_in, out_compact, "--indent", "0")
         assert proc.returncode == 0
-        
+
         # Indented output (indent=2)
         proc = _run(_MERGE_TOOL, xlsx, preset_in, out_indent, "--indent", "2")
         assert proc.returncode == 0
-        
+
         # Compact output should be shorter
         with open(out_compact, "r", encoding="utf-8") as f:
             compact_size = len(f.read())
