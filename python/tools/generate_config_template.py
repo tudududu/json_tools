@@ -134,12 +134,13 @@ def generate_template(
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
 
-    layer_names_sheet = layer_names_sheet or SHEETS_BY_KEY[
-        "LAYER_NAME_CONFIG_items"
-    ].default_sheet_name
-    recenter_rules_sheet = recenter_rules_sheet or SHEETS_BY_KEY[
-        "LAYER_NAME_CONFIG_recenterRules"
-    ].default_sheet_name
+    layer_names_sheet = (
+        layer_names_sheet or SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+    )
+    recenter_rules_sheet = (
+        recenter_rules_sheet
+        or SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
+    )
 
     wb = _Workbook()
     ws_layers = cast("WorksheetType", wb.active)
@@ -179,7 +180,9 @@ def generate_template(
         )
 
     if timing_behavior_map is not None:
-        ws_tb = wb.create_sheet(title=SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name)
+        ws_tb = wb.create_sheet(
+            title=SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name
+        )
         created_sheets.append(ws_tb)
         ws_tb.append(["layerName", "behavior"])
         for layer_name, behavior in timing_behavior_map.items():
@@ -194,7 +197,9 @@ def generate_template(
             dv.add(f"B2:B{max(ws_tb.max_row, 2)}")
 
     if timing_item_selector_map is not None:
-        ws_tis = wb.create_sheet(title=SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name)
+        ws_tis = wb.create_sheet(
+            title=SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name
+        )
         created_sheets.append(ws_tis)
         ws_tis.append(["itemName", "mode", "value"])
         for item_name, config_value in timing_item_selector_map.items():
@@ -212,7 +217,9 @@ def generate_template(
             dv.add(f"B2:B{max(ws_tis.max_row, 2)}")
 
     if skip_copy_config_map is not None:
-        ws_scc = wb.create_sheet(title=SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name)
+        ws_scc = wb.create_sheet(
+            title=SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name
+        )
         created_sheets.append(ws_scc)
         ws_scc.append(["key", "value", "names"])
         for key, config_value in skip_copy_config_map.items():
@@ -238,7 +245,9 @@ def generate_template(
             dv.add(f"B2:B{max(ws_scc.max_row, 2)}")
 
     if explicit_variants_by_videoid_map is not None:
-        ws_evbv = wb.create_sheet(title=SHEETS_BY_KEY["EXPLICIT_VARIANTS_BY_VIDEOID"].default_sheet_name)
+        ws_evbv = wb.create_sheet(
+            title=SHEETS_BY_KEY["EXPLICIT_VARIANTS_BY_VIDEOID"].default_sheet_name
+        )
         created_sheets.append(ws_evbv)
         ws_evbv.append(["video_id", "variants"])
         for video_id, variants in explicit_variants_by_videoid_map.items():
@@ -255,7 +264,7 @@ def generate_template(
             mode = config_keys.get("ENABLED", "")
             value = config_keys.get("SOURCE_KEY", "")
             ws_mm.append([str(module_name), bool(mode), value])
-        
+
         if _DataValidation is not None:
             dv = _DataValidation(type="list", formula1='"TRUE,FALSE"', allow_blank=True)
             ws_mm.add_data_validation(dv)
@@ -280,7 +289,7 @@ def generate_template(
             max_width=max_column_width,
             manual_width_overrides=overrides_by_sheet.get(ws.title),
         )
-            
+
     os.makedirs(os.path.dirname(output_xlsx) or ".", exist_ok=True)
     wb.save(output_xlsx)
 

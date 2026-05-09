@@ -284,9 +284,7 @@ def _parse_module_map(
 
     for required in ("module", "enabled", "source_key"):
         if required not in idx:
-            raise ValueError(
-                f"MODULE_MAP sheet is missing required column: {required}"
-            )
+            raise ValueError(f"MODULE_MAP sheet is missing required column: {required}")
 
     out: Dict[str, Dict[str, object]] = {}
     for row in worksheet.iter_rows(min_row=2, values_only=True):
@@ -335,12 +333,13 @@ def convert_workbook(
             "XLSX support requires openpyxl. Install with: pip install openpyxl"
         )
 
-    layer_names_sheet = layer_names_sheet or SHEETS_BY_KEY[
-        "LAYER_NAME_CONFIG_items"
-    ].default_sheet_name
-    recenter_rules_sheet = recenter_rules_sheet or SHEETS_BY_KEY[
-        "LAYER_NAME_CONFIG_recenterRules"
-    ].default_sheet_name
+    layer_names_sheet = (
+        layer_names_sheet or SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+    )
+    recenter_rules_sheet = (
+        recenter_rules_sheet
+        or SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
+    )
 
     wb = _openpyxl_load_workbook(in_path, read_only=True, data_only=True)
     try:
@@ -353,7 +352,7 @@ def convert_workbook(
         body: Dict[str, object] = dict(layer_map)
         body["recenterRules"] = rules_map
         add_layers: Dict[str, object] = {root_key: body}
-        
+
         # Parse optional sheets from config defaults
         for sheet in SHEETS_BY_KEY.values():
             if sheet.is_required or sheet.namespace != "addLayers":
@@ -370,7 +369,7 @@ def convert_workbook(
 
         config: Dict[str, object] = {"addLayers": add_layers}
         modular: Dict[str, object] = {}
-        
+
         # Parse optional modular sheets from config defaults
         for sheet in SHEETS_BY_KEY.values():
             if sheet.namespace != "modular":
@@ -384,7 +383,7 @@ def convert_workbook(
                 modular["EXPLICIT_VARIANTS_BY_VIDEOID"] = (
                     _parse_explicit_variants_by_videoid(ws, separator)
                 )
-        
+
         if modular:
             config["modular"] = modular
 

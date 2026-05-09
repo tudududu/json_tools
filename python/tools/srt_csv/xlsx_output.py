@@ -154,12 +154,7 @@ def write_tabular_output(
     # workbook, styles, and table objects.
     # Checking all needed symbols keeps the type narrowed to
     # non-None for the remainder of the XLSX path.
-    if (
-        _Workbook is None
-        or _Color is None
-        or _Font is None
-        or _PatternFill is None
-    ):
+    if _Workbook is None or _Color is None or _Font is None or _PatternFill is None:
         raise SystemExit(
             "XLSX output requires openpyxl. Install with: pip install openpyxl"
         )

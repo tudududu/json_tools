@@ -256,7 +256,9 @@ def test_converter_case_insensitive_sheet_names():
         _cleanup_dir(d)
 
 
-def test_converter_required_sheets_follow_shared_defaults(monkeypatch: pytest.MonkeyPatch):
+def test_converter_required_sheets_follow_shared_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+):
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
     try:
@@ -302,7 +304,9 @@ def test_converter_required_sheets_follow_shared_defaults(monkeypatch: pytest.Mo
         _cleanup_dir(d)
 
 
-def test_generator_required_sheets_follow_shared_defaults(monkeypatch: pytest.MonkeyPatch):
+def test_generator_required_sheets_follow_shared_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+):
     openpyxl = pytest.importorskip("openpyxl")
     d = tempfile.mkdtemp()
     try:
@@ -1133,7 +1137,9 @@ def test_generator_reads_modular_from_sample_shape():
         modules = [r[0] for r in mm_rows]
         assert "A" in modules
         assert "B" in modules
-        ws_ev = next(w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID")
+        ws_ev = next(
+            w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID"
+        )
         ev_rows = list(ws_ev.iter_rows(min_row=2, values_only=True))
         video_ids = [r[0] for r in ev_rows]
         assert "Travel_20s" in video_ids
