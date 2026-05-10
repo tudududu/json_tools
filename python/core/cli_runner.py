@@ -478,26 +478,37 @@ def run_cli(
                     separator=";",
                 )
                 if isinstance(converted, dict):
-                    add_layers_payload: Optional[Dict[str, Any]] = None
+                    config_payload: Optional[Dict[str, Any]] = None
                     cfg = converted.get("config")
                     if isinstance(cfg, dict):
-                        add_layers = cfg.get("addLayers")
-                        if isinstance(add_layers, dict):
-                            add_layers_payload = cast(Dict[str, Any], add_layers)
-                    if add_layers_payload is None:
+                        config_payload = cast(Dict[str, Any], cfg)
+                    else:
                         legacy_add_layers = converted.get("addLayers")
-                        if isinstance(legacy_add_layers, dict):
-                            add_layers_payload = cast(Dict[str, Any], legacy_add_layers)
-                    if add_layers_payload is None:
+                        legacy_modular = converted.get("modular")
+                        if isinstance(legacy_add_layers, dict) or isinstance(
+                            legacy_modular, dict
+                        ):
+                            config_payload = {}
+                            if isinstance(legacy_add_layers, dict):
+                                config_payload["addLayers"] = cast(
+                                    Dict[str, Any], legacy_add_layers
+                                )
+                            if isinstance(legacy_modular, dict):
+                                config_payload["modular"] = cast(
+                                    Dict[str, Any], legacy_modular
+                                )
+                    if config_payload is None:
                         legacy = converted.get("LAYER_NAME_CONFIG")
                         if isinstance(legacy, dict):
-                            add_layers_payload = {"LAYER_NAME_CONFIG": legacy}
+                            config_payload = {
+                                "addLayers": {"LAYER_NAME_CONFIG": legacy}
+                            }
 
-                    if isinstance(add_layers_payload, dict):
-                        layer_config_payload = add_layers_payload
+                    if isinstance(config_payload, dict):
+                        layer_config_payload = config_payload
                     else:
                         raise ValueError(
-                            "layer config payload missing config.addLayers/LAYER_NAME_CONFIG"
+                            "layer config payload missing config.addLayers/config.modular/LAYER_NAME_CONFIG"
                         )
             except Exception as ex:
                 _report_runtime_error(

@@ -291,6 +291,71 @@ class MediaIntegrationTests(unittest.TestCase):
             except Exception:
                 pass
 
+    def test_layer_config_injected_preserves_modular(self):
+        csv_content = (
+            "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"
+            "meta_global;;;;;briefVersion;Y;ALL;6;\n"
+            "meta_global;;;;;fps;Y;ALL;25;\n"
+            "meta_global;;;;;language;Y;ALL;;\n"
+            "meta_local;V;;;;title;N;ALL;T;\n"
+            "sub;V;1;00:00:00:00;00:00:01:00;;;;;;;x\n"
+        )
+        in_path = tmp_file(".csv")
+        with open(in_path, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        layer_cfg_path = tmp_file(".xlsx")
+        with open(layer_cfg_path, "wb") as f:
+            f.write(b"")
+
+        mocked_layer_cfg = {
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": {
+                        "logo": {"exact": ["logo_01"], "contains": []}
+                    }
+                },
+                "modular": {
+                    "MODULE_MAP": {
+                        "A": {"ENABLED": True, "SOURCE_KEY": "controller_01"}
+                    }
+                },
+            }
+        }
+
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out_json = os.path.join(td, "out.json")
+                with mock.patch.object(
+                    mod, "layercfg_convert_workbook", return_value=mocked_layer_cfg
+                ):
+                    rc = mod.main([in_path, out_json, "--layer-config", layer_cfg_path])
+                self.assertEqual(rc, 0)
+                with open(out_json, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                self.assertIn("config", payload)
+                self.assertIn("addLayers", payload["config"])
+                self.assertIn("modular", payload["config"])
+                self.assertEqual(
+                    payload["config"]["addLayers"]["LAYER_NAME_CONFIG"]["logo"][
+                        "exact"
+                    ],
+                    ["logo_01"],
+                )
+                self.assertEqual(
+                    payload["config"]["modular"]["MODULE_MAP"]["A"]["SOURCE_KEY"],
+                    "controller_01",
+                )
+        finally:
+            try:
+                os.remove(in_path)
+            except Exception:
+                pass
+            try:
+                os.remove(layer_cfg_path)
+            except Exception:
+                pass
+
     def test_missing_layer_config_warns_and_continues(self):
         csv_content = (
             "record_type;video_id;line;start;end;key;is_global;country_scope;metadata;GBL\n"

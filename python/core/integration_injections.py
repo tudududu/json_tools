@@ -37,4 +37,14 @@ def inject_layer_config_payload(
         return
     config = payload.setdefault("config", {})
     if isinstance(config, dict):
-        config["addLayers"] = copy.deepcopy(layer_config_payload)
+        if "addLayers" in layer_config_payload or "modular" in layer_config_payload:
+            add_layers = layer_config_payload.get("addLayers")
+            modular = layer_config_payload.get("modular")
+        else:
+            add_layers = layer_config_payload
+            modular = None
+
+        if isinstance(add_layers, dict):
+            config["addLayers"] = copy.deepcopy(add_layers)
+        if isinstance(modular, dict):
+            config["modular"] = copy.deepcopy(modular)

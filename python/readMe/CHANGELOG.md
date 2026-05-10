@@ -1,3 +1,30 @@
+# 1.13.3 - 2026-05-10
+
+Added:
+- py 436 json_converter.py: Fix: `--layer-config` - modular object missing
+	Updated the CLI to preserve the full layer-config object and making the injector write both addLayers and modular
+
+	`--layer-config` now carries the full layer workbook payload through the CLI, so config.modular is preserved instead of being dropped on injection. The fix is in `cli_runner.py`:473 where the converter now keeps config as a whole when available, and in `integration_injections.py`:29 where the injector now writes both config.addLayers and config.modular.
+
+# 1.13.2 - 2026-05-10
+
+Added:
+- py 435 merge_config_into_preset.py: Fix: indent=3 Implementation:
+	Updated merge_config_into_preset to import and use _format_indent_three for indent=3.
+
+# 1.13.1 - 2026-05-10
+
+Added:
+- py 434 config_converter.py: Wrapper Flag for Config Merge Tool
+	Added thin gated wrapper in `config_converter.py` that delegates to the existing merge tool, 
+	while keeping merge_config_into_preset.py separate.
+	1. Added wrapper flags in `config_converter.py`
+		Added `--merge-preset` to enable merge delegation.
+		Added `--merge-output` as optional merged preset output path.
+		If `--merge-output` is passed without `--merge-preset`, CLI fails fast.
+	2. Added dry-run merge wrapper behavior in config_converter.py:477
+		In `--dry-run` mode with `--merge-preset`, computes and prints would-change keys via merge tool.
+
 # 1.13.0 - 2026-05-10
 
 Added:
