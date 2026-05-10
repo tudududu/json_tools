@@ -684,6 +684,114 @@ def test_converter_modular_not_emitted_when_sheets_missing():
         _cleanup_dir(d)
 
 
+def test_converter_merge_wrapper_requires_merge_preset():
+    proc = _run(
+        _CONVERTER,
+        "/tmp/in.xlsx",
+        "/tmp/out.json",
+        "--merge-output",
+        "/tmp/merged.json",
+    )
+    assert proc.returncode != 0
+    assert "--merge-output requires --merge-preset" in (proc.stdout + proc.stderr)
+
+
+def test_converter_merge_wrapper_creates_merged_preset_output():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        preset_json = os.path.join(d, "preset.json")
+        merged_json = os.path.join(d, "merged.json")
+
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            layer_rows=[["logo", "logo_01;logo_02", ""]],
+        )
+        _write_json(
+            preset_json,
+            {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": {
+                        "logo": {"exact": ["old_logo"], "contains": []},
+                        "recenterRules": {
+                            "force": [],
+                            "noRecenter": [],
+                            "alignH": [],
+                            "alignV": [],
+                        },
+                    }
+                }
+            },
+        )
+
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--merge-preset",
+            preset_json,
+            "--merge-output",
+            merged_json,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert os.path.isfile(out_json)
+        assert os.path.isfile(merged_json)
+
+        with open(merged_json, encoding="utf-8") as f:
+            merged = json.load(f)
+        logo_exact = merged["addLayers"]["LAYER_NAME_CONFIG"]["logo"]["exact"]
+        assert logo_exact == ["logo_01", "logo_02"]
+        assert "Merge wrapper updated" in proc.stdout
+    finally:
+        _cleanup_dir(d)
+
+
+def test_converter_merge_wrapper_dry_run_writes_no_merged_file():
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "in.xlsx")
+        out_json = os.path.join(d, "out.json")
+        preset_json = os.path.join(d, "preset.json")
+
+        _write_minimal_xlsx(openpyxl, xlsx)
+        _write_json(
+            preset_json,
+            {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": {
+                        "logo": {"exact": ["old_logo"], "contains": []},
+                        "recenterRules": {
+                            "force": [],
+                            "noRecenter": [],
+                            "alignH": [],
+                            "alignV": [],
+                        },
+                    }
+                }
+            },
+        )
+
+        proc = _run(
+            _CONVERTER,
+            xlsx,
+            out_json,
+            "--dry-run",
+            "--merge-preset",
+            preset_json,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert not os.path.exists(out_json)
+        merged_default = os.path.join(d, "out.merged.json")
+        assert not os.path.exists(merged_default)
+        assert "merge wrapper dry-run" in proc.stdout
+    finally:
+        _cleanup_dir(d)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # generate_config_template CLI tests
 # ──────────────────────────────────────────────────────────────────────────────

@@ -420,12 +420,32 @@ def main() -> None:
         action="store_true",
         help="Parse and print summary only (no output file)",
     )
+    parser.add_argument(
+        "--merge-preset",
+        default=None,
+        help=(
+            "Optional path to pipeline preset JSON to merge converted config into. "
+            "Delegates to merge_config_into_preset.py"
+        ),
+    )
+    parser.add_argument(
+        "--merge-output",
+        default=None,
+        help=(
+            "Optional output path for merged preset JSON. "
+            "Defaults to '<output_basename>.merged.json'"
+        ),
+    )
     args = parser.parse_args()
 
     if not args.separator:
         raise SystemExit("--separator must not be empty")
+    if args.merge_output and not args.merge_preset:
+        raise SystemExit("--merge-output requires --merge-preset")
     if not os.path.isfile(args.input):
         raise SystemExit(f"No such file or directory: '{args.input}'")
+    if args.merge_preset and not os.path.isfile(args.merge_preset):
+        raise SystemExit(f"No such file or directory: '{args.merge_preset}'")
 
     data = convert_workbook(
         in_path=args.input,
@@ -458,10 +478,49 @@ def main() -> None:
         print(
             f"Parsed {layer_count} layer-name keys and {rule_count} recenter rule groups{extra}"
         )
+        if args.merge_preset:
+            from .merge_config_into_preset import merge_config_into_preset
+
+            changed_keys = merge_config_into_preset(
+                xlsx_path=args.input,
+                preset_path=args.merge_preset,
+                output_path="",
+                separator=args.separator,
+                indent=args.indent,
+            )
+            if not changed_keys:
+                print("Merge wrapper: no changes detected in converted config.")
+            else:
+                print(f"Merge wrapper would update {len(changed_keys)} key(s):")
+                for key in changed_keys:
+                    print(f"  - {key}")
+            print("(merge wrapper dry-run: no merged preset file written)")
         return
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     _write_json_output(args.output, data, args.indent)
+
+    if args.merge_preset:
+        from .merge_config_into_preset import merge_config_into_preset
+
+        merge_output = args.merge_output
+        if not merge_output:
+            base, _ = os.path.splitext(args.output)
+            merge_output = f"{base}.merged.json"
+        changed_keys = merge_config_into_preset(
+            xlsx_path=args.input,
+            preset_path=args.merge_preset,
+            output_path=merge_output,
+            separator=args.separator,
+            indent=args.indent,
+        )
+        if not changed_keys:
+            print("Merge wrapper: no changes detected in converted config.")
+        else:
+            print(f"Merge wrapper updated {len(changed_keys)} key(s):")
+            for key in changed_keys:
+                print(f"  - {key}")
+        print(f"Merge wrapper wrote merged preset: {merge_output}")
 
 
 if __name__ == "__main__":
