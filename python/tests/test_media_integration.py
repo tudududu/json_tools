@@ -11,6 +11,13 @@ except Exception:
     Workbook = None
 
 from python import json_converter as mod
+from python.tools.sheet_names_config import SHEETS_BY_KEY
+
+ITEMS_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+RULES_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
+TIMING_BEHAVIOR_SHEET = SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name
+TIMING_ITEM_SELECTOR_SHEET = SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name
+SKIP_COPY_CONFIG_SHEET = SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name
 
 
 def tmp_file(suffix=".csv"):
@@ -25,19 +32,19 @@ class MediaIntegrationTests(unittest.TestCase):
     def _write_layer_config_xlsx(path: str):
         wb = Workbook()
         ws_layers = wb.active
-        ws_layers.title = "LAYER_NAME_CONFIG_items"
+        ws_layers.title = ITEMS_SHEET
         ws_layers.append(["key", "exact", "contains"])
         ws_layers.append(["logo", "logo_01;Size_Holder_Logo", ""])
-        ws_rules = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
+        ws_rules = wb.create_sheet(title=RULES_SHEET)
         ws_rules.append(["force", "noRecenter", "alignH", "alignV"])
         ws_rules.append(["Logo", "BG", "Claim", "Disclaimer"])
-        ws_tb = wb.create_sheet(title="TIMING_BEHAVIOR")
+        ws_tb = wb.create_sheet(title=TIMING_BEHAVIOR_SHEET)
         ws_tb.append(["layerName", "behavior"])
         ws_tb.append(["logo", "timed"])
-        ws_tis = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws_tis = wb.create_sheet(title=TIMING_ITEM_SELECTOR_SHEET)
         ws_tis.append(["itemName", "mode", "value"])
         ws_tis.append(["logo", "line", 1])
-        ws_skip = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws_skip = wb.create_sheet(title=SKIP_COPY_CONFIG_SHEET)
         ws_skip.append(["key", "value", "names"])
         ws_skip.append(["groups", "TRUE", "info; claim"])
         ws_skip.append(["disclaimerOff", "TRUE", ""])

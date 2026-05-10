@@ -15,6 +15,17 @@ from python.tools.merge_config_into_preset import (
     _deep_merge_replace_present,
     merge_config_into_preset,
 )
+from python.tools.sheet_names_config import SHEETS_BY_KEY
+
+ITEMS_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+RULES_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
+TIMING_BEHAVIOR_SHEET = SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name
+TIMING_ITEM_SELECTOR_SHEET = SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name
+SKIP_COPY_CONFIG_SHEET = SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name
+MODULE_MAP_SHEET = SHEETS_BY_KEY["MODULE_MAP"].default_sheet_name
+EXPLICIT_VARIANTS_SHEET = SHEETS_BY_KEY[
+    "EXPLICIT_VARIANTS_BY_VIDEOID"
+].default_sheet_name
 
 _MERGE_TOOL = "python.tools.merge_config_into_preset"
 
@@ -41,36 +52,36 @@ def _write_minimal_xlsx(
     """Write a two-sheet XLSX fixture with standard headers."""
     wb = openpyxl_mod.Workbook()
     ws = wb.active
-    ws.title = "LAYER_NAME_CONFIG_items"
+    ws.title = ITEMS_SHEET
     ws.append(["key", "exact", "contains"])
     for row in layer_rows or [["logo", "logo_01", ""]]:
         ws.append(row)
-    wr = wb.create_sheet(title="LAYER_NAME_CONFIG_recenterRules")
+    wr = wb.create_sheet(title=RULES_SHEET)
     wr.append(["force", "noRecenter", "alignH", "alignV"])
     for row in rule_rows or [["Logo", "BG", "Claim", "Disclaimer"]]:
         wr.append(row)
     if timing_rows is not None:
-        wt = wb.create_sheet(title="TIMING_BEHAVIOR")
+        wt = wb.create_sheet(title=TIMING_BEHAVIOR_SHEET)
         wt.append(["layerName", "behavior"])
         for row in timing_rows:
             wt.append(row)
     if selector_rows is not None:
-        ws = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws = wb.create_sheet(title=TIMING_ITEM_SELECTOR_SHEET)
         ws.append(["itemName", "mode", "value"])
         for row in selector_rows:
             ws.append(row)
     if skip_rows is not None:
-        ws = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws = wb.create_sheet(title=SKIP_COPY_CONFIG_SHEET)
         ws.append(["key", "value", "names"])
         for row in skip_rows:
             ws.append(row)
     if module_map_rows is not None:
-        ws = wb.create_sheet(title="MODULE_MAP")
+        ws = wb.create_sheet(title=MODULE_MAP_SHEET)
         ws.append(["module", "ENABLED", "SOURCE_KEY"])
         for row in module_map_rows:
             ws.append(row)
     if explicit_variants_rows is not None:
-        ws = wb.create_sheet(title="EXPLICIT_VARIANTS_BY_VIDEOID")
+        ws = wb.create_sheet(title=EXPLICIT_VARIANTS_SHEET)
         ws.append(["video_id", "variants"])
         for row in explicit_variants_rows:
             ws.append(row)

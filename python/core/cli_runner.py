@@ -476,8 +476,8 @@ def run_cli(
                 converted = layercfg_convert_workbook(
                     in_path=args.layer_config,
                     separator=";",
-                    layer_names_sheet="LAYER_NAME_CONFIG_items",
-                    recenter_rules_sheet="LAYER_NAME_CONFIG_recenterRules",
+                    layer_names_sheet=None,
+                    recenter_rules_sheet=None,
                     root_key="LAYER_NAME_CONFIG",
                 )
                 if isinstance(converted, dict):

@@ -15,6 +15,16 @@ from python.tools.config_converter import _split_list_cell, convert_workbook
 from python.tools.generate_config_template import generate_template
 from python.tools.sheet_names_config import SHEETS_BY_KEY, SheetConfig
 
+ITEMS_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+RULES_SHEET = SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
+TIMING_BEHAVIOR_SHEET = SHEETS_BY_KEY["TIMING_BEHAVIOR"].default_sheet_name
+TIMING_ITEM_SELECTOR_SHEET = SHEETS_BY_KEY["TIMING_ITEM_SELECTOR"].default_sheet_name
+SKIP_COPY_CONFIG_SHEET = SHEETS_BY_KEY["SKIP_COPY_CONFIG"].default_sheet_name
+MODULE_MAP_SHEET = SHEETS_BY_KEY["MODULE_MAP"].default_sheet_name
+EXPLICIT_VARIANTS_SHEET = SHEETS_BY_KEY[
+    "EXPLICIT_VARIANTS_BY_VIDEOID"
+].default_sheet_name
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared helpers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -64,8 +74,8 @@ def _write_minimal_xlsx(
 ) -> None:
     """Write a two-sheet XLSX fixture with standard headers."""
     ws_name, rules_name = sheet_names or (
-        "LAYER_NAME_CONFIG_items",
-        "LAYER_NAME_CONFIG_recenterRules",
+        ITEMS_SHEET,
+        RULES_SHEET,
     )
     wb = openpyxl_mod.Workbook()
     ws = wb.active
@@ -78,27 +88,27 @@ def _write_minimal_xlsx(
     for row in rule_rows or [["Logo", "BG", "Claim", "Disclaimer"]]:
         wr.append(row)
     if timing_rows is not None:
-        wt = wb.create_sheet(title="TIMING_BEHAVIOR")
+        wt = wb.create_sheet(title=TIMING_BEHAVIOR_SHEET)
         wt.append(["layerName", "behavior"])
         for row in timing_rows:
             wt.append(row)
     if selector_rows is not None:
-        ws = wb.create_sheet(title="TIMING_ITEM_SELECTOR")
+        ws = wb.create_sheet(title=TIMING_ITEM_SELECTOR_SHEET)
         ws.append(["itemName", "mode", "value"])
         for row in selector_rows:
             ws.append(row)
     if skip_rows is not None:
-        ws = wb.create_sheet(title="SKIP_COPY_CONFIG")
+        ws = wb.create_sheet(title=SKIP_COPY_CONFIG_SHEET)
         ws.append(["key", "value", "names"])
         for row in skip_rows:
             ws.append(row)
     if module_map_rows is not None:
-        ws = wb.create_sheet(title="MODULE_MAP")
+        ws = wb.create_sheet(title=MODULE_MAP_SHEET)
         ws.append(["module", "ENABLED", "SOURCE_KEY"])
         for row in module_map_rows:
             ws.append(row)
     if explicit_variants_rows is not None:
-        ws = wb.create_sheet(title="EXPLICIT_VARIANTS_BY_VIDEOID")
+        ws = wb.create_sheet(title=EXPLICIT_VARIANTS_SHEET)
         ws.append(["video_id", "variants"])
         for row in explicit_variants_rows:
             ws.append(row)
@@ -243,8 +253,8 @@ def test_converter_case_insensitive_sheet_names():
             openpyxl,
             xlsx,
             sheet_names=(
-                "layer_name_config_items",
-                "layer_name_config_recenterrules",
+                ITEMS_SHEET.lower(),
+                RULES_SHEET.lower(),
             ),
         )
         proc = _run(_CONVERTER, xlsx, out_json)
@@ -730,8 +740,8 @@ def test_generator_creates_xlsx_with_correct_sheet_names():
         assert os.path.isfile(out_xlsx)
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "LAYER_NAME_CONFIG_items" in titles
-        assert "LAYER_NAME_CONFIG_recenterRules" in titles
+        assert ITEMS_SHEET in titles
+        assert RULES_SHEET in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -747,7 +757,7 @@ def test_generator_layer_names_sheet_headers():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        ws = next(w for w in wb.worksheets if w.title == ITEMS_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["key", "exact", "contains"]
         wb.close()
@@ -765,9 +775,7 @@ def test_generator_recenter_rules_sheet_headers():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(
-            w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_recenterRules"
-        )
+        ws = next(w for w in wb.worksheets if w.title == RULES_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["force", "noRecenter", "alignH", "alignV"]
         wb.close()
@@ -785,7 +793,7 @@ def test_generator_layer_names_row_count_excludes_recenter_rules():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        ws = next(w for w in wb.worksheets if w.title == ITEMS_SHEET)
         # header + 2 layer entries (logo, subtitles); recenterRules is excluded
         rows = list(ws.iter_rows(values_only=True))
         assert len(rows) == 3
@@ -813,7 +821,7 @@ def test_generator_creates_timing_behavior_sheet_by_default():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "TIMING_BEHAVIOR" in titles
+        assert TIMING_BEHAVIOR_SHEET in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -837,7 +845,7 @@ def test_generator_creates_timing_behavior_sheet_with_validation():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "TIMING_BEHAVIOR")
+        ws = next(w for w in wb.worksheets if w.title == TIMING_BEHAVIOR_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["layerName", "behavior"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
@@ -871,7 +879,7 @@ def test_generator_creates_timing_item_selector_sheet():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "TIMING_ITEM_SELECTOR")
+        ws = next(w for w in wb.worksheets if w.title == TIMING_ITEM_SELECTOR_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["itemName", "mode", "value"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
@@ -899,7 +907,7 @@ def test_generator_reads_timing_item_selector_from_sample_shape():
         proc = _run(_GENERATOR, sample_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "TIMING_ITEM_SELECTOR")
+        ws = next(w for w in wb.worksheets if w.title == TIMING_ITEM_SELECTOR_SHEET)
         rows = list(ws.iter_rows(min_row=2, values_only=True))
         assert ("logo", "line", 1) in rows
         wb.close()
@@ -932,7 +940,7 @@ def test_generator_creates_skip_copy_config_sheet():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "SKIP_COPY_CONFIG")
+        ws = next(w for w in wb.worksheets if w.title == SKIP_COPY_CONFIG_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["key", "value", "names"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
@@ -961,7 +969,7 @@ def test_generator_reads_skip_copy_config_from_sample_shape():
         proc = _run(_GENERATOR, sample_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "SKIP_COPY_CONFIG")
+        ws = next(w for w in wb.worksheets if w.title == SKIP_COPY_CONFIG_SHEET)
         rows = list(ws.iter_rows(min_row=2, values_only=True))
         assert ("groups", True, "info; claim") in rows
         wb.close()
@@ -994,8 +1002,8 @@ def test_generator_no_modular_key_produces_no_extra_sheets():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "MODULE_MAP" not in titles
-        assert "EXPLICIT_VARIANTS_BY_VIDEOID" not in titles
+        assert MODULE_MAP_SHEET not in titles
+        assert EXPLICIT_VARIANTS_SHEET not in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -1025,7 +1033,7 @@ def test_generator_creates_module_map_sheet():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "MODULE_MAP")
+        ws = next(w for w in wb.worksheets if w.title == MODULE_MAP_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["module", "ENABLED", "SOURCE_KEY"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
@@ -1062,7 +1070,7 @@ def test_generator_creates_explicit_variants_sheet():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID")
+        ws = next(w for w in wb.worksheets if w.title == EXPLICIT_VARIANTS_SHEET)
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         assert headers == ["video_id", "variants"]
         rows = list(ws.iter_rows(min_row=2, values_only=True))
@@ -1104,8 +1112,8 @@ def test_generator_creates_both_modular_sheets_together():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "MODULE_MAP" in titles
-        assert "EXPLICIT_VARIANTS_BY_VIDEOID" in titles
+        assert MODULE_MAP_SHEET in titles
+        assert EXPLICIT_VARIANTS_SHEET in titles
         wb.close()
     finally:
         _cleanup_dir(d)
@@ -1128,18 +1136,16 @@ def test_generator_reads_modular_from_sample_shape():
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
         titles = [ws.title for ws in wb.worksheets]
-        assert "MODULE_MAP" in titles, f"Expected MODULE_MAP, got: {titles}"
-        assert "EXPLICIT_VARIANTS_BY_VIDEOID" in titles, (
-            f"Expected EXPLICIT_VARIANTS_BY_VIDEOID, got: {titles}"
+        assert MODULE_MAP_SHEET in titles, f"Expected {MODULE_MAP_SHEET}, got: {titles}"
+        assert EXPLICIT_VARIANTS_SHEET in titles, (
+            f"Expected {EXPLICIT_VARIANTS_SHEET}, got: {titles}"
         )
-        ws_mm = next(w for w in wb.worksheets if w.title == "MODULE_MAP")
+        ws_mm = next(w for w in wb.worksheets if w.title == MODULE_MAP_SHEET)
         mm_rows = list(ws_mm.iter_rows(min_row=2, values_only=True))
         modules = [r[0] for r in mm_rows]
         assert "A" in modules
         assert "B" in modules
-        ws_ev = next(
-            w for w in wb.worksheets if w.title == "EXPLICIT_VARIANTS_BY_VIDEOID"
-        )
+        ws_ev = next(w for w in wb.worksheets if w.title == EXPLICIT_VARIANTS_SHEET)
         ev_rows = list(ws_ev.iter_rows(min_row=2, values_only=True))
         video_ids = [r[0] for r in ev_rows]
         assert "Travel_20s" in video_ids
@@ -1158,7 +1164,7 @@ def test_generator_formats_data_sheet_as_table_style_medium9():
         proc = _run(_GENERATOR, in_json, out_xlsx)
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        ws = next(w for w in wb.worksheets if w.title == ITEMS_SHEET)
         tables = list(ws.tables.values())
         assert len(tables) >= 1
         assert tables[0].tableStyleInfo is not None
@@ -1200,7 +1206,7 @@ def test_generator_applies_dynamic_column_width_bounds():
         )
         assert proc.returncode == 0, proc.stderr
         wb = openpyxl.load_workbook(out_xlsx)
-        ws = next(w for w in wb.worksheets if w.title == "LAYER_NAME_CONFIG_items")
+        ws = next(w for w in wb.worksheets if w.title == ITEMS_SHEET)
         # Column B contains very long value and must be clamped by max width.
         assert ws.column_dimensions["B"].width is not None
         assert ws.column_dimensions["B"].width <= 25.1
