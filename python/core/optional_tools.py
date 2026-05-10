@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib
 import os
 import sys
+import types
 from typing import Any, Callable, Optional, Tuple
 
 
@@ -62,15 +64,41 @@ def load_layer_config_converter(
 
         return convert_workbook
     except Exception:
+        # Frozen builds can expose modules under alternate package roots.
+        for module_name in ("tools.config_converter", "config_converter"):
+            try:
+                mod = importlib.import_module(module_name)
+                convert_workbook = getattr(mod, "convert_workbook", None)
+                if callable(convert_workbook):
+                    return convert_workbook
+            except Exception:
+                pass
+
         try:
             import importlib.util as _ilu
 
             tools_path = resolve_tools_path("config_converter", script_file_path)
-            spec = _ilu.spec_from_file_location("_config_converter", tools_path)
+            tools_dir = os.path.dirname(tools_path)
+            if not os.path.isfile(tools_path):
+                return None
+
+            # Load as a synthetic package so relative imports like
+            # "from .sheet_names_config import ..." continue to work.
+            pkg_name = "_embedded_tools"
+            if pkg_name not in sys.modules:
+                pkg = types.ModuleType(pkg_name)
+                pkg.__path__ = [tools_dir]  # type: ignore[attr-defined]
+                sys.modules[pkg_name] = pkg
+
+            module_name = f"{pkg_name}.config_converter"
+            spec = _ilu.spec_from_file_location(module_name, tools_path)
             if spec and spec.loader:
                 mod = _ilu.module_from_spec(spec)
+                sys.modules[module_name] = mod
                 spec.loader.exec_module(mod)  # type: ignore[arg-type]
-                return getattr(mod, "convert_workbook", None)
+                convert_workbook = getattr(mod, "convert_workbook", None)
+                if callable(convert_workbook):
+                    return convert_workbook
         except Exception:
             pass
     return None

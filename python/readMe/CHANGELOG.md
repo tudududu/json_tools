@@ -1,3 +1,24 @@
+# 1.13.4 - 2026-05-10
+
+Added:
+- py 437 json_converter.py: Fix: Build Error
+	The frozen binary now loads layer config correctly and no longer reports converter unavailable.
+
+	What was wrong
+	The fallback path for loading the layer config converter in optional_tools.py:64 could fail in frozen mode.
+	The bundled tools data did not include sheet name dependencies needed by file-based fallback loading.
+
+	Fix
+	1. Hardened layer-config loading in optional_tools.py:64:
+		Added alternate module import attempts.
+		Added a synthetic-package file loader fallback so relative imports resolve correctly.
+		Kept graceful None return when loader paths are unavailable.
+	3. Bundled sheet name config file with PyInstaller in build_json_converter.py:145:
+		Added tools data entry for sheet_names_config.py.
+	3. Added/updated tests:
+		New fallback loader tests in test_optional_tools.py:1
+		Updated installer build-args assertion in test_installer_build.py:49
+
 # 1.13.3 - 2026-05-10
 
 Added:
@@ -5,6 +26,11 @@ Added:
 	Updated the CLI to preserve the full layer-config object and making the injector write both addLayers and modular
 
 	`--layer-config` now carries the full layer workbook payload through the CLI, so config.modular is preserved instead of being dropped on injection. The fix is in `cli_runner.py`:473 where the converter now keeps config as a whole when available, and in `integration_injections.py`:29 where the injector now writes both config.addLayers and config.modular.
+	
+	python -m python.tools.config_converter in/config_in.xlsx out/config.json \
+  		--indent 3 \
+  		--merge-preset in/pipeline.preset.json \
+  		--merge-output out/merged_config.json
 
 # 1.13.2 - 2026-05-10
 

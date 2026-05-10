@@ -142,6 +142,9 @@ def build_pyinstaller_args(
         "--hidden-import=python.core.unified_processors",
         "--hidden-import=python.core.validation_reports",
     ]
+    sheet_names_tool = config_tool.parent / "sheet_names_config.py"
+    if sheet_names_tool.is_file():
+        args.append(f"--add-data={sheet_names_tool}:tools")
     if core_package_dir is not None:
         args.append(f"--add-data={core_package_dir}:core")
     if runtime_hook is not None:

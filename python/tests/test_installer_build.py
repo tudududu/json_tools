@@ -46,6 +46,9 @@ class InstallerBuildArgsTests(unittest.TestCase):
         self.assertIn(
             f"--add-data={python_dir / 'tools' / 'config_converter.py'}:tools", args
         )
+        self.assertIn(
+            f"--add-data={python_dir / 'tools' / 'sheet_names_config.py'}:tools", args
+        )
         self.assertIn("--hidden-import=openpyxl", args)
         self.assertIn("--hidden-import=python.tools.media_converter", args)
         self.assertIn("--hidden-import=python.tools.config_converter", args)
