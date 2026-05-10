@@ -2,6 +2,88 @@
 
 This folder contains helper scripts used alongside the CSV → JSON converter.
 
+## Configuration Tools
+
+### config_converter.py
+
+Excel → JSON converter for layer configuration. Converts XLSX workbook sheets into hierarchical JSON suitable for layer matching, timing, and modular system configuration.
+
+Input: XLSX workbook with configurable sheet names:
+- **Required sheets:**
+  - `LAYER_NAME_CONFIG_items` (columns: `key`, `exact`, `contains`)
+  - `LAYER_NAME_CONFIG_recenterRules` (columns: `force`, `noRecenter`, `alignH`, `alignV`)
+- **Optional sheets (auto-detected):**
+  - `TIMING_BEHAVIOR` (columns: `layerName`, `behavior`)
+  - `TIMING_ITEM_SELECTOR` (columns: `itemName`, `mode`, `value`)
+  - `SKIP_COPY_CONFIG` (columns: `key`, `value`, `names`)
+  - `MODULE_MAP` (columns: `module`, `ENABLED`, `SOURCE_KEY`)
+  - `EXPLICIT_VARIANTS_BY_VIDEOID` (columns: `video_id`, `variants`)
+
+Output: JSON with nested structure:
+```json
+{
+  "config": {
+    "addLayers": { "LAYER_NAME_CONFIG": {...}, "TIMING_BEHAVIOR": {...}, ... },
+    "modular": { "MODULE_MAP": {...}, "EXPLICIT_VARIANTS_BY_VIDEOID": {...} }
+  }
+}
+```
+
+Usage:
+```sh
+python -m python.tools.config_converter input.xlsx output.json
+python -m python.tools.config_converter input.xlsx output.json --separator ;
+```
+
+### generate_config_template.py
+
+Reverse tool: generates an XLSX template from a JSON sample. Useful for:
+- Creating templates from existing configuration
+- Bulk editing configuration in Excel
+- Documenting config structure
+
+Expects nested JSON structure with `config.addLayers` and optional `config.modular` sections.
+
+Usage:
+```sh
+python -m python.tools.generate_config_template sample.json template.xlsx
+python -m python.tools.generate_config_template sample.json template.xlsx --root-key LAYER_NAME_CONFIG
+```
+
+Options:
+- `--root-key <name>`: JSON key to extract layer config from (default: `LAYER_NAME_CONFIG`)
+- `--separator <char>`: Separator for list cells in output XLSX (default: `; `)
+- `--min-column-width <width>`: Minimum dynamic column width (default: `10.0`)
+- `--max-column-width <width>`: Maximum dynamic column width (default: `60.0`)
+- `--xlsx-theme-file <path>`: Custom workbook theme XML file
+
+### sheet_names_config.py
+
+Centralized configuration for sheet names and metadata. Consolidates all sheet definitions (json_key, default_sheet_name, is_required, namespace) into a single `SHEETS_BY_KEY` lookup dict. Used by `config_converter.py`, `generate_config_template.py`, tests, and integration tools.
+
+Sheets defined:
+- `LAYER_NAME_CONFIG_items` (required, addLayers)
+- `LAYER_NAME_CONFIG_recenterRules` (required, addLayers)
+- `TIMING_BEHAVIOR` (optional, addLayers)
+- `TIMING_ITEM_SELECTOR` (optional, addLayers)
+- `SKIP_COPY_CONFIG` (optional, addLayers)
+- `MODULE_MAP` (optional, modular)
+- `EXPLICIT_VARIANTS_BY_VIDEOID` (optional, modular)
+
+### merge_config_into_preset.py
+
+Utility to merge converted config objects into a `pipeline.preset.json` file.
+
+Usage:
+```sh
+python -m python.tools.merge_config_into_preset config.json preset.json --mode replace-present
+```
+
+Options:
+- `--mode <merge|replace-present>`: Merge strategy (default: `replace-present`)
+
+
+
 ## srt_to_csv.py
 
 Bidirectional subtitle converter:

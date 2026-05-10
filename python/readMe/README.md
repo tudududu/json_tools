@@ -20,7 +20,103 @@ The public script entrypoint remains `python/json_converter.py`, but it now acts
 
 This keeps CLI behavior backward compatible while reducing entrypoint complexity.
 
-## Timecode Formats Supported
+## Configuration Management Tools
+
+Several Python tools support Excel-based layer configuration and modular config merging:
+
+### convert_workbook() and config_converter.py
+
+Core Excel → JSON converter for layer configuration:
+- Input: XLSX workbook with configurable sheet names (defaults in `sheet_names_config.py`)
+  - Required sheets:
+    - `LAYER_NAME_CONFIG_items`: Layer matchers (columns: `key`, `exact`, `contains`)
+    - `LAYER_NAME_CONFIG_recenterRules`: Recenter rules (columns: `force`, `noRecenter`, `alignH`, `alignV`)
+  - Optional sheets (auto-detected):
+    - `TIMING_BEHAVIOR`, `TIMING_ITEM_SELECTOR`, `SKIP_COPY_CONFIG` → stored under `config.addLayers`
+    - `MODULE_MAP`, `EXPLICIT_VARIANTS_BY_VIDEOID` → stored under `config.modular`
+- Output: Nested JSON structure:
+  ```json
+  {
+    "config": {
+      "addLayers": {
+        "LAYER_NAME_CONFIG": { ...layer data... },
+        "TIMING_BEHAVIOR": { ...optional... },
+        "TIMING_ITEM_SELECTOR": { ...optional... },
+        "SKIP_COPY_CONFIG": { ...optional... }
+      },
+      "modular": {
+        "MODULE_MAP": { ...optional... },
+        "EXPLICIT_VARIANTS_BY_VIDEOID": { ...optional... }
+      }
+    }
+  }
+  ```
+
+Usage:
+```sh
+python -m python.tools.config_converter input.xlsx output.json
+python -m python.tools.config_converter input.xlsx output.json --separator ;
+```
+
+### generate_config_template.py
+
+Reverse tool: generates an XLSX template from a JSON sample. Useful for:
+- Creating templates from existing configuration JSON
+- Documenting config structure as Excel sheets
+- Bulk editing configuration in Excel format
+
+Input JSON structure: Expects nested `config.addLayers` and `config.modular` sections (per `config_converter.py` output shape).
+
+Usage:
+```sh
+python -m python.tools.generate_config_template sample.json template.xlsx
+python -m python.tools.generate_config_template sample.json template.xlsx --root-key LAYER_NAME_CONFIG
+```
+
+Options:
+- `--root-key <name>`: JSON key to extract layer config from (default: `LAYER_NAME_CONFIG`). Supports custom root keys for non-standard input JSON.
+- `--separator <char>`: Separator for list cells in output XLSX (default: `; `)
+- `--min-column-width <width>`: Minimum dynamic column width (default: `10.0`)
+- `--max-column-width <width>`: Maximum dynamic column width (default: `60.0`)
+
+### sheet_names_config.py
+
+Centralized configuration for sheet names and metadata. Defines `SHEETS_BY_KEY` lookup dict with entries for all known sheets:
+- `LAYER_NAME_CONFIG_items`: Layer name matchers
+- `LAYER_NAME_CONFIG_recenterRules`: Recenter rules
+- `TIMING_BEHAVIOR`: Timing behavior per layer
+- `TIMING_ITEM_SELECTOR`: Item selector configuration
+- `SKIP_COPY_CONFIG`: Skip copy rules
+- `MODULE_MAP`: Modular system module mapping
+- `EXPLICIT_VARIANTS_BY_VIDEOID`: Video-specific variant overrides
+
+Each entry is a `SheetConfig` dataclass:
+```python
+SheetConfig(
+    json_key="LAYER_NAME_CONFIG_items",              # Key in output JSON
+    default_sheet_name="LAYER_NAME_CONFIG_items",    # Sheet name in Excel (case-insensitive match)
+    is_required=True,                                 # Whether sheet must be present
+    namespace="addLayers"                             # Target namespace: "addLayers" or "modular"
+)
+```
+
+Used by `config_converter.py`, `generate_config_template.py`, and all related tests.
+
+### merge_config_into_preset.py
+
+Utility to merge converted config objects into a `pipeline.preset.json` file.
+
+Usage:
+```sh
+python -m python.tools.merge_config_into_preset config.json preset.json --mode replace-present
+```
+
+Options:
+- `--mode <merge|replace-present>`: Merge strategy
+  - `merge`: Recursively merge nested dicts; lists append
+  - `replace-present`: Replace entire key if already in target (default)
+
+
 * `HH:MM:SS:FF` (frames; uses `meta_global fps` by default, or `--fps` override)
 * `HH:MM:SS[.ms]`
 * `MM:SS[.ms]`

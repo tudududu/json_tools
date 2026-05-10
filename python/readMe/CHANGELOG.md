@@ -1,3 +1,18 @@
+# 1.13.0 - 2026-05-10
+
+Added:
+- (py 413-431 configuration refactoring phase)
+  - **Modular configuration support**: Added parsing of `MODULE_MAP` and `EXPLICIT_VARIANTS_BY_VIDEOID` sheets to `config_converter.py`; output now includes optional `config.modular` section alongside `config.addLayers`
+  - **Centralized sheet names configuration** (py 423): New `sheet_names_config.py` module consolidates all sheet name defaults and metadata (json_key, default_sheet_name, is_required, namespace) into a single source of truth via `SHEETS_BY_KEY` lookup dict
+  - **Config merge tool** (py 426-427): New `merge_config_into_preset.py` tool merges config objects from `config_converter.py` into `pipeline.preset.json` using replace-present merge semantics
+  - **Test resilience** (py 428-429): All tests refactored to derive sheet names from centralized `sheet_names_config.py` defaults instead of hardcoding; integration path (`cli_runner.py`) updated to use centralized defaults
+  - **Legacy cleanup** (py 430-431):
+    - Removed legacy CLI flags `--root-key`, `--layer-names-sheet`, `--recenter-rules-sheet` from both `config_converter.py` and `generate_config_template.py`
+    - Simplified function signatures: `convert_workbook()` now only takes `in_path` and `separator`; sheet names and root_key derived internally from centralized config
+    - Removed legacy flat JSON structure support from `generate_config_template.py`; now only handles current nested structure (`config.addLayers` and `config.modular`)
+
+
+
 # 1.12.5 - 2026-05-01
 
 Added:
