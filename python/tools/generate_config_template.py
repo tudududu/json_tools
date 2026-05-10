@@ -69,8 +69,6 @@ def generate_template(
     output_xlsx: str,
     separator: str,
     root_key: str,
-    layer_names_sheet: Optional[str],
-    recenter_rules_sheet: Optional[str],
     xlsx_theme_file: Optional[str] = None,
     min_column_width: float = 10.0,
     max_column_width: float = 60.0,
@@ -134,13 +132,10 @@ def generate_template(
     if body is None:
         raise ValueError(f"Root key not found or invalid: {root_key}")
 
-    layer_names_sheet = (
-        layer_names_sheet or SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
-    )
-    recenter_rules_sheet = (
-        recenter_rules_sheet
-        or SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
-    )
+    layer_names_sheet = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+    recenter_rules_sheet = SHEETS_BY_KEY[
+        "LAYER_NAME_CONFIG_recenterRules"
+    ].default_sheet_name
 
     wb = _Workbook()
     ws_layers = cast("WorksheetType", wb.active)
@@ -311,16 +306,6 @@ def main() -> None:
         help="Root key in input JSON (default LAYER_NAME_CONFIG)",
     )
     parser.add_argument(
-        "--layer-names-sheet",
-        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name,
-        help="Name of the layer names sheet to create (default LAYER_NAME_CONFIG_items)",
-    )
-    parser.add_argument(
-        "--recenter-rules-sheet",
-        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name,
-        help="Name of the recenter rules sheet to create (default LAYER_NAME_CONFIG_recenterRules)",
-    )
-    parser.add_argument(
         "--xlsx-theme-file",
         default=None,
         help=(
@@ -350,8 +335,6 @@ def main() -> None:
         output_xlsx=args.output,
         separator=args.separator,
         root_key=args.root_key,
-        layer_names_sheet=args.layer_names_sheet,
-        recenter_rules_sheet=args.recenter_rules_sheet,
         xlsx_theme_file=args.xlsx_theme_file,
         min_column_width=args.min_column_width,
         max_column_width=args.max_column_width,

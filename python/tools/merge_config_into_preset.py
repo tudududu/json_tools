@@ -117,19 +117,10 @@ def merge_config_into_preset(
     with open(preset_path, "r", encoding="utf-8") as f:
         preset = json.load(f)
 
-    # Get defaults directly from SHEETS_BY_KEY to avoid any state issues
-    layer_names_sheet = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
-    recenter_rules_sheet = SHEETS_BY_KEY[
-        "LAYER_NAME_CONFIG_recenterRules"
-    ].default_sheet_name
-
     # Convert XLSX to config
     converted = convert_workbook(
         in_path=xlsx_path,
         separator=separator,
-        layer_names_sheet=layer_names_sheet,
-        recenter_rules_sheet=recenter_rules_sheet,
-        root_key="LAYER_NAME_CONFIG",
     )
 
     # Merge using replace-present mode

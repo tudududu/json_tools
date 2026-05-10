@@ -324,22 +324,17 @@ def _parse_explicit_variants_by_videoid(
 def convert_workbook(
     in_path: str,
     separator: str,
-    layer_names_sheet: Optional[str],
-    recenter_rules_sheet: Optional[str],
-    root_key: str,
 ) -> Dict[str, object]:
     if _openpyxl_load_workbook is None:
         raise RuntimeError(
             "XLSX support requires openpyxl. Install with: pip install openpyxl"
         )
 
-    layer_names_sheet = (
-        layer_names_sheet or SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
-    )
-    recenter_rules_sheet = (
-        recenter_rules_sheet
-        or SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name
-    )
+    layer_names_sheet = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
+    recenter_rules_sheet = SHEETS_BY_KEY[
+        "LAYER_NAME_CONFIG_recenterRules"
+    ].default_sheet_name
+    root_key = "LAYER_NAME_CONFIG"
 
     wb = _openpyxl_load_workbook(in_path, read_only=True, data_only=True)
     try:
@@ -415,21 +410,6 @@ def main() -> None:
         help="Explicit separator for exact/contains cells (default ';')",
     )
     parser.add_argument(
-        "--layer-names-sheet",
-        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name,
-        help="Layer names sheet name (case-insensitive match, default LAYER_NAME_CONFIG_items)",
-    )
-    parser.add_argument(
-        "--recenter-rules-sheet",
-        default=SHEETS_BY_KEY["LAYER_NAME_CONFIG_recenterRules"].default_sheet_name,
-        help="Recenter rules sheet name (case-insensitive match, default LAYER_NAME_CONFIG_recenterRules)",
-    )
-    parser.add_argument(
-        "--root-key",
-        default="LAYER_NAME_CONFIG",
-        help="Root key in output JSON (default LAYER_NAME_CONFIG)",
-    )
-    parser.add_argument(
         "--indent",
         type=int,
         default=4,
@@ -450,15 +430,12 @@ def main() -> None:
     data = convert_workbook(
         in_path=args.input,
         separator=args.separator,
-        layer_names_sheet=args.layer_names_sheet,
-        recenter_rules_sheet=args.recenter_rules_sheet,
-        root_key=args.root_key,
     )
 
     if args.dry_run:
         config = cast(Dict[str, object], data.get("config", {}))
         add_layers = cast(Dict[str, object], config.get("addLayers", {}))
-        body = cast(Dict[str, object], add_layers.get(args.root_key, {}))
+        body = cast(Dict[str, object], add_layers.get("LAYER_NAME_CONFIG", {}))
         layer_count = len([k for k in body.keys() if k != "recenterRules"])
         rule_count = len(cast(Dict[str, object], body.get("recenterRules", {})))
         extra = ""

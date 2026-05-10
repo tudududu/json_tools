@@ -305,9 +305,6 @@ def test_converter_required_sheets_follow_shared_defaults(
         data = convert_workbook(
             in_path=xlsx,
             separator=";",
-            layer_names_sheet=None,
-            recenter_rules_sheet=None,
-            root_key="LAYER_NAME_CONFIG",
         )
         assert "LAYER_NAME_CONFIG" in data["config"]["addLayers"]
     finally:
@@ -351,8 +348,6 @@ def test_generator_required_sheets_follow_shared_defaults(
             output_xlsx=out_xlsx,
             separator=";",
             root_key="LAYER_NAME_CONFIG",
-            layer_names_sheet=None,
-            recenter_rules_sheet=None,
         )
 
         wb = openpyxl.load_workbook(out_xlsx)
@@ -360,24 +355,6 @@ def test_generator_required_sheets_follow_shared_defaults(
         assert custom_items in titles
         assert custom_rules in titles
         wb.close()
-    finally:
-        _cleanup_dir(d)
-
-
-def test_converter_respects_custom_root_key():
-    openpyxl = pytest.importorskip("openpyxl")
-    d = tempfile.mkdtemp()
-    try:
-        xlsx = os.path.join(d, "in.xlsx")
-        out_json = os.path.join(d, "out.json")
-        _write_minimal_xlsx(openpyxl, xlsx)
-        proc = _run(_CONVERTER, xlsx, out_json, "--root-key", "MY_CONFIG")
-        assert proc.returncode == 0, proc.stderr
-        with open(out_json, encoding="utf-8") as f:
-            data = json.load(f)
-        add_layers = data["config"]["addLayers"]
-        assert "MY_CONFIG" in add_layers
-        assert "LAYER_NAME_CONFIG" not in add_layers
     finally:
         _cleanup_dir(d)
 

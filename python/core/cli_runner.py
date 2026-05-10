@@ -476,9 +476,6 @@ def run_cli(
                 converted = layercfg_convert_workbook(
                     in_path=args.layer_config,
                     separator=";",
-                    layer_names_sheet=None,
-                    recenter_rules_sheet=None,
-                    root_key="LAYER_NAME_CONFIG",
                 )
                 if isinstance(converted, dict):
                     add_layers_payload: Optional[Dict[str, Any]] = None
