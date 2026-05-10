@@ -670,3 +670,59 @@ def test_merge_cli_indent_passthrough():
         assert compact_size < indent_size
     finally:
         _cleanup_dir(d)
+
+
+def test_merge_cli_indent_3_array_flattening():
+    """CLI indent=3 produces inline arrays in merged output."""
+    openpyxl = pytest.importorskip("openpyxl")
+    d = tempfile.mkdtemp()
+    try:
+        xlsx = os.path.join(d, "config.xlsx")
+        preset_in = os.path.join(d, "preset_in.json")
+        out = os.path.join(d, "out.json")
+
+        # Create XLSX with multi-value arrays in items
+        _write_minimal_xlsx(
+            openpyxl,
+            xlsx,
+            layer_rows=[
+                ["logo", "logo_01;logo_02", ""],
+                ["text", "text_01", "contains_text"],
+            ],
+            rule_rows=[["Logo", "Claim", "Disclaimer", "Top"]],
+        )
+        _write_json(preset_in, {"config": {"addLayers": {}}})
+
+        # Run with indent=3 and separator=; (array flattening)
+        proc = _run(
+            _MERGE_TOOL,
+            xlsx,
+            preset_in,
+            out,
+            "--indent",
+            "3",
+            "--separator",
+            ";",
+        )
+        assert proc.returncode == 0
+
+        # Read output as raw text to verify inline array format
+        with open(out, "r", encoding="utf-8") as f:
+            output_text = f.read()
+
+        # Verify inline arrays (e.g., ["logo_01", "logo_02"] on single lines)
+        # Indent=3 produces no whitespace inside arrays, so they appear inline
+        assert '["logo_01", "logo_02"]' in output_text
+        assert '["text_01"]' in output_text
+        assert '["contains_text"]' in output_text
+
+        # Verify it's valid JSON and arrays are correctly split
+        with open(out, "r", encoding="utf-8") as f:
+            result = json.load(f)
+        assert "config" in result
+        layer_config = result["config"]["addLayers"]["LAYER_NAME_CONFIG"]
+        assert layer_config["logo"]["exact"] == ["logo_01", "logo_02"]
+        assert layer_config["text"]["exact"] == ["text_01"]
+        assert layer_config["text"]["contains"] == ["contains_text"]
+    finally:
+        _cleanup_dir(d)

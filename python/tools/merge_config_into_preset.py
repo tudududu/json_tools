@@ -23,7 +23,7 @@ import json
 import os
 from typing import Any, Dict, List
 
-from .config_converter import convert_workbook
+from .config_converter import _format_indent_three, convert_workbook
 
 
 def _deep_merge_replace_present(
@@ -129,12 +129,15 @@ def merge_config_into_preset(
     if output_path:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         with open(output_path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(
-                merged_preset,
-                f,
-                ensure_ascii=False,
-                indent=None if indent <= 0 else indent,
-            )
+            if indent == 3:
+                f.write(_format_indent_three(merged_preset))
+            else:
+                json.dump(
+                    merged_preset,
+                    f,
+                    ensure_ascii=False,
+                    indent=None if indent <= 0 else indent,
+                )
             f.write("\n")
 
     return changed_keys
