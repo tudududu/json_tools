@@ -1,3 +1,17 @@
+# 1.13.5 - 2026-05-10
+
+Added:
+- py 438 config_converter.py: Merge Behaviour
+	merge mode now blocks standard output file creation and writes only merge output.
+
+	1. Updated merge flow in config_converter.py:511:
+		When `--merge-preset` is used, the CLI now:
+			writes only the merged preset file
+			skips writing the regular converted JSON output file
+			exits after merge handling
+	2. Standard behavior (without merge flags) still writes the normal output file as before.
+
+
 # 1.13.4 - 2026-05-10
 
 Added:

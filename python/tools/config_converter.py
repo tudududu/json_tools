@@ -497,9 +497,6 @@ def main() -> None:
             print("(merge wrapper dry-run: no merged preset file written)")
         return
 
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    _write_json_output(args.output, data, args.indent)
-
     if args.merge_preset:
         from .merge_config_into_preset import merge_config_into_preset
 
@@ -521,6 +518,10 @@ def main() -> None:
             for key in changed_keys:
                 print(f"  - {key}")
         print(f"Merge wrapper wrote merged preset: {merge_output}")
+        return
+
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    _write_json_output(args.output, data, args.indent)
 
 
 if __name__ == "__main__":

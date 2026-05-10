@@ -737,7 +737,7 @@ def test_converter_merge_wrapper_creates_merged_preset_output():
             merged_json,
         )
         assert proc.returncode == 0, proc.stderr
-        assert os.path.isfile(out_json)
+        assert not os.path.exists(out_json)
         assert os.path.isfile(merged_json)
 
         with open(merged_json, encoding="utf-8") as f:
@@ -745,6 +745,7 @@ def test_converter_merge_wrapper_creates_merged_preset_output():
         logo_exact = merged["addLayers"]["LAYER_NAME_CONFIG"]["logo"]["exact"]
         assert logo_exact == ["logo_01", "logo_02"]
         assert "Merge wrapper updated" in proc.stdout
+        assert "Merge wrapper wrote merged preset" in proc.stdout
     finally:
         _cleanup_dir(d)
 
