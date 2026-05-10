@@ -34,17 +34,24 @@ _GENERATOR = "python.tools.generate_config_template"
 
 # Minimal JSON used as input for generator tests.
 _MINIMAL_JSON = {
-    "LAYER_NAME_CONFIG": {
-        "logo": {"exact": ["logo_01", "Size_Holder_Logo"], "contains": []},
-        "subtitles": {"exact": [], "contains": ["subtitles"]},
-        "recenterRules": {
-            "force": ["Logo"],
-            "noRecenter": ["BG"],
-            "alignH": ["Claim"],
-            "alignV": ["Disclaimer"],
-        },
+    "config": {
+        "addLayers": {
+            "LAYER_NAME_CONFIG": {
+                "logo": {"exact": ["logo_01", "Size_Holder_Logo"], "contains": []},
+                "subtitles": {"exact": [], "contains": ["subtitles"]},
+                "recenterRules": {
+                    "force": ["Logo"],
+                    "noRecenter": ["BG"],
+                    "alignH": ["Claim"],
+                    "alignV": ["Disclaimer"],
+                },
+            }
+        }
     }
 }
+
+# Extract the LAYER_NAME_CONFIG data for easy reference in tests
+_MINIMAL_LAYER_CONFIG = _MINIMAL_JSON["config"]["addLayers"]["LAYER_NAME_CONFIG"]
 
 
 def _run(module: str, *args: str) -> subprocess.CompletedProcess:  # type: ignore[type-arg]
@@ -788,7 +795,7 @@ def test_generator_creates_timing_behavior_sheet_by_default():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                     "TIMING_BEHAVIOR": {"logo": "timed"},
                 }
             }
@@ -813,7 +820,7 @@ def test_generator_creates_timing_behavior_sheet_with_validation():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                     "TIMING_BEHAVIOR": {"logo": "timed", "logo_03": "span"},
                 }
             }
@@ -844,7 +851,7 @@ def test_generator_creates_timing_item_selector_sheet():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                     "TIMING_ITEM_SELECTOR": {
                         "logo": {"mode": "line", "value": 1},
                         "logo_02": {"mode": "index", "value": 2},
@@ -901,7 +908,7 @@ def test_generator_creates_skip_copy_config_sheet():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                     "SKIP_COPY_CONFIG": {
                         "groups": {"enabled": True, "names": ["info", "claim"]},
                         "adHoc": {
@@ -970,7 +977,7 @@ def test_generator_no_modular_key_produces_no_extra_sheets():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                 }
             }
         }
@@ -996,7 +1003,7 @@ def test_generator_creates_module_map_sheet():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                 },
                 "modular": {
                     "MODULE_MAP": {
@@ -1033,7 +1040,7 @@ def test_generator_creates_explicit_variants_sheet():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                 },
                 "modular": {
                     "EXPLICIT_VARIANTS_BY_VIDEOID": {
@@ -1072,7 +1079,7 @@ def test_generator_creates_both_modular_sheets_together():
         payload = {
             "config": {
                 "addLayers": {
-                    "LAYER_NAME_CONFIG": _MINIMAL_JSON["LAYER_NAME_CONFIG"],
+                    "LAYER_NAME_CONFIG": _MINIMAL_LAYER_CONFIG,
                 },
                 "modular": {
                     "MODULE_MAP": {
@@ -1158,17 +1165,21 @@ def test_generator_applies_dynamic_column_width_bounds():
         in_json = os.path.join(d, "in.json")
         out_xlsx = os.path.join(d, "out.xlsx")
         payload = {
-            "LAYER_NAME_CONFIG": {
-                "very_long_key_name_for_width_check": {
-                    "exact": ["x" * 120],
-                    "contains": ["subtitles"],
-                },
-                "recenterRules": {
-                    "force": ["Logo"],
-                    "noRecenter": ["BG"],
-                    "alignH": ["Claim"],
-                    "alignV": ["Disclaimer"],
-                },
+            "config": {
+                "addLayers": {
+                    "LAYER_NAME_CONFIG": {
+                        "very_long_key_name_for_width_check": {
+                            "exact": ["x" * 120],
+                            "contains": ["subtitles"],
+                        },
+                        "recenterRules": {
+                            "force": ["Logo"],
+                            "noRecenter": ["BG"],
+                            "alignH": ["Claim"],
+                            "alignV": ["Disclaimer"],
+                        },
+                    }
+                }
             }
         }
         _write_json(in_json, payload)

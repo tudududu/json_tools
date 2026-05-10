@@ -24,7 +24,6 @@ import os
 from typing import Any, Dict, List
 
 from .config_converter import convert_workbook
-from .sheet_names_config import SHEETS_BY_KEY
 
 
 def _deep_merge_replace_present(

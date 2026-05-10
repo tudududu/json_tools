@@ -89,48 +89,39 @@ def generate_template(
     explicit_variants_by_videoid_map: Optional[Dict[str, object]] = None
     module_map_map: Optional[Dict[str, object]] = None
 
-    if root_key in raw and isinstance(raw[root_key], dict):
-        body = raw[root_key]
-        tb_raw = raw.get("TIMING_BEHAVIOR")
-        if isinstance(tb_raw, dict):
-            timing_behavior_map = tb_raw
-        tis_raw = raw.get("TIMING_ITEM_SELECTOR")
-        if isinstance(tis_raw, dict):
-            timing_item_selector_map = tis_raw
-        scc_raw = raw.get("SKIP_COPY_CONFIG")
-        if isinstance(scc_raw, dict):
-            skip_copy_config_map = scc_raw
-    else:
-        config = raw.get("config")
-        if isinstance(config, dict):
-            add_layers = config.get("addLayers")
-            if isinstance(add_layers, dict):
-                maybe_body = add_layers.get(root_key)
-                if isinstance(maybe_body, dict):
-                    body = maybe_body
-                tb_raw = add_layers.get("TIMING_BEHAVIOR")
-                if isinstance(tb_raw, dict):
-                    timing_behavior_map = tb_raw
-                tis_raw = add_layers.get("TIMING_ITEM_SELECTOR")
-                if isinstance(tis_raw, dict):
-                    timing_item_selector_map = tis_raw
-                scc_raw = add_layers.get("SKIP_COPY_CONFIG")
-                if isinstance(scc_raw, dict):
-                    skip_copy_config_map = scc_raw
-            modular = config.get("modular")
-            if isinstance(modular, dict):
-                maybe_body = modular.get(root_key)
-                if isinstance(maybe_body, dict):
-                    body = maybe_body
-                evbv_raw = modular.get("EXPLICIT_VARIANTS_BY_VIDEOID")
-                if isinstance(evbv_raw, dict):
-                    explicit_variants_by_videoid_map = evbv_raw
-                mm_raw = modular.get("MODULE_MAP")
-                if isinstance(mm_raw, dict):
-                    module_map_map = mm_raw
+    # Parse config structure: config.addLayers and config.modular
+    config = raw.get("config")
+    if isinstance(config, dict):
+        add_layers = config.get("addLayers")
+        if isinstance(add_layers, dict):
+            maybe_body = add_layers.get(root_key)
+            if isinstance(maybe_body, dict):
+                body = maybe_body
+            tb_raw = add_layers.get("TIMING_BEHAVIOR")
+            if isinstance(tb_raw, dict):
+                timing_behavior_map = tb_raw
+            tis_raw = add_layers.get("TIMING_ITEM_SELECTOR")
+            if isinstance(tis_raw, dict):
+                timing_item_selector_map = tis_raw
+            scc_raw = add_layers.get("SKIP_COPY_CONFIG")
+            if isinstance(scc_raw, dict):
+                skip_copy_config_map = scc_raw
+        modular = config.get("modular")
+        if isinstance(modular, dict):
+            maybe_body = modular.get(root_key)
+            if isinstance(maybe_body, dict):
+                body = maybe_body
+            evbv_raw = modular.get("EXPLICIT_VARIANTS_BY_VIDEOID")
+            if isinstance(evbv_raw, dict):
+                explicit_variants_by_videoid_map = evbv_raw
+            mm_raw = modular.get("MODULE_MAP")
+            if isinstance(mm_raw, dict):
+                module_map_map = mm_raw
 
     if body is None:
-        raise ValueError(f"Root key not found or invalid: {root_key}")
+        raise ValueError(
+            f"Root key '{root_key}' not found in config.addLayers or config.modular"
+        )
 
     layer_names_sheet = SHEETS_BY_KEY["LAYER_NAME_CONFIG_items"].default_sheet_name
     recenter_rules_sheet = SHEETS_BY_KEY[
