@@ -1,3 +1,28 @@
+# 1.13.6 - 2026-05-10
+
+Added:
+- py 439 config_converter.py: Binary build script.
+	Implemented py 439 by adding a dedicated standalone build script for config_converter.
+
+	1. New entrypoint wrapper: config_converter.py
+	2. New PyInstaller build script: build_config_converter.py
+	3. Installer test coverage update: test_installer_build.py
+
+	Why the wrapper was added
+		config_converter.py uses package-relative imports.
+		The wrapper in config_converter.py gives the frozen binary a stable top-level entrypoint and avoids import-context issues.
+
+	What the build script does
+		Builds one-file binary named config_converter.
+		Outputs to:
+			config_converter
+		Includes required tool modules/data for merge behavior:
+			config_converter
+			sheet_names_config
+			merge_config_into_preset
+			openpyxl hidden import
+
+
 # 1.13.5 - 2026-05-10
 
 Added:
