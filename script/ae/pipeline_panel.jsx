@@ -841,8 +841,16 @@
                 }
             }
 
-            // Preset path is fixed by design: IN/data/config/pipeline.preset.json
-            var presetPath = "IN/data/config/pipeline.preset.json";
+            // Resolve merge preset path from project POST/IN/data/config, then fallback to script/ae/config.
+            var presetFile = resolvePresetFile();
+            if ((!presetFile || !presetFile.exists) && DEV_PRESET_FILE && DEV_PRESET_FILE.exists) {
+                presetFile = DEV_PRESET_FILE;
+            }
+            if (!presetFile || !presetFile.exists) {
+                convStatus.text = "Preset not found for --merge-preset.";
+                return;
+            }
+            var presetPath = (presetFile.fsName !== undefined) ? presetFile.fsName : String(presetFile);
 
             // Dummy output (unused when --merge-output is set)
             var dummyOutput = baseFolder + "config.json";
