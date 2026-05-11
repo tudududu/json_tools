@@ -703,28 +703,6 @@
     var cbConvValidation = rowDataValidation.add("checkbox", undefined, "Validation");
     cbConvValidation.value = false;
 
-    // ── Config Converter options panel ───────────────────────────────────────
-    var pnlConfigConverter = secConverter.add("panel", undefined, "Config Converter");
-    pnlConfigConverter.orientation = "column";
-    pnlConfigConverter.alignChildren = "left";
-
-    var rowConfigPreset = mkRow(pnlConfigConverter);
-    rowConfigPreset.add("statictext", undefined, "Merge Preset:");
-    var fldConfigPreset = rowConfigPreset.add("edittext", undefined, "IN/data/config/pipeline.preset.json");
-    fldConfigPreset.preferredSize.width = 175;
-    fldConfigPreset.enabled = false;
-
-    var rowConfigMergeOut = mkRow(pnlConfigConverter);
-    rowConfigMergeOut.add("statictext", undefined, "Merge Output:");
-    var fldConfigMergeOut = rowConfigMergeOut.add("edittext", undefined, "");
-    fldConfigMergeOut.preferredSize.width = 175;
-    var btnConfigMergeOut = rowConfigMergeOut.add("button", undefined, "...");
-    btnConfigMergeOut.preferredSize.width = 24;
-    btnConfigMergeOut.onClick = function() {
-        var f = File.saveDialog("Save merged config as", "JSON:*.json");
-        if (f) fldConfigMergeOut.text = f.fsName;
-    };
-
     // Shared converter availability check
     var converterBinFile = CONVERTER_PATH ? new File(CONVERTER_PATH) : null;
     var converterAvail   = !!(converterBinFile && converterBinFile.exists);
@@ -740,7 +718,6 @@
     function updateConverterPanels() {
         var isDataMode = rbConvData.value === true;
         pnlDataConverter.visible = isDataMode;
-        pnlConfigConverter.visible = !isDataMode;
     }
 
     cbConvUseFPS.onClick = updateDataConverterControls;
@@ -839,7 +816,7 @@
                 convStatus.text = "Config converter not found: " + (CONFIG_CONVERTER_PATH || "unresolved");
                 return;
             }
-            var mergeOutPath = (fldConfigMergeOut.text || "").replace(/^\s+|\s+$/g, "");
+            var mergeOutPath = outPath;
             if (!mergeOutPath.length) {
                 var fallbackConfigOut = new Folder(baseFolder + "out");
                 if (!fallbackConfigOut.exists && !fallbackConfigOut.create()) {
@@ -847,20 +824,25 @@
                     return;
                 }
                 mergeOutPath = (fallbackConfigOut.fsName !== undefined ? fallbackConfigOut.fsName : String(fallbackConfigOut)) + "/merged_config.json";
+            } else {
+                // If user provided a path, check if it's a folder or file
+                var outFile = new File(mergeOutPath);
+                if (outFile.parent && outFile.parent.exists) {
+                    // Looks like a file path (parent exists, but file may not)
+                    // Use as-is
+                } else {
+                    // Treat as folder path, append default filename
+                    var outFolder = new Folder(mergeOutPath);
+                    if (!outFolder.exists && !outFolder.create()) {
+                        convStatus.text = "Failed to create output folder for config.";
+                        return;
+                    }
+                    mergeOutPath = (outFolder.fsName !== undefined ? outFolder.fsName : String(outFolder)) + "/merged_config.json";
+                }
             }
 
-            // Resolve preset path: try to use the project's preset
-            var presetPath = fldConfigPreset.text || "";
-            if (!presetPath.length) {
-                convStatus.text = "Preset path is missing.";
-                return;
-            }
-            // If preset is a relative path, resolve it relative to baseFolder/IN/data/config
-            if (!/^\/|^[a-zA-Z]:/.test(presetPath)) {
-                var projectRoot = baseFolder;
-                // Go up from baseFolder (e.g., POST/IN/data/ or POST/WORK/) to POST
-                presetPath = projectRoot + presetPath;
-            }
+            // Preset path is fixed by design: IN/data/config/pipeline.preset.json
+            var presetPath = "IN/data/config/pipeline.preset.json";
 
             // Dummy output (unused when --merge-output is set)
             var dummyOutput = baseFolder + "config.json";
