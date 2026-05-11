@@ -49,6 +49,7 @@
     var AUTOMAT_VERSION   = "1.0.0";
     // Converter ships in Automat/bin/ (installed) or script/ae/bin/ (dev).
     var CONVERTER_PATH    = __base ? joinFs(__base.fsName, "bin/json_converter") : null;
+    var CONFIG_CONVERTER_PATH = __base ? joinFs(__base.fsName, "bin/config_converter") : null;
 
     // ── 1. UTILITIES ─────────────────────────────────────────────────────────
 
@@ -637,6 +638,14 @@
     var secConverterWrap = mkCollapsibleSection(root, "S11", "Converter");
     var secConverter = secConverterWrap.body;
 
+    // Converter mode selector: Data vs Config
+    var rowConvMode = mkRow(secConverter);
+    var rbConvData = rowConvMode.add("radiobutton", undefined, "Data");
+    var rbConvConfig = rowConvMode.add("radiobutton", undefined, "Config");
+    rbConvData.value = true;
+    rbConvConfig.value = false;
+
+    // Shared Input/Output paths (used by both converters)
     var rowConvIn = mkRow(secConverter);
     rowConvIn.add("statictext", undefined, "Input:");
     var fldConvInput = rowConvIn.add("edittext", undefined, "");
@@ -644,7 +653,7 @@
     var btnConvIn = rowConvIn.add("button", undefined, "...");
     btnConvIn.preferredSize.width = 24;
     btnConvIn.onClick = function() {
-        var f = File.openDialog("Select input CSV or XLSX", "CSV:*.csv,XLSX:*.xlsx,All:*.*");
+        var f = File.openDialog("Select input file", "CSV:*.csv,XLSX:*.xlsx,JSON:*.json,All:*.*");
         if (f) fldConvInput.text = f.fsName;
     };
 
@@ -659,57 +668,100 @@
         if (f) fldConvOutput.text = f.fsName !== undefined ? f.fsName : String(f);
     };
 
-    var rowConvOpts = mkRow(secConverter);
-    rowConvOpts.add("statictext", undefined, "FPS:");
-    var cbConvUseFPS = rowConvOpts.add("checkbox", undefined, "");
+    // ── Data Converter options panel ──────────────────────────────────────────
+    var pnlDataConverter = secConverter.add("panel", undefined, "Data Converter");
+    pnlDataConverter.orientation = "column";
+    pnlDataConverter.alignChildren = "left";
+
+    var rowDataOpts = mkRow(pnlDataConverter);
+    rowDataOpts.add("statictext", undefined, "FPS:");
+    var cbConvUseFPS = rowDataOpts.add("checkbox", undefined, "");
     cbConvUseFPS.value = false;
-    var fldConvFPS = rowConvOpts.add("edittext", undefined, "");
+    var fldConvFPS = rowDataOpts.add("edittext", undefined, "");
     fldConvFPS.preferredSize.width = 36;
     fldConvFPS.enabled = false;
 
-    var rowConvCountryMode = mkRow(secConverter);
-    var rbConvSplitByCountry = rowConvCountryMode.add("radiobutton", undefined, "--split-by-country");
-    var rbConvCountryColumn = rowConvCountryMode.add("radiobutton", undefined, "--country-column");
+    var rowDataCountryMode = mkRow(pnlDataConverter);
+    var rbConvSplitByCountry = rowDataCountryMode.add("radiobutton", undefined, "--split-by-country");
+    var rbConvCountryColumn = rowDataCountryMode.add("radiobutton", undefined, "--country-column");
     rbConvSplitByCountry.value = true;
     rbConvCountryColumn.value = false;
 
-    var rowConvCountryCol = mkRow(secConverter);
-    rowConvCountryCol.add("statictext", undefined, "Country column:");
-    var fldConvCountryColumn = rowConvCountryCol.add("edittext", undefined, "01");
+    var rowDataCountryCol = mkRow(pnlDataConverter);
+    rowDataCountryCol.add("statictext", undefined, "Country column:");
+    var fldConvCountryColumn = rowDataCountryCol.add("edittext", undefined, "01");
     fldConvCountryColumn.preferredSize.width = 36;
     fldConvCountryColumn.enabled = false;
 
-    var rowConvConfigs = mkRow(secConverter);
-    var cbConvLayerConfig = rowConvConfigs.add("checkbox", undefined, "--layer-config (config_in.xlsx)");
-    var cbConvMediaConfig = rowConvConfigs.add("checkbox", undefined, "--media-config (media_in.xlsx)");
+    var rowDataConfigs = mkRow(pnlDataConverter);
+    var cbConvLayerConfig = rowDataConfigs.add("checkbox", undefined, "--layer-config (config_in.xlsx)");
+    var cbConvMediaConfig = rowDataConfigs.add("checkbox", undefined, "--media-config (media_in.xlsx)");
     cbConvLayerConfig.value = true;
     cbConvMediaConfig.value = true;
 
-    var rowConvValidation = mkRow(secConverter);
-    var cbConvValidation = rowConvValidation.add("checkbox", undefined, "Validation");
+    var rowDataValidation = mkRow(pnlDataConverter);
+    var cbConvValidation = rowDataValidation.add("checkbox", undefined, "Validation");
     cbConvValidation.value = false;
 
-    function updateConvModeControls() {
+    // ── Config Converter options panel ───────────────────────────────────────
+    var pnlConfigConverter = secConverter.add("panel", undefined, "Config Converter");
+    pnlConfigConverter.orientation = "column";
+    pnlConfigConverter.alignChildren = "left";
+
+    var rowConfigPreset = mkRow(pnlConfigConverter);
+    rowConfigPreset.add("statictext", undefined, "Merge Preset:");
+    var fldConfigPreset = rowConfigPreset.add("edittext", undefined, "IN/data/config/pipeline.preset.json");
+    fldConfigPreset.preferredSize.width = 175;
+    fldConfigPreset.enabled = false;
+
+    var rowConfigMergeOut = mkRow(pnlConfigConverter);
+    rowConfigMergeOut.add("statictext", undefined, "Merge Output:");
+    var fldConfigMergeOut = rowConfigMergeOut.add("edittext", undefined, "");
+    fldConfigMergeOut.preferredSize.width = 175;
+    var btnConfigMergeOut = rowConfigMergeOut.add("button", undefined, "...");
+    btnConfigMergeOut.preferredSize.width = 24;
+    btnConfigMergeOut.onClick = function() {
+        var f = File.saveDialog("Save merged config as", "JSON:*.json");
+        if (f) fldConfigMergeOut.text = f.fsName;
+    };
+
+    // Shared converter availability check
+    var converterBinFile = CONVERTER_PATH ? new File(CONVERTER_PATH) : null;
+    var converterAvail   = !!(converterBinFile && converterBinFile.exists);
+    var configConverterBinFile = CONFIG_CONVERTER_PATH ? new File(CONFIG_CONVERTER_PATH) : null;
+    var configConverterAvail = !!(configConverterBinFile && configConverterBinFile.exists);
+
+    // Mode-specific update functions
+    function updateDataConverterControls() {
         fldConvFPS.enabled = cbConvUseFPS.value === true;
         fldConvCountryColumn.enabled = rbConvCountryColumn.value === true;
     }
 
-    cbConvUseFPS.onClick = updateConvModeControls;
-    rbConvSplitByCountry.onClick = updateConvModeControls;
-    rbConvCountryColumn.onClick = updateConvModeControls;
-    updateConvModeControls();
+    function updateConverterPanels() {
+        var isDataMode = rbConvData.value === true;
+        pnlDataConverter.visible = isDataMode;
+        pnlConfigConverter.visible = !isDataMode;
+    }
 
-    var converterBinFile = CONVERTER_PATH ? new File(CONVERTER_PATH) : null;
-    var converterAvail   = !!(converterBinFile && converterBinFile.exists);
+    cbConvUseFPS.onClick = updateDataConverterControls;
+    rbConvSplitByCountry.onClick = updateDataConverterControls;
+    rbConvCountryColumn.onClick = updateDataConverterControls;
+    updateDataConverterControls();
 
-    var btnRunConverter = secConverter.add("button", undefined,
-        converterAvail ? "Run Converter" : "Converter not found");
-    btnRunConverter.enabled = converterAvail;
+    rbConvData.onClick = updateConverterPanels;
+    rbConvConfig.onClick = updateConverterPanels;
+    updateConverterPanels();
+
+    // Shared Run button
+    var btnRunConverter = secConverter.add("button", undefined, "Run Converter");
+    btnRunConverter.enabled = converterAvail || configConverterAvail;
     var convStatus = secConverter.add("statictext", undefined, "");
 
     btnRunConverter.onClick = function() {
+        var isDataMode = rbConvData.value === true;
         var inPath  = (fldConvInput.text  || "").replace(/^\s+|\s+$/g, "");
         var outPath = (fldConvOutput.text || "").replace(/^\s+|\s+$/g, "");
+
         if (!inPath) {
             convStatus.text = "Input path is required.";
             return;
@@ -737,43 +789,82 @@
             outPath = fallbackOutFolder.fsName !== undefined ? fallbackOutFolder.fsName : String(fallbackOutFolder);
         }
 
-        // Output is fixed to the pattern data_{country}.json inside the selected output folder.
-        var outputFolderPath = outPath;
-        var outTail = outPath.charAt(outPath.length - 1);
-        if (outTail !== "/" && outTail !== "\\") outputFolderPath += "/";
-        var outputFilePath = outputFolderPath + "data_{country}.json";
-        var validationReportPath = outputFolderPath + "validation_report.json";
+        var cmd = "";
 
-        // Paths quoted for shell; system.callSystem is synchronous — AE UI blocks until converter exits
-        var cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outputFilePath + '"';
-        var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
-        if (cbConvUseFPS.value === true) {
-            if (!fps.length) {
-                convStatus.text = "FPS is enabled but empty.";
+        if (isDataMode) {
+            // ── Data Converter (json_converter) ──────────────────────────
+            if (!converterAvail) {
+                convStatus.text = "Data converter not found: " + (CONVERTER_PATH || "unresolved");
                 return;
             }
-            cmd += " --fps " + fps;
-        }
+            var outputFolderPath = outPath;
+            var outTail = outPath.charAt(outPath.length - 1);
+            if (outTail !== "/" && outTail !== "\\") outputFolderPath += "/";
+            var outputFilePath = outputFolderPath + "data_{country}.json";
+            var validationReportPath = outputFolderPath + "validation_report.json";
 
-        if (rbConvCountryColumn.value === true) {
-            var cc = (fldConvCountryColumn.text || "").replace(/^\s+|\s+$/g, "");
-            if (!/^\d{1,2}$/.test(cc)) {
-                convStatus.text = "Country column must be 1 or 2 digits.";
-                return;
+            cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outputFilePath + '"';
+            var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
+            if (cbConvUseFPS.value === true) {
+                if (!fps.length) {
+                    convStatus.text = "FPS is enabled but empty.";
+                    return;
+                }
+                cmd += " --fps " + fps;
             }
-            cmd += " --country-column " + cc;
+
+            if (rbConvCountryColumn.value === true) {
+                var cc = (fldConvCountryColumn.text || "").replace(/^\s+|\s+$/g, "");
+                if (!/^\d{1,2}$/.test(cc)) {
+                    convStatus.text = "Country column must be 1 or 2 digits.";
+                    return;
+                }
+                cmd += " --country-column " + cc;
+            } else {
+                cmd += " --split-by-country";
+            }
+
+            if (cbConvLayerConfig.value === true) {
+                cmd += ' --layer-config "' + baseFolder + 'config_in.xlsx"';
+            }
+            if (cbConvMediaConfig.value === true) {
+                cmd += ' --media-config "' + baseFolder + 'media_in.xlsx"';
+            }
+            if (cbConvValidation.value === true) {
+                cmd += ' --check --validation-report "' + validationReportPath + '"';
+            }
         } else {
-            cmd += " --split-by-country";
-        }
+            // ── Config Converter (config_converter) ──────────────────────
+            if (!configConverterAvail) {
+                convStatus.text = "Config converter not found: " + (CONFIG_CONVERTER_PATH || "unresolved");
+                return;
+            }
+            var mergeOutPath = (fldConfigMergeOut.text || "").replace(/^\s+|\s+$/g, "");
+            if (!mergeOutPath.length) {
+                var fallbackConfigOut = new Folder(baseFolder + "out");
+                if (!fallbackConfigOut.exists && !fallbackConfigOut.create()) {
+                    convStatus.text = "Failed to create fallback output folder for config.";
+                    return;
+                }
+                mergeOutPath = (fallbackConfigOut.fsName !== undefined ? fallbackConfigOut.fsName : String(fallbackConfigOut)) + "/merged_config.json";
+            }
 
-        if (cbConvLayerConfig.value === true) {
-            cmd += ' --layer-config "' + baseFolder + 'config_in.xlsx"';
-        }
-        if (cbConvMediaConfig.value === true) {
-            cmd += ' --media-config "' + baseFolder + 'media_in.xlsx"';
-        }
-        if (cbConvValidation.value === true) {
-            cmd += ' --check --validation-report "' + validationReportPath + '"';
+            // Resolve preset path: try to use the project's preset
+            var presetPath = fldConfigPreset.text || "";
+            if (!presetPath.length) {
+                convStatus.text = "Preset path is missing.";
+                return;
+            }
+            // If preset is a relative path, resolve it relative to baseFolder/IN/data/config
+            if (!/^\/|^[a-zA-Z]:/.test(presetPath)) {
+                var projectRoot = baseFolder;
+                // Go up from baseFolder (e.g., POST/IN/data/ or POST/WORK/) to POST
+                presetPath = projectRoot + presetPath;
+            }
+
+            // Dummy output (unused when --merge-output is set)
+            var dummyOutput = baseFolder + "config.json";
+            cmd = '"' + CONFIG_CONVERTER_PATH + '" "' + inPath + '" "' + dummyOutput + '" --indent 3 --merge-preset "' + presetPath + '" --merge-output "' + mergeOutPath + '"';
         }
 
         convStatus.text = "Running...";
