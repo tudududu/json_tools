@@ -102,6 +102,54 @@ class InstallerBuildArgsTests(unittest.TestCase):
         self.assertIn("--hidden-import=python.tools.sheet_names_config", args)
         self.assertIn("--hidden-import=python.tools.merge_config_into_preset", args)
 
+    def test_build_merge_config_into_preset_args_contains_required_paths_and_hidden_imports(
+        self,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        python_dir = repo_root / "python"
+        build_root = python_dir / "build" / "merge_config_into_preset"
+
+        installer_module_path = (
+            python_dir / "installer" / "build_merge_config_into_preset.py"
+        )
+        spec = importlib.util.spec_from_file_location(
+            "build_merge_config_into_preset", installer_module_path
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+
+        args = module.build_pyinstaller_args(
+            source_file=python_dir / "merge_config_into_preset.py",
+            repo_root=repo_root,
+            dist_dir=build_root / "dist",
+            work_dir=build_root / "work",
+            spec_dir=build_root / "spec",
+            merge_tool=python_dir / "tools" / "merge_config_into_preset.py",
+            config_tool=python_dir / "tools" / "config_converter.py",
+        )
+
+        self.assertIn("--name=merge_config_into_preset", args)
+        self.assertIn("--onefile", args)
+        self.assertIn(f"--distpath={build_root / 'dist'}", args)
+        self.assertIn(f"--workpath={build_root / 'work'}", args)
+        self.assertIn(f"--specpath={build_root / 'spec'}", args)
+        self.assertIn(
+            f"--add-data={python_dir / 'tools' / 'merge_config_into_preset.py'}:tools",
+            args,
+        )
+        self.assertIn(
+            f"--add-data={python_dir / 'tools' / 'config_converter.py'}:tools", args
+        )
+        self.assertIn(
+            f"--add-data={python_dir / 'tools' / 'sheet_names_config.py'}:tools", args
+        )
+        self.assertIn("--hidden-import=openpyxl", args)
+        self.assertIn("--hidden-import=python.tools.merge_config_into_preset", args)
+        self.assertIn("--hidden-import=python.tools.config_converter", args)
+        self.assertIn("--hidden-import=python.tools.sheet_names_config", args)
+
 
 @unittest.skipUnless(
     os.getenv("RUN_FROZEN_SMOKE") == "1",
