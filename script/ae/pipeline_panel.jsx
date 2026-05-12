@@ -732,7 +732,8 @@
     // Shared Run button
     var btnRunConverter = secConverter.add("button", undefined, "Run Converter");
     btnRunConverter.enabled = converterAvail || configConverterAvail;
-    var convStatus = secConverter.add("statictext", undefined, "");
+    var convStatus = secConverter.add("statictext", undefined, "", { multiline: true });
+    convStatus.alignment = ["fill", "top"];
 
     btnRunConverter.onClick = function() {
         var isDataMode = rbConvData.value === true;
@@ -767,6 +768,7 @@
         }
 
         var cmd = "";
+        var preRunStatus = "";
 
         if (isDataMode) {
             // ── Data Converter (json_converter) ──────────────────────────
@@ -823,21 +825,38 @@
                     convStatus.text = "Failed to create fallback output folder for config.";
                     return;
                 }
-                mergeOutPath = (fallbackConfigOut.fsName !== undefined ? fallbackConfigOut.fsName : String(fallbackConfigOut)) + "/merged_config.json";
+                var fallbackConfigOutPath = (fallbackConfigOut.fsName !== undefined) ? fallbackConfigOut.fsName : String(fallbackConfigOut);
+                var fallbackTail = fallbackConfigOutPath.charAt(fallbackConfigOutPath.length - 1);
+                if (fallbackTail !== "/" && fallbackTail !== "\\") fallbackConfigOutPath += "/";
+                mergeOutPath = fallbackConfigOutPath + "merged_config.json";
             } else {
-                // If user provided a path, check if it's a folder or file
-                var outFile = new File(mergeOutPath);
-                if (outFile.parent && outFile.parent.exists) {
-                    // Looks like a file path (parent exists, but file may not)
-                    // Use as-is
+                // If user provided a path, detect directory intent robustly.
+                var mergeOutIsDir = false;
+                var outTailCh = mergeOutPath.charAt(mergeOutPath.length - 1);
+                if (outTailCh === "/" || outTailCh === "\\") {
+                    mergeOutIsDir = true;
                 } else {
-                    // Treat as folder path, append default filename
+                    var asFolder = new Folder(mergeOutPath);
+                    if (asFolder.exists) {
+                        mergeOutIsDir = true;
+                    } else {
+                        var leaf = mergeOutPath;
+                        var slashIdx = Math.max(mergeOutPath.lastIndexOf("/"), mergeOutPath.lastIndexOf("\\"));
+                        if (slashIdx >= 0) leaf = mergeOutPath.substring(slashIdx + 1);
+                        if (leaf.indexOf(".") < 0) mergeOutIsDir = true;
+                    }
+                }
+
+                if (mergeOutIsDir) {
                     var outFolder = new Folder(mergeOutPath);
                     if (!outFolder.exists && !outFolder.create()) {
                         convStatus.text = "Failed to create output folder for config.";
                         return;
                     }
-                    mergeOutPath = (outFolder.fsName !== undefined ? outFolder.fsName : String(outFolder)) + "/merged_config.json";
+                    var outFolderPath = (outFolder.fsName !== undefined) ? outFolder.fsName : String(outFolder);
+                    var outFolderTail = outFolderPath.charAt(outFolderPath.length - 1);
+                    if (outFolderTail !== "/" && outFolderTail !== "\\") outFolderPath += "/";
+                    mergeOutPath = outFolderPath + "merged_config.json";
                 }
             }
 
@@ -855,9 +874,10 @@
             // Dummy output (unused when --merge-output is set)
             var dummyOutput = baseFolder + "config.json";
             cmd = '"' + CONFIG_CONVERTER_PATH + '" "' + inPath + '" "' + dummyOutput + '" --indent 3 --merge-preset "' + presetPath + '" --merge-output "' + mergeOutPath + '"';
+            preRunStatus = "Running config converter...\nPreset: " + presetPath + "\nMerge output: " + mergeOutPath;
         }
 
-        convStatus.text = "Running...";
+        convStatus.text = preRunStatus.length ? preRunStatus : "Running...";
         var code = system.callSystem(cmd);
         convStatus.text = (code === 0) ? "OK" : ("Result: " + code);
     };
