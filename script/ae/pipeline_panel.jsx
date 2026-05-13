@@ -732,7 +732,7 @@
     // Shared Run button
     var btnRunConverter = secConverter.add("button", undefined, "Run Converter");
     btnRunConverter.enabled = converterAvail || configConverterAvail;
-    var convStatus = secConverter.add("statictext", undefined, "", { multiline: true });
+    var convStatus = secConverter.add("statictext", undefined, " \n \n ", { multiline: true });
     convStatus.alignment = ["fill", "top"];
 
     btnRunConverter.onClick = function() {
@@ -874,12 +874,13 @@
             // Dummy output (unused when --merge-output is set)
             var dummyOutput = baseFolder + "config.json";
             cmd = '"' + CONFIG_CONVERTER_PATH + '" "' + inPath + '" "' + dummyOutput + '" --indent 3 --merge-preset "' + presetPath + '" --merge-output "' + mergeOutPath + '"';
-            preRunStatus = "Running config converter...\nPreset: " + presetPath + "\nMerge output: " + mergeOutPath;
+            preRunStatus = "Running config converter...\nPreset: " + presetPath/* + "\nMerge output: " + mergeOutPath*/;
         }
 
         convStatus.text = preRunStatus.length ? preRunStatus : "Running...";
         var code = system.callSystem(cmd);
         convStatus.text = (code === 0) ? "OK" : ("Result: " + code);
+        alert("Result: " + code + "\n" + preRunStatus.substring(27, preRunStatus.length));
     };
 
     // ── S12: RUN CONTROLS ────────────────────────────────────────────────────
