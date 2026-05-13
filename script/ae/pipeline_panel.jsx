@@ -674,12 +674,12 @@
     pnlDataConverter.alignChildren = "left";
 
     var rowDataOpts = mkRow(pnlDataConverter);
-    rowDataOpts.add("statictext", undefined, "FPS:");
-    var cbConvUseFPS = rowDataOpts.add("checkbox", undefined, "");
-    cbConvUseFPS.value = false;
-    var fldConvFPS = rowDataOpts.add("edittext", undefined, "");
-    fldConvFPS.preferredSize.width = 36;
-    fldConvFPS.enabled = false;
+    // rowDataOpts.add("statictext", undefined, "FPS:");
+    // var cbConvUseFPS = rowDataOpts.add("checkbox", undefined, "");
+    // cbConvUseFPS.value = false;
+    // var fldConvFPS = rowDataOpts.add("edittext", undefined, "");
+    // fldConvFPS.preferredSize.width = 36;
+    // fldConvFPS.enabled = false;
 
     var rowDataCountryMode = mkRow(pnlDataConverter);
     var rbConvSplitByCountry = rowDataCountryMode.add("radiobutton", undefined, "--split-by-country");
@@ -687,9 +687,9 @@
     rbConvSplitByCountry.value = true;
     rbConvCountryColumn.value = false;
 
-    var rowDataCountryCol = mkRow(pnlDataConverter);
-    rowDataCountryCol.add("statictext", undefined, "Country column:");
-    var fldConvCountryColumn = rowDataCountryCol.add("edittext", undefined, "01");
+    // var rowDataCountryCol = mkRow(pnlDataConverter);
+    // rowDataCountryCol.add("statictext", undefined, "Country column:");
+    var fldConvCountryColumn = rowDataCountryMode.add("edittext", undefined, "01");
     fldConvCountryColumn.preferredSize.width = 36;
     fldConvCountryColumn.enabled = false;
 
@@ -711,7 +711,7 @@
 
     // Mode-specific update functions
     function updateDataConverterControls() {
-        fldConvFPS.enabled = cbConvUseFPS.value === true;
+        // fldConvFPS.enabled = cbConvUseFPS.value === true;
         fldConvCountryColumn.enabled = rbConvCountryColumn.value === true;
     }
 
@@ -720,7 +720,7 @@
         pnlDataConverter.visible = isDataMode;
     }
 
-    cbConvUseFPS.onClick = updateDataConverterControls;
+    // cbConvUseFPS.onClick = updateDataConverterControls;
     rbConvSplitByCountry.onClick = updateDataConverterControls;
     rbConvCountryColumn.onClick = updateDataConverterControls;
     updateDataConverterControls();
@@ -783,14 +783,14 @@
             var validationReportPath = outputFolderPath + "validation_report.json";
 
             cmd = '"' + CONVERTER_PATH + '" "' + inPath + '" "' + outputFilePath + '"';
-            var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
-            if (cbConvUseFPS.value === true) {
-                if (!fps.length) {
-                    convStatus.text = "FPS is enabled but empty.";
-                    return;
-                }
-                cmd += " --fps " + fps;
-            }
+            // var fps = (fldConvFPS.text || "").replace(/^\s+|\s+$/g, "");
+            // if (cbConvUseFPS.value === true) {
+            //     if (!fps.length) {
+            //         convStatus.text = "FPS is enabled but empty.";
+            //         return;
+            //     }
+            //     cmd += " --fps " + fps;
+            // }
 
             if (rbConvCountryColumn.value === true) {
                 var cc = (fldConvCountryColumn.text || "").replace(/^\s+|\s+$/g, "");
