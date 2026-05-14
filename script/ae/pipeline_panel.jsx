@@ -649,7 +649,7 @@
     var rowConvIn = mkRow(secConverter);
     rowConvIn.add("statictext", undefined, "Input:");
     var fldConvInput = rowConvIn.add("edittext", undefined, "");
-    fldConvInput.preferredSize.width = 175;
+    fldConvInput.preferredSize.width = 330;
     var btnConvIn = rowConvIn.add("button", undefined, "...");
     btnConvIn.preferredSize.width = 24;
     btnConvIn.onClick = function() {
@@ -658,9 +658,9 @@
     };
 
     var rowConvOut = mkRow(secConverter);
-    rowConvOut.add("statictext", undefined, "Output folder:");
+    rowConvOut.add("statictext", undefined, "Output:");
     var fldConvOutput = rowConvOut.add("edittext", undefined, "");
-    fldConvOutput.preferredSize.width = 175;
+    fldConvOutput.preferredSize.width = 320;
     var btnConvOut = rowConvOut.add("button", undefined, "...");
     btnConvOut.preferredSize.width = 24;
     btnConvOut.onClick = function() {
@@ -696,8 +696,8 @@
     var rowDataConfigs = mkRow(pnlDataConverter);
     var cbConvLayerConfig = rowDataConfigs.add("checkbox", undefined, "--layer-config (config_in.xlsx)");
     var cbConvMediaConfig = rowDataConfigs.add("checkbox", undefined, "--media-config (media_in.xlsx)");
-    cbConvLayerConfig.value = true;
-    cbConvMediaConfig.value = true;
+    cbConvLayerConfig.value = false;
+    cbConvMediaConfig.value = false;
 
     var rowDataValidation = mkRow(pnlDataConverter);
     var cbConvValidation = rowDataValidation.add("checkbox", undefined, "Validation");
@@ -1168,7 +1168,7 @@
         setAMEExportSubpath(getOpt(p, ["ame", "EXPORT_SUBPATH"], "OUT/custom"));
         cbAMEIsoSuffix.value         = optB(p, ["ame", "ENABLE_DATE_FOLDER_ISO_SUFFIX"],     true);
         cbAMELangSubfolder.value     = optB(p, ["ame", "USE_LANGUAGE_SUBFOLDER"],            false);
-        cbAMEFileLog.value           = optB(p, ["ame", "ENABLE_FILE_LOG"],                    true);
+        cbAMEFileLog.value           = optB(p, ["ame", "ENABLE_FILE_LOG"],                    false);
         rbAMESortMimic.value         = optB(p, ["ame", "MIMIC_PROJECT_FOLDER_STRUCTURE"],    true);
         rbAMESortDurationFirst.value = optB(p, ["ame", "DURATION_FIRST_ORDER"],              false);
         rbAMESortArFirst.value       = !rbAMESortMimic.value && !rbAMESortDurationFirst.value;
