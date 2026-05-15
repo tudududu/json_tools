@@ -1,6 +1,7 @@
 // transform_scale_logo.js
 // TARGET ► Scale
-var holder = thisComp.layer("Size_Holder_Logo");
+var holderName = "locker_" + thisLayer.name;
+var holder = thisComp.layer(holderName);
 var group = holder.content("PLACEHOLDER");
 var rect  = group.content("Rectangle Path 1");
 
