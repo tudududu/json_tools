@@ -235,9 +235,6 @@
 
         var path = raw.replace(/[\\]+/g, "/");
         path = path.replace(/^\.\//, "");
-        if (path.toLowerCase().indexOf("project/") === 0) {
-            path = path.substring("project/".length);
-        }
 
         var parts = path.split("/");
         var parent = root;
