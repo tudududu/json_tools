@@ -241,17 +241,50 @@
             resolved[i] = desired;
             var parsed = parseNumericSuffix(desired);
             if (parsed) {
-                tracked.push({ index: i, base: parsed.base, width: parsed.width });
+                tracked.push({
+                    index: i,
+                    base: parsed.base,
+                    width: parsed.width,
+                    desiredRaw: desired,
+                    hasNumericSeed: true
+                });
+            } else if (desired.length) {
+                tracked.push({
+                    index: i,
+                    base: desired,
+                    width: 2,
+                    desiredRaw: desired,
+                    hasNumericSeed: false
+                });
             }
         }
 
-        // If fewer than 2 suffixed layers are present, keep default behavior.
+        // If fewer than 2 named layers are present, keep default behavior.
         if (tracked.length < 2) {
             for (i = 0; i < layers.length; i++) {
                 if (!String(resolved[i] || "").length) {
                     resolved[i] = generateUniqueLayerName(comp, String((layers[i] && layers[i].name) || "layer"));
                 } else {
                     resolved[i] = generateUniqueLayerName(comp, resolved[i]);
+                }
+            }
+            return resolved;
+        }
+
+        // Shared suffix mode if any bundle member already exists or bundle is explicitly seeded with numeric names.
+        var useSharedSuffix = false;
+        for (i = 0; i < tracked.length; i++) {
+            if (tracked[i].hasNumericSeed || layerExistsByName(comp, tracked[i].desiredRaw)) {
+                useSharedSuffix = true;
+                break;
+            }
+        }
+
+        if (!useSharedSuffix) {
+            // Fresh insertion: keep raw names without suffix inflation.
+            for (i = 0; i < layers.length; i++) {
+                if (!String(resolved[i] || "").length) {
+                    resolved[i] = generateUniqueLayerName(comp, String((layers[i] && layers[i].name) || "layer"));
                 }
             }
             return resolved;
@@ -284,14 +317,10 @@
             resolved[tracked[i].index] = tracked[i].base + "_" + padSuffix(sharedSuffix, tracked[i].width);
         }
 
-        // Non-suffixed names keep the regular unique-name behavior.
+        // Entries without any usable name still fall back to regular unique naming.
         for (i = 0; i < layers.length; i++) {
             if (i >= resolved.length || resolved[i] === undefined || resolved[i] === null) {
                 resolved[i] = generateUniqueLayerName(comp, String((layers[i] && layers[i].name) || "layer"));
-                continue;
-            }
-            if (!parseNumericSuffix(String((layers[i] && layers[i].name) || ""))) {
-                resolved[i] = generateUniqueLayerName(comp, String(resolved[i] || "layer"));
             }
         }
 
