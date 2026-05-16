@@ -209,6 +209,95 @@
         });
     }
 
+    function parseNumericSuffix(name) {
+        var s = String(name || "");
+        var m = s.match(/^(.*)_([0-9]{2,3})$/);
+        if (!m) return null;
+        return {
+            base: m[1],
+            num: parseInt(m[2], 10),
+            width: m[2].length
+        };
+    }
+
+    function findNextAvailableSuffixForBase(comp, base, width, startAt) {
+        var start = parseInt(startAt, 10);
+        if (isNaN(start) || start < 1) start = 1;
+        for (var sfx = start; sfx <= 999; sfx++) {
+            var candidate = String(base || "") + "_" + padSuffix(sfx, width);
+            if (!layerExistsByName(comp, candidate)) return sfx;
+        }
+        return start;
+    }
+
+    function buildBundleResolvedNames(comp, layers) {
+        var resolved = [];
+        var tracked = [];
+        var i;
+
+        for (i = 0; i < layers.length; i++) {
+            var spec = layers[i] || {};
+            var desired = String(spec.name || "");
+            resolved[i] = desired;
+            var parsed = parseNumericSuffix(desired);
+            if (parsed) {
+                tracked.push({ index: i, base: parsed.base, width: parsed.width });
+            }
+        }
+
+        // If fewer than 2 suffixed layers are present, keep default behavior.
+        if (tracked.length < 2) {
+            for (i = 0; i < layers.length; i++) {
+                if (!String(resolved[i] || "").length) {
+                    resolved[i] = generateUniqueLayerName(comp, String((layers[i] && layers[i].name) || "layer"));
+                } else {
+                    resolved[i] = generateUniqueLayerName(comp, resolved[i]);
+                }
+            }
+            return resolved;
+        }
+
+        // Pick one shared suffix: start from the highest individually required suffix.
+        var sharedSuffix = 1;
+        for (i = 0; i < tracked.length; i++) {
+            var need = findNextAvailableSuffixForBase(comp, tracked[i].base, tracked[i].width, 1);
+            if (need > sharedSuffix) sharedSuffix = need;
+        }
+
+        // Ensure the chosen shared suffix is simultaneously free for all tracked layers.
+        var guard = 0;
+        while (guard < 1000) {
+            var allFree = true;
+            for (i = 0; i < tracked.length; i++) {
+                var candidate = tracked[i].base + "_" + padSuffix(sharedSuffix, tracked[i].width);
+                if (layerExistsByName(comp, candidate)) {
+                    allFree = false;
+                    break;
+                }
+            }
+            if (allFree) break;
+            sharedSuffix++;
+            guard++;
+        }
+
+        for (i = 0; i < tracked.length; i++) {
+            resolved[tracked[i].index] = tracked[i].base + "_" + padSuffix(sharedSuffix, tracked[i].width);
+        }
+
+        // Non-suffixed names keep the regular unique-name behavior.
+        for (i = 0; i < layers.length; i++) {
+            if (i >= resolved.length || resolved[i] === undefined || resolved[i] === null) {
+                resolved[i] = generateUniqueLayerName(comp, String((layers[i] && layers[i].name) || "layer"));
+                continue;
+            }
+            if (!parseNumericSuffix(String((layers[i] && layers[i].name) || ""))) {
+                resolved[i] = generateUniqueLayerName(comp, String(resolved[i] || "layer"));
+            }
+        }
+
+        return resolved;
+    }
+
     function generateUniqueProjectItemName(project, desiredName) {
         return generateUniqueNameByExists(desiredName, function(candidate) {
             return projectItemExistsByName(project, candidate);
@@ -650,11 +739,11 @@
 
     // ── LAYER CREATORS ────────────────────────────────────────────────────────
 
-    function createTextLayer(comp, layerSpec) {
+    function createTextLayer(comp, layerSpec, resolvedName) {
         // Create at top (index 1 in AE stack). addText always inserts at the top.
         var layer = comp.layers.addText("");
-        var desiredName = String(layerSpec.name || "text_layer");
-        var uniqueName = generateUniqueLayerName(comp, desiredName);
+        var desiredName = String(resolvedName || layerSpec.name || "text_layer");
+        var uniqueName = desiredName;
         layer.name = uniqueName;
 
         // Apply optional text styling (font, size) before property/expression wiring.
@@ -680,10 +769,10 @@
         return layer;
     }
 
-    function createShapeLayer(comp, layerSpec) {
+    function createShapeLayer(comp, layerSpec, resolvedName) {
         var layer = comp.layers.addShape();
-        var desiredName = String(layerSpec.name || "shape_layer");
-        var uniqueName = generateUniqueLayerName(comp, desiredName);
+        var desiredName = String(resolvedName || layerSpec.name || "shape_layer");
+        var uniqueName = desiredName;
         layer.name = uniqueName;
 
         applyShapeContents(layer, layerSpec.shapeContents);
@@ -702,7 +791,7 @@
         return layer;
     }
 
-    function createCompLayer(comp, layerSpec) {
+    function createCompLayer(comp, layerSpec, resolvedName) {
         var project = app.project;
         if (!project) throw new Error("No active project available for comp layer creation.");
 
@@ -721,8 +810,8 @@
         if (parentFolder) subComp.parentFolder = parentFolder;
 
         var layer = comp.layers.add(subComp);
-        var desiredLayerName = String(layerSpec.name || compItemName || "comp_layer");
-        var uniqueLayerName = generateUniqueLayerName(comp, desiredLayerName);
+        var desiredLayerName = String(resolvedName || layerSpec.name || compItemName || "comp_layer");
+        var uniqueLayerName = desiredLayerName;
         layer.name = uniqueLayerName;
 
         var props = layerSpec.properties || {};
@@ -774,6 +863,7 @@
             }
             var item = templates[id];
             var layers = (item && item.layers instanceof Array) ? item.layers : [];
+            var resolvedBundleNames = buildBundleResolvedNames(comp, layers);
 
             // Create layers inside one undo group
             // Layers listed first in the array end up highest in the stack.
@@ -786,13 +876,16 @@
                     var spec = layers[i];
                     var layerType = String(spec.type || "text").toLowerCase();
                     var createdLayer = null;
+                    var resolvedName = (resolvedBundleNames && resolvedBundleNames.length > i)
+                        ? String(resolvedBundleNames[i] || "")
+                        : String((spec && spec.name) || "");
 
                     if (layerType === "text") {
-                        createdLayer = createTextLayer(comp, spec);
+                        createdLayer = createTextLayer(comp, spec, resolvedName);
                     } else if (layerType === "shape") {
-                        createdLayer = createShapeLayer(comp, spec);
+                        createdLayer = createShapeLayer(comp, spec, resolvedName);
                     } else if (layerType === "comp") {
-                        createdLayer = createCompLayer(comp, spec);
+                        createdLayer = createCompLayer(comp, spec, resolvedName);
                     } else {
                         $.writeln("[layer_template] Unsupported layer type '" + layerType + "' — skipped.");
                         continue;
