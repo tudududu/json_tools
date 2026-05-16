@@ -937,7 +937,8 @@
         "Layer template: claim",
         "Layer template: super_A",
         "Layer template: disclaimer",
-        "Layer template: subtitles"
+        "Layer template: subtitles",
+        "Layer template: logo"
     ]);
     ddTemplateOp.preferredSize.width = 210;
 
@@ -1106,6 +1107,10 @@
         }
         if (op === "Layer template: subtitles") {
             runLayerTemplateItem("subtitles");
+            return;
+        }
+        if (op === "Layer template: logo") {
+            runLayerTemplateItem("logo");
             return;
         }
         setTemplateStatus("Expression injector is not implemented yet.");

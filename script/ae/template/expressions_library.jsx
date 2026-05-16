@@ -1026,6 +1026,118 @@
         '}'
     ].join("\n");
 
+    // transform_anchor_logo — expression_ae/logo/transform_anchor_logo.js
+    __POOL["transform_anchor_logo"] = [
+        '// transform_anchor_logo.js',
+        '// TARGET ► Anchor Point (2D/3D‑safe center to true bounds)',
+        'var is3D = thisLayer.threeDLayer;',
+        '',
+        'function centeredXY(includeExtents){',
+        '  try {',
+        '    var r = sourceRectAtTime(time, includeExtents); // works for Text/Shapes',
+        '    return [r.left + r.width/2, r.top + r.height/2];',
+        '  } catch (e) {',
+        '    // Fallback for footage/precomp or if SRAT isn\'t available',
+        '    return [width/2, height/2];',
+        '  }',
+        '}',
+        '',
+        'var xy = centeredXY(false); // set to true if you want to include stroke/shadow extents',
+        'is3D ? [xy[0], xy[1], value[2]] : xy;'
+    ].join("\n");
+
+    // transform_position_logo — expression_ae/logo/transform_position_logo.js
+    __POOL["transform_position_logo"] = [
+        '// transform_position_logo.js',
+        '// TARGET ► Position',
+        'var holderName = "locker_" + thisLayer.name;',
+        'var holder = thisComp.layer(holderName);',
+        'var group = holder.content("PLACEHOLDER");',
+        'var rect  = group.content("Rectangle Path 1");',
+        '',
+        '// Center of rect (comp space)',
+        'var gp = group.transform.position;',
+        'var C  = holder.toComp(gp);',
+        '',
+        '// Holder\'s local axes in comp space',
+        'function norm(v){ var L = length(v,[0,0,0]); return (L>0)? v/L : v; }',
+        'var Xaxis = norm(holder.toCompVec([1,0,0]));',
+        'var Yaxis = norm(holder.toCompVec([0,1,0]));',
+        '',
+        '// Comp-space half extents of the rectangle (handles holder transforms)',
+        'var cCenter = holder.toComp(gp);',
+        'var cRight  = holder.toComp([gp[0] + rect.size[0]/2, gp[1]]);',
+        'var cTop    = holder.toComp([gp[0], gp[1] - rect.size[1]/2]); // -Y is up in layer space',
+        'var halfW   = length(cRight - cCenter);',
+        'var halfH   = length(cTop   - cCenter);',
+        '',
+        '// Optional controls with defaults',
+        'function ctrl(name, def){',
+        '  try{ return holder.effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value; } catch(e){ return def; }',
+        '}',
+        'var pad = Math.max(0, ctrl("Padding", 0));',
+        'var ax  = Math.max(-1, Math.min(1, ctrl("Align X", 0))); // -1..1',
+        'var ay  = Math.max(-1, Math.min(1, ctrl("Align Y", 0))); // -1..1',
+        '',
+        '// Apply padding by shrinking usable half-extents',
+        'halfW = Math.max(0, halfW - pad);',
+        'halfH = Math.max(0, halfH - pad);',
+        '',
+        '// Offset within holder along its local axes',
+        'C + Xaxis * (ax * halfW) + Yaxis * (ay * halfH);'
+    ].join("\n");
+
+    // transform_scale_logo — expression_ae/logo/transform_scale_logo.js
+    __POOL["transform_scale_logo"] = [
+        '// transform_scale_logo.js',
+        '// TARGET ► Scale',
+        'var holderName = "locker_" + thisLayer.name;',
+        'var holder = thisComp.layer(holderName);',
+        'var group = holder.content("PLACEHOLDER");',
+        'var rect  = group.content("Rectangle Path 1");',
+        '',
+        '// Fetch holder rectangle size & center in COMP space (supports holder layer transforms)',
+        'var gp = group.transform.position;    // center of the rectangle (layer space)',
+        'var sz = rect.size;                   // [w,h] in layer space (pre layer transform)',
+        '',
+        '// Comp-space width/height of the rect (works even if holder is scaled/rotated)',
+        'var cC = holder.toComp(gp);',
+        'var cL = holder.toComp([gp[0] - sz[0]/2, gp[1]]);',
+        'var cR = holder.toComp([gp[0] + sz[0]/2, gp[1]]);',
+        'var cT = holder.toComp([gp[0], gp[1] - sz[1]/2]);',
+        'var cB = holder.toComp([gp[0], gp[1] + sz[1]/2]);',
+        '',
+        'var holderW = length(cL, cR);',
+        'var holderH = length(cT, cB);',
+        '',
+        '// Optional controls (with safe defaults)',
+        'function ctrl(name, def){',
+        '  try{ return holder.effect(name)(name.match(/Menu/i) ? "Menu" : "Slider").value; } catch(e){ return def; }',
+        '}',
+        'var mode = Math.round(ctrl("Fit Mode", 1)); // 1=Contain, 2=Fill, 3=Stretch',
+        'var pad  = Math.max(0, ctrl("Padding", 0)); // pixels',
+        '',
+        'holderW = Math.max(1, holderW - 2*pad);',
+        'holderH = Math.max(1, holderH - 2*pad);',
+        '',
+        '// Get the target\'s *intrinsic* content size',
+        'function contentSize(li){',
+        '  // Prefer sourceRectAtTime (true bounds for text/shapes)',
+        '  try {',
+        '    var rr = li.sourceRectAtTime(time, false);',
+        '    if (rr.width > 0 && rr.height > 0) return [rr.width, rr.height];',
+        '  } catch(e){}',
+        '  // Fallback for footage/precomps',
+        '  return [li.width, li.height];',
+        '}',
+        'var s = contentSize(thisLayer);',
+        '',
+        'var sx = holderW / s[0] * 100;',
+        'var sy = holderH / s[1] * 100;',
+        '',
+        '(mode == 3) ? [sx, sy] : (mode == 1 ? Math.min(sx, sy) : Math.max(sx, sy)) * [1,1];'
+    ].join("\n");
+
     // ── info (generated) ─────────────────────────────────────────────────────
 
     // info_source_text → sourceText_json_info
@@ -1050,6 +1162,20 @@
 
     // claim_opacity → opacity_fadein_onTime_v08
     globalObj.AE_EXPRESSIONS["claim_opacity"] = __POOL["opacity_fadein_onTime_v08"];
+
+    // ── logo (generated) ─────────────────────────────────────────────────────
+
+    // logo_anchor → transform_anchor_logo
+    globalObj.AE_EXPRESSIONS["logo_anchor"] = __POOL["transform_anchor_logo"];
+
+    // logo_position → transform_position_logo
+    globalObj.AE_EXPRESSIONS["logo_position"] = __POOL["transform_position_logo"];
+
+    // logo_scale → transform_scale_logo
+    globalObj.AE_EXPRESSIONS["logo_scale"] = __POOL["transform_scale_logo"];
+
+    // logo_opacity → opacity_fadein_onTime_v08
+    globalObj.AE_EXPRESSIONS["logo_opacity"] = __POOL["opacity_fadein_onTime_v08"];
 
     // ── super_A (generated) ──────────────────────────────────────────────────
 

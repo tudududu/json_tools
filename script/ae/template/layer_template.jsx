@@ -153,41 +153,105 @@
         return [r, g, b];
     }
 
-    function generateUniqueName(comp, desiredName) {
-            var existingLayer = null;
-            try {
-                existingLayer = comp.layer(desiredName);
-                // Layer exists; need to find unique suffix
-            } catch(e) {
-                // Layer does not exist; name is available
-                existingLayer = null;
-            }
-            if (!existingLayer) {
-                return desiredName;
-            }
+    function padSuffix(num, width) {
+        var s = String(num);
+        while (s.length < width) s = "0" + s;
+        return s;
+    }
 
-        // Try name_01, name_02, ..., name_99, then name_001, name_002, etc.
+    function generateUniqueNameByExists(desiredName, existsFn) {
+        var name = String(desiredName || "");
+        if (!name.length) name = "layer";
+
+        if (!existsFn(name)) return name;
+
+        var match = name.match(/^(.*)_([0-9]{2,3})$/);
+        if (match) {
+            var base = match[1];
+            var width = match[2].length;
+            for (var sfx = 1; sfx <= 999; sfx++) {
+                var seqCandidate = base + "_" + padSuffix(sfx, width);
+                if (!existsFn(seqCandidate)) return seqCandidate;
+            }
+            return base + "_" + (parseInt(match[2], 10) + 1);
+        }
+
         for (var suffix = 1; suffix <= 999; suffix++) {
             var candidateName;
             if (suffix <= 99) {
-                candidateName = desiredName + "_" + (suffix < 10 ? "0" : "") + suffix;
+                candidateName = name + "_" + padSuffix(suffix, 2);
             } else {
-                candidateName = desiredName + "_" + suffix;
+                candidateName = name + "_" + suffix;
             }
-                var candidateLayer = null;
-                try {
-                    candidateLayer = comp.layer(candidateName);
-                    // This name also exists; continue looping
-                } catch(e) {
-                    // Name is available
-                    candidateLayer = null;
-                }
-                if (!candidateLayer) {
-                return candidateName;
-            }
+            if (!existsFn(candidateName)) return candidateName;
         }
-        // Fallback (unlikely): return the original name if we can't find a unique one
-        return desiredName;
+        return name;
+    }
+
+    function layerExistsByName(comp, name) {
+        try { return !!comp.layer(name); } catch(e) { return false; }
+    }
+
+    function projectItemExistsByName(project, name) {
+        try {
+            var n = project.numItems;
+            for (var i = 1; i <= n; i++) {
+                var it = project.item(i);
+                if (it && String(it.name || "") === String(name || "")) return true;
+            }
+        } catch(e) {}
+        return false;
+    }
+
+    function generateUniqueLayerName(comp, desiredName) {
+        return generateUniqueNameByExists(desiredName, function(candidate) {
+            return layerExistsByName(comp, candidate);
+        });
+    }
+
+    function generateUniqueProjectItemName(project, desiredName) {
+        return generateUniqueNameByExists(desiredName, function(candidate) {
+            return projectItemExistsByName(project, candidate);
+        });
+    }
+
+    function findProjectFolderByName(parentFolder, name) {
+        try {
+            var n = parentFolder.numItems;
+            for (var i = 1; i <= n; i++) {
+                var it = parentFolder.item(i);
+                if (it && (it instanceof FolderItem) && String(it.name || "") === String(name || "")) {
+                    return it;
+                }
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    function resolveOrCreateProjectFolder(project, folderPath) {
+        var root = project.rootFolder;
+        var raw = String(folderPath || "").replace(/^\s+|\s+$/g, "");
+        if (!raw.length) return root;
+
+        var path = raw.replace(/[\\]+/g, "/");
+        path = path.replace(/^\.\//, "");
+        if (path.toLowerCase().indexOf("project/") === 0) {
+            path = path.substring("project/".length);
+        }
+
+        var parts = path.split("/");
+        var parent = root;
+        for (var i = 0; i < parts.length; i++) {
+            var seg = String(parts[i] || "").replace(/^\s+|\s+$/g, "");
+            if (!seg.length) continue;
+            var nextFolder = findProjectFolderByName(parent, seg);
+            if (!nextFolder) {
+                nextFolder = project.items.addFolder(seg);
+                nextFolder.parentFolder = parent;
+            }
+            parent = nextFolder;
+        }
+        return parent;
     }
 
     // ── PROPERTY SETTERS ──────────────────────────────────────────────────────
@@ -593,7 +657,7 @@
         // Create at top (index 1 in AE stack). addText always inserts at the top.
         var layer = comp.layers.addText("");
         var desiredName = String(layerSpec.name || "text_layer");
-        var uniqueName = generateUniqueName(comp, desiredName);
+        var uniqueName = generateUniqueLayerName(comp, desiredName);
         layer.name = uniqueName;
 
         // Apply optional text styling (font, size) before property/expression wiring.
@@ -622,10 +686,47 @@
     function createShapeLayer(comp, layerSpec) {
         var layer = comp.layers.addShape();
         var desiredName = String(layerSpec.name || "shape_layer");
-        var uniqueName = generateUniqueName(comp, desiredName);
+        var uniqueName = generateUniqueLayerName(comp, desiredName);
         layer.name = uniqueName;
 
         applyShapeContents(layer, layerSpec.shapeContents);
+
+        var props = layerSpec.properties || {};
+        for (var p in props) {
+            if (!props.hasOwnProperty(p)) continue;
+            applyPropertyValue(layer, p, props[p]);
+        }
+
+        applyEffectControls(layer, layerSpec.effectControls);
+        applyEffects(layer, layerSpec.effects);
+        applyExpressions(layer, layerSpec.expressions);
+        applyAttributes(layer, layerSpec.attributes);
+
+        return layer;
+    }
+
+    function createCompLayer(comp, layerSpec) {
+        var project = app.project;
+        if (!project) throw new Error("No active project available for comp layer creation.");
+
+        var ci = layerSpec.compItem || {};
+        var compItemBaseName = String(ci.name || layerSpec.name || "subcomp_01");
+        var compItemName = generateUniqueProjectItemName(project, compItemBaseName);
+
+        var width = Math.round(clampNumber(ci.width, 1, 30000, 1000));
+        var height = Math.round(clampNumber(ci.height, 1, 30000, 1000));
+        var pixelAspect = clampNumber(ci.pixelAspect, 0.01, 100, 1);
+        var duration = clampNumber(ci.duration, 0.01, 86400, 180);
+        var frameRate = clampNumber(ci.frameRate, 1, 240, 25);
+
+        var subComp = project.items.addComp(compItemName, width, height, pixelAspect, duration, frameRate);
+        var parentFolder = resolveOrCreateProjectFolder(project, ci.parentFolder || "project/work/subcomp");
+        if (parentFolder) subComp.parentFolder = parentFolder;
+
+        var layer = comp.layers.add(subComp);
+        var desiredLayerName = String(layerSpec.name || compItemName || "comp_layer");
+        var uniqueLayerName = generateUniqueLayerName(comp, desiredLayerName);
+        layer.name = uniqueLayerName;
 
         var props = layerSpec.properties || {};
         for (var p in props) {
@@ -693,6 +794,8 @@
                         createdLayer = createTextLayer(comp, spec);
                     } else if (layerType === "shape") {
                         createdLayer = createShapeLayer(comp, spec);
+                    } else if (layerType === "comp") {
+                        createdLayer = createCompLayer(comp, spec);
                     } else {
                         $.writeln("[layer_template] Unsupported layer type '" + layerType + "' — skipped.");
                         continue;

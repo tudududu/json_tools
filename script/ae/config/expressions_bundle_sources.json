@@ -43,6 +43,18 @@
     {
       "id": "transform_position_subtitles_v04",
       "path": "expression_ae/subtitles/transform_position_subtitles_v04.js"
+    },
+    {
+      "id": "transform_anchor_logo",
+      "path": "expression_ae/logo/transform_anchor_logo.js"
+    },
+    {
+      "id": "transform_position_logo",
+      "path": "expression_ae/logo/transform_position_logo.js"
+    },
+    {
+      "id": "transform_scale_logo",
+      "path": "expression_ae/logo/transform_scale_logo.js"
     }
   ],
 
@@ -55,6 +67,11 @@
     { "group": "claim",      "key": "claim_position",          "expr": "position_baseline_locked_text_multiline" },
     { "group": "claim",      "key": "claim_scale",             "expr": "scale_uniform_contain_v02" },
     { "group": "claim",      "key": "claim_opacity",           "expr": "opacity_fadein_onTime_v08" },
+
+    { "group": "logo",       "key": "logo_anchor",             "expr": "transform_anchor_logo" },
+    { "group": "logo",       "key": "logo_position",           "expr": "transform_position_logo" },
+    { "group": "logo",       "key": "logo_scale",              "expr": "transform_scale_logo" },
+    { "group": "logo",       "key": "logo_opacity",            "expr": "opacity_fadein_onTime_v08" },
 
     { "group": "super_A",    "key": "super_A_source_text",     "expr": "sourceText_json_wire_v11" },
     { "group": "super_A",    "key": "super_A_anchor",          "expr": "transform_anchor_super_A" },

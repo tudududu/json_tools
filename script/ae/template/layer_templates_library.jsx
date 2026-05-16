@@ -187,6 +187,102 @@
         ]
     };
 
+    // ── ITEM: logo ───────────────────────────────────────────────────────────
+    // Two-layer bundle: comp layer (logo) + shape (locker_logo).
+    // Mirrors claim behavior but replaces text with a dedicated logo subcomp.
+    globalObj.AE_LAYER_TEMPLATES["logo"] = {
+        id:    "logo",
+        label: "Logo",
+        layers: [
+            {
+                type: "comp",
+                name: "logo_01",
+                compItem: {
+                    name: "logo_01",
+                    parentFolder: "./project/work/subcomp",
+                    duration: 180,
+                    frameRate: 25,
+                    width: 1000,
+                    height: 1000,
+                    pixelAspect: 1
+                },
+                properties: {
+                    "Transform.Position": [960, 540]
+                },
+                expressions: {
+                    "Transform.Anchor":  "logo_anchor",
+                    "Transform.Position": "logo_position",
+                    "Transform.Scale":    "logo_scale",
+                    "Transform.Opacity":  "logo_opacity"
+                },
+                effectControls: [
+                    { type: "slider",   name: "Name Shift",       defaultValue: 1 },
+                    { type: "dropdown", name: "Data Key Menu",    items: ["claim", "disclaimer", "logo", "subtitles", "super_A", "super_B"], defaultSelectedIndex: 3 },
+                    { type: "dropdown", name: "Orientation Menu", items: ["Auto", "Landscape", "Portrait"], defaultSelectedIndex: 1 },
+                    { type: "slider",   name: "Desired Line",     defaultValue: 0 },
+                    { type: "slider",   name: "Fade In",          defaultValue: 1.0 },
+                    { type: "slider",   name: "Fade Out",         defaultValue: 0 },
+                    { type: "slider",   name: "Opacity In",       defaultValue: 0 }
+                ],
+                effects: [
+                    {
+                        matchName: "ADBE Drop Shadow",
+                        properties: {
+                            "Color": "#000000",
+                            "Opacity": 98,
+                            "Direction": 145,
+                            "Distance": 5,
+                            "Softness": 300
+                        }
+                    }
+                ],
+                attributes: {
+                    label:      "Sandstone",
+                    guideLayer: false,
+                    shy:        false,
+                    locked:     false
+                }
+            },
+            {
+                type: "shape",
+                name: "locker_logo_01",
+                shapeContents: [
+                    {
+                        name: "PLACEHOLDER",
+                        rectangle: {
+                            size: [870, 113],
+                            roundness: 0
+                        },
+                        stroke: {
+                            color: "#00FF00",
+                            width: 1,
+                            dash: 10
+                        },
+                        fill: {
+                            color: "#000000",
+                            opacity: 100
+                        }
+                    }
+                ],
+                properties: {
+                    "Transform.Position": [960, 632],
+                    "Transform.Opacity": 50
+                },
+                effectControls: [
+                    { type: "slider", name: "Padding", defaultValue: 0 },
+                    { type: "slider", name: "Align X", defaultValue: 0 },
+                    { type: "slider", name: "Align Y", defaultValue: 0 }
+                ],
+                attributes: {
+                    label:      "Cyan",
+                    guideLayer: true,
+                    shy:        false,
+                    locked:     false
+                }
+            }
+        ]
+    };
+
     // ── ITEM: super_A ───────────────────────────────────────────────────────────
     // Two-layer bundle: text (super_A) + shape (locker_Super_A).
     // Top layer is text; shape holder sits below and drives positioning/containment expressions.
